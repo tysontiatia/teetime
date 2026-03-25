@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utah Tee Times</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f4f6f3;
+      color: #1c2a1e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a4a2e;
+      color: #fff;
+      padding: 18px 24px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      opacity: 0.75;
+      margin-top: 2px;
+    }
+
+    .search-bar {
+      background: #fff;
+      border-bottom: 1px solid #dde4da;
+      padding: 16px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+
+    .search-bar label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #4a5e4d;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .search-bar input,
+    .search-bar select {
+      font-size: 0.95rem;
+      padding: 8px 10px;
+      border: 1px solid #c5d1c0;
+      border-radius: 6px;
+      background: #fff;
+      color: #1c2a1e;
+      min-width: 130px;
+    }
+
+    .search-bar input:focus,
+    .search-bar select:focus {
+      outline: none;
+      border-color: #2a7a4b;
+      box-shadow: 0 0 0 2px rgba(42,122,75,0.15);
+    }
+
+    #searchBtn {
+      background: #2a7a4b;
+      color: #fff;
+      border: none;
+      padding: 9px 22px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    #searchBtn:hover { background: #1e5e38; }
+    #searchBtn:disabled { background: #89b89a; cursor: not-allowed; }
+
+    .progress-bar-wrap {
+      padding: 12px 24px 4px;
+      display: none;
+    }
+
+    .progress-bar-wrap.active { display: block; }
+
+    .progress-label {
+      font-size: 0.82rem;
+      color: #4a5e4d;
+      margin-bottom: 6px;
+    }
+
+    .progress-track {
+      background: #dde4da;
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      background: #2a7a4b;
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.2s ease;
+      width: 0%;
+    }
+
+    #results {
+      padding: 20px 24px 40px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .results-meta {
+      font-size: 0.85rem;
+      color: #5a7060;
+      margin-bottom: 16px;
+    }
+
+    .area-group {
+      margin-bottom: 24px;
+    }
+
+    .area-heading {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #7a9480;
+      margin-bottom: 10px;
+      padding-left: 2px;
+    }
+
+    .course-card {
+      background: #fff;
+      border: 1px solid #dde4da;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .course-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      gap: 10px;
+    }
+
+    .course-name {
+      font-weight: 600;
+      font-size: 0.97rem;
+    }
+
+    .course-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+
+    .badge-platform {
+      background: #e8f0ea;
+      color: #2a5e38;
+    }
+
+
+.times-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      padding: 0 16px 14px;
+    }
+
+    .time-pill {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      background: #f0f7f2;
+      border: 1px solid #b8d9c2;
+      border-radius: 8px;
+      padding: 7px 12px;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.12s, border-color 0.12s, transform 0.1s;
+      min-width: 70px;
+    }
+
+    .time-pill:hover {
+      background: #2a7a4b;
+      border-color: #2a7a4b;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .time-pill .t-time {
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+
+    .time-pill .t-price {
+      font-size: 0.72rem;
+      opacity: 0.8;
+      margin-top: 1px;
+    }
+
+    .time-pill .t-spots {
+      font-size: 0.68rem;
+      opacity: 0.65;
+    }
+
+    .no-times {
+      font-size: 0.83rem;
+      color: #9aaa9e;
+      padding: 0 16px 12px;
+      font-style: italic;
+    }
+
+    .course-error {
+      font-size: 0.83rem;
+      color: #b05050;
+      padding: 0 16px 12px;
+    }
+
+    /* Unavailable courses toggle */
+    #unavailableToggle {
+      display: none;
+      background: none;
+      border: 1px solid #c5d1c0;
+      color: #4a5e4d;
+      padding: 7px 16px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      margin: 8px 0 20px;
+      transition: background 0.12s;
+    }
+
+    #unavailableToggle:hover { background: #e8f0ea; }
+    #unavailableToggle.shown { display: inline-block; }
+
+    #unavailableCourses { display: none; }
+    #unavailableCourses.open { display: block; }
+
+    .unavailable-card .course-header {
+      opacity: 0.55;
+    }
+
+    @media (max-width: 600px) {
+      .search-bar { padding: 12px 16px; }
+      #results { padding: 14px 14px 40px; }
+      .search-bar label { min-width: 100%; }
+      .search-bar input,
+      .search-bar select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Utah Tee Times</h1>
+  <p>44 courses — ForeUp, Chronogolf &amp; more — all in one place</p>
+</header>
+
+<div class="search-bar">
+  <label>
+    Date
+    <input type="date" id="dateInput" />
+  </label>
+  <label>
+    Players
+    <select id="playersInput">
+      <option value="1">1 player</option>
+      <option value="2" selected>2 players</option>
+      <option value="3">3 players</option>
+      <option value="4">4 players</option>
+    </select>
+  </label>
+  <label>
+    Holes
+    <select id="holesInput">
+      <option value="18" selected>18 holes</option>
+      <option value="9">9 holes</option>
+    </select>
+  </label>
+  <label>
+    Time window
+    <select id="timeWindow">
+      <option value="any">Any time</option>
+      <option value="morning">Morning (before 12pm)</option>
+      <option value="afternoon">Afternoon (12pm+)</option>
+    </select>
+  </label>
+  <button id="searchBtn">Search Tee Times</button>
+</div>
+
+<div class="progress-bar-wrap" id="progressWrap">
+  <div class="progress-label" id="progressLabel">Fetching...</div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+
+<div id="results"></div>
+
+<script>
+  // Replace YOUR_SUBDOMAIN with your Cloudflare subdomain after deploying the worker.
+  const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
+
+  let courses = [];
+
+  // Set default date to today
+  const _now = new Date();
+  const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+  document.getElementById('dateInput').value = todayStr;
+
+  // Load courses on startup
+  fetch('./courses.json')
+    .then(r => r.json())
+    .then(data => { courses = data; })
+    .catch(() => {
+      document.getElementById('results').innerHTML =
+        '<p style="color:#b05050;padding:20px">Failed to load courses.json.</p>';
+    });
+
+  function formatTime12h(timeStr) {
+    // Handles "07:30:00" or ISO datetime "2024-05-01T07:30:00"
+    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return timeStr;
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    if (h > 12) h -= 12;
+    if (h === 0) h = 12;
+    return `${h}:${m} ${ampm}`;
+  }
+
+  function parseHour(timeStr) {
+    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return 0;
+    return parseInt(match[1], 10) + parseInt(match[2], 10) / 60;
+  }
+
+  function filterByWindow(times, window) {
+    if (window === 'any') return times;
+    return times.filter(t => {
+      const h = parseHour(t.rawTime);
+      return window === 'morning' ? h < 12 : h >= 12;
+    });
+  }
+
+  function formatPrice(val) {
+    if (val == null || val === 0 || val === '') return null;
+    const n = parseFloat(val);
+    if (isNaN(n) || n === 0) return null;
+    return '$' + n.toFixed(0);
+  }
+
+async function fetchCourseTimes(course, date, players, holes) {
+    const params = new URLSearchParams({ date, players, holes });
+    let url, headers = {};
+
+    if (course.platform === 'foreup') {
+      params.set('schedule_id', course.schedule_id);
+      if (course.booking_class_id) params.set('booking_class_id', course.booking_class_id);
+      url = `${WORKER_URL}/foreup?${params}`;
+    } else {
+      params.set('club_id', course.club_id);
+      url = `${WORKER_URL}/chronogolf?${params}`;
+    }
+
+    const res = await fetch(url, { headers });
+    const data = await res.json();
+    return data;
+  }
+
+  function normalizeForeUpTimes(data, holes) {
+    if (!Array.isArray(data)) return [];
+    const h = parseInt(holes, 10);
+    return data.map(t => ({
+      rawTime: t.time || '',
+      display: formatTime12h(t.time || ''),
+      spots: h === 9 ? (t.available_spots_9 ?? t.available_spots ?? null)
+                     : (t.available_spots_18 ?? t.available_spots ?? null),
+      price: formatPrice(h === 9 ? t.green_fee_9 : t.green_fee_18) || formatPrice(t.green_fee),
+      holes: t.holes,
+    }));
+  }
+
+  function normalizeChronogolfTimes(data) {
+    const items = data?.data;
+    if (!Array.isArray(items)) return [];
+    return items.map(item => {
+      const a = item.attributes || {};
+      const h = a.nb_holes || 18;
+      const price = h === 9
+        ? formatPrice(a.green_fee_for_9_holes)
+        : formatPrice(a.green_fee_for_18_holes) || formatPrice(a.green_fee_for_9_holes);
+      return {
+        rawTime: a.start_time || '',
+        display: formatTime12h(a.start_time || ''),
+        spots: a.available_spots ?? null,
+        price,
+        holes: h,
+      };
+    });
+  }
+
+  function buildTimePill(t, bookingUrl) {
+    const a = document.createElement('a');
+    a.href = bookingUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = 'time-pill';
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 't-time';
+    timeEl.textContent = t.display;
+
+    const priceEl = document.createElement('span');
+    priceEl.className = 't-price';
+    priceEl.textContent = t.price || '';
+
+    const spotsEl = document.createElement('span');
+    spotsEl.className = 't-spots';
+    if (t.spots != null) spotsEl.textContent = `${t.spots} spot${t.spots !== 1 ? 's' : ''}`;
+
+    a.appendChild(timeEl);
+    if (t.price) a.appendChild(priceEl);
+    if (t.spots != null) a.appendChild(spotsEl);
+    return a;
+  }
+
+function buildCourseCard(course, times, error, isUnavailable) {
+    const card = document.createElement('div');
+    card.className = 'course-card' + (isUnavailable ? ' unavailable-card' : '');
+
+    const header = document.createElement('div');
+    header.className = 'course-header';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'course-name';
+    nameEl.textContent = course.name;
+
+    const meta = document.createElement('div');
+    meta.className = 'course-meta';
+
+    const platBadge = document.createElement('span');
+    platBadge.className = 'badge badge-platform';
+    platBadge.textContent = course.platform;
+    meta.appendChild(platBadge);
+
+    header.appendChild(nameEl);
+    header.appendChild(meta);
+    card.appendChild(header);
+
+    if (error) {
+      const msg = document.createElement('div');
+      msg.className = 'course-error';
+      const messages = {
+        timeout: 'Request timed out.',
+        upstream_error: 'Course API unavailable.',
+        unavailable: 'Not available via API.',
+        parse_error: 'Unexpected response from course.',
+      };
+      msg.textContent = messages[error] || `Error: ${error}`;
+      card.appendChild(msg);
+    } else if (!times || times.length === 0) {
+      const msg = document.createElement('div');
+      msg.className = 'no-times';
+      msg.textContent = 'No available tee times for this search.';
+      card.appendChild(msg);
+    } else {
+      const row = document.createElement('div');
+      row.className = 'times-row';
+      for (const t of times) {
+        row.appendChild(buildTimePill(t, course.booking_url));
+      }
+      card.appendChild(row);
+    }
+
+    return card;
+  }
+
+  function groupByArea(results) {
+    const map = {};
+    for (const r of results) {
+      const area = r.course.area;
+      if (!map[area]) map[area] = [];
+      map[area].push(r);
+    }
+    return map;
+  }
+
+  function showInlineError(msg) {
+    const resultsEl = document.getElementById('results');
+    resultsEl.innerHTML = `<p style="color:#b05050;padding:20px;font-size:0.95rem">${msg}</p>`;
+  }
+
+  async function runSearch() {
+    if (!courses.length) {
+      showInlineError('Courses not loaded yet — please wait a moment and try again.');
+      return;
+    }
+
+    const date = document.getElementById('dateInput').value;
+    const players = document.getElementById('playersInput').value;
+    const holes = document.getElementById('holesInput').value;
+    const timeWindow = document.getElementById('timeWindow').value;
+
+    if (!date) { showInlineError('Please pick a date.'); return; }
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.textContent = 'Searching…';
+
+    const progressWrap = document.getElementById('progressWrap');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressFill = document.getElementById('progressFill');
+    progressWrap.classList.add('active');
+
+    const total = courses.length;
+    let done = 0;
+
+    function updateProgress() {
+      done++;
+      progressLabel.textContent = `Fetching… ${done}/${total} courses`;
+      progressFill.style.width = `${Math.round((done / total) * 100)}%`;
+    }
+
+    const promises = courses.map(course =>
+      fetchCourseTimes(course, date, players, holes)
+        .then(data => {
+          updateProgress();
+          return { course, data, error: data?.error || null };
+        })
+        .catch(err => {
+          updateProgress();
+          return { course, data: null, error: 'upstream_error' };
+        })
+    );
+
+    const settled = await Promise.allSettled(promises);
+    const allResults = settled.map(s =>
+      s.status === 'fulfilled'
+        ? s.value
+        : { course: s.reason?.course, data: null, error: 'upstream_error' }
+    );
+
+    // Normalize times
+    const processed = allResults.map(r => {
+      if (r.error) return { ...r, times: [] };
+      let times = [];
+      if (r.course.platform === 'foreup') {
+        times = normalizeForeUpTimes(r.data, holes);
+      } else {
+        times = normalizeChronogolfTimes(r.data);
+      }
+      times = filterByWindow(times, timeWindow);
+      times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
+      times = times.filter(t => t.holes == null || parseInt(t.holes, 10) === parseInt(holes, 10));
+      return { ...r, times };
+    });
+
+    const available = processed.filter(r => !r.error && r.times.length > 0);
+    const unavailable = processed.filter(r => r.error || r.times.length === 0);
+
+    // Render
+    const resultsEl = document.getElementById('results');
+    resultsEl.innerHTML = '';
+
+    const meta = document.createElement('div');
+    meta.className = 'results-meta';
+    meta.textContent = `${available.length} course${available.length !== 1 ? 's' : ''} with available times`;
+    resultsEl.appendChild(meta);
+
+    if (available.length > 0) {
+      const grouped = groupByArea(available);
+      for (const [area, items] of Object.entries(grouped)) {
+        const group = document.createElement('div');
+        group.className = 'area-group';
+        const heading = document.createElement('div');
+        heading.className = 'area-heading';
+        heading.textContent = area;
+        group.appendChild(heading);
+        for (const r of items) {
+          group.appendChild(buildCourseCard(r.course, r.times, r.error, false));
+        }
+        resultsEl.appendChild(group);
+      }
+    } else {
+      const empty = document.createElement('p');
+      empty.style.cssText = 'color:#7a9480;font-size:0.95rem;margin-bottom:16px';
+      empty.textContent = 'No tee times found. Try a different date or time window.';
+      resultsEl.appendChild(empty);
+    }
+
+    // Unavailable section
+    if (unavailable.length > 0) {
+      const toggle = document.createElement('button');
+      toggle.id = 'unavailableToggle';
+      toggle.className = 'shown';
+      toggle.textContent = `Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}`;
+      resultsEl.appendChild(toggle);
+
+      const unavailSection = document.createElement('div');
+      unavailSection.id = 'unavailableCourses';
+
+      const grouped = groupByArea(unavailable);
+      for (const [area, items] of Object.entries(grouped)) {
+        const group = document.createElement('div');
+        group.className = 'area-group';
+        const heading = document.createElement('div');
+        heading.className = 'area-heading';
+        heading.textContent = area;
+        group.appendChild(heading);
+        for (const r of items) {
+          group.appendChild(buildCourseCard(r.course, r.times, r.error, true));
+        }
+        unavailSection.appendChild(group);
+      }
+
+      toggle.addEventListener('click', () => {
+        const open = unavailSection.classList.toggle('open');
+        toggle.textContent = open
+          ? `Hide unavailable courses`
+          : `Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}`;
+      });
+
+      resultsEl.appendChild(unavailSection);
+    }
+
+    progressWrap.classList.remove('active');
+    btn.disabled = false;
+    btn.textContent = 'Search Tee Times';
+  }
+
+  document.getElementById('searchBtn').addEventListener('click', runSearch);
+
+  // Allow Enter key on date/players/time to trigger search
+  ['dateInput', 'playersInput', 'holesInput', 'timeWindow'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') runSearch();
+    });
+  });
+</script>
+</body>
+</html>
