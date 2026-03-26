@@ -1098,14 +1098,15 @@
         if (item.hide || item.bookingNotAllowed) continue;
         const itemHoles = item.holesRequirementTypeId === 2 ? 18 : 9;
         if (itemHoles !== requestedHoles) continue;
-        if ((item.playerCount || 0) <= 0) continue;
+        const availableSpots = 4 - (item.playerCount || 0);
+        if (availableSpots <= 0) continue;
         const h = Math.floor(slot.teeTime / 60);
         const m = slot.teeTime % 60;
         const rawTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         result.push({
           rawTime,
           display: formatTime12h(rawTime),
-          spots: item.playerCount,
+          spots: availableSpots,
           price: formatPrice(item.price),
           holes: itemHoles,
         });
