@@ -186,18 +186,19 @@
     .search-filters-row {
       display: flex;
       align-items: flex-end;
-      gap: 12px;
-      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: nowrap;
     }
 
     .seg-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
 
     .seg-label {
-      font-size: 0.69rem;
+      font-size: 0.65rem;
       font-weight: 600;
       color: var(--fg-muted);
       text-transform: uppercase;
@@ -212,14 +213,14 @@
 
     .seg-btn {
       font-family: var(--font);
-      font-size: 0.83rem;
+      font-size: 0.82rem;
       font-weight: 500;
       color: var(--fg-muted);
       background: var(--bg);
       border: 1.5px solid var(--border-strong);
       border-radius: var(--radius-sm);
-      padding: 0 14px;
-      min-height: 44px;
+      padding: 0 11px;
+      min-height: 38px;
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.12s;
@@ -237,19 +238,19 @@
 
     #searchBtn {
       font-family: var(--font);
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       font-weight: 600;
       color: #fff;
       background: var(--brand-dark);
       border: none;
-      padding: 0 24px;
-      width: 100%;
-      height: 44px;
+      padding: 0 20px;
+      height: 38px;
       border-radius: var(--radius-sm);
       cursor: pointer;
       white-space: nowrap;
       transition: background 0.15s, transform 0.1s;
       align-self: flex-end;
+      flex-shrink: 0;
     }
 
     #searchBtn:hover  { background: var(--brand-darker); }
@@ -265,6 +266,8 @@
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
+      overscroll-behavior-x: contain;
+      touch-action: pan-x;
       position: sticky;
       top: 0;
       z-index: 10;
@@ -370,16 +373,17 @@
     .course-card {
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      margin-bottom: 8px;
+      border-radius: 16px;
+      margin-bottom: 10px;
       overflow: hidden;
-      box-shadow: var(--shadow-xs);
-      transition: box-shadow 0.15s, border-color 0.15s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
     }
 
     .course-card:hover {
-      box-shadow: var(--shadow-sm);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
       border-color: var(--border-strong);
+      transform: translateY(-1px);
     }
 
     .unavailable-card {
@@ -433,22 +437,25 @@
     .times-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      padding: 0 16px 14px;
+      gap: 7px;
+      padding: 2px 16px 16px;
     }
 
     .time-pill {
       display: inline-flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       background: var(--brand-lighter);
       border: 1px solid #bbf7d0;
-      border-radius: var(--radius-sm);
-      padding: 7px 12px;
+      border-radius: 8px;
+      padding: 0 12px;
+      height: 52px;
+      min-width: 72px;
       text-decoration: none;
       color: var(--brand-darker);
-      transition: all 0.12s;
-      min-width: 70px;
+      transition: all 0.15s;
+      flex-shrink: 0;
     }
 
     .time-pill:hover {
@@ -456,12 +463,12 @@
       border-color: var(--brand-dark);
       color: #fff;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(21,128,61,0.2);
+      box-shadow: 0 4px 14px rgba(21,128,61,0.25);
     }
 
-    .time-pill .t-time  { font-weight: 700; font-size: 0.87rem; }
-    .time-pill .t-price { font-size: 0.7rem; font-weight: 500; opacity: 0.8; margin-top: 1px; }
-    .time-pill .t-spots { font-size: 0.64rem; opacity: 0.6; }
+    .time-pill .t-time  { font-weight: 700; font-size: 0.88rem; line-height: 1.2; }
+    .time-pill .t-price { font-size: 0.72rem; font-weight: 600; opacity: 0.75; line-height: 1.2; }
+    .time-pill .t-spots { display: none; }
 
     .time-pill.pill-hot {
       background: #fef2f2;
@@ -604,15 +611,9 @@
         padding: 16px 20px;
       }
 
-      .search-filters-row { gap: 16px; }
-      .date-nav  { width: 40px; height: 40px; }
-      .seg-btn   { min-height: 36px; padding: 7px 14px; }
-
-      #searchBtn {
-        width: auto;
-        height: 36px;
-        font-size: 0.88rem;
-      }
+      .search-filters-row { gap: 14px; }
+      .date-nav { width: 40px; height: 40px; }
+      .seg-btn  { padding: 0 14px; }
 
       #results { padding: 24px 20px 64px; }
     }
