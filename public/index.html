@@ -236,6 +236,7 @@
     .access-card {
       background: var(--app-header); border-radius: 20px; padding: 60px;
       color: #fff; position: relative; overflow: hidden;
+      display: grid; grid-template-columns: 1fr 1.4fr; gap: 60px; align-items: start;
     }
     .access-card::before {
       content:''; position:absolute; top:-100px; right:-100px;
@@ -245,11 +246,12 @@
       content:''; position:absolute; bottom:-150px; left:25%;
       width:500px; height:500px; border-radius:50%; background:rgba(255,255,255,0.03); pointer-events:none;
     }
+    .access-copy { position: relative; z-index: 1; }
     .access-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 12px; }
-    .access-card h2 { font-family: 'DM Serif Display', serif; font-size: clamp(1.8rem,3vw,2.4rem); letter-spacing: -0.02em; margin-bottom: 10px; line-height: 1.15; }
-    .access-card .sub { font-size: 0.9rem; color: rgba(255,255,255,0.55); margin-bottom: 36px; max-width: 440px; }
+    .access-card h2 { font-family: 'DM Serif Display', serif; font-size: clamp(1.8rem,3vw,2.6rem); letter-spacing: -0.02em; margin-bottom: 14px; line-height: 1.1; }
+    .access-card .sub { font-size: 0.88rem; color: rgba(255,255,255,0.5); line-height: 1.7; }
 
-    .form { display: flex; flex-direction: column; gap: 15px; max-width: 540px; }
+    .form { display: flex; flex-direction: column; gap: 15px; position: relative; z-index: 1; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .field { display: flex; flex-direction: column; gap: 6px; }
     .field label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
@@ -312,7 +314,7 @@
       .section, .access-section { padding-left: 20px; padding-right: 20px; }
       .steps { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: 1fr; }
-      .access-card { padding: 32px 22px; }
+      .access-card { padding: 32px 22px; grid-template-columns: 1fr; gap: 32px; }
       .stats { grid-template-columns: 1fr; }
       footer { flex-direction: column; gap: 10px; text-align: center; }
       .time-grid { grid-template-columns: repeat(2,1fr); }
@@ -414,10 +416,13 @@
   <!-- EARLY ACCESS -->
   <section class="access-section" id="access">
     <div class="access-card reveal">
-      <p class="access-label">Early Access</p>
-      <h2>Got a code?<br>Let's get you in.</h2>
-      <p class="sub">Drop your email, enter your access code, and tell us a bit about how you golf &mdash; it helps us build the right product.</p>
+      <div class="access-copy">
+        <p class="access-label">Early Access</p>
+        <h2>Got a code?<br>Let's get you in.</h2>
+        <p class="sub">Drop your email, enter your access code, and tell us a bit about how you golf &mdash; it helps us build the right product.</p>
+      </div>
 
+      <div>
       <div class="form" id="accessForm">
         <div class="field">
           <label>Email address</label>
@@ -470,9 +475,10 @@
         </button>
       </div>
 
-      <div id="successState" style="display:none;max-width:460px;">
+      <div id="successState" style="display:none;">
         <p style="font-size:1.1rem;font-weight:500;margin-bottom:10px;">You're in. Taking you to the app&hellip;</p>
         <p style="color:rgba(255,255,255,0.55);font-size:0.88rem;line-height:1.7;">Thanks for being an early supporter of tee-time.io. Enjoy!</p>
+      </div>
       </div>
     </div>
   </section>
