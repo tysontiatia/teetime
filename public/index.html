@@ -559,6 +559,23 @@
     #unavailableCourses.open { display: block; }
 
     /* ─────────────────────────────
+       Star / Favorite button
+    ───────────────────────────── */
+    .star-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      color: var(--border-strong);
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      transition: color 0.12s, transform 0.1s;
+    }
+    .star-btn:hover  { color: #f59e0b; transform: scale(1.15); }
+    .star-btn.active { color: #f59e0b; }
+
+    /* ─────────────────────────────
        Quick filters
     ───────────────────────────── */
     .quick-filter-bar {
@@ -770,6 +787,8 @@
 
 <div class="quick-filter-bar" id="quickFilterBar" style="display:none">
   <div class="quick-filter-inner">
+    <button class="quick-chip" id="starredChip" data-filter="starred">★ Starred</button>
+    <div class="quick-filter-divider"></div>
     <button class="quick-chip" data-filter="next3h">⏱ Next 3 hrs</button>
     <button class="quick-chip" data-filter="morning">🌅 Morning</button>
     <button class="quick-chip" data-filter="afternoon">☀️ Afternoon</button>
@@ -798,6 +817,33 @@
 
   const TIME_QF  = new Set(['next3h', 'morning', 'afternoon']);
   const PRICE_QF = new Set(['under40', 'under60']);
+
+  // ── Favorites ──
+  let favorites = new Set(JSON.parse(localStorage.getItem('tt_favorites') || '[]'));
+
+  function saveFavorites() {
+    localStorage.setItem('tt_favorites', JSON.stringify([...favorites]));
+  }
+
+  function toggleFavorite(courseName) {
+    if (favorites.has(courseName)) {
+      favorites.delete(courseName);
+    } else {
+      favorites.add(courseName);
+    }
+    saveFavorites();
+    // Update all star buttons for this course
+    document.querySelectorAll(`.star-btn[data-course="${CSS.escape(courseName)}"]`).forEach(btn => {
+      btn.classList.toggle('active', favorites.has(courseName));
+      btn.setAttribute('aria-label', favorites.has(courseName) ? 'Unstar course' : 'Star course');
+    });
+    // Re-render if starred filter is active
+    if (activeQuickFilters.has('starred') && cachedApiResults) {
+      const key = getCacheKey(document.getElementById('dateInput').value, document.getElementById('holesInput').value);
+      const ts = searchCache.get(key)?.fetchedAt;
+      processAndRender(cachedApiResults, document.getElementById('playersInput').value, document.getElementById('holesInput').value, ts);
+    }
+  }
 
   const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
   const searchCache = new Map(); // key: "date-holes" → { results, fetchedAt }
@@ -981,7 +1027,7 @@
           activeQuickFilters.delete(f);
           btn.classList.remove('active');
         } else {
-          // Mutually exclusive within time group and price group
+          // Mutually exclusive within time group and price group (starred is independent)
           if (TIME_QF.has(f))  TIME_QF.forEach(x  => { activeQuickFilters.delete(x);  document.querySelector(`[data-filter="${x}"]`)?.classList.remove('active'); });
           if (PRICE_QF.has(f)) PRICE_QF.forEach(x => { activeQuickFilters.delete(x);  document.querySelector(`[data-filter="${x}"]`)?.classList.remove('active'); });
           activeQuickFilters.add(f);
@@ -1081,6 +1127,13 @@
     nameEl.className = 'course-name';
     nameEl.textContent = course.name;
 
+    const starBtn = document.createElement('button');
+    starBtn.className = 'star-btn' + (favorites.has(course.name) ? ' active' : '');
+    starBtn.dataset.course = course.name;
+    starBtn.setAttribute('aria-label', favorites.has(course.name) ? 'Unstar course' : 'Star course');
+    starBtn.textContent = '★';
+    starBtn.addEventListener('click', e => { e.preventDefault(); toggleFavorite(course.name); });
+
     const summary = document.createElement('div');
     summary.className = 'card-summary';
 
@@ -1100,6 +1153,7 @@
 
     header.appendChild(nameEl);
     header.appendChild(summary);
+    header.appendChild(starBtn);
     card.appendChild(header);
 
     if (error) {
@@ -1220,7 +1274,10 @@
     const now = new Date();
     const nowH = now.getHours() + now.getMinutes() / 60;
 
-    const processed = apiResults.filter(r => selectedAreas.has(r.course.area)).map(r => {
+    const processed = apiResults
+      .filter(r => selectedAreas.has(r.course.area))
+      .filter(r => !activeQuickFilters.has('starred') || favorites.has(r.course.name))
+      .map(r => {
       if (r.error) return { ...r, times: [] };
       let times = r.course.platform === 'foreup'
         ? normalizeForeUpTimes(r.data)
