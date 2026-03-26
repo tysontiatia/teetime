@@ -1,69 +1,689 @@
 [
-  { "name": "Barn Golf Club (Ogden)", "area": "DAVIS AND WEBER COUNTY", "platform": "golfpay", "booking_url": "https://golfpay.co/course/the-barn-golf-club-ogden-ut-84414" },
-  { "name": "Bear Lake (Garden City)", "area": "LOGAN, CACHE VALLEY, NORTH", "platform": "foreup", "schedule_id": "609", "booking_class_id": "14857", "booking_url": "https://bearlakegolf.com" },
-  { "name": "Black Desert Resort (Ivins)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "chronogolf_slc", "club_id": "19226", "course_id": "23960", "affiliation_type_id": "124509", "booking_url": "https://www.chronogolf.com/club/black-desert-resort" },
-  { "name": "Bonneville (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14158", "course_id": "16241", "affiliation_type_id": "57454", "booking_url": "https://www.chronogolf.com/club/14158" },
-  { "name": "Bountiful Ridge (Bountiful)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "674", "booking_class_id": "4371", "booking_url": "https://foreupsoftware.com/index.php/booking/index/18950" },
-  { "name": "Canyon Breeze (Beaver)", "area": "CENTRAL AND SOUTHWEST UTAH", "platform": "foreup", "schedule_id": "7447", "booking_class_id": "9284", "booking_url": "https://foreupsoftware.com" },
-  { "name": "Canyon Hills (Nephi)", "area": "UTAH COUNTY AND SOUTH", "platform": "membersports", "golf_club_id": "15379", "golf_course_id": "18889", "booking_url": "https://app.membersports.com/tee-times/15379/18889/0" },
-  { "name": "Carbon CC (Helper)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "9906", "booking_class_id": "13324", "booking_url": "https://foreupsoftware.com/index.php/booking/22113/9906" },
-  { "name": "Cedar Hills (Cedar Hills)", "area": "UTAH COUNTY AND SOUTH", "platform": "membersports", "golf_club_id": "15381", "golf_course_id": "18891", "booking_url": "https://app.membersports.com/tee-times/15381/18891/0" },
-  { "name": "Cedar Ridge (Cedar City)", "area": "CEDAR CITY AND SOUTHWEST", "platform": "foreup", "schedule_id": "2165", "booking_class_id": "49361", "booking_url": "https://www.chronogolf.com/club/cedar-ridge-golf-course-utah" },
-  { "name": "Cove View (Richfield)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "1265", "booking_class_id": "48783", "booking_url": "https://foreupsoftware.com/index.php/booking/index/19201" },
-  { "name": "Crane Field (Clinton)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "1", "booking_class_id": "6420", "booking_url": "https://foreupsoftware.com/index.php/booking/index/1" },
-  { "name": "Davis Park (Kaysville)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "1757", "booking_class_id": "2094", "booking_url": "https://foreupsoftware.com/index.php/booking/19500/1757" },
-  { "name": "Dinaland (Vernal)", "area": "UINTA BASIN AND EAST", "platform": "foreup", "schedule_id": "1826", "booking_class_id": "13966", "booking_url": "https://foreupsoftware.com" },
-  { "name": "Dixie Red Hills (St. George)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "foreup", "schedule_id": "1322", "booking_class_id": "81", "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes" },
-  { "name": "Eagle Lake (Roy)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "11989", "booking_class_id": "51088", "booking_url": "https://eaglelakegolfcourse.com" },
-  { "name": "Eagle Mountain (Brigham City)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "3033", "booking_class_id": "2750", "booking_url": "https://foreupsoftware.com/index.php/booking/19943/3033" },
-  { "name": "Eaglewood (N. Salt Lake)", "area": "DAVIS AND WEBER COUNTY", "platform": "membersports", "golf_club_id": "15391", "golf_course_id": "18901", "booking_url": "https://app.membersports.com/tee-times/15391/18901/0" },
-  { "name": "El Monte (Ogden)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "1258", "booking_class_id": "14275", "booking_url": "https://www.foreupsoftware.com/index.php/booking/index/19197" },
-  { "name": "Forest Dale (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14180", "course_id": "16263", "affiliation_type_id": "57542", "booking_url": "https://www.chronogolf.com/club/14180" },
-  { "name": "Fore Lakes (Taylorsville)", "area": "SALT LAKE CITY AREA", "platform": "membersports", "golf_club_id": "15394", "golf_course_id": "18905", "booking_url": "https://app.membersports.com/tee-times/15394/18905/0" },
-  { "name": "Fox Hollow (American Fork)", "area": "UTAH COUNTY AND SOUTH", "platform": "membersports", "golf_club_id": "15396", "golf_course_id": "18907", "booking_url": "https://app.membersports.com/tee-times/15396/18907/0" },
-  { "name": "Gladstan (Payson)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "636", "booking_class_id": "6220", "booking_url": "https://foreupsoftware.com/index.php/booking/index/18922" },
-  { "name": "Glen Eagle (Syracuse)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "6276", "booking_class_id": "8990", "booking_url": "https://foreupsoftware.com/index.php/booking/20940/6276" },
-  { "name": "Glendale (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14185", "course_id": "16268", "affiliation_type_id": "57562", "booking_url": "https://www.chronogolf.com/club/14185" },
-  { "name": "Green Spring (St. George)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "membersports", "golf_club_id": "15402", "golf_course_id": "18913", "booking_url": "https://app.membersports.com/tee-times/15402/18913/0" },
-  { "name": "Hobble Creek (Springville)", "area": "UTAH COUNTY AND SOUTH", "platform": "membersports", "golf_club_id": "15404", "golf_course_id": "18918", "booking_url": "https://app.membersports.com/tee-times/15404/18918/0" },
-  { "name": "Homestead (Midway)", "area": "HEBER VALLEY AND EAST", "platform": "foreup", "schedule_id": "4315", "booking_class_id": "4641", "booking_url": "https://foreupsoftware.com/index.php/booking/20291/4315" },
-  { "name": "Lakeside (West Bountiful)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "3325", "booking_class_id": "8453", "booking_url": "https://foreupsoftware.com/index.php/booking/20040/3325" },
-  { "name": "Logan River (Logan)", "area": "LOGAN, CACHE VALLEY, NORTH", "platform": "foreup", "schedule_id": "799", "booking_class_id": "6209", "booking_url": "https://app.foreupsoftware.com/index.php/booking/index/19035" },
-  { "name": "Meadow Brook (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["c3155ad4-2f72-4b4d-80ec-a3b3c08a89db"], "booking_url": "https://www.chronogolf.com/club/meadow-brook-slco" },
-  { "name": "Mick Riley (Murray)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["2c99f9f7-e373-47d5-8b16-dd15f332fe57", "b6cf292e-8323-426d-828e-f3e55a112b8f"], "booking_url": "https://www.chronogolf.com/club/mick-riley-slco" },
-  { "name": "Mountain Dell (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14203", "course_id": "16290", "affiliation_type_id": "57634", "booking_url": "https://www.chronogolf.com/club/14203" },
-  { "name": "Mountain View (West Jordan)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["bd12a75f-50ad-4ca8-8d18-520e40b22551", "3b6d3bcf-4af4-4deb-a715-acce88244790"], "booking_url": "https://www.chronogolf.com/club/mountain-view-slco" },
-  { "name": "Mt. Ogden (Ogden)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "1259", "booking_class_id": "14277", "booking_url": "https://foreupsoftware.com/index.php/booking/index/19196" },
-  { "name": "Murray Parkway (Murray)", "area": "SALT LAKE CITY AREA", "platform": "foreup", "schedule_id": "244", "booking_class_id": "7668", "booking_url": "https://app.foreupsoftware.com/index.php/booking/6263/244" },
-  { "name": "Nibley Park (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14207", "course_id": "16295", "affiliation_type_id": "57650", "booking_url": "https://www.chronogolf.com/club/14207" },
-  { "name": "Old Mill (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14210", "course_id": "16298", "affiliation_type_id": "57662", "booking_url": "https://www.chronogolf.com/club/old-mill-slco" },
-  { "name": "Oquirrh Hills (Tooele)", "area": "TOOELE AND WEST", "platform": "foreup", "schedule_id": "10403", "booking_class_id": "14289", "booking_url": "https://foreupsoftware.com/index.php/booking/22325/10403" },
-  { "name": "Park City Golf Club (Park City)", "area": "PARK CITY AND EAST", "platform": "membersports", "golf_club_id": "15426", "golf_course_id": "18944", "booking_url": "https://app.membersports.com/tee-times/15426/18944/0" },
-  { "name": "Purple Sage Golf Course (WY)", "area": "LOGAN, CACHE VALLEY, NORTH", "platform": "foreup_login", "booking_url": "https://foreupsoftware.com/index.php/booking/19040/806" },
-  { "name": "Remuda (Farr West)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "44", "booking_class_id": "8993", "booking_url": "https://stage.foreupsoftware.com/index.php/booking/6238/44" },
-  { "name": "River Oaks (Sandy)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["026599af-6569-4b0f-aaf9-aefedc607e3c", "79c03256-be52-4e3d-aba8-9c64df6e12b2"], "booking_url": "https://www.chronogolf.com/club/river-oaks-golf-course-utah" },
-  { "name": "Riverbend (Riverton)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["8ceb87d6-0afb-4361-a633-1b1d3f6e5805", "a10735ef-5ac1-4ad1-b5e8-8721c344a1ac"], "booking_url": "https://www.chronogolf.com/club/riverbend-slco" },
-  { "name": "Roosevelt (Roosevelt)", "area": "HEBER VALLEY AND EAST", "platform": "foreup", "schedule_id": "82", "booking_class_id": "14930", "booking_url": "https://app.foreupsoftware.com/index.php/booking/index/6285" },
-  { "name": "Rose Park (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14222", "course_id": "16310", "affiliation_type_id": "57710", "booking_url": "https://www.chronogolf.com/club/14222" },
-  { "name": "Sand Hollow Championship (Hurricane)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "chronogolf_slc", "club_id": "14225", "course_id": "16313", "affiliation_type_id": "57722", "booking_url": "https://www.chronogolf.com/club/14225" },
-  { "name": "Sand Hollow Links (Hurricane)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "chronogolf_slc", "club_id": "14225", "course_id": "23670", "affiliation_type_id": "57722", "booking_url": "https://www.chronogolf.com/club/14225" },
-  { "name": "Sky Mountain (Hurricane)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "foreup", "schedule_id": "11805", "booking_class_id": "50871", "booking_url": "https://foreupsoftware.com/index.php/booking/22750" },
-  { "name": "Sleepy Ridge (Orem)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "1726", "booking_class_id": "3412", "booking_url": "https://foreupsoftware.com/index.php/booking/19396/1726" },
-  { "name": "South Mountain (Draper)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["bc4c00f2-435a-4f4a-8d0a-c807d5f515f0", "6b9948eb-a045-4692-9579-7c827c195edd", "9bb16c41-88fe-4f36-a84c-39f74f8aa5f2"], "booking_url": "https://www.chronogolf.com/club/south-mountain-slco" },
-  { "name": "Southgate (St. George)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "foreup", "schedule_id": "1321", "booking_class_id": "81", "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes" },
-  { "name": "St. George Golf Club (St. George)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "foreup", "schedule_id": "1323", "booking_class_id": "81", "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes" },
-  { "name": "Stonebridge (West Valley City)", "area": "SALT LAKE CITY AREA", "platform": "foreup", "schedule_id": "9912", "booking_class_id": "13900", "booking_url": "https://foreupsoftware.com/index.php/booking/22130" },
-  { "name": "Sun Hills (Layton)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "578", "booking_class_id": "177", "booking_url": "https://foreupsoftware.com/index.php/booking/18895/578" },
-  { "name": "Sunbrook (St. George)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "foreup", "schedule_id": "1320", "booking_class_id": "81", "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes" },
-  { "name": "SunRiver Golf Club (St. George)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "membersports", "golf_club_id": "15452", "golf_course_id": "18977", "booking_url": "https://app.membersports.com/tee-times/15452/18977/0" },
-  { "name": "TalonsCove (Saratoga Springs)", "area": "UTAH COUNTY AND SOUTH", "platform": "membersports", "golf_club_id": "15455", "golf_course_id": "18982", "booking_url": "https://app.membersports.com/tee-times/15455/18982/0" },
-  { "name": "Thanksgiving Point (Lehi)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "2034", "booking_class_id": "2113", "booking_url": "https://foreupsoftware.com/index.php/booking/19645/2034" },
-  { "name": "The Ledges (St. George)", "area": "ST. GEORGE AND SOUTHWEST", "platform": "chronogolf_slc", "club_id": "14257", "course_id": "16351", "affiliation_type_id": "57850", "booking_url": "https://www.chronogolf.com/club/14257" },
-  { "name": "The Oaks at Spanish Fork (Spanish Fork)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "8633", "booking_class_id": "10949", "booking_url": "https://foreupsoftware.com/index.php/booking/21698/8633" },
-  { "name": "The Ranches (Eagle Mtn)", "area": "UTAH COUNTY AND SOUTH", "platform": "tenfore", "booking_url": "https://fox.tenfore.golf/theranches" },
-  { "name": "The Ridge (West Valley)", "area": "SALT LAKE CITY AREA", "platform": "foreup", "schedule_id": "9898", "booking_class_id": "13622", "booking_url": "https://foreupsoftware.com/index.php/booking/22131" },
-  { "name": "Timpanogos Championship (Provo)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "49", "booking_class_id": "14927", "booking_url": "https://foreupsoftware.com/index.php/booking/6279" },
-  { "name": "Timpanogos Pasture (Provo)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "1973", "booking_class_id": "14928", "booking_url": "https://foreupsoftware.com/index.php/booking/6279" },
-  { "name": "Valley View (Layton)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "1759", "booking_class_id": "1208", "booking_url": "https://foreupsoftware.com/index.php/booking/index/19501" },
-  { "name": "Wolf Creek (Eden)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "756", "booking_class_id": "421", "booking_url": "https://wolfcreekutah.com" }
+  {
+    "name": "Barn Golf Club (Ogden)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "golfpay",
+    "booking_url": "https://golfpay.co/course/the-barn-golf-club-ogden-ut-84414",
+    "lat": 41.3108677,
+    "lng": -111.9841106
+  },
+  {
+    "name": "Bear Lake (Garden City)",
+    "area": "LOGAN, CACHE VALLEY, NORTH",
+    "platform": "foreup",
+    "schedule_id": "609",
+    "booking_class_id": "14857",
+    "booking_url": "https://bearlakegolf.com",
+    "lat": 41.9842548,
+    "lng": -111.3407382
+  },
+  {
+    "name": "Black Desert Resort (Ivins)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "chronogolf_slc",
+    "club_id": "19226",
+    "course_id": "23960",
+    "affiliation_type_id": "124509",
+    "booking_url": "https://www.chronogolf.com/club/black-desert-resort",
+    "lat": 37.158337,
+    "lng": -113.6498407
+  },
+  {
+    "name": "Bonneville (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf_slc",
+    "club_id": "14158",
+    "course_id": "16241",
+    "affiliation_type_id": "57454",
+    "booking_url": "https://www.chronogolf.com/club/14158",
+    "lat": 40.7457976,
+    "lng": -111.8219818
+  },
+  {
+    "name": "Bountiful Ridge (Bountiful)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "674",
+    "booking_class_id": "4371",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/index/18950",
+    "lat": 40.8392982,
+    "lng": -111.8813666
+  },
+  {
+    "name": "Canyon Breeze (Beaver)",
+    "area": "CENTRAL AND SOUTHWEST UTAH",
+    "platform": "foreup",
+    "schedule_id": "7447",
+    "booking_class_id": "9284",
+    "booking_url": "https://foreupsoftware.com",
+    "lat": 38.2792488,
+    "lng": -112.6047434
+  },
+  {
+    "name": "Canyon Hills (Nephi)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "membersports",
+    "golf_club_id": "15379",
+    "golf_course_id": "18889",
+    "booking_url": "https://app.membersports.com/tee-times/15379/18889/0",
+    "lat": 39.7153525,
+    "lng": -111.8113703
+  },
+  {
+    "name": "Carbon CC (Helper)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "9906",
+    "booking_class_id": "13324",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/22113/9906",
+    "lat": 39.6843,
+    "lng": -110.8578
+  },
+  {
+    "name": "Cedar Hills (Cedar Hills)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "membersports",
+    "golf_club_id": "15381",
+    "golf_course_id": "18891",
+    "booking_url": "https://app.membersports.com/tee-times/15381/18891/0",
+    "lat": 40.4008708,
+    "lng": -111.743042
+  },
+  {
+    "name": "Cedar Ridge (Cedar City)",
+    "area": "CEDAR CITY AND SOUTHWEST",
+    "platform": "foreup",
+    "schedule_id": "2165",
+    "booking_class_id": "49361",
+    "booking_url": "https://www.chronogolf.com/club/cedar-ridge-golf-course-utah",
+    "lat": 37.6897676,
+    "lng": -113.0550221
+  },
+  {
+    "name": "Cove View (Richfield)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "1265",
+    "booking_class_id": "48783",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/index/19201",
+    "lat": 38.7541755,
+    "lng": -112.0886049
+  },
+  {
+    "name": "Crane Field (Clinton)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "1",
+    "booking_class_id": "6420",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/index/1",
+    "lat": 41.1498527,
+    "lng": -112.0972571
+  },
+  {
+    "name": "Davis Park (Kaysville)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "1757",
+    "booking_class_id": "2094",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/19500/1757",
+    "lat": 40.9794,
+    "lng": -111.9359
+  },
+  {
+    "name": "Dinaland (Vernal)",
+    "area": "UINTA BASIN AND EAST",
+    "platform": "foreup",
+    "schedule_id": "1826",
+    "booking_class_id": "13966",
+    "booking_url": "https://foreupsoftware.com",
+    "lat": 40.4478751,
+    "lng": -109.5135785
+  },
+  {
+    "name": "Dixie Red Hills (St. George)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "foreup",
+    "schedule_id": "1322",
+    "booking_class_id": "81",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes",
+    "lat": 37.1155583,
+    "lng": -113.5798715
+  },
+  {
+    "name": "Eagle Lake (Roy)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "11989",
+    "booking_class_id": "51088",
+    "booking_url": "https://eaglelakegolfcourse.com",
+    "lat": 41.1661777,
+    "lng": -112.0513791
+  },
+  {
+    "name": "Eagle Mountain (Brigham City)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "3033",
+    "booking_class_id": "2750",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/19943/3033",
+    "lat": 41.486717,
+    "lng": -112.0129831
+  },
+  {
+    "name": "Eaglewood (N. Salt Lake)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "membersports",
+    "golf_club_id": "15391",
+    "golf_course_id": "18901",
+    "booking_url": "https://app.membersports.com/tee-times/15391/18901/0",
+    "lat": 40.8359685,
+    "lng": -111.9099912
+  },
+  {
+    "name": "El Monte (Ogden)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "1258",
+    "booking_class_id": "14275",
+    "booking_url": "https://www.foreupsoftware.com/index.php/booking/index/19197",
+    "lat": 41.2435599,
+    "lng": -111.9413422
+  },
+  {
+    "name": "Forest Dale (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf_slc",
+    "club_id": "14180",
+    "course_id": "16263",
+    "affiliation_type_id": "57542",
+    "booking_url": "https://www.chronogolf.com/club/14180",
+    "lat": 40.7164476,
+    "lng": -111.8625278
+  },
+  {
+    "name": "Fore Lakes (Taylorsville)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "membersports",
+    "golf_club_id": "15394",
+    "golf_course_id": "18905",
+    "booking_url": "https://app.membersports.com/tee-times/15394/18905/0",
+    "lat": 40.6671633,
+    "lng": -111.9288386
+  },
+  {
+    "name": "Fox Hollow (American Fork)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "membersports",
+    "golf_club_id": "15396",
+    "golf_course_id": "18907",
+    "booking_url": "https://app.membersports.com/tee-times/15396/18907/0",
+    "lat": 40.402601,
+    "lng": -111.7859414
+  },
+  {
+    "name": "Gladstan (Payson)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "636",
+    "booking_class_id": "6220",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/index/18922",
+    "lat": 40.0079571,
+    "lng": -111.6900692
+  },
+  {
+    "name": "Glen Eagle (Syracuse)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "6276",
+    "booking_class_id": "8990",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/20940/6276",
+    "lat": 41.0925661,
+    "lng": -112.087788
+  },
+  {
+    "name": "Glendale (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf_slc",
+    "club_id": "14185",
+    "course_id": "16268",
+    "affiliation_type_id": "57562",
+    "booking_url": "https://www.chronogolf.com/club/14185",
+    "lat": 40.7300276,
+    "lng": -111.9338462
+  },
+  {
+    "name": "Green Spring (St. George)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "membersports",
+    "golf_club_id": "15402",
+    "golf_course_id": "18913",
+    "booking_url": "https://app.membersports.com/tee-times/15402/18913/0",
+    "lat": 37.1254937,
+    "lng": -113.5220114
+  },
+  {
+    "name": "Hobble Creek (Springville)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "membersports",
+    "golf_club_id": "15404",
+    "golf_course_id": "18918",
+    "booking_url": "https://app.membersports.com/tee-times/15404/18918/0",
+    "lat": 40.1657751,
+    "lng": -111.6095228
+  },
+  {
+    "name": "Homestead (Midway)",
+    "area": "HEBER VALLEY AND EAST",
+    "platform": "foreup",
+    "schedule_id": "4315",
+    "booking_class_id": "4641",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/20291/4315",
+    "lat": 40.5238534,
+    "lng": -111.4849731
+  },
+  {
+    "name": "Lakeside (West Bountiful)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "3325",
+    "booking_class_id": "8453",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/20040/3325",
+    "lat": 40.9053886,
+    "lng": -111.9073774
+  },
+  {
+    "name": "Logan River (Logan)",
+    "area": "LOGAN, CACHE VALLEY, NORTH",
+    "platform": "foreup",
+    "schedule_id": "799",
+    "booking_class_id": "6209",
+    "booking_url": "https://app.foreupsoftware.com/index.php/booking/index/19035",
+    "lat": 41.7067813,
+    "lng": -111.8475275
+  },
+  {
+    "name": "Meadow Brook (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf",
+    "course_ids": [
+      "c3155ad4-2f72-4b4d-80ec-a3b3c08a89db"
+    ],
+    "booking_url": "https://www.chronogolf.com/club/meadow-brook-slco",
+    "lat": 40.6463,
+    "lng": -111.8218
+  },
+  {
+    "name": "Mick Riley (Murray)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf",
+    "course_ids": [
+      "2c99f9f7-e373-47d5-8b16-dd15f332fe57",
+      "b6cf292e-8323-426d-828e-f3e55a112b8f"
+    ],
+    "booking_url": "https://www.chronogolf.com/club/mick-riley-slco",
+    "lat": 40.6601155,
+    "lng": -111.8734642
+  },
+  {
+    "name": "Mountain Dell (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf_slc",
+    "club_id": "14203",
+    "course_id": "16290",
+    "affiliation_type_id": "57634",
+    "booking_url": "https://www.chronogolf.com/club/14203",
+    "lat": 40.7485516,
+    "lng": -111.6927552
+  },
+  {
+    "name": "Mountain View (West Jordan)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf",
+    "course_ids": [
+      "bd12a75f-50ad-4ca8-8d18-520e40b22551",
+      "3b6d3bcf-4af4-4deb-a715-acce88244790"
+    ],
+    "booking_url": "https://www.chronogolf.com/club/mountain-view-slco",
+    "lat": 40.58467,
+    "lng": -111.960214
+  },
+  {
+    "name": "Mt. Ogden (Ogden)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "1259",
+    "booking_class_id": "14277",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/index/19196",
+    "lat": 41.2041757,
+    "lng": -111.937924
+  },
+  {
+    "name": "Murray Parkway (Murray)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "foreup",
+    "schedule_id": "244",
+    "booking_class_id": "7668",
+    "booking_url": "https://app.foreupsoftware.com/index.php/booking/6263/244",
+    "lat": 40.6337229,
+    "lng": -111.9218553
+  },
+  {
+    "name": "Nibley Park (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf_slc",
+    "club_id": "14207",
+    "course_id": "16295",
+    "affiliation_type_id": "57650",
+    "booking_url": "https://www.chronogolf.com/club/14207",
+    "lat": 40.7106,
+    "lng": -111.8691
+  },
+  {
+    "name": "Old Mill (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf_slc",
+    "club_id": "14210",
+    "course_id": "16298",
+    "affiliation_type_id": "57662",
+    "booking_url": "https://www.chronogolf.com/club/old-mill-slco",
+    "lat": 40.6354,
+    "lng": -111.8121
+  },
+  {
+    "name": "Oquirrh Hills (Tooele)",
+    "area": "TOOELE AND WEST",
+    "platform": "foreup",
+    "schedule_id": "10403",
+    "booking_class_id": "14289",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/22325/10403",
+    "lat": 40.5352975,
+    "lng": -112.2741304
+  },
+  {
+    "name": "Park City Golf Club (Park City)",
+    "area": "PARK CITY AND EAST",
+    "platform": "membersports",
+    "golf_club_id": "15426",
+    "golf_course_id": "18944",
+    "booking_url": "https://app.membersports.com/tee-times/15426/18944/0",
+    "lat": 40.6443,
+    "lng": -111.4966
+  },
+  {
+    "name": "Purple Sage Golf Course (WY)",
+    "area": "LOGAN, CACHE VALLEY, NORTH",
+    "platform": "foreup_login",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/19040/806",
+    "lat": 41.270331,
+    "lng": -110.983082
+  },
+  {
+    "name": "Remuda (Farr West)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "44",
+    "booking_class_id": "8993",
+    "booking_url": "https://stage.foreupsoftware.com/index.php/booking/6238/44",
+    "lat": 41.3248611,
+    "lng": -112.0421809
+  },
+  {
+    "name": "River Oaks (Sandy)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf",
+    "course_ids": [
+      "026599af-6569-4b0f-aaf9-aefedc607e3c",
+      "79c03256-be52-4e3d-aba8-9c64df6e12b2"
+    ],
+    "booking_url": "https://www.chronogolf.com/club/river-oaks-golf-course-utah",
+    "lat": 40.6083115,
+    "lng": -111.8480758
+  },
+  {
+    "name": "Riverbend (Riverton)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf",
+    "course_ids": [
+      "8ceb87d6-0afb-4361-a633-1b1d3f6e5805",
+      "a10735ef-5ac1-4ad1-b5e8-8721c344a1ac"
+    ],
+    "booking_url": "https://www.chronogolf.com/club/riverbend-slco",
+    "lat": 40.5196139,
+    "lng": -111.9256132
+  },
+  {
+    "name": "Roosevelt (Roosevelt)",
+    "area": "HEBER VALLEY AND EAST",
+    "platform": "foreup",
+    "schedule_id": "82",
+    "booking_class_id": "14930",
+    "booking_url": "https://app.foreupsoftware.com/index.php/booking/index/6285",
+    "lat": 40.2888694,
+    "lng": -109.9987877
+  },
+  {
+    "name": "Rose Park (SLC)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf_slc",
+    "club_id": "14222",
+    "course_id": "16310",
+    "affiliation_type_id": "57710",
+    "booking_url": "https://www.chronogolf.com/club/14222",
+    "lat": 40.8026374,
+    "lng": -111.935693
+  },
+  {
+    "name": "Sand Hollow Championship (Hurricane)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "chronogolf_slc",
+    "club_id": "14225",
+    "course_id": "16313",
+    "affiliation_type_id": "57722",
+    "booking_url": "https://www.chronogolf.com/club/14225",
+    "lat": 37.1178834,
+    "lng": -113.4183281
+  },
+  {
+    "name": "Sand Hollow Links (Hurricane)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "chronogolf_slc",
+    "club_id": "14225",
+    "course_id": "23670",
+    "affiliation_type_id": "57722",
+    "booking_url": "https://www.chronogolf.com/club/14225",
+    "lat": 37.1178834,
+    "lng": -113.4183281
+  },
+  {
+    "name": "Sky Mountain (Hurricane)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "foreup",
+    "schedule_id": "11805",
+    "booking_class_id": "50871",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/22750",
+    "lat": 37.1877124,
+    "lng": -113.3366528
+  },
+  {
+    "name": "Sleepy Ridge (Orem)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "1726",
+    "booking_class_id": "3412",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/19396/1726",
+    "lat": 40.2859978,
+    "lng": -111.7394667
+  },
+  {
+    "name": "South Mountain (Draper)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "chronogolf",
+    "course_ids": [
+      "bc4c00f2-435a-4f4a-8d0a-c807d5f515f0",
+      "6b9948eb-a045-4692-9579-7c827c195edd",
+      "9bb16c41-88fe-4f36-a84c-39f74f8aa5f2"
+    ],
+    "booking_url": "https://www.chronogolf.com/club/south-mountain-slco",
+    "lat": 40.492105,
+    "lng": -111.8711011
+  },
+  {
+    "name": "Southgate (St. George)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "foreup",
+    "schedule_id": "1321",
+    "booking_class_id": "81",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes",
+    "lat": 37.0710453,
+    "lng": -113.5956206
+  },
+  {
+    "name": "St. George Golf Club (St. George)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "foreup",
+    "schedule_id": "1323",
+    "booking_class_id": "81",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes",
+    "lat": 37.0773417,
+    "lng": -113.5660265
+  },
+  {
+    "name": "Stonebridge (West Valley City)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "foreup",
+    "schedule_id": "9912",
+    "booking_class_id": "13900",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/22130",
+    "lat": 40.713998,
+    "lng": -111.9977157
+  },
+  {
+    "name": "Sun Hills (Layton)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "578",
+    "booking_class_id": "177",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/18895/578",
+    "lat": 41.1117091,
+    "lng": -111.9446077
+  },
+  {
+    "name": "Sunbrook (St. George)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "foreup",
+    "schedule_id": "1320",
+    "booking_class_id": "81",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/a/19240/20#/teetimes",
+    "lat": 37.1071778,
+    "lng": -113.6365983
+  },
+  {
+    "name": "SunRiver Golf Club (St. George)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "membersports",
+    "golf_club_id": "15452",
+    "golf_course_id": "18977",
+    "booking_url": "https://app.membersports.com/tee-times/15452/18977/0",
+    "lat": 37.0475,
+    "lng": -113.5477
+  },
+  {
+    "name": "TalonsCove (Saratoga Springs)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "membersports",
+    "golf_club_id": "15455",
+    "golf_course_id": "18982",
+    "booking_url": "https://app.membersports.com/tee-times/15455/18982/0",
+    "lat": 40.3210253,
+    "lng": -111.9004647
+  },
+  {
+    "name": "Thanksgiving Point (Lehi)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "2034",
+    "booking_class_id": "2113",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/19645/2034",
+    "lat": 40.4241583,
+    "lng": -111.8865564
+  },
+  {
+    "name": "The Ledges (St. George)",
+    "area": "ST. GEORGE AND SOUTHWEST",
+    "platform": "chronogolf_slc",
+    "club_id": "14257",
+    "course_id": "16351",
+    "affiliation_type_id": "57850",
+    "booking_url": "https://www.chronogolf.com/club/14257",
+    "lat": 37.1993728,
+    "lng": -113.611606
+  },
+  {
+    "name": "The Oaks at Spanish Fork (Spanish Fork)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "8633",
+    "booking_class_id": "10949",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/21698/8633",
+    "lat": 40.1091,
+    "lng": -111.6726
+  },
+  {
+    "name": "The Ranches (Eagle Mtn)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "tenfore",
+    "booking_url": "https://fox.tenfore.golf/theranches",
+    "lat": 40.3675874,
+    "lng": -111.9764928
+  },
+  {
+    "name": "The Ridge (West Valley)",
+    "area": "SALT LAKE CITY AREA",
+    "platform": "foreup",
+    "schedule_id": "9898",
+    "booking_class_id": "13622",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/22131",
+    "lat": 40.6599669,
+    "lng": -112.0345063
+  },
+  {
+    "name": "Timpanogos Championship (Provo)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "49",
+    "booking_class_id": "14927",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/6279",
+    "lat": 40.2039682,
+    "lng": -111.6491828
+  },
+  {
+    "name": "Timpanogos Pasture (Provo)",
+    "area": "UTAH COUNTY AND SOUTH",
+    "platform": "foreup",
+    "schedule_id": "1973",
+    "booking_class_id": "14928",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/6279",
+    "lat": 40.2039682,
+    "lng": -111.6491828
+  },
+  {
+    "name": "Valley View (Layton)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "1759",
+    "booking_class_id": "1208",
+    "booking_url": "https://foreupsoftware.com/index.php/booking/index/19501",
+    "lat": 41.0906647,
+    "lng": -111.9088072
+  },
+  {
+    "name": "Wolf Creek (Eden)",
+    "area": "DAVIS AND WEBER COUNTY",
+    "platform": "foreup",
+    "schedule_id": "756",
+    "booking_class_id": "421",
+    "booking_url": "https://wolfcreekutah.com",
+    "lat": 41.323187,
+    "lng": -111.8378658
+  }
 ]
