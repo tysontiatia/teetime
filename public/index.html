@@ -113,85 +113,98 @@
       padding: 4px 12px; border-radius: 99px;
     }
 
-    /* APP MOCKUP */
-    .mockup-wrap {
+    /* DEVICE FRAMES */
+    .devices-wrap {
       opacity: 0; animation: fadeUp 0.7s 0.55s ease forwards;
-      border-radius: 16px; border: 1px solid var(--border);
-      box-shadow: 0 24px 60px rgba(26,46,26,0.13);
-      overflow: hidden; margin-bottom: 96px;
+      position: relative; margin-bottom: 96px;
+      padding-bottom: 48px; /* space for laptop base */
     }
-    .mockup-header {
-      background: var(--app-header); padding: 20px 28px;
-      display: flex; align-items: center; gap: 14px;
+
+    /* LAPTOP */
+    .laptop-frame {
+      position: relative; width: 100%;
     }
-    .mockup-flag {
-      width: 40px; height: 40px; background: rgba(255,255,255,0.1);
-      border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    .laptop-screen {
+      background: #1a1a1a;
+      border-radius: 12px 12px 0 0;
+      padding: 10px 10px 0;
+      box-shadow: 0 0 0 1px #111, 0 28px 70px rgba(0,0,0,0.22);
     }
-    .mockup-flag svg { width: 18px; height: 18px; }
-    .mockup-title { color: #fff; font-family: 'DM Serif Display', serif; font-size: 1.35rem; letter-spacing: -0.01em; }
-    .mockup-badge {
-      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
-      font-size: 0.7rem; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase;
-      padding: 3px 9px; border-radius: 5px;
+    .laptop-camera-bar {
+      display: flex; justify-content: center; align-items: center;
+      height: 10px; margin-bottom: 6px;
     }
-    .mockup-sub { color: rgba(255,255,255,0.5); font-size: 0.78rem; margin-top: 2px; }
-    .mockup-controls {
-      background: #fff; padding: 16px 28px;
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      border-bottom: 1px solid #eee;
+    .laptop-camera {
+      width: 6px; height: 6px; background: #333; border-radius: 50%;
     }
-    .mockup-arr {
-      width: 28px; height: 28px; border: 1px solid #ddd; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #aaa;
+    .laptop-screen-inner {
+      border-radius: 4px 4px 0 0;
+      overflow: hidden; line-height: 0;
     }
-    .mockup-date {
-      border: 1px solid #ddd; border-radius: 8px; padding: 6px 14px;
-      font-size: 0.82rem; font-weight: 500; color: var(--ink);
+    .laptop-screen-inner img {
+      width: 100%; height: auto; display: block;
     }
-    .mc-group { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
-    .mc-label { font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: #aaa; margin-right: 4px; }
-    .mc-btn {
-      width: 30px; height: 30px; border: 1px solid #ddd; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.8rem; font-weight: 500; color: var(--ink);
+    .laptop-base {
+      background: linear-gradient(to bottom, #2a2a2a, #222);
+      height: 22px; border-radius: 0 0 4px 4px;
+      box-shadow: 0 0 0 1px #111;
+      display: flex; justify-content: center; align-items: center;
     }
-    .mc-btn.dark  { background: var(--app-header); color: #fff; border-color: var(--app-header); }
-    .mc-btn.green { background: var(--app-green);  color: #fff; border-color: var(--app-green); }
-    .mc-refresh {
-      background: var(--app-green); color: #fff; border: none; border-radius: 8px;
-      padding: 7px 18px; font-size: 0.82rem; font-weight: 500; margin-left: auto;
+    .laptop-notch {
+      width: 60px; height: 5px; background: #1a1a1a;
+      border-radius: 0 0 4px 4px; margin-top: -1px;
     }
-    .mockup-tabs {
-      background: #fff; padding: 0 28px;
-      display: flex; gap: 22px; border-bottom: 1px solid #eee; overflow-x: auto;
+    .laptop-foot {
+      height: 8px;
+      background: linear-gradient(to bottom, #1c1c1c, #181818);
+      border-radius: 0 0 6px 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px #111;
+      margin: 0 3%;
     }
-    .mockup-tab {
-      font-size: 0.8rem; padding: 11px 0; color: #aaa;
-      white-space: nowrap; border-bottom: 2px solid transparent;
+
+    /* PHONE */
+    .phone-frame {
+      position: absolute;
+      bottom: 0; right: -20px;
+      width: 22%;
+      min-width: 120px; max-width: 180px;
+      z-index: 10;
+      filter: drop-shadow(0 20px 40px rgba(0,0,0,0.25));
     }
-    .mockup-tab.active { color: var(--app-green); border-bottom-color: var(--app-green); font-weight: 500; }
-    .mockup-body { background: var(--app-bg); padding: 18px 28px; }
-    .mockup-count { font-size: 0.78rem; color: #888; margin-bottom: 14px; }
-    .mockup-card {
-      background: #fff; border-radius: 12px; padding: 18px 20px;
-      margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.06);
+    .phone-outer {
+      background: #1a1a1a;
+      border-radius: 28px;
+      padding: 10px 7px;
+      box-shadow: 0 0 0 1px #111, inset 0 0 0 1px #333;
     }
-    .mockup-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-    .mockup-course { font-weight: 500; font-size: 0.9rem; }
-    .mockup-meta { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; }
-    .mockup-dist { background: #EEF2FF; color: #5B73E8; border-radius: 99px; padding: 2px 9px; font-weight: 500; }
-    .mockup-price { color: var(--app-green); font-weight: 500; }
-    .mockup-times { color: #aaa; }
-    .mockup-star { color: #F5A623; }
-    .time-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
-    .time-chip {
-      background: var(--app-chip-bg); color: var(--app-green);
-      border: 1px solid rgba(45,122,58,0.2); border-radius: 8px;
-      padding: 8px 4px; text-align: center; font-size: 0.78rem; font-weight: 500;
+    .phone-top-bar {
+      display: flex; justify-content: center; align-items: center;
+      height: 10px; margin-bottom: 5px; gap: 6px;
     }
-    .time-chip.has-price { display: flex; flex-direction: column; gap: 1px; }
-    .time-chip .price { font-size: 0.68rem; color: #888; font-weight: 400; }
+    .phone-speaker {
+      width: 36px; height: 4px; background: #333; border-radius: 2px;
+    }
+    .phone-camera-dot {
+      width: 5px; height: 5px; background: #333; border-radius: 50%;
+    }
+    .phone-screen-inner {
+      border-radius: 16px; overflow: hidden; line-height: 0;
+    }
+    .phone-screen-inner img {
+      width: 100%; height: auto; display: block;
+    }
+    .phone-home-bar {
+      display: flex; justify-content: center; align-items: center;
+      height: 12px; margin-top: 5px;
+    }
+    .phone-home-indicator {
+      width: 36px; height: 4px; background: #444; border-radius: 2px;
+    }
+
+    @media (max-width: 680px) {
+      .phone-frame { right: -10px; width: 28%; min-width: 90px; }
+      .devices-wrap { padding-bottom: 32px; }
+    }
 
     /* STATS */
     .section { max-width: 960px; margin: 0 auto; padding: 0 48px 80px; }
@@ -334,81 +347,35 @@
       <span class="platform-chip">Member Sports</span>
     </div>
 
-    <!-- App mockup -->
-    <div class="mockup-wrap">
-      <div class="mockup-header">
-        <div class="mockup-flag">
-          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="3" y="2" width="1.5" height="12" fill="white" rx="0.5"/>
-            <path d="M4.5 2.5L12 5.5L4.5 8.5V2.5Z" fill="white"/>
-          </svg>
-        </div>
-        <div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span class="mockup-title">Tee-Time</span>
-            <span class="mockup-badge">Utah</span>
+    <!-- Device frames -->
+    <div class="devices-wrap">
+
+      <!-- Laptop -->
+      <div class="laptop-frame">
+        <div class="laptop-screen">
+          <div class="laptop-camera-bar"><div class="laptop-camera"></div></div>
+          <div class="laptop-screen-inner">
+            <img src="images/app-desktop.png" alt="Tee-Time app on desktop" />
           </div>
-          <div class="mockup-sub">67 courses &middot; ForeUp, Chronogolf &amp; more</div>
+        </div>
+        <div class="laptop-base"><div class="laptop-notch"></div></div>
+        <div class="laptop-foot"></div>
+      </div>
+
+      <!-- Phone (overlapping bottom-right) -->
+      <div class="phone-frame">
+        <div class="phone-outer">
+          <div class="phone-top-bar">
+            <div class="phone-speaker"></div>
+            <div class="phone-camera-dot"></div>
+          </div>
+          <div class="phone-screen-inner">
+            <img src="images/app-mobile.png" alt="Tee-Time app on mobile" />
+          </div>
+          <div class="phone-home-bar"><div class="phone-home-indicator"></div></div>
         </div>
       </div>
 
-      <div class="mockup-controls">
-        <div class="mockup-arr">&lsaquo;</div>
-        <div class="mockup-date">Thu, Mar 26, 2026</div>
-        <div class="mockup-arr">&rsaquo;</div>
-        <div class="mc-group">
-          <span class="mc-label">Players</span>
-          <div class="mc-btn">1</div><div class="mc-btn dark">2</div><div class="mc-btn">3</div><div class="mc-btn">4</div>
-        </div>
-        <div class="mc-group">
-          <span class="mc-label">Holes</span>
-          <div class="mc-btn">9</div><div class="mc-btn green">18</div>
-        </div>
-        <button class="mc-refresh">Refresh</button>
-      </div>
-
-      <div class="mockup-tabs">
-        <div class="mockup-tab active">&#128205; Near Me</div>
-        <div class="mockup-tab">&#9733; Saved</div>
-        <div class="mockup-tab">All</div>
-        <div class="mockup-tab">Salt Lake Valley</div>
-        <div class="mockup-tab">Davis &amp; Weber</div>
-        <div class="mockup-tab">Utah County</div>
-        <div class="mockup-tab">St. George</div>
-      </div>
-
-      <div class="mockup-body">
-        <div class="mockup-count">45 courses with available times</div>
-        <div class="mockup-card">
-          <div class="mockup-card-header">
-            <span class="mockup-course">Nibley Park (SLC)</span>
-            <div class="mockup-meta">
-              <span class="mockup-dist">1.2 MI</span>
-              <span class="mockup-times">11 times</span>
-              <span class="mockup-star">&#9733;</span>
-            </div>
-          </div>
-          <div class="time-grid">
-            <div class="time-chip">8:10 AM</div><div class="time-chip">8:20 AM</div><div class="time-chip">8:40 AM</div>
-            <div class="time-chip">9:10 AM</div><div class="time-chip">10:00 AM</div><div class="time-chip">10:10 AM</div>
-            <div class="time-chip">10:20 AM</div><div class="time-chip">10:30 AM</div><div class="time-chip">10:40 AM</div>
-          </div>
-        </div>
-        <div class="mockup-card">
-          <div class="mockup-card-header">
-            <span class="mockup-course">Bonneville (SLC)</span>
-            <div class="mockup-meta">
-              <span class="mockup-dist">3.7 MI</span>
-              <span class="mockup-price">from $50</span>
-              <span class="mockup-times">1 time</span>
-              <span class="mockup-star">&#9733;</span>
-            </div>
-          </div>
-          <div class="time-grid">
-            <div class="time-chip has-price"><span>8:30 AM</span><span class="price">$50</span></div>
-          </div>
-        </div>
-      </div>
     </div>
   </section>
 
