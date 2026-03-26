@@ -1,6 +1,6 @@
 [
   { "name": "Barn Golf Club (Ogden)", "area": "DAVIS AND WEBER COUNTY", "platform": "golfpay", "booking_url": "https://golfpay.co/course/the-barn-golf-club-ogden-ut-84414" },
-  { "name": "Bonneville (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["bc27ab7a-6218-4b61-9aa8-0838f7c44ce3", "caa8142a-4a42-482b-8d35-4239ce26f7b0"], "booking_url": "https://www.chronogolf.com/club/14158" },
+  { "name": "Bonneville (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14158", "course_id": "16241", "affiliation_type_id": "57454", "booking_url": "https://www.chronogolf.com/club/14158" },
   { "name": "Bountiful Ridge (Bountiful)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "674", "booking_class_id": "4371", "booking_url": "https://foreupsoftware.com/index.php/booking/index/18950" },
   { "name": "Carbon CC (Helper)", "area": "UTAH COUNTY AND SOUTH", "platform": "foreup", "schedule_id": "9906", "booking_class_id": "13324", "booking_url": "https://foreupsoftware.com/index.php/booking/22113/9906" },
   { "name": "Canyon Hills (Nephi)", "area": "UTAH COUNTY AND SOUTH", "platform": "membersports", "booking_url": "https://app.membersports.com/tee-times/15379/18889/0" },
@@ -23,7 +23,7 @@
   { "name": "Mountain View (West Jordan)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["bd12a75f-50ad-4ca8-8d18-520e40b22551", "3b6d3bcf-4af4-4deb-a715-acce88244790"], "booking_url": "https://www.chronogolf.com/club/mountain-view-slco" },
   { "name": "Mt. Ogden (Ogden)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "1259", "booking_class_id": "14277", "booking_url": "https://foreupsoftware.com/index.php/booking/index/19196" },
   { "name": "Murray Parkway (Murray)", "area": "SALT LAKE CITY AREA", "platform": "foreup", "schedule_id": "244", "booking_class_id": "7668", "booking_url": "https://app.foreupsoftware.com/index.php/booking/6263/244" },
-  { "name": "Nibley Park (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "course_ids": ["997cd01f-4ce8-4462-a459-594762efb606"], "booking_url": "https://www.chronogolf.com/club/14207" },
+  { "name": "Nibley Park (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf_slc", "club_id": "14207", "course_id": "16295", "affiliation_type_id": "57650", "booking_url": "https://www.chronogolf.com/club/14207" },
   { "name": "Old Mill (SLC)", "area": "SALT LAKE CITY AREA", "platform": "chronogolf", "club_id": "old-mill-slco", "booking_url": "https://www.chronogolf.com/club/old-mill-slco" },
   { "name": "Oquirrh Hills (Tooele)", "area": "TOOELE AND WEST", "platform": "foreup", "schedule_id": "10403", "booking_class_id": "14289", "booking_url": "https://foreupsoftware.com/index.php/booking/22325/10403" },
   { "name": "Remuda (Farr West)", "area": "DAVIS AND WEBER COUNTY", "platform": "foreup", "schedule_id": "44", "booking_class_id": "8993", "booking_url": "https://stage.foreupsoftware.com/index.php/booking/6238/44" },

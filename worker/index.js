@@ -252,6 +252,53 @@ async function handleChronogolf(params) {
   return corsResponse(data);
 }
 
+async function handleChronogolfSlc(params) {
+  await ensureChronogolfSession();
+  const { club_id, course_id, affiliation_type_id, nb_holes, date, players = '1' } = params;
+
+  if (!club_id || !course_id || !affiliation_type_id || !date) {
+    return corsResponse({ error: 'missing_params' });
+  }
+
+  const url = new URL(`https://www.chronogolf.com/marketplace/clubs/${club_id}/teetimes`);
+  url.searchParams.set('date', date);
+  url.searchParams.set('course_id', course_id);
+  url.searchParams.set('nb_holes', nb_holes || '18');
+  const n = Math.min(Math.max(parseInt(players, 10) || 1, 1), 4);
+  for (let i = 0; i < n; i++) {
+    url.searchParams.append('affiliation_type_ids[]', affiliation_type_id);
+  }
+
+  let res;
+  try {
+    res = await fetchWithTimeout(url.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': 'https://www.chronogolf.com/',
+        'Origin': 'https://www.chronogolf.com',
+        ...(chronogolfSession ? { 'Cookie': chronogolfSession } : {}),
+      },
+    });
+  } catch (err) {
+    if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
+    return corsResponse({ error: 'upstream_error' });
+  }
+
+  if (!res.ok) {
+    return corsResponse({ error: 'upstream_error', status: res.status });
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return corsResponse({ error: 'parse_error' });
+  }
+
+  return corsResponse(data);
+}
+
 export default {
   async fetch(request) {
     if (request.method === 'OPTIONS') {
@@ -281,6 +328,10 @@ export default {
 
     if (path === '/chronogolf') {
       return handleChronogolf(params);
+    }
+
+    if (path === '/chronogolf-slc') {
+      return handleChronogolfSlc(params);
     }
 
     return corsResponse({ error: 'not_found' }, 404);
