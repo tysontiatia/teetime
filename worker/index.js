@@ -252,6 +252,53 @@ async function handleChronogolf(params) {
   return corsResponse(data);
 }
 
+async function handleMemberSports(params) {
+  const { golf_club_id, golf_course_id, date } = params;
+  if (!golf_club_id || !golf_course_id || !date) {
+    return corsResponse({ error: 'missing_params' });
+  }
+
+  let res;
+  try {
+    res = await fetchWithTimeout(
+      'https://api.membersports.com/api/v1/golfclubs/onlineBookingTeeTimes',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': 'https://app.membersports.com',
+          'Referer': 'https://app.membersports.com/',
+        },
+        body: JSON.stringify({
+          configurationTypeId: 0,
+          date,
+          golfClubGroupId: 0,
+          golfClubId: parseInt(golf_club_id),
+          golfCourseId: parseInt(golf_course_id),
+          groupSheetTypeId: 0,
+        }),
+      }
+    );
+  } catch (err) {
+    if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
+    return corsResponse({ error: 'upstream_error' });
+  }
+
+  if (!res.ok) {
+    return corsResponse({ error: 'upstream_error', status: res.status });
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return corsResponse({ error: 'parse_error' });
+  }
+
+  return corsResponse(data);
+}
+
 async function handleChronogolfSlc(params) {
   await ensureChronogolfSession();
   const { club_id, course_id, affiliation_type_id, nb_holes, date, players = '1' } = params;
@@ -332,6 +379,10 @@ export default {
 
     if (path === '/chronogolf-slc') {
       return handleChronogolfSlc(params);
+    }
+
+    if (path === '/membersports') {
+      return handleMemberSports(params);
     }
 
     return corsResponse({ error: 'not_found' }, 404);

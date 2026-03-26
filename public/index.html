@@ -1059,6 +1059,10 @@
       if (!course.course_ids) return Promise.resolve(null);
       params.set('course_ids', course.course_ids.join(','));
       url = `${WORKER_URL}/chronogolf?${params}`;
+    } else if (course.platform === 'membersports') {
+      params.set('golf_club_id', course.golf_club_id);
+      params.set('golf_course_id', course.golf_course_id);
+      url = `${WORKER_URL}/membersports?${params}`;
     } else if (course.platform === 'chronogolf_slc') {
       params.set('club_id', course.club_id);
       params.set('course_id', course.course_id);
@@ -1082,6 +1086,32 @@
       price: formatPrice(t.green_fee),
       holes: t.holes,
     }));
+  }
+
+  function normalizeMemberSportsTimes(data, holes) {
+    if (!Array.isArray(data)) return [];
+    const requestedHoles = parseInt(holes, 10);
+    const result = [];
+    for (const slot of data) {
+      if (!slot.items?.length) continue;
+      for (const item of slot.items) {
+        if (item.hide || item.bookingNotAllowed) continue;
+        const itemHoles = item.holesRequirementTypeId === 2 ? 18 : 9;
+        if (itemHoles !== requestedHoles) continue;
+        if ((item.playerCount || 0) <= 0) continue;
+        const h = Math.floor(slot.teeTime / 60);
+        const m = slot.teeTime % 60;
+        const rawTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        result.push({
+          rawTime,
+          display: formatTime12h(rawTime),
+          spots: item.playerCount,
+          price: formatPrice(item.price),
+          holes: itemHoles,
+        });
+      }
+    }
+    return result;
   }
 
   function normalizeChronogolfSlcTimes(data, holes) {
@@ -1303,9 +1333,11 @@
       if (r.error) return { ...r, times: [] };
       let times = r.course.platform === 'foreup'
         ? normalizeForeUpTimes(r.data)
-        : r.course.platform === 'chronogolf_slc'
-          ? normalizeChronogolfSlcTimes(r.data, holes)
-          : normalizeChronogolfTimes(r.data);
+        : r.course.platform === 'membersports'
+          ? normalizeMemberSportsTimes(r.data, holes)
+          : r.course.platform === 'chronogolf_slc'
+            ? normalizeChronogolfSlcTimes(r.data, holes)
+            : normalizeChronogolfTimes(r.data);
       times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
       times = times.filter(t => t.holes == null || t.holes == 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
 
