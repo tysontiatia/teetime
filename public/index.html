@@ -3,46 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TeeTimes — Utah Golf</title>
+  <title>Tee-Time — Utah Golf</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --brand:         #16a34a;
-      --brand-dark:    #15803d;
-      --brand-darker:  #14532d;
-      --brand-bg:      #0a1f10;
-      --brand-light:   #dcfce7;
-      --brand-lighter: #f0fdf4;
+      --brand:         #2D7A3A;
+      --brand-dark:    #3A9047;
+      --brand-darker:  #1A2E1A;
+      --brand-bg:      #1A2E1A;
+      --brand-light:   #EDF7ED;
+      --brand-lighter: #EDF7ED;
 
-      --fg:            #111827;
-      --fg-muted:      #6b7280;
-      --fg-subtle:     #9ca3af;
+      --fg:            #111410;
+      --fg-muted:      #637063;
+      --fg-subtle:     #8a9a8a;
 
       --bg:            #ffffff;
-      --bg-subtle:     #f9fafb;
-      --bg-muted:      #f3f4f6;
+      --bg-subtle:     #F2F5F2;
+      --bg-muted:      #F4F6F4;
 
-      --border:        #e5e7eb;
-      --border-strong: #d1d5db;
+      --border:        rgba(26,46,26,0.1);
+      --border-strong: rgba(26,46,26,0.2);
 
       --red:           #dc2626;
 
-      --radius-sm:     6px;
-      --radius:        10px;
-      --radius-lg:     14px;
+      --radius-sm:     8px;
+      --radius:        12px;
+      --radius-lg:     16px;
 
-      --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-xs: 0 1px 3px rgba(26,46,26,0.06);
+      --shadow-sm: 0 4px 16px rgba(26,46,26,0.08);
 
-      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font:         'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'DM Serif Display', Georgia, serif;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: var(--font);
+      font-weight: 400;
       background: var(--bg-subtle);
       color: var(--fg);
       min-height: 100vh;
@@ -53,12 +55,14 @@
        Header
     ───────────────────────────── */
     header {
-      background: var(--brand-bg);
-      padding: 18px 16px 22px;
+      background: rgba(26,46,26,0.97);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 16px 20px 20px;
     }
 
     .header-inner {
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
       display: flex;
       align-items: center;
@@ -77,10 +81,11 @@
     }
 
     .brand-name {
-      font-size: 1.25rem;
-      font-weight: 800;
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 400;
       color: #fff;
-      letter-spacing: -0.5px;
+      letter-spacing: -0.01em;
       line-height: 1.1;
       display: flex;
       align-items: center;
@@ -88,15 +93,15 @@
     }
 
     .brand-state {
-      font-size: 0.68rem;
-      font-weight: 600;
-      background: rgba(255,255,255,0.12);
-      color: rgba(255,255,255,0.75);
+      font-family: var(--font);
+      font-size: 0.65rem;
+      font-weight: 500;
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
       padding: 2px 8px;
       border-radius: 9999px;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      border: 1px solid rgba(255,255,255,0.12);
     }
 
     .brand-tagline {
@@ -116,7 +121,7 @@
     }
 
     .search-inner {
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -253,9 +258,9 @@
       flex-shrink: 0;
     }
 
-    #searchBtn:hover  { background: var(--brand-darker); }
+    #searchBtn:hover  { background: #3A9047; transform: translateY(-1px); }
     #searchBtn:active { transform: scale(0.97); }
-    #searchBtn:disabled { background: #86efac; cursor: not-allowed; transform: none; }
+    #searchBtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
     /* ─────────────────────────────
        Tab Strip
@@ -315,7 +320,7 @@
 
     .progress-wrap.active { display: block; }
 
-    .progress-inner { max-width: 900px; margin: 0 auto; }
+    .progress-inner { max-width: 960px; margin: 0 auto; }
 
     .progress-label {
       font-size: 0.76rem;
@@ -344,7 +349,7 @@
     ───────────────────────────── */
     #results {
       padding: 16px 16px 56px;
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
     }
 
@@ -372,18 +377,17 @@
     ───────────────────────────── */
     .course-card {
       background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 16px;
+      border: 1px solid rgba(26,46,26,0.1);
+      border-radius: 12px;
       margin-bottom: 10px;
       overflow: hidden;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+      box-shadow: var(--shadow-xs);
+      transition: box-shadow 0.2s, transform 0.2s;
     }
 
     .course-card:hover {
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-      border-color: var(--border-strong);
-      transform: translateY(-1px);
+      box-shadow: 0 12px 36px rgba(0,0,0,0.06);
+      transform: translateY(-3px);
     }
 
     .unavailable-card {
@@ -446,45 +450,46 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: var(--brand-lighter);
-      border: 1px solid #bbf7d0;
+      background: #EDF7ED;
+      border: 1px solid rgba(45,122,58,0.2);
       border-radius: 8px;
-      padding: 0 12px;
+      padding: 8px 4px;
       height: 52px;
       min-width: 0;
       width: 100%;
       text-decoration: none;
-      color: var(--brand-darker);
+      color: #2D7A3A;
+      font-family: var(--font);
       transition: all 0.15s;
       flex-shrink: 0;
     }
 
     .time-pill:hover {
-      background: var(--brand-dark);
-      border-color: var(--brand-dark);
+      background: #2D7A3A;
+      border-color: #2D7A3A;
       color: #fff;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 14px rgba(21,128,61,0.25);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(45,122,58,0.2);
     }
 
-    .time-pill .t-time  { font-weight: 700; font-size: 0.88rem; line-height: 1.2; }
-    .time-pill .t-price { font-size: 0.72rem; font-weight: 600; opacity: 0.75; line-height: 1.2; }
+    .time-pill .t-time  { font-weight: 500; font-size: 0.78rem; line-height: 1.2; text-align: center; }
+    .time-pill .t-price { font-size: 0.72rem; font-weight: 300; opacity: 0.8; line-height: 1.2; text-align: center; }
     .time-pill .t-spots { display: none; }
 
     .time-pill.pill-hot {
-      background: #fef2f2;
-      border-color: #fca5a5;
+      background: #fff0f0;
+      border-color: rgba(185,28,28,0.2);
       color: #b91c1c;
     }
     .time-pill.pill-hot:hover {
-      background: #dc2626;
-      border-color: #dc2626;
+      background: #b91c1c;
+      border-color: #b91c1c;
       color: #fff;
     }
 
     .time-pill.pill-low {
       background: #fffbeb;
-      border-color: #fcd34d;
+      border-color: rgba(146,64,14,0.2);
       color: #92400e;
     }
     .time-pill.pill-low:hover {
@@ -603,9 +608,9 @@
     /* ─────────────────────────────
        Responsive — Desktop
     ───────────────────────────── */
-    @media (min-width: 700px) {
-      header { padding: 24px 20px 28px; }
-      .brand-name    { font-size: 1.45rem; }
+    @media (min-width: 680px) {
+      header { padding: 18px 48px 22px; }
+      .brand-name    { font-size: 1.5rem; }
       .brand-tagline { display: block; }
 
       .search-panel { padding: 14px 20px; }
@@ -649,17 +654,17 @@
 <header>
   <div class="header-inner">
     <div class="brand-icon">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6 20V4" stroke="white" stroke-width="2" stroke-linecap="round"/>
-        <path d="M6 4L18 8L6 12V4Z" fill="white" fill-opacity="0.85"/>
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="2" width="1.5" height="12" fill="white" rx="0.5"/>
+        <path d="M4.5 2.5L12 5.5L4.5 8.5V2.5Z" fill="white"/>
       </svg>
     </div>
     <div>
       <div class="brand-name">
-        TeeTimes
+        Tee-Time
         <span class="brand-state">Utah</span>
       </div>
-      <div class="brand-tagline">67 courses · ForeUp, Chronogolf &amp; more</div>
+      <div class="brand-tagline">Every tee time. One search.</div>
     </div>
   </div>
 </header>
