@@ -267,6 +267,7 @@ async function handleMemberSports(params) {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'x-api-key': 'A9814038-9E19-4683-B171-5A06B39147FC',
           'Origin': 'https://app.membersports.com',
           'Referer': 'https://app.membersports.com/',
         },
