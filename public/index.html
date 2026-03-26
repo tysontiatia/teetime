@@ -435,8 +435,8 @@
        Time Pills
     ───────────────────────────── */
     .times-row {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 7px;
       padding: 2px 16px 16px;
     }
@@ -451,7 +451,8 @@
       border-radius: 8px;
       padding: 0 12px;
       height: 52px;
-      min-width: 72px;
+      min-width: 0;
+      width: 100%;
       text-decoration: none;
       color: var(--brand-darker);
       transition: all 0.15s;
