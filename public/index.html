@@ -606,6 +606,90 @@
     }
 
     /* ─────────────────────────────
+       Compact Sticky Bar
+    ───────────────────────────── */
+    .compact-bar {
+      position: sticky;
+      top: 46px; /* sits just below tab strip */
+      z-index: 9;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.22s ease;
+    }
+
+    .compact-bar.visible { max-height: 48px; }
+
+    .compact-bar-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      height: 48px;
+    }
+
+    .compact-nav {
+      font-family: var(--font);
+      background: none;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+      transition: border-color 0.12s, color 0.12s;
+    }
+
+    .compact-nav:hover { border-color: var(--brand); color: var(--brand); }
+
+    .compact-date {
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--fg);
+      white-space: nowrap;
+    }
+
+    .compact-dot {
+      color: var(--fg-subtle);
+      font-size: 0.7rem;
+    }
+
+    .compact-params {
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+      white-space: nowrap;
+    }
+
+    .compact-spacer { flex: 1; }
+
+    .compact-refresh {
+      font-family: var(--font);
+      background: var(--brand);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .compact-refresh:hover  { background: var(--brand-dark); }
+    .compact-refresh:active { transform: scale(0.96); }
+    .compact-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ─────────────────────────────
        Responsive — Desktop
     ───────────────────────────── */
     @media (min-width: 680px) {
@@ -712,6 +796,18 @@
 
 <div class="tab-strip">
   <div class="tab-strip-inner" id="tabStrip"></div>
+</div>
+
+<div class="compact-bar" id="compactBar">
+  <div class="compact-bar-inner">
+    <button class="compact-nav" id="compactPrev" aria-label="Previous day">&#8249;</button>
+    <span class="compact-date" id="compactDate"></span>
+    <button class="compact-nav" id="compactNext" aria-label="Next day">&#8250;</button>
+    <span class="compact-dot">&#8226;</span>
+    <span class="compact-params" id="compactParams"></span>
+    <div class="compact-spacer"></div>
+    <button class="compact-refresh" id="compactRefresh">&#8635; Refresh</button>
+  </div>
 </div>
 
 <div class="progress-wrap" id="progressWrap">
@@ -874,6 +970,19 @@
     document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', {
       weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
     });
+    updateCompactBar();
+  }
+
+  function updateCompactBar() {
+    const date    = document.getElementById('dateInput').value;
+    const players = document.getElementById('playersInput').value;
+    const holes   = document.getElementById('holesInput').value;
+    if (!date) return;
+    const d = new Date(date + 'T00:00:00');
+    document.getElementById('compactDate').textContent = d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+    });
+    document.getElementById('compactParams').textContent = `${players} players · ${holes} holes`;
   }
 
   function offsetDate(days) {
@@ -908,6 +1017,7 @@
         group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         input.value = btn.dataset.value;
+        updateCompactBar();
         courseCache.clear();
         if (activeTab === 'nearby' && !userLocation) {
           requestGeolocation();
@@ -1417,6 +1527,29 @@
       requestGeolocation();
     } else {
       runSearch();
+    }
+  });
+
+  // ── Compact sticky bar ──
+  updateCompactBar();
+
+  const compactBar = document.getElementById('compactBar');
+
+  new IntersectionObserver(
+    ([entry]) => compactBar.classList.toggle('visible', !entry.isIntersecting),
+    { threshold: 0 }
+  ).observe(document.querySelector('.search-panel'));
+
+  document.getElementById('compactPrev').addEventListener('click', () => offsetDate(-1));
+  document.getElementById('compactNext').addEventListener('click', () => offsetDate(1));
+
+  document.getElementById('compactRefresh').addEventListener('click', function () {
+    this.disabled = true;
+    courseCache.clear();
+    if (activeTab === 'nearby' && !userLocation) {
+      requestGeolocation();
+    } else {
+      runSearch().finally(() => { this.disabled = false; });
     }
   });
 </script>
