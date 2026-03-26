@@ -3,196 +3,464 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Utah Tee Times</title>
+  <title>TeeTimes — Utah Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    :root {
+      --brand:         #16a34a;
+      --brand-dark:    #15803d;
+      --brand-darker:  #14532d;
+      --brand-bg:      #0a1f10;
+      --brand-light:   #dcfce7;
+      --brand-lighter: #f0fdf4;
+
+      --fg:            #111827;
+      --fg-muted:      #6b7280;
+      --fg-subtle:     #9ca3af;
+
+      --bg:            #ffffff;
+      --bg-subtle:     #f9fafb;
+      --bg-muted:      #f3f4f6;
+
+      --border:        #e5e7eb;
+      --border-strong: #d1d5db;
+
+      --red:           #dc2626;
+
+      --radius-sm:     6px;
+      --radius:        10px;
+      --radius-lg:     14px;
+
+      --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: #f4f6f3;
-      color: #1c2a1e;
+      font-family: var(--font);
+      background: var(--bg-subtle);
+      color: var(--fg);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
+    /* ─────────────────────────────
+       Header
+    ───────────────────────────── */
     header {
-      background: #1a4a2e;
-      color: #fff;
-      padding: 18px 24px 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      background: var(--brand-bg);
+      padding: 18px 16px 22px;
     }
 
-    header h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-    }
-
-    header p {
-      font-size: 0.85rem;
-      opacity: 0.75;
-      margin-top: 2px;
-    }
-
-    .search-bar {
-      background: #fff;
-      border-bottom: 1px solid #dde4da;
-      padding: 16px 24px;
+    .header-inner {
+      max-width: 900px;
+      margin: 0 auto;
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: flex-end;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      align-items: center;
+      gap: 14px;
     }
 
-    .search-bar label {
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: rgba(255,255,255,0.1);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-state {
+      font-size: 0.68rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.75);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .brand-tagline {
+      display: none;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.4);
+      margin-top: 3px;
+    }
+
+    /* ─────────────────────────────
+       Search Panel
+    ───────────────────────────── */
+    .search-panel {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      position: static;
+    }
+
+    .search-inner {
+      max-width: 900px;
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      font-size: 0.78rem;
+      gap: 12px;
+    }
+
+    /* Date row */
+    .search-date-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .date-nav {
+      font-family: var(--font);
+      background: var(--bg);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      width: 44px;
+      height: 44px;
+      font-size: 1.1rem;
+      color: var(--fg-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.12s, color 0.12s;
+      user-select: none;
+    }
+
+    .date-nav:hover {
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+
+    .date-display-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    #dateDisplay {
+      display: block;
+      font-family: var(--font);
+      font-size: 0.92rem;
       font-weight: 600;
-      color: #4a5e4d;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+      color: var(--fg);
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      text-align: center;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
     }
 
-    .search-bar input,
-    .search-bar select {
-      font-size: 0.95rem;
-      padding: 8px 10px;
-      border: 1px solid #c5d1c0;
-      border-radius: 6px;
-      background: #fff;
-      color: #1c2a1e;
-      min-width: 130px;
+    #dateInput {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
     }
 
-    .search-bar input:focus,
-    .search-bar select:focus {
+    #dateInput:focus {
       outline: none;
-      border-color: #2a7a4b;
-      box-shadow: 0 0 0 2px rgba(42,122,75,0.15);
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.1);
+    }
+
+    /* Filters row */
+    .search-filters-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Segmented group */
+    .seg-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .seg-label {
+      font-size: 0.69rem;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .seg-buttons {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .seg-btn {
+      font-family: var(--font);
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      background: var(--bg);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 0 14px;
+      min-height: 44px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s;
+      line-height: 1;
+    }
+
+    .seg-btn:hover {
+      border-color: var(--brand-dark);
+      color: var(--brand-dark);
+    }
+
+    .seg-btn.active {
+      background: var(--brand-bg);
+      border-color: var(--brand-bg);
+      color: #fff;
+      font-weight: 600;
     }
 
     #searchBtn {
-      background: #2a7a4b;
-      color: #fff;
-      border: none;
-      padding: 9px 22px;
-      border-radius: 6px;
-      font-size: 0.95rem;
+      font-family: var(--font);
+      font-size: 0.92rem;
       font-weight: 600;
+      color: #fff;
+      background: var(--brand-dark);
+      border: none;
+      padding: 0 24px;
+      width: 100%;
+      height: 44px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
       white-space: nowrap;
-      transition: background 0.15s;
+      transition: background 0.15s, transform 0.1s;
+      align-self: flex-end;
     }
 
-    #searchBtn:hover { background: #1e5e38; }
-    #searchBtn:disabled { background: #89b89a; cursor: not-allowed; }
+    #searchBtn:hover  { background: var(--brand-darker); }
+    #searchBtn:active { transform: scale(0.97); }
+    #searchBtn:disabled { background: #86efac; cursor: not-allowed; transform: none; }
 
-    .progress-bar-wrap {
-      padding: 12px 24px 4px;
+    /* ─────────────────────────────
+       Area chips
+    ───────────────────────────── */
+    .area-filter {
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+    }
+
+    .area-filter-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .area-filter-label {
+      font-size: 0.69rem;
+      font-weight: 600;
+      color: var(--fg-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      flex-shrink: 0;
+    }
+
+    #areaChips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .area-chip {
+      font-family: var(--font);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 7px 14px;
+      border-radius: 9999px;
+      border: 1.5px solid var(--border-strong);
+      background: var(--bg);
+      color: var(--fg-muted);
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+
+    .area-chip.active {
+      background: var(--brand-bg);
+      border-color: var(--brand-bg);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .area-chip:hover:not(.active) {
+      border-color: var(--brand-dark);
+      color: var(--brand-dark);
+    }
+
+    /* ─────────────────────────────
+       Progress
+    ───────────────────────────── */
+    .progress-wrap {
       display: none;
+      padding: 12px 20px 6px;
     }
 
-    .progress-bar-wrap.active { display: block; }
+    .progress-wrap.active { display: block; }
+
+    .progress-inner {
+      max-width: 900px;
+      margin: 0 auto;
+    }
 
     .progress-label {
-      font-size: 0.82rem;
-      color: #4a5e4d;
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: var(--fg-muted);
       margin-bottom: 6px;
     }
 
     .progress-track {
-      background: #dde4da;
-      border-radius: 4px;
-      height: 6px;
+      background: var(--border);
+      border-radius: 9999px;
+      height: 3px;
       overflow: hidden;
     }
 
     .progress-fill {
-      background: #2a7a4b;
+      background: var(--brand);
       height: 100%;
-      border-radius: 4px;
+      border-radius: 9999px;
       transition: width 0.2s ease;
       width: 0%;
     }
 
+    /* ─────────────────────────────
+       Results
+    ───────────────────────────── */
     #results {
-      padding: 20px 24px 40px;
+      padding: 16px 16px 56px;
       max-width: 900px;
       margin: 0 auto;
     }
 
     .results-meta {
-      font-size: 0.85rem;
-      color: #5a7060;
-      margin-bottom: 16px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      margin-bottom: 20px;
     }
 
-    .area-group {
-      margin-bottom: 24px;
-    }
+    .area-group { margin-bottom: 28px; }
 
     .area-heading {
-      font-size: 0.72rem;
+      font-size: 0.67rem;
       font-weight: 700;
-      letter-spacing: 0.8px;
+      letter-spacing: 1px;
       text-transform: uppercase;
-      color: #7a9480;
+      color: var(--fg-subtle);
       margin-bottom: 10px;
       padding-left: 2px;
     }
 
+    /* ─────────────────────────────
+       Course Card
+    ───────────────────────────── */
     .course-card {
-      background: #fff;
-      border: 1px solid #dde4da;
-      border-radius: 10px;
-      margin-bottom: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-bottom: 8px;
       overflow: hidden;
+      box-shadow: var(--shadow-xs);
+      transition: box-shadow 0.15s, border-color 0.15s;
     }
+
+    .course-card:hover {
+      box-shadow: var(--shadow-sm);
+      border-color: var(--border-strong);
+    }
+
+    .unavailable-card {
+      opacity: 0.45;
+      transition: opacity 0.15s, box-shadow 0.15s;
+    }
+
+    .unavailable-card:hover { opacity: 0.7; }
 
     .course-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 16px;
+      padding: 12px 16px 10px;
       gap: 10px;
     }
 
     .course-name {
       font-weight: 600;
-      font-size: 0.97rem;
+      font-size: 0.92rem;
+      color: var(--fg);
     }
 
     .course-meta {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .badge {
-      font-size: 0.68rem;
+      font-size: 0.63rem;
       font-weight: 600;
       letter-spacing: 0.3px;
-      padding: 2px 7px;
-      border-radius: 10px;
+      padding: 2px 8px;
+      border-radius: 9999px;
       text-transform: uppercase;
     }
 
     .badge-platform {
-      background: #e8f0ea;
-      color: #2a5e38;
+      background: var(--bg-muted);
+      color: var(--fg-muted);
+      border: 1px solid var(--border);
     }
 
-
-.times-row {
+    /* ─────────────────────────────
+       Time Pills
+    ───────────────────────────── */
+    .times-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 7px;
+      gap: 6px;
       padding: 0 16px 14px;
     }
 
@@ -200,154 +468,480 @@
       display: inline-flex;
       flex-direction: column;
       align-items: center;
-      background: #f0f7f2;
-      border: 1px solid #b8d9c2;
-      border-radius: 8px;
+      background: var(--brand-lighter);
+      border: 1px solid #bbf7d0;
+      border-radius: var(--radius-sm);
       padding: 7px 12px;
-      cursor: pointer;
       text-decoration: none;
-      color: inherit;
-      transition: background 0.12s, border-color 0.12s, transform 0.1s;
+      color: var(--brand-darker);
+      transition: all 0.12s;
       min-width: 70px;
     }
 
     .time-pill:hover {
-      background: #2a7a4b;
-      border-color: #2a7a4b;
+      background: var(--brand-dark);
+      border-color: var(--brand-dark);
       color: #fff;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(21,128,61,0.2);
     }
 
-    .time-pill .t-time {
-      font-weight: 700;
-      font-size: 0.92rem;
-    }
+    .time-pill .t-time  { font-weight: 700; font-size: 0.87rem; }
+    .time-pill .t-price { font-size: 0.7rem; font-weight: 500; opacity: 0.8; margin-top: 1px; }
+    .time-pill .t-spots { font-size: 0.64rem; opacity: 0.6; }
 
-    .time-pill .t-price {
-      font-size: 0.72rem;
-      opacity: 0.8;
-      margin-top: 1px;
-    }
-
-    .time-pill .t-spots {
-      font-size: 0.68rem;
-      opacity: 0.65;
-    }
-
+    /* ─────────────────────────────
+       States
+    ───────────────────────────── */
     .no-times {
-      font-size: 0.83rem;
-      color: #9aaa9e;
-      padding: 0 16px 12px;
+      font-size: 0.81rem;
+      color: var(--fg-subtle);
+      padding: 0 16px 14px;
       font-style: italic;
     }
 
     .course-error {
-      font-size: 0.83rem;
-      color: #b05050;
-      padding: 0 16px 12px;
+      font-size: 0.81rem;
+      color: var(--red);
+      opacity: 0.7;
+      padding: 0 16px 14px;
     }
 
-    /* Unavailable courses toggle */
+    .course-login {
+      padding: 0 16px 14px;
+      font-size: 0.81rem;
+    }
+
+    .course-login a {
+      color: var(--brand-dark);
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .course-login a:hover { text-decoration: underline; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--fg-muted);
+    }
+
+    .empty-state p {
+      font-size: 0.95rem;
+      margin-top: 8px;
+      color: var(--fg-subtle);
+    }
+
+    /* ─────────────────────────────
+       Unavailable Toggle
+    ───────────────────────────── */
     #unavailableToggle {
       display: none;
+      align-items: center;
+      gap: 6px;
       background: none;
-      border: 1px solid #c5d1c0;
-      color: #4a5e4d;
-      padding: 7px 16px;
-      border-radius: 6px;
-      font-size: 0.85rem;
+      border: 1.5px solid var(--border-strong);
+      color: var(--fg-muted);
+      padding: 7px 18px;
+      border-radius: 9999px;
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
       cursor: pointer;
-      margin: 8px 0 20px;
-      transition: background 0.12s;
+      margin: 4px 0 20px;
+      transition: all 0.12s;
     }
 
-    #unavailableToggle:hover { background: #e8f0ea; }
-    #unavailableToggle.shown { display: inline-block; }
+    #unavailableToggle:hover { background: var(--bg-muted); color: var(--fg); }
+    #unavailableToggle.shown { display: inline-flex; }
 
-    #unavailableCourses { display: none; }
+    #unavailableCourses      { display: none; }
     #unavailableCourses.open { display: block; }
 
-    .unavailable-card .course-header {
-      opacity: 0.55;
+    /* ─────────────────────────────
+       Quick filters
+    ───────────────────────────── */
+    .quick-filter-bar {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .quick-filter-bar::-webkit-scrollbar { display: none; }
+
+    .quick-filter-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
     }
 
-    @media (max-width: 600px) {
-      .search-bar { padding: 12px 16px; }
-      #results { padding: 14px 14px 40px; }
-      .search-bar label { min-width: 100%; }
-      .search-bar input,
-      .search-bar select { width: 100%; }
+    .quick-filter-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-strong);
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
+    .quick-chip {
+      font-family: var(--font);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      border: 1.5px solid var(--border-strong);
+      background: var(--bg);
+      color: var(--fg-muted);
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .quick-chip:hover:not(.active) {
+      border-color: var(--brand-dark);
+      color: var(--brand-dark);
+    }
+
+    .quick-chip.active {
+      background: var(--brand-bg);
+      border-color: var(--brand-bg);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* ─────────────────────────────
+       Card from-price & count
+    ───────────────────────────── */
+    .card-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .card-from-price {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--brand-dark);
+    }
+
+    .card-count {
+      font-size: 0.72rem;
+      color: var(--fg-subtle);
+      font-weight: 500;
+    }
+
+    /* ─────────────────────────────
+       Time pill urgency
+    ───────────────────────────── */
+    .time-pill.pill-hot {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+    .time-pill.pill-hot:hover {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: #fff;
+    }
+
+    .time-pill.pill-low {
+      background: #fffbeb;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+    .time-pill.pill-low:hover {
+      background: #d97706;
+      border-color: #d97706;
+      color: #fff;
+    }
+
+    /* ─────────────────────────────
+       Responsive — Desktop
+    ───────────────────────────── */
+    @media (min-width: 700px) {
+      header { padding: 24px 20px 28px; }
+      .brand-name    { font-size: 1.45rem; }
+      .brand-tagline { display: block; }
+
+      .search-panel {
+        padding: 16px 20px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .search-filters-row { gap: 16px; }
+
+      .date-nav { width: 40px; height: 40px; }
+
+      .seg-btn { min-height: 36px; padding: 7px 14px; }
+
+      #searchBtn {
+        width: auto;
+        height: 36px;
+        font-size: 0.88rem;
+      }
+
+      #results { padding: 24px 20px 64px; }
+
+      .area-chip  { padding: 4px 12px; }
+      .quick-chip { padding: 5px 13px; }
     }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Utah Tee Times</h1>
-  <p>44 courses — ForeUp, Chronogolf &amp; more — all in one place</p>
+  <div class="header-inner">
+    <div class="brand-icon">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 20V4" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <path d="M6 4L18 8L6 12V4Z" fill="white" fill-opacity="0.85"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name">
+        TeeTimes
+        <span class="brand-state">Utah</span>
+      </div>
+      <div class="brand-tagline">44 courses · ForeUp, Chronogolf &amp; more</div>
+    </div>
+  </div>
 </header>
 
-<div class="search-bar">
-  <label>
-    Date
-    <input type="date" id="dateInput" />
-  </label>
-  <label>
-    Players
-    <select id="playersInput">
-      <option value="1">1 player</option>
-      <option value="2" selected>2 players</option>
-      <option value="3">3 players</option>
-      <option value="4">4 players</option>
-    </select>
-  </label>
-  <label>
-    Holes
-    <select id="holesInput">
-      <option value="18" selected>18 holes</option>
-      <option value="9">9 holes</option>
-    </select>
-  </label>
-  <label>
-    Time window
-    <select id="timeWindow">
-      <option value="any">Any time</option>
-      <option value="morning">Morning (before 12pm)</option>
-      <option value="afternoon">Afternoon (12pm+)</option>
-    </select>
-  </label>
-  <button id="searchBtn">Search Tee Times</button>
+<div class="search-panel">
+  <div class="search-inner">
+
+    <!-- Date with prev/next -->
+    <div class="search-date-row">
+      <button class="date-nav" id="datePrev" aria-label="Previous day">&#8249;</button>
+      <div class="date-display-wrap">
+        <span id="dateDisplay"></span>
+        <input type="date" id="dateInput" />
+      </div>
+      <button class="date-nav" id="dateNext" aria-label="Next day">&#8250;</button>
+    </div>
+
+    <!-- Segmented filter controls -->
+    <div class="search-filters-row">
+
+      <div class="seg-group">
+        <span class="seg-label">Players</span>
+        <div class="seg-buttons" id="playersGroup">
+          <button class="seg-btn" data-value="1">1</button>
+          <button class="seg-btn active" data-value="2">2</button>
+          <button class="seg-btn" data-value="3">3</button>
+          <button class="seg-btn" data-value="4">4</button>
+        </div>
+      </div>
+
+      <div class="seg-group">
+        <span class="seg-label">Holes</span>
+        <div class="seg-buttons" id="holesGroup">
+          <button class="seg-btn" data-value="9">9</button>
+          <button class="seg-btn active" data-value="18">18</button>
+        </div>
+      </div>
+
+      <button id="searchBtn">Refresh</button>
+    </div>
+
+  </div>
 </div>
 
-<div class="progress-bar-wrap" id="progressWrap">
-  <div class="progress-label" id="progressLabel">Fetching...</div>
-  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+<!-- Hidden inputs — JS reads these to get current filter values -->
+<input type="hidden" id="playersInput" value="2" />
+<input type="hidden" id="holesInput" value="18" />
+
+<div class="area-filter" id="areaFilter" style="display:none">
+  <div class="area-filter-inner">
+    <span class="area-filter-label">Areas</span>
+    <div id="areaChips"></div>
+  </div>
+</div>
+
+<div class="quick-filter-bar" id="quickFilterBar" style="display:none">
+  <div class="quick-filter-inner">
+    <button class="quick-chip" data-filter="next3h">⏱ Next 3 hrs</button>
+    <button class="quick-chip" data-filter="morning">🌅 Morning</button>
+    <button class="quick-chip" data-filter="afternoon">☀️ Afternoon</button>
+    <div class="quick-filter-divider"></div>
+    <button class="quick-chip" data-filter="under40">Under $40</button>
+    <button class="quick-chip" data-filter="under60">Under $60</button>
+  </div>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-inner">
+    <div class="progress-label" id="progressLabel">Fetching...</div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
 </div>
 
 <div id="results"></div>
 
 <script>
-  // Replace YOUR_SUBDOMAIN with your Cloudflare subdomain after deploying the worker.
   const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
 
   let courses = [];
+  let cachedApiResults = null;
+  let selectedAreas = new Set();
+  let activeQuickFilters = new Set();
 
-  // Set default date to today
+  const TIME_QF  = new Set(['next3h', 'morning', 'afternoon']);
+  const PRICE_QF = new Set(['under40', 'under60']);
+
+  const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+  const searchCache = new Map(); // key: "date-holes" → { results, fetchedAt }
+
+  function getCacheKey(date, holes) {
+    return `${date}-${holes}`;
+  }
+
+  const AREA_LABELS = {
+    'SALT LAKE CITY AREA':        'Salt Lake City',
+    'UTAH COUNTY AND SOUTH':      'Utah County & South',
+    'DAVIS AND WEBER COUNTY':     'Davis & Weber',
+    'HEBER VALLEY AND EAST':      'Heber Valley',
+    'TOOELE AND WEST':            'Tooele & West',
+    'LOGAN, CACHE VALLEY, NORTH': 'Logan / Cache Valley',
+  };
+
+  // ── Date setup ──
   const _now = new Date();
   const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
   document.getElementById('dateInput').value = todayStr;
+  updateDateDisplay();
 
-  // Load courses on startup
+  document.getElementById('datePrev').addEventListener('click', () => offsetDate(-1));
+  document.getElementById('dateNext').addEventListener('click', () => offsetDate(1));
+  document.getElementById('dateInput').addEventListener('change', () => {
+    updateDateDisplay();
+    scheduleSearch();
+  });
+
+  function updateDateDisplay() {
+    const val = document.getElementById('dateInput').value;
+    if (!val) return;
+    const d = new Date(val + 'T00:00:00');
+    document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    });
+  }
+
+  function offsetDate(days) {
+    const input = document.getElementById('dateInput');
+    const d = new Date(input.value + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    input.value = d.toISOString().slice(0, 10);
+    updateDateDisplay();
+    scheduleSearch();
+  }
+
+  let searchDebounceTimer = null;
+  function scheduleSearch() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(runSearch, 400);
+  }
+
+  document.getElementById('dateInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runSearch();
+  });
+
+  // ── Segmented controls ──
+  function initSegment(groupId, inputId, { clientSide = false } = {}) {
+    const group = document.getElementById(groupId);
+    const input = document.getElementById(inputId);
+    group.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        input.value = btn.dataset.value;
+        if (clientSide && cachedApiResults) {
+          // Area-style filter: re-filter cached data instantly
+          const key = getCacheKey(
+            document.getElementById('dateInput').value,
+            document.getElementById('holesInput').value,
+          );
+          const ts = searchCache.get(key)?.fetchedAt;
+          processAndRender(
+            cachedApiResults,
+            document.getElementById('playersInput').value,
+            document.getElementById('holesInput').value,
+            ts,
+          );
+        } else if (!clientSide) {
+          // Server-side filter: auto-trigger a fresh search
+          cachedApiResults = null;
+          runSearch();
+        }
+      });
+    });
+  }
+
+  initSegment('playersGroup', 'playersInput', { clientSide: true });
+  initSegment('holesGroup',   'holesInput');
+
+  // ── Load courses ──
   fetch('./courses.json')
     .then(r => r.json())
-    .then(data => { courses = data; })
+    .then(data => {
+      courses = data;
+      const areas = [...new Set(data.map(c => c.area))].sort();
+      selectedAreas = new Set(areas);
+      renderAreaChips(areas);
+      runSearch(); // auto-load on page open
+    })
     .catch(() => {
       document.getElementById('results').innerHTML =
-        '<p style="color:#b05050;padding:20px">Failed to load courses.json.</p>';
+        '<p style="color:#dc2626;padding:20px">Failed to load courses.json.</p>';
     });
 
+  function renderAreaChips(areas) {
+    const container = document.getElementById('areaChips');
+    areas.forEach(area => {
+      const btn = document.createElement('button');
+      btn.className = 'area-chip active';
+      btn.dataset.area = area;
+      btn.textContent = AREA_LABELS[area] || area;
+      btn.addEventListener('click', () => {
+        if (selectedAreas.has(area)) {
+          selectedAreas.delete(area);
+          btn.classList.remove('active');
+        } else {
+          selectedAreas.add(area);
+          btn.classList.add('active');
+        }
+        if (cachedApiResults) {
+          const key = getCacheKey(
+            document.getElementById('dateInput').value,
+            document.getElementById('holesInput').value,
+          );
+          const ts = searchCache.get(key)?.fetchedAt;
+          processAndRender(
+            cachedApiResults,
+            document.getElementById('playersInput').value,
+            document.getElementById('holesInput').value,
+            ts,
+          );
+        }
+      });
+      container.appendChild(btn);
+    });
+    document.getElementById('areaFilter').style.display = '';
+    document.getElementById('quickFilterBar').style.display = '';
+  }
+
+  // ── Helpers ──
   function formatTime12h(timeStr) {
-    // Handles "07:30:00" or ISO datetime "2024-05-01T07:30:00"
     const match = timeStr.match(/(\d{1,2}):(\d{2})/);
     if (!match) return timeStr;
     let h = parseInt(match[1], 10);
@@ -358,20 +952,6 @@
     return `${h}:${m} ${ampm}`;
   }
 
-  function parseHour(timeStr) {
-    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
-    if (!match) return 0;
-    return parseInt(match[1], 10) + parseInt(match[2], 10) / 60;
-  }
-
-  function filterByWindow(times, window) {
-    if (window === 'any') return times;
-    return times.filter(t => {
-      const h = parseHour(t.rawTime);
-      return window === 'morning' ? h < 12 : h >= 12;
-    });
-  }
-
   function formatPrice(val) {
     if (val == null || val === 0 || val === '') return null;
     const n = parseFloat(val);
@@ -379,62 +959,98 @@
     return '$' + n.toFixed(0);
   }
 
-async function fetchCourseTimes(course, date, players, holes) {
-    const params = new URLSearchParams({ date, players, holes });
-    let url, headers = {};
+  function extractHour(rawTime) {
+    if (!rawTime) return null;
+    const timePart = rawTime.includes(' ') ? rawTime.split(' ')[1] : rawTime;
+    const h = parseInt(timePart.split(':')[0], 10);
+    return isNaN(h) ? null : h;
+  }
+
+  function parsePrice(priceStr) {
+    if (!priceStr) return null;
+    const n = parseFloat(priceStr.replace('$', ''));
+    return isNaN(n) ? null : n;
+  }
+
+  // ── Quick filters ──
+  function initQuickFilters() {
+    document.querySelectorAll('.quick-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const f = btn.dataset.filter;
+        if (activeQuickFilters.has(f)) {
+          activeQuickFilters.delete(f);
+          btn.classList.remove('active');
+        } else {
+          // Mutually exclusive within time group and price group
+          if (TIME_QF.has(f))  TIME_QF.forEach(x  => { activeQuickFilters.delete(x);  document.querySelector(`[data-filter="${x}"]`)?.classList.remove('active'); });
+          if (PRICE_QF.has(f)) PRICE_QF.forEach(x => { activeQuickFilters.delete(x);  document.querySelector(`[data-filter="${x}"]`)?.classList.remove('active'); });
+          activeQuickFilters.add(f);
+          btn.classList.add('active');
+        }
+        if (cachedApiResults) {
+          const key = getCacheKey(document.getElementById('dateInput').value, document.getElementById('holesInput').value);
+          const ts = searchCache.get(key)?.fetchedAt;
+          processAndRender(cachedApiResults, document.getElementById('playersInput').value, document.getElementById('holesInput').value, ts);
+        }
+      });
+    });
+  }
+  initQuickFilters();
+
+  // ── API ──
+  async function fetchCourseTimes(course, date, holes) {
+    const params = new URLSearchParams({ date });
+    let url;
 
     if (course.platform === 'foreup') {
       params.set('schedule_id', course.schedule_id);
       if (course.booking_class_id) params.set('booking_class_id', course.booking_class_id);
+      params.set('holes', holes);
       url = `${WORKER_URL}/foreup?${params}`;
-    } else {
-      params.set('club_id', course.club_id);
+    } else if (course.platform === 'chronogolf') {
+      if (!course.course_ids) return Promise.resolve(null);
+      params.set('course_ids', course.course_ids.join(','));
       url = `${WORKER_URL}/chronogolf?${params}`;
     }
 
-    const res = await fetch(url, { headers });
-    const data = await res.json();
-    return data;
+    const res = await fetch(url);
+    return res.json();
   }
 
-  function normalizeForeUpTimes(data, holes) {
+  // ── Normalizers ──
+  function normalizeForeUpTimes(data) {
     if (!Array.isArray(data)) return [];
-    const h = parseInt(holes, 10);
     return data.map(t => ({
       rawTime: t.time || '',
       display: formatTime12h(t.time || ''),
-      spots: h === 9 ? (t.available_spots_9 ?? t.available_spots ?? null)
-                     : (t.available_spots_18 ?? t.available_spots ?? null),
-      price: formatPrice(h === 9 ? t.green_fee_9 : t.green_fee_18) || formatPrice(t.green_fee),
+      spots: t.available_spots || null,
+      price: formatPrice(t.green_fee),
       holes: t.holes,
     }));
   }
 
   function normalizeChronogolfTimes(data) {
-    const items = data?.data;
+    const items = data?.teetimes;
     if (!Array.isArray(items)) return [];
-    return items.map(item => {
-      const a = item.attributes || {};
-      const h = a.nb_holes || 18;
-      const price = h === 9
-        ? formatPrice(a.green_fee_for_9_holes)
-        : formatPrice(a.green_fee_for_18_holes) || formatPrice(a.green_fee_for_9_holes);
-      return {
-        rawTime: a.start_time || '',
-        display: formatTime12h(a.start_time || ''),
-        spots: a.available_spots ?? null,
-        price,
-        holes: h,
-      };
-    });
+    return items.map(t => ({
+      rawTime: t.start_time || '',
+      display: formatTime12h(t.start_time || ''),
+      spots: t.max_player_size ?? null,
+      price: formatPrice(t.default_price?.green_fee),
+      holes: t.default_price?.bookable_holes ?? t.course?.holes,
+    }));
   }
 
+  // ── DOM builders ──
   function buildTimePill(t, bookingUrl) {
     const a = document.createElement('a');
     a.href = bookingUrl;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-    a.className = 'time-pill';
+    let pillClass = 'time-pill';
+    if (t.spots === 1)      pillClass += ' pill-hot';
+    else if (t.spots === 2) pillClass += ' pill-low';
+    a.className = pillClass;
 
     const timeEl = document.createElement('span');
     timeEl.className = 't-time';
@@ -454,7 +1070,7 @@ async function fetchCourseTimes(course, date, players, holes) {
     return a;
   }
 
-function buildCourseCard(course, times, error, isUnavailable) {
+  function buildCourseCard(course, times, error, isUnavailable) {
     const card = document.createElement('div');
     card.className = 'course-card' + (isUnavailable ? ' unavailable-card' : '');
 
@@ -465,28 +1081,47 @@ function buildCourseCard(course, times, error, isUnavailable) {
     nameEl.className = 'course-name';
     nameEl.textContent = course.name;
 
-    const meta = document.createElement('div');
-    meta.className = 'course-meta';
+    const summary = document.createElement('div');
+    summary.className = 'card-summary';
 
-    const platBadge = document.createElement('span');
-    platBadge.className = 'badge badge-platform';
-    platBadge.textContent = course.platform;
-    meta.appendChild(platBadge);
+    if (times && times.length > 0) {
+      const prices = times.map(t => parsePrice(t.price)).filter(p => p !== null);
+      if (prices.length) {
+        const fromEl = document.createElement('span');
+        fromEl.className = 'card-from-price';
+        fromEl.textContent = `from $${Math.min(...prices)}`;
+        summary.appendChild(fromEl);
+      }
+      const countEl = document.createElement('span');
+      countEl.className = 'card-count';
+      countEl.textContent = `${times.length} time${times.length !== 1 ? 's' : ''}`;
+      summary.appendChild(countEl);
+    }
 
     header.appendChild(nameEl);
-    header.appendChild(meta);
+    header.appendChild(summary);
     card.appendChild(header);
 
     if (error) {
       const msg = document.createElement('div');
-      msg.className = 'course-error';
-      const messages = {
-        timeout: 'Request timed out.',
-        upstream_error: 'Course API unavailable.',
-        unavailable: 'Not available via API.',
-        parse_error: 'Unexpected response from course.',
-      };
-      msg.textContent = messages[error] || `Error: ${error}`;
+      if (error === 'login_required') {
+        msg.className = 'course-login';
+        const link = document.createElement('a');
+        link.href = course.booking_url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Sign in to view times →';
+        msg.appendChild(link);
+      } else {
+        msg.className = 'course-error';
+        const messages = {
+          timeout:        'Request timed out.',
+          upstream_error: 'Course API unavailable.',
+          unavailable:    'Not available via API.',
+          parse_error:    'Unexpected response from course.',
+        };
+        msg.textContent = messages[error] || `Error: ${error}`;
+      }
       card.appendChild(msg);
     } else if (!times || times.length === 0) {
       const msg = document.createElement('div');
@@ -496,9 +1131,7 @@ function buildCourseCard(course, times, error, isUnavailable) {
     } else {
       const row = document.createElement('div');
       row.className = 'times-row';
-      for (const t of times) {
-        row.appendChild(buildTimePill(t, course.booking_url));
-      }
+      for (const t of times) row.appendChild(buildTimePill(t, course.booking_url));
       card.appendChild(row);
     }
 
@@ -516,30 +1149,39 @@ function buildCourseCard(course, times, error, isUnavailable) {
   }
 
   function showInlineError(msg) {
-    const resultsEl = document.getElementById('results');
-    resultsEl.innerHTML = `<p style="color:#b05050;padding:20px;font-size:0.95rem">${msg}</p>`;
+    document.getElementById('results').innerHTML =
+      `<p style="color:#dc2626;padding:20px;font-size:0.92rem">${msg}</p>`;
   }
 
+  // ── Search ──
   async function runSearch() {
     if (!courses.length) {
       showInlineError('Courses not loaded yet — please wait a moment and try again.');
       return;
     }
 
-    const date = document.getElementById('dateInput').value;
+    const date    = document.getElementById('dateInput').value;
     const players = document.getElementById('playersInput').value;
-    const holes = document.getElementById('holesInput').value;
-    const timeWindow = document.getElementById('timeWindow').value;
+    const holes   = document.getElementById('holesInput').value;
 
     if (!date) { showInlineError('Please pick a date.'); return; }
 
+    // Return cached result if it's fresh (< 3 min old, same params)
+    const cacheKey = getCacheKey(date, holes);
+    const cached = searchCache.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+      cachedApiResults = cached.results;
+      processAndRender(cached.results, players, holes);
+      return;
+    }
+
     const btn = document.getElementById('searchBtn');
     btn.disabled = true;
-    btn.textContent = 'Searching…';
+    btn.textContent = 'Loading…';
 
-    const progressWrap = document.getElementById('progressWrap');
+    const progressWrap  = document.getElementById('progressWrap');
     const progressLabel = document.getElementById('progressLabel');
-    const progressFill = document.getElementById('progressFill');
+    const progressFill  = document.getElementById('progressFill');
     progressWrap.classList.add('active');
 
     const total = courses.length;
@@ -552,15 +1194,9 @@ function buildCourseCard(course, times, error, isUnavailable) {
     }
 
     const promises = courses.map(course =>
-      fetchCourseTimes(course, date, players, holes)
-        .then(data => {
-          updateProgress();
-          return { course, data, error: data?.error || null };
-        })
-        .catch(err => {
-          updateProgress();
-          return { course, data: null, error: 'upstream_error' };
-        })
+      fetchCourseTimes(course, date, holes)
+        .then(data => { updateProgress(); return { course, data, error: data?.error || null }; })
+        .catch(()  => { updateProgress(); return { course, data: null, error: 'upstream_error' }; })
     );
 
     const settled = await Promise.allSettled(promises);
@@ -570,31 +1206,50 @@ function buildCourseCard(course, times, error, isUnavailable) {
         : { course: s.reason?.course, data: null, error: 'upstream_error' }
     );
 
-    // Normalize times
-    const processed = allResults.map(r => {
+    const fetchedAt = Date.now();
+    searchCache.set(cacheKey, { results: allResults, fetchedAt });
+    cachedApiResults = allResults;
+    processAndRender(allResults, players, holes, fetchedAt);
+
+    progressWrap.classList.remove('active');
+    btn.disabled = false;
+    btn.textContent = 'Refresh';
+  }
+
+  function processAndRender(apiResults, players, holes, fetchedAt) {
+    const now = new Date();
+    const nowH = now.getHours() + now.getMinutes() / 60;
+
+    const processed = apiResults.filter(r => selectedAreas.has(r.course.area)).map(r => {
       if (r.error) return { ...r, times: [] };
-      let times = [];
-      if (r.course.platform === 'foreup') {
-        times = normalizeForeUpTimes(r.data, holes);
-      } else {
-        times = normalizeChronogolfTimes(r.data);
-      }
-      times = filterByWindow(times, timeWindow);
+      let times = r.course.platform === 'foreup'
+        ? normalizeForeUpTimes(r.data)
+        : normalizeChronogolfTimes(r.data);
       times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
-      times = times.filter(t => t.holes == null || parseInt(t.holes, 10) === parseInt(holes, 10));
+      times = times.filter(t => t.holes == null || t.holes == 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
+
+      // Quick filters
+      if (activeQuickFilters.has('next3h'))   times = times.filter(t => { const h = extractHour(t.rawTime); return h !== null && h >= nowH && h <= nowH + 3; });
+      if (activeQuickFilters.has('morning'))  times = times.filter(t => { const h = extractHour(t.rawTime); return h !== null && h >= 5 && h < 12; });
+      if (activeQuickFilters.has('afternoon'))times = times.filter(t => { const h = extractHour(t.rawTime); return h !== null && h >= 12 && h < 18; });
+      if (activeQuickFilters.has('under40'))  times = times.filter(t => { const p = parsePrice(t.price); return p !== null && p < 40; });
+      if (activeQuickFilters.has('under60'))  times = times.filter(t => { const p = parsePrice(t.price); return p !== null && p < 60; });
+
       return { ...r, times };
     });
 
-    const available = processed.filter(r => !r.error && r.times.length > 0);
+    const available   = processed.filter(r => !r.error && r.times.length > 0);
     const unavailable = processed.filter(r => r.error || r.times.length === 0);
 
-    // Render
     const resultsEl = document.getElementById('results');
     resultsEl.innerHTML = '';
 
     const meta = document.createElement('div');
     meta.className = 'results-meta';
-    meta.textContent = `${available.length} course${available.length !== 1 ? 's' : ''} with available times`;
+    const timeStr = fetchedAt
+      ? new Date(fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : null;
+    meta.textContent = `${available.length} course${available.length !== 1 ? 's' : ''} with available times${timeStr ? ` · as of ${timeStr}` : ''}`;
     resultsEl.appendChild(meta);
 
     if (available.length > 0) {
@@ -606,28 +1261,47 @@ function buildCourseCard(course, times, error, isUnavailable) {
         heading.className = 'area-heading';
         heading.textContent = area;
         group.appendChild(heading);
-        for (const r of items) {
-          group.appendChild(buildCourseCard(r.course, r.times, r.error, false));
-        }
+        for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, false));
         resultsEl.appendChild(group);
       }
     } else {
-      const empty = document.createElement('p');
-      empty.style.cssText = 'color:#7a9480;font-size:0.95rem;margin-bottom:16px';
-      empty.textContent = 'No tee times found. Try a different date or time window.';
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3">
+          <circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/>
+          <path d="M13 20h14" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p>No tee times found. Try a different date or time window.</p>
+      `;
       resultsEl.appendChild(empty);
     }
 
-    // Unavailable section
     if (unavailable.length > 0) {
+      // Auto-expand when nothing is available so the user can see why
+      const startOpen = available.length === 0;
+
+      const noTimesCount = unavailable.filter(r => !r.error).length;
+      const errorCount   = unavailable.filter(r => r.error).length;
+      const reasonParts  = [];
+      if (noTimesCount) reasonParts.push(`${noTimesCount} no times`);
+      if (errorCount)   reasonParts.push(`${errorCount} unavailable`);
+      const reasonStr = reasonParts.length ? ` (${reasonParts.join(', ')})` : '';
+
+      const chevronDown = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      const chevronUp   = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 9l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
       const toggle = document.createElement('button');
       toggle.id = 'unavailableToggle';
       toggle.className = 'shown';
-      toggle.textContent = `Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}`;
+      toggle.innerHTML = startOpen
+        ? `${chevronUp} Hide ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`
+        : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
       resultsEl.appendChild(toggle);
 
       const unavailSection = document.createElement('div');
       unavailSection.id = 'unavailableCourses';
+      if (startOpen) unavailSection.classList.add('open');
 
       const grouped = groupByArea(unavailable);
       for (const [area, items] of Object.entries(grouped)) {
@@ -637,35 +1311,22 @@ function buildCourseCard(course, times, error, isUnavailable) {
         heading.className = 'area-heading';
         heading.textContent = area;
         group.appendChild(heading);
-        for (const r of items) {
-          group.appendChild(buildCourseCard(r.course, r.times, r.error, true));
-        }
+        for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, true));
         unavailSection.appendChild(group);
       }
 
       toggle.addEventListener('click', () => {
         const open = unavailSection.classList.toggle('open');
-        toggle.textContent = open
-          ? `Hide unavailable courses`
-          : `Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}`;
+        toggle.innerHTML = open
+          ? `${chevronUp} Hide unavailable courses`
+          : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
       });
 
       resultsEl.appendChild(unavailSection);
     }
-
-    progressWrap.classList.remove('active');
-    btn.disabled = false;
-    btn.textContent = 'Search Tee Times';
   }
 
   document.getElementById('searchBtn').addEventListener('click', runSearch);
-
-  // Allow Enter key on date/players/time to trigger search
-  ['dateInput', 'playersInput', 'holesInput', 'timeWindow'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => {
-      if (e.key === 'Enter') runSearch();
-    });
-  });
 </script>
 </body>
 </html>

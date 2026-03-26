@@ -18,27 +18,52 @@ function timeout(ms) {
   );
 }
 
-async function fetchWithTimeout(url, options = {}, ms = 5000) {
+async function fetchWithTimeout(url, options = {}, ms = 8000) {
   return Promise.race([fetch(url, options), timeout(ms)]);
 }
 
 let foreupSession = '';
 let sessionFetchedAt = 0;
 
-async function ensureForeUpSession() {
-  if (foreupSession && Date.now() - sessionFetchedAt < 1800000) return;
+let chronogolfSession = '';
+let chronogolfSessionFetchedAt = 0;
+
+async function ensureChronogolfSession() {
+  if (chronogolfSession && Date.now() - chronogolfSessionFetchedAt < 1800000) return;
   try {
-    const res = await fetchWithTimeout('https://foreupsoftware.com/', {
+    const res = await fetchWithTimeout('https://www.chronogolf.com/', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
       },
-    }, 5000);
+    }, 6000);
     const cookie = res.headers.get('set-cookie');
     if (cookie) {
-      foreupSession = cookie.split(';')[0];
-      sessionFetchedAt = Date.now();
+      chronogolfSession = cookie.split(';')[0];
+      chronogolfSessionFetchedAt = Date.now();
     }
   } catch {}
+}
+
+async function ensureForeUpSession() {
+  if (foreupSession && Date.now() - sessionFetchedAt < 1800000) return;
+  // Retry up to 2 times — cold-start worker instances lose session state
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchWithTimeout('https://foreupsoftware.com/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      }, 5000);
+      const cookie = res.headers.get('set-cookie');
+      if (cookie) {
+        foreupSession = cookie.split(';')[0];
+        sessionFetchedAt = Date.now();
+        return;
+      }
+    } catch {}
+  }
 }
 
 async function handleForeUpLogin(request) {
@@ -98,11 +123,37 @@ async function handleForeUpLogin(request) {
   });
 }
 
+async function fetchForeUpTimes(url, foreupJwt) {
+  const fetchOptions = {
+    headers: {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://foreupsoftware.com/',
+      ...(foreupSession ? { 'Cookie': foreupSession } : {}),
+    },
+  };
+  if (foreupJwt) fetchOptions.headers['Authorization'] = `Bearer ${foreupJwt}`;
+
+  const res = await fetchWithTimeout(url, fetchOptions);
+  return res;
+}
+
+function isSessionError(res, data) {
+  if (!res.headers.get('content-type')?.includes('application/json')) return true;
+  if (res.status === 401 || res.status === 403) return true;
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    if (data.logged_in === false || data.success === false) return true;
+    if (data.error && /login|auth/i.test(String(data.error))) return true;
+  }
+  return false;
+}
+
 async function handleForeUp(params, foreupJwt) {
   await ensureForeUpSession();
-  const { schedule_id, date, players, holes = '18', booking_class_id = '0' } = params;
+  const { schedule_id, date, booking_class_id = '0', holes = '18' } = params;
 
-  if (!schedule_id || !date || !players) {
+  if (!schedule_id || !date) {
     return corsResponse({ error: 'missing_params' });
   }
 
@@ -114,80 +165,62 @@ async function handleForeUp(params, foreupJwt) {
   url.searchParams.set('time', 'all');
   url.searchParams.set('date', foreupDate);
   url.searchParams.set('holes', holes);
-  url.searchParams.set('players', players);
+  url.searchParams.set('players', '0'); // 0 = all available, filter spots client-side
   url.searchParams.set('booking_class', booking_class_id);
   url.searchParams.set('schedule_id', schedule_id);
+  url.searchParams.append('schedule_ids[]', schedule_id);
   url.searchParams.set('specials_only', '0');
   url.searchParams.set('api_key', 'no_limits');
 
-  const fetchOptions = {
-    headers: {
-      'Accept': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://foreupsoftware.com/',
-      ...(foreupSession ? { 'Cookie': foreupSession } : {}),
-    },
-  };
-
-  if (foreupJwt) {
-    fetchOptions.headers['Authorization'] = `Bearer ${foreupJwt}`;
-  }
-
   let res;
   try {
-    res = await fetchWithTimeout(url.toString(), fetchOptions);
+    res = await fetchForeUpTimes(url.toString(), foreupJwt);
   } catch (err) {
     if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
     return corsResponse({ error: 'upstream_error' });
   }
 
-  const contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    return corsResponse({ error: 'login_required' });
-  }
-
-  if (res.status === 401 || res.status === 403) {
-    return corsResponse({ error: 'login_required' });
+  // If session looks stale, refresh and retry once
+  let data;
+  try { data = await res.clone().json(); } catch {}
+  if (isSessionError(res, data)) {
+    foreupSession = '';
+    sessionFetchedAt = 0;
+    await ensureForeUpSession();
+    try {
+      res = await fetchForeUpTimes(url.toString(), foreupJwt);
+    } catch (err) {
+      if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
+      return corsResponse({ error: 'upstream_error' });
+    }
   }
 
   if (!res.ok) {
     return corsResponse({ error: 'upstream_error', status: res.status });
   }
 
-  let data;
   try {
     data = await res.json();
   } catch {
     return corsResponse({ error: 'parse_error' });
   }
 
-  if (data && typeof data === 'object' && !Array.isArray(data)) {
-    if (data.logged_in === false || data.success === false) {
-      return corsResponse({ error: 'login_required' });
-    }
-    if (data.error && (
-      String(data.error).toLowerCase().includes('login') ||
-      String(data.error).toLowerCase().includes('auth')
-    )) {
-      return corsResponse({ error: 'login_required' });
-    }
-  }
-
   return corsResponse(data);
 }
 
 async function handleChronogolf(params) {
-  const { club_id, date, players, holes = '18' } = params;
+  await ensureChronogolfSession();
+  const { course_ids, date } = params;
 
-  if (!club_id || !date || !players) {
+  if (!course_ids || !date) {
     return corsResponse({ error: 'missing_params' });
   }
 
-  const url = new URL(`https://www.chronogolf.com/club/${encodeURIComponent(club_id)}/teetimes`);
-  url.searchParams.set('date', date);
-  url.searchParams.set('nb_holes', holes);
-  url.searchParams.set('nb_players', players);
+  const url = new URL('https://www.chronogolf.com/marketplace/v2/teetimes');
+  url.searchParams.set('start_date', date);
+  url.searchParams.set('course_ids', course_ids);
+  url.searchParams.set('holes', '9,18');
+  url.searchParams.set('page', '1');
 
   let res;
   try {
@@ -195,15 +228,14 @@ async function handleChronogolf(params) {
       headers: {
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
+        'Referer': 'https://www.chronogolf.com/',
+        'Origin': 'https://www.chronogolf.com',
+        ...(chronogolfSession ? { 'Cookie': chronogolfSession } : {}),
       },
     });
   } catch (err) {
     if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
     return corsResponse({ error: 'upstream_error' });
-  }
-
-  if (res.status === 403 || res.status === 404) {
-    return corsResponse({ error: 'unavailable', status: res.status });
   }
 
   if (!res.ok) {
