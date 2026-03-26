@@ -431,17 +431,17 @@
           </div>
           <div class="code-verified" id="codeVerified">Code accepted</div>
         </div>
+        <div class="field">
+          <label>How do you currently find tee times?</label>
+          <select id="discoveryInput">
+            <option value="" disabled selected>Select one</option>
+            <option value="google">Google each course individually</option>
+            <option value="direct">Go directly to ForeUp / Chronogolf</option>
+            <option value="call">Call the pro shop</option>
+            <option value="someone-else">Someone else books for me</option>
+          </select>
+        </div>
         <div class="form-row">
-          <div class="field">
-            <label>Course you play most</label>
-            <select id="coursesInput">
-              <option value="" disabled selected>Select a course</option>
-              <option>Nibley Park</option><option>Bonneville</option><option>Rose Park</option>
-              <option>Mountain Dell</option><option>Soldier Hollow</option><option>Wingpointe</option>
-              <option>Thanksgiving Point</option><option>Jeremy Ranch</option>
-              <option>Park City Golf Club</option><option>Stonebridge</option><option>Other / Multiple</option>
-            </select>
-          </div>
           <div class="field">
             <label>Rounds per month</label>
             <select id="frequencyInput">
@@ -452,17 +452,17 @@
               <option value="9+">9+ rounds / month</option>
             </select>
           </div>
-        </div>
-        <div class="field">
-          <label>If Tee-Time saved you time every round, what feels fair?</label>
-          <select id="wtpInput">
-            <option value="" disabled selected>Pick one</option>
-            <option value="free">I'd only use it if it's free</option>
-            <option value="1-3">$1&ndash;3 / month sounds reasonable</option>
-            <option value="4-6">$4&ndash;6 / month, sure</option>
-            <option value="7-10">$7&ndash;10 / month for real value</option>
-            <option value="one-time">One-time purchase, not a sub</option>
-          </select>
+          <div class="field">
+            <label>If Tee-Time saved you time, what feels fair?</label>
+            <select id="wtpInput">
+              <option value="" disabled selected>Pick one</option>
+              <option value="free">I'd only use it if it's free</option>
+              <option value="1-3">$1&ndash;3 / month sounds reasonable</option>
+              <option value="4-6">$4&ndash;6 / month, sure</option>
+              <option value="7-10">$7&ndash;10 / month for real value</option>
+              <option value="one-time">One-time purchase, not a sub</option>
+            </select>
+          </div>
         </div>
         <div class="status" id="statusMsg"></div>
         <button class="submit-btn" id="submitBtn" type="button" disabled>
@@ -498,7 +498,7 @@
     const codeInput      = document.getElementById('codeInput');
     const verifyBtn      = document.getElementById('verifyBtn');
     const codeVerified   = document.getElementById('codeVerified');
-    const coursesInput   = document.getElementById('coursesInput');
+    const discoveryInput = document.getElementById('discoveryInput');
     const frequencyInput = document.getElementById('frequencyInput');
     const wtpInput       = document.getElementById('wtpInput');
     const submitBtn      = document.getElementById('submitBtn');
@@ -540,17 +540,17 @@
       }
     });
 
-    [emailInput, coursesInput, frequencyInput, wtpInput].forEach(el => {
+    [emailInput, discoveryInput, frequencyInput, wtpInput].forEach(el => {
       el.addEventListener('change', checkReady); el.addEventListener('input', checkReady);
     });
 
     function checkReady() {
-      submitBtn.disabled = !(emailInput.value.includes('@') && codeIsValid && coursesInput.value && frequencyInput.value && wtpInput.value);
+      submitBtn.disabled = !(emailInput.value.includes('@') && codeIsValid && discoveryInput.value && frequencyInput.value && wtpInput.value);
     }
 
     submitBtn.addEventListener('click', () => {
       if (!codeIsValid) { showStatus('Please verify your code first.', 'error'); return; }
-      const payload = { email: emailInput.value.trim(), code: codeInput.value.trim().toUpperCase(), course: coursesInput.value, frequency: frequencyInput.value, wtp: wtpInput.value, ts: Date.now() };
+      const payload = { email: emailInput.value.trim(), code: codeInput.value.trim().toUpperCase(), discovery: discoveryInput.value, frequency: frequencyInput.value, wtp: wtpInput.value, ts: Date.now() };
       trackEvent('early_access_request', payload);
       const subs = JSON.parse(localStorage.getItem('tt_submissions') || '[]');
       subs.push(payload); localStorage.setItem('tt_submissions', JSON.stringify(subs));
