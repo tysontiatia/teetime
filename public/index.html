@@ -610,27 +610,29 @@
 
       .search-panel { padding: 14px 20px; }
 
-      /* Single row on desktop */
+      /* Single centered row on desktop */
       .search-inner {
         flex-direction: row;
-        align-items: flex-end;
-        gap: 16px;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
       }
 
       .search-date-row {
         flex: 0 0 auto;
-        width: 280px;
+        width: 260px;
       }
 
-      .date-nav  { width: 36px; height: 38px; font-size: 1rem; }
+      .date-nav { width: 36px; height: 38px; font-size: 1rem; }
       #dateDisplay { padding: 8px 10px; font-size: 0.88rem; }
 
       .search-filters-row {
-        flex: 1;
+        flex: 0 0 auto;
         justify-content: flex-start;
         gap: 12px;
       }
 
+      .seg-group { gap: 5px; }
       .seg-btn { padding: 0 13px; }
 
       #results { padding: 24px 20px 64px; }
