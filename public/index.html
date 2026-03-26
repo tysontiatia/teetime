@@ -113,7 +113,6 @@
       background: var(--bg);
       border-bottom: 1px solid var(--border);
       padding: 14px 16px;
-      position: static;
     }
 
     .search-inner {
@@ -124,7 +123,6 @@
       gap: 12px;
     }
 
-    /* Date row */
     .search-date-row {
       display: flex;
       align-items: center;
@@ -185,13 +183,6 @@
       height: 100%;
     }
 
-    #dateInput:focus {
-      outline: none;
-      border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(22,163,74,0.1);
-    }
-
-    /* Filters row */
     .search-filters-row {
       display: flex;
       align-items: flex-end;
@@ -199,7 +190,6 @@
       flex-wrap: wrap;
     }
 
-    /* Segmented group */
     .seg-group {
       display: flex;
       flex-direction: column;
@@ -236,10 +226,7 @@
       line-height: 1;
     }
 
-    .seg-btn:hover {
-      border-color: var(--brand-dark);
-      color: var(--brand-dark);
-    }
+    .seg-btn:hover { border-color: var(--brand-dark); color: var(--brand-dark); }
 
     .seg-btn.active {
       background: var(--brand-bg);
@@ -270,62 +257,49 @@
     #searchBtn:disabled { background: #86efac; cursor: not-allowed; transform: none; }
 
     /* ─────────────────────────────
-       Area chips
+       Tab Strip
     ───────────────────────────── */
-    .area-filter {
-      background: var(--bg-subtle);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 20px;
+    .tab-strip {
+      background: var(--bg);
+      border-bottom: 2px solid var(--border);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
 
-    .area-filter-inner {
-      max-width: 900px;
-      margin: 0 auto;
+    .tab-strip::-webkit-scrollbar { display: none; }
+
+    .tab-strip-inner {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      padding: 0 8px;
+      min-width: max-content;
     }
 
-    .area-filter-label {
-      font-size: 0.69rem;
-      font-weight: 600;
-      color: var(--fg-subtle);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
+    .tab-btn {
+      font-family: var(--font);
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      background: none;
+      border: none;
+      border-bottom: 2.5px solid transparent;
+      margin-bottom: -2px;
+      padding: 13px 14px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.12s, border-color 0.12s;
       flex-shrink: 0;
     }
 
-    #areaChips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
+    .tab-btn:hover:not(.active) { color: var(--fg); }
 
-    .area-chip {
-      font-family: var(--font);
-      font-size: 0.78rem;
-      font-weight: 500;
-      padding: 7px 14px;
-      border-radius: 9999px;
-      border: 1.5px solid var(--border-strong);
-      background: var(--bg);
-      color: var(--fg-muted);
-      cursor: pointer;
-      transition: all 0.12s;
-      white-space: nowrap;
-    }
-
-    .area-chip.active {
-      background: var(--brand-bg);
-      border-color: var(--brand-bg);
-      color: #fff;
+    .tab-btn.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
       font-weight: 600;
-    }
-
-    .area-chip:hover:not(.active) {
-      border-color: var(--brand-dark);
-      color: var(--brand-dark);
     }
 
     /* ─────────────────────────────
@@ -338,10 +312,7 @@
 
     .progress-wrap.active { display: block; }
 
-    .progress-inner {
-      max-width: 900px;
-      margin: 0 auto;
-    }
+    .progress-inner { max-width: 900px; margin: 0 auto; }
 
     .progress-label {
       font-size: 0.76rem;
@@ -430,6 +401,8 @@
       font-weight: 600;
       font-size: 0.92rem;
       color: var(--fg);
+      flex: 1;
+      min-width: 0;
     }
 
     .course-meta {
@@ -448,10 +421,10 @@
       text-transform: uppercase;
     }
 
-    .badge-platform {
-      background: var(--bg-muted);
-      color: var(--fg-muted);
-      border: 1px solid var(--border);
+    .badge-distance {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
     }
 
     /* ─────────────────────────────
@@ -489,6 +462,28 @@
     .time-pill .t-time  { font-weight: 700; font-size: 0.87rem; }
     .time-pill .t-price { font-size: 0.7rem; font-weight: 500; opacity: 0.8; margin-top: 1px; }
     .time-pill .t-spots { font-size: 0.64rem; opacity: 0.6; }
+
+    .time-pill.pill-hot {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+    .time-pill.pill-hot:hover {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: #fff;
+    }
+
+    .time-pill.pill-low {
+      background: #fffbeb;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+    .time-pill.pill-low:hover {
+      background: #d97706;
+      border-color: #d97706;
+      color: #fff;
+    }
 
     /* ─────────────────────────────
        States
@@ -576,64 +571,7 @@
     .star-btn.active { color: #f59e0b; }
 
     /* ─────────────────────────────
-       Quick filters
-    ───────────────────────────── */
-    .quick-filter-bar {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 20px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .quick-filter-bar::-webkit-scrollbar { display: none; }
-
-    .quick-filter-inner {
-      max-width: 900px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-    }
-
-    .quick-filter-divider {
-      width: 1px;
-      height: 18px;
-      background: var(--border-strong);
-      flex-shrink: 0;
-      margin: 0 2px;
-    }
-
-    .quick-chip {
-      font-family: var(--font);
-      font-size: 0.78rem;
-      font-weight: 500;
-      padding: 8px 16px;
-      border-radius: 9999px;
-      border: 1.5px solid var(--border-strong);
-      background: var(--bg);
-      color: var(--fg-muted);
-      cursor: pointer;
-      transition: all 0.12s;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .quick-chip:hover:not(.active) {
-      border-color: var(--brand-dark);
-      color: var(--brand-dark);
-    }
-
-    .quick-chip.active {
-      background: var(--brand-bg);
-      border-color: var(--brand-bg);
-      color: #fff;
-      font-weight: 600;
-    }
-
-    /* ─────────────────────────────
-       Card from-price & count
+       Card summary
     ───────────────────────────── */
     .card-summary {
       display: flex;
@@ -655,135 +593,6 @@
     }
 
     /* ─────────────────────────────
-       Time pill urgency
-    ───────────────────────────── */
-    .time-pill.pill-hot {
-      background: #fef2f2;
-      border-color: #fca5a5;
-      color: #b91c1c;
-    }
-    .time-pill.pill-hot:hover {
-      background: #dc2626;
-      border-color: #dc2626;
-      color: #fff;
-    }
-
-    .time-pill.pill-low {
-      background: #fffbeb;
-      border-color: #fcd34d;
-      color: #92400e;
-    }
-    .time-pill.pill-low:hover {
-      background: #d97706;
-      border-color: #d97706;
-      color: #fff;
-    }
-
-    /* ─────────────────────────────
-       Course Search
-    ───────────────────────────── */
-    .course-search-bar {
-      background: var(--bg-subtle);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 16px;
-    }
-
-    .course-search-inner {
-      max-width: 900px;
-      margin: 0 auto;
-      position: relative;
-    }
-
-    .course-search-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--bg);
-      border: 1.5px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      padding: 0 12px;
-      height: 40px;
-      transition: border-color 0.12s, box-shadow 0.12s;
-    }
-
-    .course-search-wrap:focus-within {
-      border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(22,163,74,0.1);
-    }
-
-    .course-search-icon { flex-shrink: 0; }
-
-    #courseSearchInput {
-      flex: 1;
-      font-family: var(--font);
-      font-size: 0.88rem;
-      color: var(--fg);
-      border: none;
-      outline: none;
-      background: transparent;
-      min-width: 0;
-    }
-
-    #courseSearchInput::placeholder { color: var(--fg-subtle); }
-
-    .course-search-clear {
-      background: none;
-      border: none;
-      color: var(--fg-subtle);
-      cursor: pointer;
-      font-size: 1.1rem;
-      padding: 0;
-      line-height: 1;
-      flex-shrink: 0;
-      transition: color 0.12s;
-    }
-
-    .course-search-clear:hover { color: var(--fg); }
-
-    .course-search-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      right: 0;
-      background: var(--bg);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
-      list-style: none;
-      max-height: 280px;
-      overflow-y: auto;
-      z-index: 100;
-      display: none;
-    }
-
-    .course-search-dropdown.open { display: block; }
-
-    .course-search-dropdown li {
-      padding: 9px 14px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border);
-      transition: background 0.1s;
-    }
-
-    .course-search-dropdown li:last-child { border-bottom: none; }
-
-    .course-search-dropdown li:hover {
-      background: var(--brand-lighter);
-    }
-
-    .dropdown-course-name {
-      font-size: 0.88rem;
-      font-weight: 500;
-      color: var(--fg);
-    }
-
-    .dropdown-course-area {
-      font-size: 0.68rem;
-      color: var(--fg-subtle);
-      margin-top: 1px;
-    }
-
-    /* ─────────────────────────────
        Responsive — Desktop
     ───────────────────────────── */
     @media (min-width: 700px) {
@@ -793,17 +602,11 @@
 
       .search-panel {
         padding: 16px 20px;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        box-shadow: var(--shadow-sm);
       }
 
       .search-filters-row { gap: 16px; }
-
-      .date-nav { width: 40px; height: 40px; }
-
-      .seg-btn { min-height: 36px; padding: 7px 14px; }
+      .date-nav  { width: 40px; height: 40px; }
+      .seg-btn   { min-height: 36px; padding: 7px 14px; }
 
       #searchBtn {
         width: auto;
@@ -812,9 +615,6 @@
       }
 
       #results { padding: 24px 20px 64px; }
-
-      .area-chip  { padding: 4px 12px; }
-      .quick-chip { padding: 5px 13px; }
     }
   </style>
 </head>
@@ -833,7 +633,7 @@
         TeeTimes
         <span class="brand-state">Utah</span>
       </div>
-      <div class="brand-tagline">44 courses · ForeUp, Chronogolf &amp; more</div>
+      <div class="brand-tagline">67 courses · ForeUp, Chronogolf &amp; more</div>
     </div>
   </div>
 </header>
@@ -841,7 +641,6 @@
 <div class="search-panel">
   <div class="search-inner">
 
-    <!-- Date with prev/next -->
     <div class="search-date-row">
       <button class="date-nav" id="datePrev" aria-label="Previous day">&#8249;</button>
       <div class="date-display-wrap">
@@ -851,7 +650,6 @@
       <button class="date-nav" id="dateNext" aria-label="Next day">&#8250;</button>
     </div>
 
-    <!-- Segmented filter controls -->
     <div class="search-filters-row">
 
       <div class="seg-group">
@@ -878,42 +676,11 @@
   </div>
 </div>
 
-<!-- Hidden inputs — JS reads these to get current filter values -->
 <input type="hidden" id="playersInput" value="2" />
 <input type="hidden" id="holesInput" value="18" />
 
-<div class="area-filter" id="areaFilter" style="display:none">
-  <div class="area-filter-inner">
-    <span class="area-filter-label">Areas</span>
-    <div id="areaChips"></div>
-  </div>
-</div>
-
-<div class="quick-filter-bar" id="quickFilterBar" style="display:none">
-  <div class="quick-filter-inner">
-    <button class="quick-chip" id="starredChip" data-filter="starred">★ Starred</button>
-    <div class="quick-filter-divider"></div>
-    <button class="quick-chip" data-filter="next3h">⏱ Next 3 hrs</button>
-    <button class="quick-chip" data-filter="morning">🌅 Morning</button>
-    <button class="quick-chip" data-filter="afternoon">☀️ Afternoon</button>
-    <div class="quick-filter-divider"></div>
-    <button class="quick-chip" data-filter="under40">Under $40</button>
-    <button class="quick-chip" data-filter="under60">Under $60</button>
-  </div>
-</div>
-
-<div class="course-search-bar" id="courseSearchBar" style="display:none">
-  <div class="course-search-inner">
-    <div class="course-search-wrap">
-      <svg class="course-search-icon" width="15" height="15" viewBox="0 0 15 15" fill="none">
-        <circle cx="6.5" cy="6.5" r="4.5" stroke="#9ca3af" stroke-width="1.5"/>
-        <path d="M10 10l2.5 2.5" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      <input type="text" id="courseSearchInput" placeholder="Search available courses…" autocomplete="off" spellcheck="false" />
-      <button class="course-search-clear" id="courseSearchClear" style="display:none" aria-label="Clear search">✕</button>
-    </div>
-    <ul class="course-search-dropdown" id="courseSearchDropdown"></ul>
-  </div>
+<div class="tab-strip">
+  <div class="tab-strip-inner" id="tabStrip"></div>
 </div>
 
 <div class="progress-wrap" id="progressWrap">
@@ -929,13 +696,36 @@
   const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
 
   let courses = [];
-  let cachedApiResults = null;
-  let selectedAreas = new Set();
-  let activeQuickFilters = new Set();
-  let searchQuery = '';
+  let activeTab = 'nearby';
+  let userLocation = null; // { lat, lng }
 
-  const TIME_QF  = new Set(['next3h', 'morning', 'afternoon']);
-  const PRICE_QF = new Set(['under40', 'under60']);
+  // ── Tabs ──
+  const REGION_TABS = [
+    { id: 'nearby',   label: '📍 Near Me' },
+    { id: 'saved',    label: '★ Saved' },
+    { id: 'all',      label: 'All' },
+    { id: 'slc',      label: 'Salt Lake Valley', areas: ['SALT LAKE CITY AREA', 'TOOELE AND WEST'] },
+    { id: 'davis',    label: 'Davis & Weber',     areas: ['DAVIS AND WEBER COUNTY'] },
+    { id: 'utah',     label: 'Utah County',       areas: ['UTAH COUNTY AND SOUTH'] },
+    { id: 'stgeorge', label: 'St. George',        areas: ['ST. GEORGE AND SOUTHWEST', 'CEDAR CITY AND SOUTHWEST', 'CENTRAL AND SOUTHWEST UTAH'] },
+    { id: 'parkcity', label: 'Park City & Heber', areas: ['PARK CITY AND EAST', 'HEBER VALLEY AND EAST'] },
+    { id: 'cache',    label: 'Cache Valley',      areas: ['LOGAN, CACHE VALLEY, NORTH'] },
+    { id: 'eastern',  label: 'Eastern Utah',      areas: ['UINTA BASIN AND EAST'] },
+  ];
+
+  const AREA_LABELS = {
+    'SALT LAKE CITY AREA':           'Salt Lake City',
+    'UTAH COUNTY AND SOUTH':         'Utah County',
+    'DAVIS AND WEBER COUNTY':        'Davis & Weber',
+    'HEBER VALLEY AND EAST':         'Heber Valley',
+    'TOOELE AND WEST':               'Tooele & West',
+    'LOGAN, CACHE VALLEY, NORTH':    'Cache Valley',
+    'ST. GEORGE AND SOUTHWEST':      'St. George',
+    'CEDAR CITY AND SOUTHWEST':      'Cedar City',
+    'CENTRAL AND SOUTHWEST UTAH':    'Central Utah',
+    'PARK CITY AND EAST':            'Park City',
+    'UINTA BASIN AND EAST':          'Eastern Utah',
+  };
 
   // ── Favorites ──
   let favorites = new Set(JSON.parse(localStorage.getItem('tt_favorites') || '[]'));
@@ -951,34 +741,87 @@
       favorites.add(courseName);
     }
     saveFavorites();
-    // Update all star buttons for this course
     document.querySelectorAll(`.star-btn[data-course="${CSS.escape(courseName)}"]`).forEach(btn => {
       btn.classList.toggle('active', favorites.has(courseName));
       btn.setAttribute('aria-label', favorites.has(courseName) ? 'Unstar course' : 'Star course');
     });
-    // Re-render if starred filter is active
-    if (activeQuickFilters.has('starred') && cachedApiResults) {
-      const key = getCacheKey(document.getElementById('dateInput').value, document.getElementById('holesInput').value, document.getElementById('playersInput').value);
-      const ts = searchCache.get(key)?.fetchedAt;
-      processAndRender(cachedApiResults, document.getElementById('playersInput').value, document.getElementById('holesInput').value, ts);
+    if (activeTab === 'saved') runSearch();
+  }
+
+  // ── Per-course cache ──
+  const courseCache = new Map(); // `name||date||holes||players` → { data, error, fetchedAt }
+  const CACHE_TTL_MS = 3 * 60 * 1000;
+
+  function getCourseKey(course, date, holes, players) {
+    return `${course.name}||${date}||${holes}||${players}`;
+  }
+
+  // ── Haversine ──
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 3958.8;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.asin(Math.sqrt(a));
+  }
+
+  // ── Tab helpers ──
+  function getCoursesForTab(tabId) {
+    if (tabId === 'nearby') return courses;
+    if (tabId === 'saved')  return courses.filter(c => favorites.has(c.name));
+    if (tabId === 'all')    return courses;
+    const tab = REGION_TABS.find(t => t.id === tabId);
+    if (!tab?.areas) return courses;
+    return courses.filter(c => tab.areas.includes(c.area));
+  }
+
+  function buildTabStrip() {
+    const strip = document.getElementById('tabStrip');
+    strip.innerHTML = '';
+    REGION_TABS.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn' + (tab.id === activeTab ? ' active' : '');
+      btn.dataset.tab = tab.id;
+      btn.textContent = tab.label;
+      btn.addEventListener('click', () => switchTab(tab.id));
+      strip.appendChild(btn);
+    });
+  }
+
+  function switchTab(tabId) {
+    activeTab = tabId;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    if (tabId === 'nearby') {
+      requestGeolocation();
+    } else {
+      runSearch();
     }
   }
 
-  const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
-  const searchCache = new Map(); // key: "date-holes" → { results, fetchedAt }
-
-  function getCacheKey(date, holes, players) {
-    return `${date}-${holes}-${players}`;
+  function requestGeolocation() {
+    if (!navigator.geolocation) {
+      showInlineError('Geolocation is not supported by your browser. Try a different tab.');
+      return;
+    }
+    document.getElementById('results').innerHTML =
+      '<div class="empty-state"><p>Getting your location…</p></div>';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        runSearch();
+      },
+      err => {
+        const msg = err.code === 1
+          ? 'Location access denied. Enable location and tap Near Me again.'
+          : 'Could not get your location. Try a different tab.';
+        showInlineError(msg);
+      },
+      { timeout: 10000, maximumAge: 300000 }
+    );
   }
-
-  const AREA_LABELS = {
-    'SALT LAKE CITY AREA':        'Salt Lake City',
-    'UTAH COUNTY AND SOUTH':      'Utah County & South',
-    'DAVIS AND WEBER COUNTY':     'Davis & Weber',
-    'HEBER VALLEY AND EAST':      'Heber Valley',
-    'TOOELE AND WEST':            'Tooele & West',
-    'LOGAN, CACHE VALLEY, NORTH': 'Logan / Cache Valley',
-  };
 
   // ── Date setup ──
   const _now = new Date();
@@ -1014,15 +857,19 @@
   let searchDebounceTimer = null;
   function scheduleSearch() {
     clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(runSearch, 400);
+    searchDebounceTimer = setTimeout(() => {
+      // Invalidate cache when date/holes/players change so all tabs re-fetch
+      courseCache.clear();
+      if (activeTab === 'nearby' && !userLocation) {
+        requestGeolocation();
+      } else {
+        runSearch();
+      }
+    }, 400);
   }
 
-  document.getElementById('dateInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') runSearch();
-  });
-
   // ── Segmented controls ──
-  function initSegment(groupId, inputId, { clientSide = false } = {}) {
+  function initSegment(groupId, inputId) {
     const group = document.getElementById(groupId);
     const input = document.getElementById(inputId);
     group.querySelectorAll('.seg-btn').forEach(btn => {
@@ -1030,23 +877,10 @@
         group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         input.value = btn.dataset.value;
-        if (clientSide && cachedApiResults) {
-          // Area-style filter: re-filter cached data instantly
-          const key = getCacheKey(
-            document.getElementById('dateInput').value,
-            document.getElementById('holesInput').value,
-            document.getElementById('playersInput').value,
-          );
-          const ts = searchCache.get(key)?.fetchedAt;
-          processAndRender(
-            cachedApiResults,
-            document.getElementById('playersInput').value,
-            document.getElementById('holesInput').value,
-            ts,
-          );
-        } else if (!clientSide) {
-          // Server-side filter: auto-trigger a fresh search
-          cachedApiResults = null;
+        courseCache.clear();
+        if (activeTab === 'nearby' && !userLocation) {
+          requestGeolocation();
+        } else {
           runSearch();
         }
       });
@@ -1061,52 +895,13 @@
     .then(r => r.json())
     .then(data => {
       courses = data;
-      const areas = [...new Set(data.map(c => c.area))].sort();
-      selectedAreas = new Set(areas);
-      renderAreaChips(areas);
-      document.getElementById('courseSearchBar').style.display = '';
-      runSearch(); // auto-load on page open
+      buildTabStrip();
+      switchTab('nearby'); // auto-start with Near Me
     })
     .catch(() => {
       document.getElementById('results').innerHTML =
         '<p style="color:#dc2626;padding:20px">Failed to load courses.json.</p>';
     });
-
-  function renderAreaChips(areas) {
-    const container = document.getElementById('areaChips');
-    areas.forEach(area => {
-      const btn = document.createElement('button');
-      btn.className = 'area-chip active';
-      btn.dataset.area = area;
-      btn.textContent = AREA_LABELS[area] || area;
-      btn.addEventListener('click', () => {
-        if (selectedAreas.has(area)) {
-          selectedAreas.delete(area);
-          btn.classList.remove('active');
-        } else {
-          selectedAreas.add(area);
-          btn.classList.add('active');
-        }
-        if (cachedApiResults) {
-          const key = getCacheKey(
-            document.getElementById('dateInput').value,
-            document.getElementById('holesInput').value,
-            document.getElementById('playersInput').value,
-          );
-          const ts = searchCache.get(key)?.fetchedAt;
-          processAndRender(
-            cachedApiResults,
-            document.getElementById('playersInput').value,
-            document.getElementById('holesInput').value,
-            ts,
-          );
-        }
-      });
-      container.appendChild(btn);
-    });
-    document.getElementById('areaFilter').style.display = '';
-    document.getElementById('quickFilterBar').style.display = '';
-  }
 
   // ── Helpers ──
   function formatTime12h(timeStr) {
@@ -1127,43 +922,11 @@
     return '$' + n.toFixed(0);
   }
 
-  function extractHour(rawTime) {
-    if (!rawTime) return null;
-    const timePart = rawTime.includes(' ') ? rawTime.split(' ')[1] : rawTime;
-    const h = parseInt(timePart.split(':')[0], 10);
-    return isNaN(h) ? null : h;
-  }
-
   function parsePrice(priceStr) {
     if (!priceStr) return null;
     const n = parseFloat(priceStr.replace('$', ''));
     return isNaN(n) ? null : n;
   }
-
-  // ── Quick filters ──
-  function initQuickFilters() {
-    document.querySelectorAll('.quick-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const f = btn.dataset.filter;
-        if (activeQuickFilters.has(f)) {
-          activeQuickFilters.delete(f);
-          btn.classList.remove('active');
-        } else {
-          // Mutually exclusive within time group and price group (starred is independent)
-          if (TIME_QF.has(f))  TIME_QF.forEach(x  => { activeQuickFilters.delete(x);  document.querySelector(`[data-filter="${x}"]`)?.classList.remove('active'); });
-          if (PRICE_QF.has(f)) PRICE_QF.forEach(x => { activeQuickFilters.delete(x);  document.querySelector(`[data-filter="${x}"]`)?.classList.remove('active'); });
-          activeQuickFilters.add(f);
-          btn.classList.add('active');
-        }
-        if (cachedApiResults) {
-          const key = getCacheKey(document.getElementById('dateInput').value, document.getElementById('holesInput').value, document.getElementById('playersInput').value);
-          const ts = searchCache.get(key)?.fetchedAt;
-          processAndRender(cachedApiResults, document.getElementById('playersInput').value, document.getElementById('holesInput').value, ts);
-        }
-      });
-    });
-  }
-  initQuickFilters();
 
   // ── API ──
   async function fetchCourseTimes(course, date, holes, players) {
@@ -1176,7 +939,7 @@
       params.set('holes', holes);
       url = `${WORKER_URL}/foreup?${params}`;
     } else if (course.platform === 'chronogolf') {
-      if (!course.course_ids) return Promise.resolve(null);
+      if (!course.course_ids) return null;
       params.set('course_ids', course.course_ids.join(','));
       url = `${WORKER_URL}/chronogolf?${params}`;
     } else if (course.platform === 'membersports') {
@@ -1192,19 +955,30 @@
       url = `${WORKER_URL}/chronogolf-slc?${params}`;
     }
 
+    if (!url) return null;
     const res = await fetch(url);
     return res.json();
   }
 
   // ── Normalizers ──
+  function normalizeTimes(course, data, holes) {
+    if (!data) return [];
+    switch (course.platform) {
+      case 'foreup':         return normalizeForeUpTimes(data);
+      case 'membersports':   return normalizeMemberSportsTimes(data, holes);
+      case 'chronogolf_slc': return normalizeChronogolfSlcTimes(data, holes);
+      default:               return normalizeChronogolfTimes(data);
+    }
+  }
+
   function normalizeForeUpTimes(data) {
     if (!Array.isArray(data)) return [];
     return data.map(t => ({
       rawTime: t.time || '',
       display: formatTime12h(t.time || ''),
-      spots: t.available_spots || null,
-      price: formatPrice(t.green_fee),
-      holes: t.holes,
+      spots:   t.available_spots || null,
+      price:   formatPrice(t.green_fee),
+      holes:   t.holes,
     }));
   }
 
@@ -1226,9 +1000,9 @@
         result.push({
           rawTime,
           display: formatTime12h(rawTime),
-          spots: availableSpots,
-          price: formatPrice(item.price),
-          holes: itemHoles,
+          spots:   availableSpots,
+          price:   formatPrice(item.price),
+          holes:   itemHoles,
         });
       }
     }
@@ -1242,9 +1016,9 @@
       .map(t => ({
         rawTime: t.start_time || '',
         display: formatTime12h(t.start_time || ''),
-        spots: null,
-        price: formatPrice(t.green_fees?.[0]?.green_fee),
-        holes: parseInt(holes, 10),
+        spots:   null,
+        price:   formatPrice(t.green_fees?.[0]?.green_fee),
+        holes:   parseInt(holes, 10),
       }));
   }
 
@@ -1254,9 +1028,9 @@
     return items.map(t => ({
       rawTime: t.start_time || '',
       display: formatTime12h(t.start_time || ''),
-      spots: t.max_player_size ?? null,
-      price: formatPrice(t.default_price?.green_fee),
-      holes: t.default_price?.bookable_holes ?? t.course?.holes,
+      spots:   t.max_player_size ?? null,
+      price:   formatPrice(t.default_price?.green_fee),
+      holes:   t.default_price?.bookable_holes ?? t.course?.holes,
     }));
   }
 
@@ -1289,7 +1063,7 @@
     return a;
   }
 
-  function buildCourseCard(course, times, error, isUnavailable) {
+  function buildCourseCard(course, times, error, isUnavailable, distanceMi) {
     const card = document.createElement('div');
     card.className = 'course-card' + (isUnavailable ? ' unavailable-card' : '');
     card.dataset.courseName = course.name;
@@ -1310,6 +1084,16 @@
 
     const summary = document.createElement('div');
     summary.className = 'card-summary';
+
+    // Distance badge (Near Me tab)
+    if (distanceMi != null) {
+      const distBadge = document.createElement('span');
+      distBadge.className = 'badge badge-distance';
+      distBadge.textContent = distanceMi < 10
+        ? `${distanceMi.toFixed(1)} mi`
+        : `${Math.round(distanceMi)} mi`;
+      summary.appendChild(distBadge);
+    }
 
     if (times && times.length > 0) {
       const prices = times.map(t => parsePrice(t.price)).filter(p => p !== null);
@@ -1381,25 +1165,32 @@
       `<p style="color:#dc2626;padding:20px;font-size:0.92rem">${msg}</p>`;
   }
 
-  // ── Search ──
+  // ── Run search ──
   async function runSearch() {
-    if (!courses.length) {
-      showInlineError('Courses not loaded yet — please wait a moment and try again.');
-      return;
-    }
+    if (!courses.length) return;
 
     const date    = document.getElementById('dateInput').value;
     const players = document.getElementById('playersInput').value;
     const holes   = document.getElementById('holesInput').value;
+    if (!date) return;
 
-    if (!date) { showInlineError('Please pick a date.'); return; }
+    const tabCourses = getCoursesForTab(activeTab);
 
-    // Return cached result if it's fresh (< 3 min old, same params)
-    const cacheKey = getCacheKey(date, holes, players);
-    const cached = searchCache.get(cacheKey);
-    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-      cachedApiResults = cached.results;
-      processAndRender(cached.results, players, holes);
+    if (activeTab === 'saved' && tabCourses.length === 0) {
+      document.getElementById('results').innerHTML =
+        '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3"><circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/><path d="M20 10v10l6 4" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/></svg><p>Tap ★ on any course to save it here.</p></div>';
+      return;
+    }
+
+    // Determine which courses need fetching
+    const toFetch = tabCourses.filter(c => {
+      const key = getCourseKey(c, date, holes, players);
+      const cached = courseCache.get(key);
+      return !cached || Date.now() - cached.fetchedAt >= CACHE_TTL_MS;
+    });
+
+    if (toFetch.length === 0) {
+      renderFromCache(tabCourses, date, holes, players);
       return;
     }
 
@@ -1412,103 +1203,98 @@
     const progressFill  = document.getElementById('progressFill');
     progressWrap.classList.add('active');
 
-    const total = courses.length;
     let done = 0;
 
     function updateProgress() {
       done++;
-      progressLabel.textContent = `Fetching… ${done}/${total} courses`;
-      progressFill.style.width = `${Math.round((done / total) * 100)}%`;
+      progressLabel.textContent = `Fetching… ${done}/${toFetch.length}`;
+      progressFill.style.width = `${Math.round((done / toFetch.length) * 100)}%`;
     }
 
-    const promises = courses.map(course =>
+    const promises = toFetch.map(course =>
       fetchCourseTimes(course, date, holes, players)
-        .then(data => { updateProgress(); return { course, data, error: data?.error || null }; })
-        .catch(()  => { updateProgress(); return { course, data: null, error: 'upstream_error' }; })
+        .then(data => {
+          const key = getCourseKey(course, date, holes, players);
+          courseCache.set(key, { data, error: data?.error || null, fetchedAt: Date.now() });
+          updateProgress();
+        })
+        .catch(() => {
+          const key = getCourseKey(course, date, holes, players);
+          courseCache.set(key, { data: null, error: 'upstream_error', fetchedAt: Date.now() });
+          updateProgress();
+        })
     );
 
-    const settled = await Promise.allSettled(promises);
-    const allResults = settled.map(s =>
-      s.status === 'fulfilled'
-        ? s.value
-        : { course: s.reason?.course, data: null, error: 'upstream_error' }
-    );
-
-    const fetchedAt = Date.now();
-    searchCache.set(cacheKey, { results: allResults, fetchedAt });
-    cachedApiResults = allResults;
-    processAndRender(allResults, players, holes, fetchedAt);
+    await Promise.allSettled(promises);
 
     progressWrap.classList.remove('active');
+    progressFill.style.width = '0%';
     btn.disabled = false;
     btn.textContent = 'Refresh';
+
+    renderFromCache(tabCourses, date, holes, players);
   }
 
-  function processAndRender(apiResults, players, holes, fetchedAt) {
-    const now = new Date();
-    const nowH = now.getHours() + now.getMinutes() / 60;
+  function renderFromCache(tabCourses, date, holes, players) {
+    const allResults = tabCourses.map(course => {
+      const key = getCourseKey(course, date, holes, players);
+      const cached = courseCache.get(key);
+      return {
+        course,
+        data:  cached?.data  ?? null,
+        error: cached?.error ?? null,
+      };
+    });
+    processAndRender(allResults, players, holes);
+  }
 
-    const processed = apiResults
-      .filter(r => selectedAreas.has(r.course.area))
-      .filter(r => !activeQuickFilters.has('starred') || favorites.has(r.course.name))
-      .map(r => {
+  function processAndRender(apiResults, players, holes) {
+    const processed = apiResults.map(r => {
       if (r.error) return { ...r, times: [] };
-      let times = r.course.platform === 'foreup'
-        ? normalizeForeUpTimes(r.data)
-        : r.course.platform === 'membersports'
-          ? normalizeMemberSportsTimes(r.data, holes)
-          : r.course.platform === 'chronogolf_slc'
-            ? normalizeChronogolfSlcTimes(r.data, holes)
-            : normalizeChronogolfTimes(r.data);
+      let times = normalizeTimes(r.course, r.data, holes);
       times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
-      times = times.filter(t => t.holes == null || t.holes == 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
-
-      // Quick filters
-      if (activeQuickFilters.has('next3h'))   times = times.filter(t => { const h = extractHour(t.rawTime); return h !== null && h >= nowH && h <= nowH + 3; });
-      if (activeQuickFilters.has('morning'))  times = times.filter(t => { const h = extractHour(t.rawTime); return h !== null && h >= 5 && h < 12; });
-      if (activeQuickFilters.has('afternoon'))times = times.filter(t => { const h = extractHour(t.rawTime); return h !== null && h >= 12 && h < 18; });
-      if (activeQuickFilters.has('under40'))  times = times.filter(t => { const p = parsePrice(t.price); return p !== null && p < 40; });
-      if (activeQuickFilters.has('under60'))  times = times.filter(t => { const p = parsePrice(t.price); return p !== null && p < 60; });
-
+      times = times.filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
       return { ...r, times };
     });
 
+    // Nearby: compute distances and sort
+    if (activeTab === 'nearby' && userLocation) {
+      for (const r of processed) {
+        if (r.course.lat != null && r.course.lng != null) {
+          r.distanceMi = haversine(userLocation.lat, userLocation.lng, r.course.lat, r.course.lng);
+        }
+      }
+      processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
+    }
+
     const available   = processed.filter(r => !r.error && r.times.length > 0);
     const unavailable = processed.filter(r => r.error || r.times.length === 0);
-
-    // Populate autocomplete from available courses (before search filter)
-    populateDropdown(available);
-    filterDropdown();
-
-    // Apply search filter to both buckets
-    const q = searchQuery;
-    const searchFilter = r => !q || r.course.name.toLowerCase().includes(q);
-    const visibleAvailable   = available.filter(searchFilter);
-    const visibleUnavailable = unavailable.filter(searchFilter);
 
     const resultsEl = document.getElementById('results');
     resultsEl.innerHTML = '';
 
     const meta = document.createElement('div');
     meta.className = 'results-meta';
-    const timeStr = fetchedAt
-      ? new Date(fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-      : null;
-    const metaCount = q ? `${visibleAvailable.length} of ${available.length}` : available.length;
-    meta.textContent = `${metaCount} course${available.length !== 1 ? 's' : ''} with available times${timeStr ? ` · as of ${timeStr}` : ''}`;
+    meta.textContent = `${available.length} course${available.length !== 1 ? 's' : ''} with available times`;
     resultsEl.appendChild(meta);
 
-    if (visibleAvailable.length > 0) {
-      const grouped = groupByArea(visibleAvailable);
-      for (const [area, items] of Object.entries(grouped)) {
-        const group = document.createElement('div');
-        group.className = 'area-group';
-        const heading = document.createElement('div');
-        heading.className = 'area-heading';
-        heading.textContent = area;
-        group.appendChild(heading);
-        for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, false));
-        resultsEl.appendChild(group);
+    if (available.length > 0) {
+      if (activeTab === 'all') {
+        const grouped = groupByArea(available);
+        for (const [area, items] of Object.entries(grouped)) {
+          const group = document.createElement('div');
+          group.className = 'area-group';
+          const heading = document.createElement('div');
+          heading.className = 'area-heading';
+          heading.textContent = AREA_LABELS[area] || area;
+          group.appendChild(heading);
+          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi));
+          resultsEl.appendChild(group);
+        }
+      } else {
+        for (const r of available) {
+          resultsEl.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi));
+        }
       }
     } else {
       const empty = document.createElement('div');
@@ -1518,17 +1304,16 @@
           <circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/>
           <path d="M13 20h14" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <p>No tee times found. Try a different date or time window.</p>
+        <p>No tee times found. Try a different date or adjust your filters.</p>
       `;
       resultsEl.appendChild(empty);
     }
 
-    if (visibleUnavailable.length > 0) {
-      // Auto-expand when nothing is available so the user can see why
-      const startOpen = visibleAvailable.length === 0;
+    if (unavailable.length > 0) {
+      const startOpen = available.length === 0;
 
-      const noTimesCount = visibleUnavailable.filter(r => !r.error).length;
-      const errorCount   = visibleUnavailable.filter(r => r.error).length;
+      const noTimesCount = unavailable.filter(r => !r.error).length;
+      const errorCount   = unavailable.filter(r =>  r.error).length;
       const reasonParts  = [];
       if (noTimesCount) reasonParts.push(`${noTimesCount} no times`);
       if (errorCount)   reasonParts.push(`${errorCount} unavailable`);
@@ -1541,122 +1326,51 @@
       toggle.id = 'unavailableToggle';
       toggle.className = 'shown';
       toggle.innerHTML = startOpen
-        ? `${chevronUp} Hide ${visibleUnavailable.length} unavailable course${visibleUnavailable.length !== 1 ? 's' : ''}${reasonStr}`
-        : `${chevronDown} Show ${visibleUnavailable.length} unavailable course${visibleUnavailable.length !== 1 ? 's' : ''}${reasonStr}`;
+        ? `${chevronUp} Hide ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`
+        : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
       resultsEl.appendChild(toggle);
 
       const unavailSection = document.createElement('div');
       unavailSection.id = 'unavailableCourses';
       if (startOpen) unavailSection.classList.add('open');
 
-      const grouped = groupByArea(visibleUnavailable);
-      for (const [area, items] of Object.entries(grouped)) {
-        const group = document.createElement('div');
-        group.className = 'area-group';
-        const heading = document.createElement('div');
-        heading.className = 'area-heading';
-        heading.textContent = area;
-        group.appendChild(heading);
-        for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, true));
-        unavailSection.appendChild(group);
+      if (activeTab === 'all') {
+        const grouped = groupByArea(unavailable);
+        for (const [area, items] of Object.entries(grouped)) {
+          const group = document.createElement('div');
+          group.className = 'area-group';
+          const heading = document.createElement('div');
+          heading.className = 'area-heading';
+          heading.textContent = AREA_LABELS[area] || area;
+          group.appendChild(heading);
+          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi));
+          unavailSection.appendChild(group);
+        }
+      } else {
+        for (const r of unavailable) {
+          unavailSection.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi));
+        }
       }
 
       toggle.addEventListener('click', () => {
         const open = unavailSection.classList.toggle('open');
         toggle.innerHTML = open
           ? `${chevronUp} Hide unavailable courses`
-          : `${chevronDown} Show ${visibleUnavailable.length} unavailable course${visibleUnavailable.length !== 1 ? 's' : ''}${reasonStr}`;
+          : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
       });
 
       resultsEl.appendChild(unavailSection);
     }
   }
 
-  document.getElementById('searchBtn').addEventListener('click', runSearch);
-
-  // ── Course search ──
-  const courseSearchInput   = document.getElementById('courseSearchInput');
-  const courseSearchClear   = document.getElementById('courseSearchClear');
-  const courseSearchDropdown = document.getElementById('courseSearchDropdown');
-
-  function reRenderFromCache() {
-    if (!cachedApiResults) return;
-    const key = getCacheKey(
-      document.getElementById('dateInput').value,
-      document.getElementById('holesInput').value,
-      document.getElementById('playersInput').value
-    );
-    processAndRender(cachedApiResults, document.getElementById('playersInput').value, document.getElementById('holesInput').value, searchCache.get(key)?.fetchedAt);
-  }
-
-  courseSearchInput.addEventListener('input', () => {
-    searchQuery = courseSearchInput.value.trim().toLowerCase();
-    courseSearchClear.style.display = searchQuery ? '' : 'none';
-    filterDropdown();
-    reRenderFromCache();
+  document.getElementById('searchBtn').addEventListener('click', () => {
+    courseCache.clear();
+    if (activeTab === 'nearby' && !userLocation) {
+      requestGeolocation();
+    } else {
+      runSearch();
+    }
   });
-
-  courseSearchInput.addEventListener('focus', () => {
-    if (courseSearchDropdown.children.length > 0) filterDropdown();
-  });
-
-  courseSearchInput.addEventListener('keydown', e => {
-    if (e.key === 'Escape') clearCourseSearch();
-  });
-
-  courseSearchClear.addEventListener('click', clearCourseSearch);
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.course-search-inner')) courseSearchDropdown.classList.remove('open');
-  });
-
-  function clearCourseSearch() {
-    searchQuery = '';
-    courseSearchInput.value = '';
-    courseSearchClear.style.display = 'none';
-    courseSearchDropdown.classList.remove('open');
-    reRenderFromCache();
-  }
-
-  function populateDropdown(availableResults) {
-    courseSearchDropdown.innerHTML = '';
-    availableResults.forEach(r => {
-      const li = document.createElement('li');
-      const nameEl = document.createElement('div');
-      nameEl.className = 'dropdown-course-name';
-      nameEl.textContent = r.course.name;
-      const areaEl = document.createElement('div');
-      areaEl.className = 'dropdown-course-area';
-      areaEl.textContent = AREA_LABELS[r.course.area] || r.course.area;
-      li.appendChild(nameEl);
-      li.appendChild(areaEl);
-      li.addEventListener('mousedown', e => {
-        e.preventDefault(); // keep focus on input
-        courseSearchInput.value = r.course.name;
-        searchQuery = r.course.name.toLowerCase();
-        courseSearchClear.style.display = '';
-        courseSearchDropdown.classList.remove('open');
-        reRenderFromCache();
-        setTimeout(() => {
-          const card = document.querySelector(`[data-course-name="${CSS.escape(r.course.name)}"]`);
-          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 80);
-      });
-      courseSearchDropdown.appendChild(li);
-    });
-  }
-
-  function filterDropdown() {
-    const q = searchQuery;
-    let visible = 0;
-    Array.from(courseSearchDropdown.children).forEach(li => {
-      const name = li.querySelector('.dropdown-course-name')?.textContent.toLowerCase() || '';
-      const show = !q || name.includes(q);
-      li.style.display = show ? '' : 'none';
-      if (show) visible++;
-    });
-    courseSearchDropdown.classList.toggle('open', visible > 0 && document.activeElement === courseSearchInput);
-  }
 </script>
 </body>
 </html>
