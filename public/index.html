@@ -608,13 +608,30 @@
       .brand-name    { font-size: 1.45rem; }
       .brand-tagline { display: block; }
 
-      .search-panel {
-        padding: 16px 20px;
+      .search-panel { padding: 14px 20px; }
+
+      /* Single row on desktop */
+      .search-inner {
+        flex-direction: row;
+        align-items: flex-end;
+        gap: 16px;
       }
 
-      .search-filters-row { gap: 14px; }
-      .date-nav { width: 40px; height: 40px; }
-      .seg-btn  { padding: 0 14px; }
+      .search-date-row {
+        flex: 0 0 auto;
+        width: 280px;
+      }
+
+      .date-nav  { width: 36px; height: 38px; font-size: 1rem; }
+      #dateDisplay { padding: 8px 10px; font-size: 0.88rem; }
+
+      .search-filters-row {
+        flex: 1;
+        justify-content: flex-start;
+        gap: 12px;
+      }
+
+      .seg-btn { padding: 0 13px; }
 
       #results { padding: 24px 20px 64px; }
     }
