@@ -3,1555 +3,607 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tee-Time — Utah Golf</title>
+  <title>Tee-Time — Find Utah Tee Times, Instantly</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
   <style>
-    :root {
-      --brand:         #2D7A3A;
-      --brand-dark:    #3A9047;
-      --brand-darker:  #1A2E1A;
-      --brand-bg:      #1A2E1A;
-      --brand-light:   #EDF7ED;
-      --brand-lighter: #EDF7ED;
-
-      --fg:            #111410;
-      --fg-muted:      #637063;
-      --fg-subtle:     #8a9a8a;
-
-      --bg:            #ffffff;
-      --bg-subtle:     #F2F5F2;
-      --bg-muted:      #F4F6F4;
-
-      --border:        rgba(26,46,26,0.1);
-      --border-strong: rgba(26,46,26,0.2);
-
-      --red:           #dc2626;
-
-      --radius-sm:     8px;
-      --radius:        12px;
-      --radius-lg:     16px;
-
-      --shadow-xs: 0 1px 3px rgba(26,46,26,0.06);
-      --shadow-sm: 0 4px 16px rgba(26,46,26,0.08);
-
-      --font:         'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-display: 'DM Serif Display', Georgia, serif;
-    }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: var(--font);
-      font-weight: 400;
-      background: var(--bg-subtle);
-      color: var(--fg);
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
+    :root {
+      --app-header:   #1A2E1A;
+      --app-green:    #2D7A3A;
+      --app-chip-bg:  #EDF7ED;
+      --app-bg:       #F2F5F2;
+      --bg:           #F4F6F4;
+      --ink:          #111410;
+      --ink-soft:     #637063;
+      --green:        #1A2E1A;
+      --green-mid:    #2D7A3A;
+      --green-light:  #3A9047;
+      --border:       rgba(26,46,26,0.1);
+      --card:         #FFFFFF;
+      --radius:       12px;
     }
 
-    /* ─────────────────────────────
-       Header
-    ───────────────────────────── */
-    header {
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 48px;
       background: rgba(26,46,26,0.97);
       backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 16px 20px 20px;
     }
-
-    .header-inner {
-      max-width: 960px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .brand-icon {
-      width: 42px;
-      height: 42px;
-      background: rgba(255,255,255,0.1);
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .brand-name {
-      font-family: var(--font-display);
-      font-size: 1.3rem;
-      font-weight: 400;
-      color: #fff;
-      letter-spacing: -0.01em;
-      line-height: 1.1;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .brand-state {
-      font-family: var(--font);
-      font-size: 0.65rem;
-      font-weight: 500;
-      background: rgba(255,255,255,0.1);
-      color: rgba(255,255,255,0.7);
-      padding: 2px 8px;
-      border-radius: 9999px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .brand-tagline {
-      display: none;
-      font-size: 0.8rem;
-      color: rgba(255,255,255,0.4);
-      margin-top: 3px;
-    }
-
-    /* ─────────────────────────────
-       Search Panel
-    ───────────────────────────── */
-    .search-panel {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 16px;
-    }
-
-    .search-inner {
-      max-width: 960px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .search-date-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .date-nav {
-      font-family: var(--font);
-      background: var(--bg);
-      border: 1.5px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      width: 44px;
-      height: 44px;
-      font-size: 1.1rem;
-      color: var(--fg-muted);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: border-color 0.12s, color 0.12s;
-      user-select: none;
-    }
-
-    .date-nav:hover {
-      border-color: var(--brand);
-      color: var(--brand-dark);
-    }
-
-    .date-display-wrap {
-      position: relative;
-      flex: 1;
-      min-width: 0;
-    }
-
-    #dateDisplay {
-      display: block;
-      font-family: var(--font);
-      font-size: 0.92rem;
-      font-weight: 600;
-      color: var(--fg);
-      padding: 9px 12px;
-      border: 1.5px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      background: var(--bg);
-      text-align: center;
-      pointer-events: none;
-      user-select: none;
-      white-space: nowrap;
-    }
-
-    #dateInput {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
-
-    .search-filters-row {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: nowrap;
-    }
-
-    .seg-group {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .seg-label {
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--fg-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-
-    .seg-buttons {
-      display: flex;
-      gap: 5px;
-      flex-wrap: wrap;
-    }
-
-    .seg-btn {
-      font-family: var(--font);
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: var(--fg-muted);
-      background: var(--bg);
-      border: 1.5px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      padding: 0 11px;
-      min-height: 38px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.12s;
-      line-height: 1;
-    }
-
-    .seg-btn:hover { border-color: var(--brand-dark); color: var(--brand-dark); }
-
-    .seg-btn.active {
-      background: var(--brand-bg);
-      border-color: var(--brand-bg);
-      color: #fff;
-      font-weight: 600;
-    }
-
-    #searchBtn {
-      font-family: var(--font);
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: #fff;
-      background: var(--brand-dark);
-      border: none;
-      padding: 0 20px;
-      height: 38px;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s, transform 0.1s;
-      align-self: flex-end;
-      flex-shrink: 0;
-    }
-
-    #searchBtn:hover  { background: #3A9047; transform: translateY(-1px); }
-    #searchBtn:active { transform: scale(0.97); }
-    #searchBtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-    /* ─────────────────────────────
-       Tab Strip
-    ───────────────────────────── */
-    .tab-strip {
-      background: var(--bg);
-      border-bottom: 2px solid var(--border);
-      overflow-x: auto;
-      overflow-y: hidden;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      overscroll-behavior-x: contain;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .tab-strip::-webkit-scrollbar { display: none; }
-
-    .tab-strip-inner {
-      display: flex;
-      padding: 0 8px;
-      min-width: max-content;
-    }
-
-    .tab-btn {
-      font-family: var(--font);
-      font-size: 0.84rem;
-      font-weight: 500;
-      color: var(--fg-muted);
-      background: none;
-      border: none;
-      border-bottom: 2.5px solid transparent;
-      margin-bottom: -2px;
-      padding: 13px 14px 11px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: color 0.12s, border-color 0.12s;
-      flex-shrink: 0;
-    }
-
-    .tab-btn:hover:not(.active) { color: var(--fg); }
-
-    .tab-btn.active {
-      color: var(--brand);
-      border-bottom-color: var(--brand);
-      font-weight: 600;
-    }
-
-    /* ─────────────────────────────
-       Progress
-    ───────────────────────────── */
-    .progress-wrap {
-      display: none;
-      padding: 12px 20px 6px;
-    }
-
-    .progress-wrap.active { display: block; }
-
-    .progress-inner { max-width: 960px; margin: 0 auto; }
-
-    .progress-label {
-      font-size: 0.76rem;
-      font-weight: 500;
-      color: var(--fg-muted);
-      margin-bottom: 6px;
-    }
-
-    .progress-track {
-      background: var(--border);
-      border-radius: 9999px;
-      height: 3px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      background: var(--brand);
-      height: 100%;
-      border-radius: 9999px;
-      transition: width 0.2s ease;
-      width: 0%;
-    }
-
-    /* ─────────────────────────────
-       Results
-    ───────────────────────────── */
-    #results {
-      padding: 16px 16px 56px;
-      max-width: 960px;
-      margin: 0 auto;
-    }
-
-    .results-meta {
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: var(--fg-muted);
-      margin-bottom: 20px;
-    }
-
-    .area-group { margin-bottom: 28px; }
-
-    .area-heading {
-      font-size: 0.67rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--fg-subtle);
-      margin-bottom: 10px;
-      padding-left: 2px;
-    }
-
-    /* ─────────────────────────────
-       Course Card
-    ───────────────────────────── */
-    .course-card {
-      background: var(--bg);
-      border: 1px solid rgba(26,46,26,0.1);
-      border-radius: 12px;
-      margin-bottom: 10px;
-      overflow: hidden;
-      box-shadow: var(--shadow-xs);
-      transition: box-shadow 0.2s, transform 0.2s;
-    }
-
-    .course-card:hover {
-      box-shadow: 0 12px 36px rgba(0,0,0,0.06);
-      transform: translateY(-3px);
-    }
-
-    .unavailable-card {
-      opacity: 0.45;
-      transition: opacity 0.15s, box-shadow 0.15s;
-    }
-
-    .unavailable-card:hover { opacity: 0.7; }
-
-    .course-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px 10px;
-      gap: 10px;
-    }
-
-    .course-name {
-      font-weight: 600;
-      font-size: 0.92rem;
-      color: var(--fg);
-      flex: 1;
-      min-width: 0;
-    }
-
-    .course-meta {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-
-    .badge {
-      font-size: 0.63rem;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-      padding: 2px 8px;
-      border-radius: 9999px;
-      text-transform: uppercase;
-    }
-
-    .badge-distance {
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-    }
-
-    /* ─────────────────────────────
-       Time Pills
-    ───────────────────────────── */
-    .times-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 7px;
-      padding: 2px 16px 16px;
-    }
-
-    .time-pill {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #EDF7ED;
-      border: 1px solid rgba(45,122,58,0.2);
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .flag-icon {
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,0.12);
       border-radius: 8px;
-      padding: 8px 4px;
-      height: 52px;
-      min-width: 0;
-      width: 100%;
-      text-decoration: none;
-      color: #2D7A3A;
-      font-family: var(--font);
-      transition: all 0.15s;
-      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .flag-icon svg { width: 16px; height: 16px; }
+    .logo-text { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: #fff; letter-spacing: -0.01em; }
+    .logo-badge {
+      font-family: 'DM Sans', sans-serif; font-size: 0.65rem; font-weight: 500;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1);
+      border-radius: 4px; padding: 2px 7px;
+    }
+    .nav-cta {
+      background: var(--app-green); color: #fff; border: none;
+      padding: 9px 20px; border-radius: 8px;
+      font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
+      cursor: pointer; text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .nav-cta:hover { background: var(--green-light); transform: translateY(-1px); }
+
+    /* HERO */
+    .hero { padding: 150px 48px 80px; max-width: 960px; margin: 0 auto; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--app-chip-bg); color: var(--app-green);
+      font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 6px 14px; border-radius: 99px; margin-bottom: 28px;
+      opacity: 0; animation: fadeUp 0.6s 0.1s ease forwards;
+    }
+    .hero-badge::before {
+      content: ''; width: 6px; height: 6px;
+      background: var(--app-green); border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:0.4; transform:scale(0.75); }
     }
 
-    .time-pill:hover {
-      background: #2D7A3A;
-      border-color: #2D7A3A;
-      color: #fff;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(45,122,58,0.2);
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2.8rem, 6vw, 4.6rem);
+      line-height: 1.06; letter-spacing: -0.025em; color: var(--ink);
+      margin-bottom: 22px; opacity: 0; animation: fadeUp 0.6s 0.2s ease forwards;
+    }
+    h1 em { font-style: italic; color: var(--app-green); }
+
+    .hero-sub {
+      font-size: 1.1rem; color: var(--ink-soft); max-width: 500px;
+      margin-bottom: 40px; opacity: 0; animation: fadeUp 0.6s 0.32s ease forwards;
     }
 
-    .time-pill .t-time  { font-weight: 500; font-size: 0.78rem; line-height: 1.2; text-align: center; }
-    .time-pill .t-price { font-size: 0.72rem; font-weight: 300; opacity: 0.8; line-height: 1.2; text-align: center; }
-    .time-pill .t-spots { display: none; }
-
-    .time-pill.pill-hot {
-      background: #fff0f0;
-      border-color: rgba(185,28,28,0.2);
-      color: #b91c1c;
+    .platforms {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      opacity: 0; animation: fadeUp 0.6s 0.44s ease forwards; margin-bottom: 64px;
     }
-    .time-pill.pill-hot:hover {
-      background: #b91c1c;
-      border-color: #b91c1c;
-      color: #fff;
+    .platforms-label { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+    .platform-chip {
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--ink-soft); font-size: 0.78rem; font-weight: 500;
+      padding: 4px 12px; border-radius: 99px;
     }
 
-    .time-pill.pill-low {
-      background: #fffbeb;
-      border-color: rgba(146,64,14,0.2);
-      color: #92400e;
+    /* APP MOCKUP */
+    .mockup-wrap {
+      opacity: 0; animation: fadeUp 0.7s 0.55s ease forwards;
+      border-radius: 16px; border: 1px solid var(--border);
+      box-shadow: 0 24px 60px rgba(26,46,26,0.13);
+      overflow: hidden; margin-bottom: 96px;
     }
-    .time-pill.pill-low:hover {
-      background: #d97706;
-      border-color: #d97706;
-      color: #fff;
+    .mockup-header {
+      background: var(--app-header); padding: 20px 28px;
+      display: flex; align-items: center; gap: 14px;
     }
-
-    /* ─────────────────────────────
-       States
-    ───────────────────────────── */
-    .no-times {
-      font-size: 0.81rem;
-      color: var(--fg-subtle);
-      padding: 0 16px 14px;
-      font-style: italic;
+    .mockup-flag {
+      width: 40px; height: 40px; background: rgba(255,255,255,0.1);
+      border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-
-    .course-error {
-      font-size: 0.81rem;
-      color: var(--red);
-      opacity: 0.7;
-      padding: 0 16px 14px;
+    .mockup-flag svg { width: 18px; height: 18px; }
+    .mockup-title { color: #fff; font-family: 'DM Serif Display', serif; font-size: 1.35rem; letter-spacing: -0.01em; }
+    .mockup-badge {
+      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
+      font-size: 0.7rem; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 5px;
     }
-
-    .course-login {
-      padding: 0 16px 14px;
-      font-size: 0.81rem;
+    .mockup-sub { color: rgba(255,255,255,0.5); font-size: 0.78rem; margin-top: 2px; }
+    .mockup-controls {
+      background: #fff; padding: 16px 28px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      border-bottom: 1px solid #eee;
     }
-
-    .course-login a {
-      color: var(--brand-dark);
-      font-weight: 500;
-      text-decoration: none;
+    .mockup-arr {
+      width: 28px; height: 28px; border: 1px solid #ddd; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #aaa;
     }
-
-    .course-login a:hover { text-decoration: underline; }
-
-    .empty-state {
-      text-align: center;
-      padding: 48px 20px;
-      color: var(--fg-muted);
+    .mockup-date {
+      border: 1px solid #ddd; border-radius: 8px; padding: 6px 14px;
+      font-size: 0.82rem; font-weight: 500; color: var(--ink);
     }
-
-    .empty-state p {
-      font-size: 0.95rem;
-      margin-top: 8px;
-      color: var(--fg-subtle);
+    .mc-group { display: flex; align-items: center; gap: 4px; margin-left: 4px; }
+    .mc-label { font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: #aaa; margin-right: 4px; }
+    .mc-btn {
+      width: 30px; height: 30px; border: 1px solid #ddd; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 500; color: var(--ink);
     }
-
-    /* ─────────────────────────────
-       Unavailable Toggle
-    ───────────────────────────── */
-    #unavailableToggle {
-      display: none;
-      align-items: center;
-      gap: 6px;
-      background: none;
-      border: 1.5px solid var(--border-strong);
-      color: var(--fg-muted);
-      padding: 7px 18px;
-      border-radius: 9999px;
-      font-family: var(--font);
-      font-size: 0.82rem;
-      font-weight: 500;
-      cursor: pointer;
-      margin: 4px 0 20px;
-      transition: all 0.12s;
+    .mc-btn.dark  { background: var(--app-header); color: #fff; border-color: var(--app-header); }
+    .mc-btn.green { background: var(--app-green);  color: #fff; border-color: var(--app-green); }
+    .mc-refresh {
+      background: var(--app-green); color: #fff; border: none; border-radius: 8px;
+      padding: 7px 18px; font-size: 0.82rem; font-weight: 500; margin-left: auto;
     }
-
-    #unavailableToggle:hover { background: var(--bg-muted); color: var(--fg); }
-    #unavailableToggle.shown { display: inline-flex; }
-
-    #unavailableCourses      { display: none; }
-    #unavailableCourses.open { display: block; }
-
-    /* ─────────────────────────────
-       Star / Favorite button
-    ───────────────────────────── */
-    .star-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px;
-      line-height: 1;
-      color: var(--border-strong);
-      font-size: 1.1rem;
-      flex-shrink: 0;
-      transition: color 0.12s, transform 0.1s;
+    .mockup-tabs {
+      background: #fff; padding: 0 28px;
+      display: flex; gap: 22px; border-bottom: 1px solid #eee; overflow-x: auto;
     }
-    .star-btn:hover  { color: #f59e0b; transform: scale(1.15); }
-    .star-btn.active { color: #f59e0b; }
-
-    /* ─────────────────────────────
-       Card summary
-    ───────────────────────────── */
-    .card-summary {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
+    .mockup-tab {
+      font-size: 0.8rem; padding: 11px 0; color: #aaa;
+      white-space: nowrap; border-bottom: 2px solid transparent;
     }
-
-    .card-from-price {
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--brand-dark);
+    .mockup-tab.active { color: var(--app-green); border-bottom-color: var(--app-green); font-weight: 500; }
+    .mockup-body { background: var(--app-bg); padding: 18px 28px; }
+    .mockup-count { font-size: 0.78rem; color: #888; margin-bottom: 14px; }
+    .mockup-card {
+      background: #fff; border-radius: 12px; padding: 18px 20px;
+      margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.06);
     }
-
-    .card-count {
-      font-size: 0.72rem;
-      color: var(--fg-subtle);
-      font-weight: 500;
+    .mockup-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .mockup-course { font-weight: 500; font-size: 0.9rem; }
+    .mockup-meta { display: flex; align-items: center; gap: 7px; font-size: 0.72rem; }
+    .mockup-dist { background: #EEF2FF; color: #5B73E8; border-radius: 99px; padding: 2px 9px; font-weight: 500; }
+    .mockup-price { color: var(--app-green); font-weight: 500; }
+    .mockup-times { color: #aaa; }
+    .mockup-star { color: #F5A623; }
+    .time-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+    .time-chip {
+      background: var(--app-chip-bg); color: var(--app-green);
+      border: 1px solid rgba(45,122,58,0.2); border-radius: 8px;
+      padding: 8px 4px; text-align: center; font-size: 0.78rem; font-weight: 500;
     }
+    .time-chip.has-price { display: flex; flex-direction: column; gap: 1px; }
+    .time-chip .price { font-size: 0.68rem; color: #888; font-weight: 400; }
 
-    /* ─────────────────────────────
-       Compact Sticky Bar
-    ───────────────────────────── */
-    .compact-bar {
-      position: sticky;
-      top: 46px; /* sits just below tab strip */
-      z-index: 9;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      overflow: hidden;
-      max-height: 0;
-      transition: max-height 0.22s ease;
+    /* STATS */
+    .section { max-width: 960px; margin: 0 auto; padding: 0 48px 80px; }
+    .stats {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+      margin-bottom: 80px;
     }
-
-    .compact-bar.visible { max-height: 48px; }
-
-    .compact-bar-inner {
-      max-width: 960px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 0 16px;
-      height: 48px;
+    .stat { background: var(--card); padding: 36px 32px; text-align: center; }
+    .stat-num {
+      font-family: 'DM Serif Display', serif; font-size: 2.4rem;
+      color: var(--app-green); letter-spacing: -0.02em; line-height: 1; margin-bottom: 6px;
     }
+    .stat-label { font-size: 0.825rem; color: var(--ink-soft); }
 
-    .compact-nav {
-      font-family: var(--font);
-      background: none;
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      width: 26px;
-      height: 26px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 0.95rem;
-      flex-shrink: 0;
-      transition: border-color 0.12s, color 0.12s;
+    /* HOW IT WORKS */
+    .section-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
+    .section-title { font-family: 'DM Serif Display', serif; font-size: clamp(1.8rem,3.5vw,2.5rem); letter-spacing: -0.02em; margin-bottom: 44px; line-height: 1.15; }
+    .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+    .step { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 30px 26px; transition: transform 0.2s, box-shadow 0.2s; }
+    .step:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,0.06); }
+    .step-num { font-family: 'DM Serif Display', serif; font-size: 2.8rem; color: #C8E8C8; line-height: 1; margin-bottom: 14px; }
+    .step h3 { font-size: 0.95rem; font-weight: 500; margin-bottom: 7px; letter-spacing: -0.01em; }
+    .step p  { font-size: 0.85rem; color: var(--ink-soft); line-height: 1.6; }
+
+    /* ACCESS FORM */
+    .access-section { max-width: 960px; margin: 0 auto; padding: 0 48px 120px; }
+    .access-card {
+      background: var(--app-header); border-radius: 20px; padding: 60px;
+      color: #fff; position: relative; overflow: hidden;
     }
-
-    .compact-nav:hover { border-color: var(--brand); color: var(--brand); }
-
-    .compact-date {
-      font-size: 0.84rem;
-      font-weight: 500;
-      color: var(--fg);
-      white-space: nowrap;
+    .access-card::before {
+      content:''; position:absolute; top:-100px; right:-100px;
+      width:350px; height:350px; border-radius:50%; background:rgba(255,255,255,0.04); pointer-events:none;
     }
-
-    .compact-dot {
-      color: var(--fg-subtle);
-      font-size: 0.7rem;
+    .access-card::after {
+      content:''; position:absolute; bottom:-150px; left:25%;
+      width:500px; height:500px; border-radius:50%; background:rgba(255,255,255,0.03); pointer-events:none;
     }
+    .access-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 12px; }
+    .access-card h2 { font-family: 'DM Serif Display', serif; font-size: clamp(1.8rem,3vw,2.4rem); letter-spacing: -0.02em; margin-bottom: 10px; line-height: 1.15; }
+    .access-card .sub { font-size: 0.9rem; color: rgba(255,255,255,0.55); margin-bottom: 36px; max-width: 440px; }
 
-    .compact-params {
-      font-size: 0.8rem;
-      color: var(--fg-muted);
-      white-space: nowrap;
+    .form { display: flex; flex-direction: column; gap: 15px; max-width: 540px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+    .field input, .field select {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px; padding: 11px 15px; color: #fff;
+      font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 300;
+      outline: none; transition: border-color 0.2s, background 0.2s;
+      width: 100%; appearance: none;
     }
+    .field input::placeholder { color: rgba(255,255,255,0.3); }
+    .field input:focus, .field select:focus { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); }
+    .field select option { background: var(--app-header); color: #fff; }
 
-    .compact-spacer { flex: 1; }
-
-    .compact-refresh {
-      font-family: var(--font);
-      background: var(--brand);
-      border: none;
-      border-radius: var(--radius-sm);
-      color: #fff;
-      font-size: 0.78rem;
-      font-weight: 500;
-      padding: 6px 14px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.12s, transform 0.1s;
-      flex-shrink: 0;
+    .code-row { display: flex; }
+    .code-row input { border-radius: 8px 0 0 8px; border-right: none; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; }
+    .code-row input::placeholder { letter-spacing: 0; font-weight: 300; text-transform: none; }
+    .code-verify-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15); border-left: none;
+      border-radius: 0 8px 8px 0; color: #fff;
+      font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 500;
+      padding: 0 17px; cursor: pointer; white-space: nowrap; height: 43px; transition: background 0.2s;
     }
+    .code-verify-btn:hover { background: rgba(255,255,255,0.2); }
+    .code-verified { display: none; align-items: center; gap: 6px; font-size: 0.78rem; color: #9DE0A2; margin-top: -2px; }
+    .code-verified.show { display: flex; }
+    .code-verified::before { content: '\2713'; font-weight: 700; }
 
-    .compact-refresh:hover  { background: var(--brand-dark); }
-    .compact-refresh:active { transform: scale(0.96); }
-    .compact-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
+    .submit-btn {
+      background: var(--app-green); color: #fff; border: none; border-radius: 8px;
+      padding: 13px 26px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500;
+      cursor: pointer; transition: background 0.2s, transform 0.15s;
+      align-self: flex-start; margin-top: 4px; display: flex; align-items: center; gap: 8px;
+    }
+    .submit-btn:hover:not(:disabled) { background: var(--green-light); transform: translateY(-1px); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .submit-btn .arrow { transition: transform 0.2s; }
+    .submit-btn:hover:not(:disabled) .arrow { transform: translateX(3px); }
 
-    /* ─────────────────────────────
-       Responsive — Desktop
-    ───────────────────────────── */
-    @media (min-width: 680px) {
-      header { padding: 18px 48px 22px; }
-      .brand-name    { font-size: 1.5rem; }
-      .brand-tagline { display: block; }
+    .status { font-size: 0.8rem; padding: 10px 13px; border-radius: 6px; display: none; }
+    .status.error   { background: rgba(255,80,80,0.12); color: #ffaaaa; border: 1px solid rgba(255,80,80,0.25); display: block; }
+    .status.success { background: rgba(157,224,162,0.12); color: #9DE0A2; border: 1px solid rgba(157,224,162,0.25); display: block; }
 
-      .search-panel { padding: 14px 20px; }
+    /* FOOTER */
+    footer { background: var(--app-header); padding: 28px 48px; display: flex; align-items: center; justify-content: space-between; }
+    .footer-logo { display: flex; align-items: center; gap: 9px; }
+    .footer-flag { width: 28px; height: 28px; background: rgba(255,255,255,0.1); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .footer-flag svg { width: 13px; height: 13px; }
+    .footer-name { font-family: 'DM Serif Display', serif; font-size: 0.95rem; color: rgba(255,255,255,0.6); }
+    footer p { font-size: 0.78rem; color: rgba(255,255,255,0.35); }
 
-      /* Single centered row on desktop */
-      .search-inner {
-        flex-direction: row;
-        align-items: flex-end;
-        justify-content: center;
-        gap: 20px;
-      }
+    /* ANIMATIONS */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
 
-      .search-date-row {
-        flex: 0 0 auto;
-        width: 260px;
-      }
-
-      .date-nav { width: 36px; height: 38px; font-size: 1rem; }
-      #dateDisplay { padding: 8px 10px; font-size: 0.88rem; }
-
-      .search-filters-row {
-        flex: 0 0 auto;
-        justify-content: flex-start;
-        gap: 12px;
-      }
-
-      .seg-group { gap: 5px; }
-      .seg-btn { padding: 0 13px; }
-
-      .tab-strip-inner {
-        justify-content: center;
-        min-width: unset;
-      }
-
-      #results { padding: 24px 20px 64px; }
+    @media (max-width: 680px) {
+      nav { padding: 16px 20px; }
+      .hero { padding: 110px 20px 60px; }
+      .section, .access-section { padding-left: 20px; padding-right: 20px; }
+      .steps { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .access-card { padding: 32px 22px; }
+      .stats { grid-template-columns: 1fr; }
+      footer { flex-direction: column; gap: 10px; text-align: center; }
+      .time-grid { grid-template-columns: repeat(2,1fr); }
+      .mc-refresh { margin-left: 0; }
     }
   </style>
 </head>
 <body>
 
-<header>
-  <div class="header-inner">
-    <div class="brand-icon">
-      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="3" y="2" width="1.5" height="12" fill="white" rx="0.5"/>
-        <path d="M4.5 2.5L12 5.5L4.5 8.5V2.5Z" fill="white"/>
-      </svg>
-    </div>
-    <div>
-      <div class="brand-name">
-        Tee-Time
-        <span class="brand-state">Utah</span>
-      </div>
-      <div class="brand-tagline">Every tee time. One search.</div>
-    </div>
-  </div>
-</header>
-
-<div class="search-panel">
-  <div class="search-inner">
-
-    <div class="search-date-row">
-      <button class="date-nav" id="datePrev" aria-label="Previous day">&#8249;</button>
-      <div class="date-display-wrap">
-        <span id="dateDisplay"></span>
-        <input type="date" id="dateInput" />
-      </div>
-      <button class="date-nav" id="dateNext" aria-label="Next day">&#8250;</button>
-    </div>
-
-    <div class="search-filters-row">
-
-      <div class="seg-group">
-        <span class="seg-label">Players</span>
-        <div class="seg-buttons" id="playersGroup">
-          <button class="seg-btn" data-value="1">1</button>
-          <button class="seg-btn active" data-value="2">2</button>
-          <button class="seg-btn" data-value="3">3</button>
-          <button class="seg-btn" data-value="4">4</button>
-        </div>
-      </div>
-
-      <div class="seg-group">
-        <span class="seg-label">Holes</span>
-        <div class="seg-buttons" id="holesGroup">
-          <button class="seg-btn" data-value="9">9</button>
-          <button class="seg-btn active" data-value="18">18</button>
-        </div>
-      </div>
-
-      <button id="searchBtn">Refresh</button>
-    </div>
-
-  </div>
-</div>
-
-<input type="hidden" id="playersInput" value="2" />
-<input type="hidden" id="holesInput" value="18" />
-
-<div class="tab-strip">
-  <div class="tab-strip-inner" id="tabStrip"></div>
-</div>
-
-<div class="compact-bar" id="compactBar">
-  <div class="compact-bar-inner">
-    <button class="compact-nav" id="compactPrev" aria-label="Previous day">&#8249;</button>
-    <span class="compact-date" id="compactDate"></span>
-    <button class="compact-nav" id="compactNext" aria-label="Next day">&#8250;</button>
-    <span class="compact-dot">&#8226;</span>
-    <span class="compact-params" id="compactParams"></span>
-    <div class="compact-spacer"></div>
-    <button class="compact-refresh" id="compactRefresh">&#8635; Refresh</button>
-  </div>
-</div>
-
-<div class="progress-wrap" id="progressWrap">
-  <div class="progress-inner">
-    <div class="progress-label" id="progressLabel">Fetching...</div>
-    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-  </div>
-</div>
-
-<div id="results"></div>
-
-<script>
-  const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
-
-  let courses = [];
-  let activeTab = 'nearby';
-  let userLocation = null; // { lat, lng }
-
-  // ── Tabs ──
-  const REGION_TABS = [
-    { id: 'nearby',   label: '📍 Near Me' },
-    { id: 'saved',    label: '★ Saved' },
-    { id: 'all',      label: 'All' },
-    { id: 'slc',      label: 'Salt Lake Valley', areas: ['SALT LAKE CITY AREA', 'TOOELE AND WEST'] },
-    { id: 'davis',    label: 'Davis & Weber',     areas: ['DAVIS AND WEBER COUNTY'] },
-    { id: 'utah',     label: 'Utah County',       areas: ['UTAH COUNTY AND SOUTH'] },
-    { id: 'stgeorge', label: 'St. George',        areas: ['ST. GEORGE AND SOUTHWEST', 'CEDAR CITY AND SOUTHWEST', 'CENTRAL AND SOUTHWEST UTAH'] },
-    { id: 'parkcity', label: 'Park City & Heber', areas: ['PARK CITY AND EAST', 'HEBER VALLEY AND EAST'] },
-    { id: 'cache',    label: 'Cache Valley',      areas: ['LOGAN, CACHE VALLEY, NORTH'] },
-    { id: 'eastern',  label: 'Eastern Utah',      areas: ['UINTA BASIN AND EAST'] },
-  ];
-
-  const AREA_LABELS = {
-    'SALT LAKE CITY AREA':           'Salt Lake City',
-    'UTAH COUNTY AND SOUTH':         'Utah County',
-    'DAVIS AND WEBER COUNTY':        'Davis & Weber',
-    'HEBER VALLEY AND EAST':         'Heber Valley',
-    'TOOELE AND WEST':               'Tooele & West',
-    'LOGAN, CACHE VALLEY, NORTH':    'Cache Valley',
-    'ST. GEORGE AND SOUTHWEST':      'St. George',
-    'CEDAR CITY AND SOUTHWEST':      'Cedar City',
-    'CENTRAL AND SOUTHWEST UTAH':    'Central Utah',
-    'PARK CITY AND EAST':            'Park City',
-    'UINTA BASIN AND EAST':          'Eastern Utah',
-  };
-
-  // ── Favorites ──
-  let favorites = new Set(JSON.parse(localStorage.getItem('tt_favorites') || '[]'));
-
-  function saveFavorites() {
-    localStorage.setItem('tt_favorites', JSON.stringify([...favorites]));
-  }
-
-  function toggleFavorite(courseName) {
-    if (favorites.has(courseName)) {
-      favorites.delete(courseName);
-    } else {
-      favorites.add(courseName);
-    }
-    saveFavorites();
-    document.querySelectorAll(`.star-btn[data-course="${CSS.escape(courseName)}"]`).forEach(btn => {
-      btn.classList.toggle('active', favorites.has(courseName));
-      btn.setAttribute('aria-label', favorites.has(courseName) ? 'Unstar course' : 'Star course');
-    });
-    if (activeTab === 'saved') runSearch();
-  }
-
-  // ── Per-course cache ──
-  const courseCache = new Map(); // `name||date||holes||players` → { data, error, fetchedAt }
-  const CACHE_TTL_MS = 3 * 60 * 1000;
-
-  function getCourseKey(course, date, holes, players) {
-    return `${course.name}||${date}||${holes}||${players}`;
-  }
-
-  // ── Haversine ──
-  function haversine(lat1, lng1, lat2, lng2) {
-    const R = 3958.8;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.asin(Math.sqrt(a));
-  }
-
-  // ── Tab helpers ──
-  function getCoursesForTab(tabId) {
-    if (tabId === 'nearby') return courses;
-    if (tabId === 'saved')  return courses.filter(c => favorites.has(c.name));
-    if (tabId === 'all')    return courses;
-    const tab = REGION_TABS.find(t => t.id === tabId);
-    if (!tab?.areas) return courses;
-    return courses.filter(c => tab.areas.includes(c.area));
-  }
-
-  function buildTabStrip() {
-    const strip = document.getElementById('tabStrip');
-    strip.innerHTML = '';
-    REGION_TABS.forEach(tab => {
-      const btn = document.createElement('button');
-      btn.className = 'tab-btn' + (tab.id === activeTab ? ' active' : '');
-      btn.dataset.tab = tab.id;
-      btn.textContent = tab.label;
-      btn.addEventListener('click', () => switchTab(tab.id));
-      strip.appendChild(btn);
-    });
-  }
-
-  function switchTab(tabId) {
-    activeTab = tabId;
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabId);
-    });
-    if (tabId === 'nearby') {
-      requestGeolocation();
-    } else {
-      runSearch();
-    }
-  }
-
-  function requestGeolocation() {
-    if (!navigator.geolocation) {
-      showInlineError('Geolocation is not supported by your browser. Try a different tab.');
-      return;
-    }
-    document.getElementById('results').innerHTML =
-      '<div class="empty-state"><p>Getting your location…</p></div>';
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        runSearch();
-      },
-      err => {
-        const msg = err.code === 1
-          ? 'Location access denied. Enable location and tap Near Me again.'
-          : 'Could not get your location. Try a different tab.';
-        showInlineError(msg);
-      },
-      { timeout: 10000, maximumAge: 300000 }
-    );
-  }
-
-  // ── Date setup ──
-  const _now = new Date();
-  const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
-  document.getElementById('dateInput').value = todayStr;
-  updateDateDisplay();
-
-  document.getElementById('datePrev').addEventListener('click', () => offsetDate(-1));
-  document.getElementById('dateNext').addEventListener('click', () => offsetDate(1));
-  document.getElementById('dateInput').addEventListener('change', () => {
-    updateDateDisplay();
-    scheduleSearch();
-  });
-
-  function updateDateDisplay() {
-    const val = document.getElementById('dateInput').value;
-    if (!val) return;
-    const d = new Date(val + 'T00:00:00');
-    document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-    });
-    updateCompactBar();
-  }
-
-  function updateCompactBar() {
-    const date    = document.getElementById('dateInput').value;
-    const players = document.getElementById('playersInput').value;
-    const holes   = document.getElementById('holesInput').value;
-    if (!date) return;
-    const d = new Date(date + 'T00:00:00');
-    document.getElementById('compactDate').textContent = d.toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric',
-    });
-    document.getElementById('compactParams').textContent = `${players} players · ${holes} holes`;
-  }
-
-  function offsetDate(days) {
-    const input = document.getElementById('dateInput');
-    const d = new Date(input.value + 'T00:00:00');
-    d.setDate(d.getDate() + days);
-    input.value = d.toISOString().slice(0, 10);
-    updateDateDisplay();
-    scheduleSearch();
-  }
-
-  let searchDebounceTimer = null;
-  function scheduleSearch() {
-    clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-      // Invalidate cache when date/holes/players change so all tabs re-fetch
-      courseCache.clear();
-      if (activeTab === 'nearby' && !userLocation) {
-        requestGeolocation();
-      } else {
-        runSearch();
-      }
-    }, 400);
-  }
-
-  // ── Segmented controls ──
-  function initSegment(groupId, inputId) {
-    const group = document.getElementById(groupId);
-    const input = document.getElementById(inputId);
-    group.querySelectorAll('.seg-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        input.value = btn.dataset.value;
-        updateCompactBar();
-        courseCache.clear();
-        if (activeTab === 'nearby' && !userLocation) {
-          requestGeolocation();
-        } else {
-          runSearch();
-        }
-      });
-    });
-  }
-
-  initSegment('playersGroup', 'playersInput');
-  initSegment('holesGroup',   'holesInput');
-
-  // ── Load courses ──
-  fetch('./courses.json')
-    .then(r => r.json())
-    .then(data => {
-      courses = data;
-      buildTabStrip();
-      switchTab('nearby'); // auto-start with Near Me
-    })
-    .catch(() => {
-      document.getElementById('results').innerHTML =
-        '<p style="color:#dc2626;padding:20px">Failed to load courses.json.</p>';
-    });
-
-  // ── Helpers ──
-  function formatTime12h(timeStr) {
-    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
-    if (!match) return timeStr;
-    let h = parseInt(match[1], 10);
-    const m = match[2];
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    if (h > 12) h -= 12;
-    if (h === 0) h = 12;
-    return `${h}:${m} ${ampm}`;
-  }
-
-  function formatPrice(val) {
-    if (val == null || val === 0 || val === '') return null;
-    const n = parseFloat(val);
-    if (isNaN(n) || n === 0) return null;
-    return '$' + n.toFixed(0);
-  }
-
-  function parsePrice(priceStr) {
-    if (!priceStr) return null;
-    const n = parseFloat(priceStr.replace('$', ''));
-    return isNaN(n) ? null : n;
-  }
-
-  // ── API ──
-  async function fetchCourseTimes(course, date, holes, players) {
-    const params = new URLSearchParams({ date });
-    let url;
-
-    if (course.platform === 'foreup') {
-      params.set('schedule_id', course.schedule_id);
-      if (course.booking_class_id) params.set('booking_class_id', course.booking_class_id);
-      params.set('holes', holes);
-      url = `${WORKER_URL}/foreup?${params}`;
-    } else if (course.platform === 'chronogolf') {
-      if (!course.course_ids) return null;
-      params.set('course_ids', course.course_ids.join(','));
-      url = `${WORKER_URL}/chronogolf?${params}`;
-    } else if (course.platform === 'membersports') {
-      params.set('golf_club_id', course.golf_club_id);
-      params.set('golf_course_id', course.golf_course_id);
-      url = `${WORKER_URL}/membersports?${params}`;
-    } else if (course.platform === 'chronogolf_slc') {
-      params.set('club_id', course.club_id);
-      params.set('course_id', course.course_id);
-      params.set('affiliation_type_id', course.affiliation_type_id);
-      params.set('nb_holes', holes);
-      params.set('players', players);
-      url = `${WORKER_URL}/chronogolf-slc?${params}`;
-    }
-
-    if (!url) return null;
-    const res = await fetch(url);
-    return res.json();
-  }
-
-  // ── Normalizers ──
-  function normalizeTimes(course, data, holes) {
-    if (!data) return [];
-    switch (course.platform) {
-      case 'foreup':         return normalizeForeUpTimes(data);
-      case 'membersports':   return normalizeMemberSportsTimes(data, holes);
-      case 'chronogolf_slc': return normalizeChronogolfSlcTimes(data, holes);
-      default:               return normalizeChronogolfTimes(data);
-    }
-  }
-
-  function normalizeForeUpTimes(data) {
-    if (!Array.isArray(data)) return [];
-    return data.map(t => ({
-      rawTime: t.time || '',
-      display: formatTime12h(t.time || ''),
-      spots:   t.available_spots || null,
-      price:   formatPrice(t.green_fee),
-      holes:   t.holes,
-    }));
-  }
-
-  function normalizeMemberSportsTimes(data, holes) {
-    if (!Array.isArray(data)) return [];
-    const requestedHoles = parseInt(holes, 10);
-    const result = [];
-    for (const slot of data) {
-      if (!slot.items?.length) continue;
-      for (const item of slot.items) {
-        if (item.hide || item.bookingNotAllowed) continue;
-        const itemHoles = (item.holesRequirementTypeId !== 1 && !item.isBackNine) ? 18 : 9;
-        if (itemHoles !== requestedHoles) continue;
-        const availableSpots = 4 - (item.playerCount || 0);
-        if (availableSpots <= 0) continue;
-        const h = Math.floor(slot.teeTime / 60);
-        const m = slot.teeTime % 60;
-        const rawTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        result.push({
-          rawTime,
-          display: formatTime12h(rawTime),
-          spots:   availableSpots,
-          price:   formatPrice(item.price),
-          holes:   itemHoles,
-        });
-      }
-    }
-    return result;
-  }
-
-  function normalizeChronogolfSlcTimes(data, holes) {
-    if (!Array.isArray(data)) return [];
-    return data
-      .filter(t => !t.out_of_capacity && !t.frozen)
-      .map(t => ({
-        rawTime: t.start_time || '',
-        display: formatTime12h(t.start_time || ''),
-        spots:   null,
-        price:   formatPrice(t.green_fees?.[0]?.green_fee),
-        holes:   parseInt(holes, 10),
-      }));
-  }
-
-  function normalizeChronogolfTimes(data) {
-    const items = data?.teetimes;
-    if (!Array.isArray(items)) return [];
-    return items.map(t => ({
-      rawTime: t.start_time || '',
-      display: formatTime12h(t.start_time || ''),
-      spots:   t.max_player_size ?? null,
-      price:   formatPrice(t.default_price?.green_fee),
-      holes:   t.default_price?.bookable_holes ?? t.course?.holes,
-    }));
-  }
-
-  // ── Booking URL builder ──
-  function buildBookingUrl(course, date, holes, players) {
-    const base = course.booking_url;
-    if (!base) return '#';
-
-    if (course.platform === 'foreup' && base.includes('foreupsoftware.com')) {
-      // ForeUp hash-router — append date/players/holes to the hash fragment
-      // ForeUp UI expects MM-DD-YYYY
-      const [y, m, d] = date.split('-');
-      return `${base}?date=${m}-${d}-${y}&players=${players}&holes=${holes}`;
-    }
-
-    return base;
-  }
-
-  // ── DOM builders ──
-  function buildTimePill(t, bookingUrl) {
-    const a = document.createElement('a');
-    a.href = bookingUrl;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    let pillClass = 'time-pill';
-    if (t.spots === 1)      pillClass += ' pill-hot';
-    else if (t.spots === 2) pillClass += ' pill-low';
-    a.className = pillClass;
-
-    const timeEl = document.createElement('span');
-    timeEl.className = 't-time';
-    timeEl.textContent = t.display;
-
-    const priceEl = document.createElement('span');
-    priceEl.className = 't-price';
-    priceEl.textContent = t.price || '';
-
-    const spotsEl = document.createElement('span');
-    spotsEl.className = 't-spots';
-    if (t.spots != null) spotsEl.textContent = `${t.spots} spot${t.spots !== 1 ? 's' : ''}`;
-
-    a.appendChild(timeEl);
-    if (t.price) a.appendChild(priceEl);
-    if (t.spots != null) a.appendChild(spotsEl);
-    return a;
-  }
-
-  function buildCourseCard(course, times, error, isUnavailable, distanceMi, date, holes, players) {
-    const bookingUrl = buildBookingUrl(course, date, holes, players);
-    const card = document.createElement('div');
-    card.className = 'course-card' + (isUnavailable ? ' unavailable-card' : '');
-    card.dataset.courseName = course.name;
-
-    const header = document.createElement('div');
-    header.className = 'course-header';
-
-    const nameEl = document.createElement('div');
-    nameEl.className = 'course-name';
-    nameEl.textContent = course.name;
-
-    const starBtn = document.createElement('button');
-    starBtn.className = 'star-btn' + (favorites.has(course.name) ? ' active' : '');
-    starBtn.dataset.course = course.name;
-    starBtn.setAttribute('aria-label', favorites.has(course.name) ? 'Unstar course' : 'Star course');
-    starBtn.textContent = '★';
-    starBtn.addEventListener('click', e => { e.preventDefault(); toggleFavorite(course.name); });
-
-    const summary = document.createElement('div');
-    summary.className = 'card-summary';
-
-    // Distance badge (Near Me tab)
-    if (distanceMi != null) {
-      const distBadge = document.createElement('span');
-      distBadge.className = 'badge badge-distance';
-      distBadge.textContent = distanceMi < 10
-        ? `${distanceMi.toFixed(1)} mi`
-        : `${Math.round(distanceMi)} mi`;
-      summary.appendChild(distBadge);
-    }
-
-    if (times && times.length > 0) {
-      const prices = times.map(t => parsePrice(t.price)).filter(p => p !== null);
-      if (prices.length) {
-        const fromEl = document.createElement('span');
-        fromEl.className = 'card-from-price';
-        fromEl.textContent = `from $${Math.min(...prices)}`;
-        summary.appendChild(fromEl);
-      }
-      const countEl = document.createElement('span');
-      countEl.className = 'card-count';
-      countEl.textContent = `${times.length} time${times.length !== 1 ? 's' : ''}`;
-      summary.appendChild(countEl);
-    }
-
-    header.appendChild(nameEl);
-    header.appendChild(summary);
-    header.appendChild(starBtn);
-    card.appendChild(header);
-
-    if (error) {
-      const msg = document.createElement('div');
-      if (error === 'login_required') {
-        msg.className = 'course-login';
-        const link = document.createElement('a');
-        link.href = bookingUrl;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = 'Sign in to view times →';
-        msg.appendChild(link);
-      } else {
-        msg.className = 'course-error';
-        const messages = {
-          timeout:        'Request timed out.',
-          upstream_error: 'Course API unavailable.',
-          unavailable:    'Not available via API.',
-          parse_error:    'Unexpected response from course.',
-        };
-        msg.textContent = messages[error] || `Error: ${error}`;
-      }
-      card.appendChild(msg);
-    } else if (!times || times.length === 0) {
-      const msg = document.createElement('div');
-      msg.className = 'no-times';
-      msg.textContent = 'No available tee times for this search.';
-      card.appendChild(msg);
-    } else {
-      const row = document.createElement('div');
-      row.className = 'times-row';
-      for (const t of times) row.appendChild(buildTimePill(t, bookingUrl));
-      card.appendChild(row);
-    }
-
-    return card;
-  }
-
-  function groupByArea(results) {
-    const map = {};
-    for (const r of results) {
-      const area = r.course.area;
-      if (!map[area]) map[area] = [];
-      map[area].push(r);
-    }
-    return map;
-  }
-
-  function showInlineError(msg) {
-    document.getElementById('results').innerHTML =
-      `<p style="color:#dc2626;padding:20px;font-size:0.92rem">${msg}</p>`;
-  }
-
-  // ── Run search ──
-  async function runSearch() {
-    if (!courses.length) return;
-
-    const date    = document.getElementById('dateInput').value;
-    const players = document.getElementById('playersInput').value;
-    const holes   = document.getElementById('holesInput').value;
-    if (!date) return;
-
-    const tabCourses = getCoursesForTab(activeTab);
-
-    if (activeTab === 'saved' && tabCourses.length === 0) {
-      document.getElementById('results').innerHTML =
-        '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3"><circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/><path d="M20 10v10l6 4" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/></svg><p>Tap ★ on any course to save it here.</p></div>';
-      return;
-    }
-
-    // Determine which courses need fetching
-    const toFetch = tabCourses.filter(c => {
-      const key = getCourseKey(c, date, holes, players);
-      const cached = courseCache.get(key);
-      return !cached || Date.now() - cached.fetchedAt >= CACHE_TTL_MS;
-    });
-
-    if (toFetch.length === 0) {
-      renderFromCache(tabCourses, date, holes, players);
-      return;
-    }
-
-    const btn = document.getElementById('searchBtn');
-    btn.disabled = true;
-    btn.textContent = 'Loading…';
-
-    const progressWrap  = document.getElementById('progressWrap');
-    const progressLabel = document.getElementById('progressLabel');
-    const progressFill  = document.getElementById('progressFill');
-    progressWrap.classList.add('active');
-
-    let done = 0;
-
-    function updateProgress() {
-      done++;
-      progressLabel.textContent = `Fetching… ${done}/${toFetch.length}`;
-      progressFill.style.width = `${Math.round((done / toFetch.length) * 100)}%`;
-    }
-
-    const promises = toFetch.map(course =>
-      fetchCourseTimes(course, date, holes, players)
-        .then(data => {
-          const key = getCourseKey(course, date, holes, players);
-          courseCache.set(key, { data, error: data?.error || null, fetchedAt: Date.now() });
-          updateProgress();
-        })
-        .catch(() => {
-          const key = getCourseKey(course, date, holes, players);
-          courseCache.set(key, { data: null, error: 'upstream_error', fetchedAt: Date.now() });
-          updateProgress();
-        })
-    );
-
-    await Promise.allSettled(promises);
-
-    progressWrap.classList.remove('active');
-    progressFill.style.width = '0%';
-    btn.disabled = false;
-    btn.textContent = 'Refresh';
-
-    renderFromCache(tabCourses, date, holes, players);
-  }
-
-  function renderFromCache(tabCourses, date, holes, players) {
-    const allResults = tabCourses.map(course => {
-      const key = getCourseKey(course, date, holes, players);
-      const cached = courseCache.get(key);
-      return {
-        course,
-        data:  cached?.data  ?? null,
-        error: cached?.error ?? null,
-      };
-    });
-    processAndRender(allResults, players, holes);
-  }
-
-  function processAndRender(apiResults, players, holes) {
-    const date = document.getElementById('dateInput').value;
-    const processed = apiResults.map(r => {
-      if (r.error) return { ...r, times: [] };
-      let times = normalizeTimes(r.course, r.data, holes);
-      times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
-      times = times.filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
-      return { ...r, times };
-    });
-
-    // Nearby: compute distances and sort
-    if (activeTab === 'nearby' && userLocation) {
-      for (const r of processed) {
-        if (r.course.lat != null && r.course.lng != null) {
-          r.distanceMi = haversine(userLocation.lat, userLocation.lng, r.course.lat, r.course.lng);
-        }
-      }
-      processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
-    }
-
-    const available   = processed.filter(r => !r.error && r.times.length > 0);
-    const unavailable = processed.filter(r => r.error || r.times.length === 0);
-
-    const resultsEl = document.getElementById('results');
-    resultsEl.innerHTML = '';
-
-    const meta = document.createElement('div');
-    meta.className = 'results-meta';
-    meta.textContent = `${available.length} course${available.length !== 1 ? 's' : ''} with available times`;
-    resultsEl.appendChild(meta);
-
-    if (available.length > 0) {
-      if (activeTab === 'all') {
-        const grouped = groupByArea(available);
-        for (const [area, items] of Object.entries(grouped)) {
-          const group = document.createElement('div');
-          group.className = 'area-group';
-          const heading = document.createElement('div');
-          heading.className = 'area-heading';
-          heading.textContent = AREA_LABELS[area] || area;
-          group.appendChild(heading);
-          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi, date, holes, players));
-          resultsEl.appendChild(group);
-        }
-      } else {
-        for (const r of available) {
-          resultsEl.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi, date, holes, players));
-        }
-      }
-    } else {
-      const empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.innerHTML = `
-        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3">
-          <circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/>
-          <path d="M13 20h14" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/>
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="flag-icon">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="2" width="1.5" height="12" fill="white" rx="0.5"/>
+          <path d="M4.5 2.5L12 5.5L4.5 8.5V2.5Z" fill="white"/>
         </svg>
-        <p>No tee times found. Try a different date or adjust your filters.</p>
-      `;
-      resultsEl.appendChild(empty);
-    }
+      </div>
+      <span class="logo-text">Tee-Time</span>
+      <span class="logo-badge">Utah</span>
+    </a>
+    <a href="#access" class="nav-cta">Get Early Access</a>
+  </nav>
 
-    if (unavailable.length > 0) {
-      const startOpen = available.length === 0;
+  <section class="hero">
+    <div class="hero-badge">Early Access &middot; tee-time.io</div>
+    <h1>Every tee time.<br><em>One search.</em></h1>
+    <p class="hero-sub">Stop opening five tabs to find an open time. Tee-Time searches ForeUp, Chronogolf, and Member Sports courses across Utah simultaneously.</p>
+    <div class="platforms">
+      <span class="platforms-label">Works with</span>
+      <span class="platform-chip">ForeUp</span>
+      <span class="platform-chip">Chronogolf</span>
+      <span class="platform-chip">Member Sports</span>
+    </div>
 
-      const noTimesCount = unavailable.filter(r => !r.error).length;
-      const errorCount   = unavailable.filter(r =>  r.error).length;
-      const reasonParts  = [];
-      if (noTimesCount) reasonParts.push(`${noTimesCount} no times`);
-      if (errorCount)   reasonParts.push(`${errorCount} unavailable`);
-      const reasonStr = reasonParts.length ? ` (${reasonParts.join(', ')})` : '';
+    <!-- App mockup -->
+    <div class="mockup-wrap">
+      <div class="mockup-header">
+        <div class="mockup-flag">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="2" width="1.5" height="12" fill="white" rx="0.5"/>
+            <path d="M4.5 2.5L12 5.5L4.5 8.5V2.5Z" fill="white"/>
+          </svg>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="mockup-title">Tee-Time</span>
+            <span class="mockup-badge">Utah</span>
+          </div>
+          <div class="mockup-sub">67 courses &middot; ForeUp, Chronogolf &amp; more</div>
+        </div>
+      </div>
 
-      const chevronDown = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-      const chevronUp   = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 9l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      <div class="mockup-controls">
+        <div class="mockup-arr">&lsaquo;</div>
+        <div class="mockup-date">Thu, Mar 26, 2026</div>
+        <div class="mockup-arr">&rsaquo;</div>
+        <div class="mc-group">
+          <span class="mc-label">Players</span>
+          <div class="mc-btn">1</div><div class="mc-btn dark">2</div><div class="mc-btn">3</div><div class="mc-btn">4</div>
+        </div>
+        <div class="mc-group">
+          <span class="mc-label">Holes</span>
+          <div class="mc-btn">9</div><div class="mc-btn green">18</div>
+        </div>
+        <button class="mc-refresh">Refresh</button>
+      </div>
 
-      const toggle = document.createElement('button');
-      toggle.id = 'unavailableToggle';
-      toggle.className = 'shown';
-      toggle.innerHTML = startOpen
-        ? `${chevronUp} Hide ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`
-        : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
-      resultsEl.appendChild(toggle);
+      <div class="mockup-tabs">
+        <div class="mockup-tab active">&#128205; Near Me</div>
+        <div class="mockup-tab">&#9733; Saved</div>
+        <div class="mockup-tab">All</div>
+        <div class="mockup-tab">Salt Lake Valley</div>
+        <div class="mockup-tab">Davis &amp; Weber</div>
+        <div class="mockup-tab">Utah County</div>
+        <div class="mockup-tab">St. George</div>
+      </div>
 
-      const unavailSection = document.createElement('div');
-      unavailSection.id = 'unavailableCourses';
-      if (startOpen) unavailSection.classList.add('open');
+      <div class="mockup-body">
+        <div class="mockup-count">45 courses with available times</div>
+        <div class="mockup-card">
+          <div class="mockup-card-header">
+            <span class="mockup-course">Nibley Park (SLC)</span>
+            <div class="mockup-meta">
+              <span class="mockup-dist">1.2 MI</span>
+              <span class="mockup-times">11 times</span>
+              <span class="mockup-star">&#9733;</span>
+            </div>
+          </div>
+          <div class="time-grid">
+            <div class="time-chip">8:10 AM</div><div class="time-chip">8:20 AM</div><div class="time-chip">8:40 AM</div>
+            <div class="time-chip">9:10 AM</div><div class="time-chip">10:00 AM</div><div class="time-chip">10:10 AM</div>
+            <div class="time-chip">10:20 AM</div><div class="time-chip">10:30 AM</div><div class="time-chip">10:40 AM</div>
+          </div>
+        </div>
+        <div class="mockup-card">
+          <div class="mockup-card-header">
+            <span class="mockup-course">Bonneville (SLC)</span>
+            <div class="mockup-meta">
+              <span class="mockup-dist">3.7 MI</span>
+              <span class="mockup-price">from $50</span>
+              <span class="mockup-times">1 time</span>
+              <span class="mockup-star">&#9733;</span>
+            </div>
+          </div>
+          <div class="time-grid">
+            <div class="time-chip has-price"><span>8:30 AM</span><span class="price">$50</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      if (activeTab === 'all') {
-        const grouped = groupByArea(unavailable);
-        for (const [area, items] of Object.entries(grouped)) {
-          const group = document.createElement('div');
-          group.className = 'area-group';
-          const heading = document.createElement('div');
-          heading.className = 'area-heading';
-          heading.textContent = AREA_LABELS[area] || area;
-          group.appendChild(heading);
-          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi, date, holes, players));
-          unavailSection.appendChild(group);
-        }
+  <!-- STATS -->
+  <div class="section">
+    <div class="stats reveal">
+      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Utah courses indexed</div></div>
+      <div class="stat"><div class="stat-num">3x</div><div class="stat-label">Tee sheet platforms at once</div></div>
+      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">Average time to see all results</div></div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <section class="section reveal">
+    <p class="section-label">How it works</p>
+    <h2 class="section-title">Find your window.<br>Book and go play.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Pick your date &amp; players</h3>
+        <p>Set your preferred date, time range, and number of players. No account needed to search.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>We search everything</h3>
+        <p>Tee-Time hits every supported course at once &mdash; ForeUp, Chronogolf, Member Sports, sorted by distance.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Book directly</h3>
+        <p>Tap any time to go straight to that course's booking page. No middleman, no markup.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- EARLY ACCESS -->
+  <section class="access-section" id="access">
+    <div class="access-card reveal">
+      <p class="access-label">Early Access</p>
+      <h2>Got a code?<br>Let's get you in.</h2>
+      <p class="sub">Drop your email, enter your access code, and tell us a bit about how you golf &mdash; it helps us build the right product.</p>
+
+      <div class="form" id="accessForm">
+        <div class="field">
+          <label>Email address</label>
+          <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="field">
+          <label>Access code</label>
+          <div class="code-row">
+            <input type="text" id="codeInput" placeholder="Enter your code" maxlength="20" />
+            <button class="code-verify-btn" id="verifyBtn" type="button">Verify</button>
+          </div>
+          <div class="code-verified" id="codeVerified">Code accepted</div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Course you play most</label>
+            <select id="coursesInput">
+              <option value="" disabled selected>Select a course</option>
+              <option>Nibley Park</option><option>Bonneville</option><option>Rose Park</option>
+              <option>Mountain Dell</option><option>Soldier Hollow</option><option>Wingpointe</option>
+              <option>Thanksgiving Point</option><option>Jeremy Ranch</option>
+              <option>Park City Golf Club</option><option>Stonebridge</option><option>Other / Multiple</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Rounds per month</label>
+            <select id="frequencyInput">
+              <option value="" disabled selected>How often?</option>
+              <option value="1">1 round / month</option>
+              <option value="2-4">2&ndash;4 rounds / month</option>
+              <option value="5-8">5&ndash;8 rounds / month</option>
+              <option value="9+">9+ rounds / month</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>If Tee-Time saved you time every round, what feels fair?</label>
+          <select id="wtpInput">
+            <option value="" disabled selected>Pick one</option>
+            <option value="free">I'd only use it if it's free</option>
+            <option value="1-3">$1&ndash;3 / month sounds reasonable</option>
+            <option value="4-6">$4&ndash;6 / month, sure</option>
+            <option value="7-10">$7&ndash;10 / month for real value</option>
+            <option value="one-time">One-time purchase, not a sub</option>
+          </select>
+        </div>
+        <div class="status" id="statusMsg"></div>
+        <button class="submit-btn" id="submitBtn" type="button" disabled>
+          Request Access <span class="arrow">&rarr;</span>
+        </button>
+      </div>
+
+      <div id="successState" style="display:none;max-width:460px;">
+        <p style="font-size:1.1rem;font-weight:500;margin-bottom:10px;">You're in. Taking you to the app&hellip;</p>
+        <p style="color:rgba(255,255,255,0.55);font-size:0.88rem;line-height:1.7;">Thanks for being an early supporter of tee-time.io. Enjoy!</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-logo">
+      <div class="footer-flag">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="2" width="1.5" height="12" fill="white" rx="0.5" opacity="0.6"/>
+          <path d="M4.5 2.5L12 5.5L4.5 8.5V2.5Z" fill="white" opacity="0.6"/>
+        </svg>
+      </div>
+      <span class="footer-name">tee-time.io</span>
+    </div>
+    <p>Built for Utah golfers &middot; 2026</p>
+  </footer>
+
+  <script>
+    const VALID_CODES = ['golf2026', 'teetime', 'earlybird', 'utahgolf'];
+    const APP_URL = './app.html';
+
+    const emailInput     = document.getElementById('emailInput');
+    const codeInput      = document.getElementById('codeInput');
+    const verifyBtn      = document.getElementById('verifyBtn');
+    const codeVerified   = document.getElementById('codeVerified');
+    const coursesInput   = document.getElementById('coursesInput');
+    const frequencyInput = document.getElementById('frequencyInput');
+    const wtpInput       = document.getElementById('wtpInput');
+    const submitBtn      = document.getElementById('submitBtn');
+    const statusMsg      = document.getElementById('statusMsg');
+    const accessForm     = document.getElementById('accessForm');
+    const successState   = document.getElementById('successState');
+    let codeIsValid = false;
+
+    const observer = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+      { threshold: 0.1 }
+    );
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    verifyBtn.addEventListener('click', () => {
+      const code = codeInput.value.trim().toLowerCase();
+      if (!code) { showStatus('Please enter your access code.', 'error'); return; }
+      if (VALID_CODES.includes(code)) {
+        codeIsValid = true;
+        codeVerified.classList.add('show');
+        codeInput.style.borderColor = 'rgba(157,224,162,0.5)';
+        verifyBtn.textContent = '\u2713';
+        verifyBtn.style.background = 'rgba(157,224,162,0.15)';
+        hideStatus(); checkReady();
       } else {
-        for (const r of unavailable) {
-          unavailSection.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi, date, holes, players));
-        }
+        codeIsValid = false;
+        codeVerified.classList.remove('show');
+        showStatus("That code doesn't look right. Check the post and try again.", 'error');
+        checkReady();
       }
+    });
 
-      toggle.addEventListener('click', () => {
-        const open = unavailSection.classList.toggle('open');
-        toggle.innerHTML = open
-          ? `${chevronUp} Hide unavailable courses`
-          : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
-      });
+    codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') verifyBtn.click(); });
+    codeInput.addEventListener('input', () => {
+      if (codeIsValid) {
+        codeIsValid = false; codeVerified.classList.remove('show');
+        codeInput.style.borderColor = ''; verifyBtn.textContent = 'Verify'; verifyBtn.style.background = '';
+        checkReady();
+      }
+    });
 
-      resultsEl.appendChild(unavailSection);
+    [emailInput, coursesInput, frequencyInput, wtpInput].forEach(el => {
+      el.addEventListener('change', checkReady); el.addEventListener('input', checkReady);
+    });
+
+    function checkReady() {
+      submitBtn.disabled = !(emailInput.value.includes('@') && codeIsValid && coursesInput.value && frequencyInput.value && wtpInput.value);
     }
-  }
 
-  document.getElementById('searchBtn').addEventListener('click', () => {
-    courseCache.clear();
-    if (activeTab === 'nearby' && !userLocation) {
-      requestGeolocation();
-    } else {
-      runSearch();
+    submitBtn.addEventListener('click', () => {
+      if (!codeIsValid) { showStatus('Please verify your code first.', 'error'); return; }
+      const payload = { email: emailInput.value.trim(), code: codeInput.value.trim().toUpperCase(), course: coursesInput.value, frequency: frequencyInput.value, wtp: wtpInput.value, ts: Date.now() };
+      trackEvent('early_access_request', payload);
+      const subs = JSON.parse(localStorage.getItem('tt_submissions') || '[]');
+      subs.push(payload); localStorage.setItem('tt_submissions', JSON.stringify(subs));
+      submitBtn.disabled = true; submitBtn.innerHTML = 'Sending\u2026';
+      setTimeout(() => {
+        accessForm.style.display = 'none'; successState.style.display = 'block';
+        localStorage.setItem('tt_access', 'granted');
+        setTimeout(() => { window.location.href = APP_URL; }, 2500);
+      }, 800);
+    });
+
+    function showStatus(msg, type) { statusMsg.textContent = msg; statusMsg.className = 'status ' + type; }
+    function hideStatus() { statusMsg.className = 'status'; statusMsg.textContent = ''; }
+
+    function trackEvent(name, props) {
+      console.log('[tee-time.io]', name, props);
+      // if (window.plausible) window.plausible(name, { props });
+      // if (window.posthog)  window.posthog.capture(name, props);
+      // if (window.gtag)     window.gtag('event', name, props);
     }
-  });
-
-  // ── Compact sticky bar ──
-  updateCompactBar();
-
-  const compactBar = document.getElementById('compactBar');
-
-  new IntersectionObserver(
-    ([entry]) => compactBar.classList.toggle('visible', !entry.isIntersecting),
-    { threshold: 0 }
-  ).observe(document.querySelector('.search-panel'));
-
-  document.getElementById('compactPrev').addEventListener('click', () => offsetDate(-1));
-  document.getElementById('compactNext').addEventListener('click', () => offsetDate(1));
-
-  document.getElementById('compactRefresh').addEventListener('click', function () {
-    this.disabled = true;
-    courseCache.clear();
-    if (activeTab === 'nearby' && !userLocation) {
-      requestGeolocation();
-    } else {
-      runSearch().finally(() => { this.disabled = false; });
-    }
-  });
-</script>
+  </script>
 </body>
 </html>

@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tee-Time — Utah Golf</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --brand:         #2D7A3A;
+      --brand-dark:    #3A9047;
+      --brand-darker:  #1A2E1A;
+      --brand-bg:      #1A2E1A;
+      --brand-light:   #EDF7ED;
+      --brand-lighter: #EDF7ED;
+
+      --fg:            #111410;
+      --fg-muted:      #637063;
+      --fg-subtle:     #8a9a8a;
+
+      --bg:            #ffffff;
+      --bg-subtle:     #F2F5F2;
+      --bg-muted:      #F4F6F4;
+
+      --border:        rgba(26,46,26,0.1);
+      --border-strong: rgba(26,46,26,0.2);
+
+      --red:           #dc2626;
+
+      --radius-sm:     8px;
+      --radius:        12px;
+      --radius-lg:     16px;
+
+      --shadow-xs: 0 1px 3px rgba(26,46,26,0.06);
+      --shadow-sm: 0 4px 16px rgba(26,46,26,0.08);
+
+      --font:         'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'DM Serif Display', Georgia, serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      font-weight: 400;
+      background: var(--bg-subtle);
+      color: var(--fg);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─────────────────────────────
+       Header
+    ───────────────────────────── */
+    header {
+      background: rgba(26,46,26,0.97);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 16px 20px 20px;
+    }
+
+    .header-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: rgba(255,255,255,0.1);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-name {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 400;
+      color: #fff;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-state {
+      font-family: var(--font);
+      font-size: 0.65rem;
+      font-weight: 500;
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.7);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .brand-tagline {
+      display: none;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.4);
+      margin-top: 3px;
+    }
+
+    /* ─────────────────────────────
+       Search Panel
+    ───────────────────────────── */
+    .search-panel {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .search-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .search-date-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .date-nav {
+      font-family: var(--font);
+      background: var(--bg);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      width: 44px;
+      height: 44px;
+      font-size: 1.1rem;
+      color: var(--fg-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.12s, color 0.12s;
+      user-select: none;
+    }
+
+    .date-nav:hover {
+      border-color: var(--brand);
+      color: var(--brand-dark);
+    }
+
+    .date-display-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    #dateDisplay {
+      display: block;
+      font-family: var(--font);
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--fg);
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      text-align: center;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    #dateInput {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .search-filters-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+
+    .seg-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .seg-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .seg-buttons {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .seg-btn {
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      background: var(--bg);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 0 11px;
+      min-height: 38px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s;
+      line-height: 1;
+    }
+
+    .seg-btn:hover { border-color: var(--brand-dark); color: var(--brand-dark); }
+
+    .seg-btn.active {
+      background: var(--brand-bg);
+      border-color: var(--brand-bg);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    #searchBtn {
+      font-family: var(--font);
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--brand-dark);
+      border: none;
+      padding: 0 20px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.1s;
+      align-self: flex-end;
+      flex-shrink: 0;
+    }
+
+    #searchBtn:hover  { background: #3A9047; transform: translateY(-1px); }
+    #searchBtn:active { transform: scale(0.97); }
+    #searchBtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ─────────────────────────────
+       Tab Strip
+    ───────────────────────────── */
+    .tab-strip {
+      background: var(--bg);
+      border-bottom: 2px solid var(--border);
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      overscroll-behavior-x: contain;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .tab-strip::-webkit-scrollbar { display: none; }
+
+    .tab-strip-inner {
+      display: flex;
+      padding: 0 8px;
+      min-width: max-content;
+    }
+
+    .tab-btn {
+      font-family: var(--font);
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      background: none;
+      border: none;
+      border-bottom: 2.5px solid transparent;
+      margin-bottom: -2px;
+      padding: 13px 14px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.12s, border-color 0.12s;
+      flex-shrink: 0;
+    }
+
+    .tab-btn:hover:not(.active) { color: var(--fg); }
+
+    .tab-btn.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+      font-weight: 600;
+    }
+
+    /* ─────────────────────────────
+       Progress
+    ───────────────────────────── */
+    .progress-wrap {
+      display: none;
+      padding: 12px 20px 6px;
+    }
+
+    .progress-wrap.active { display: block; }
+
+    .progress-inner { max-width: 960px; margin: 0 auto; }
+
+    .progress-label {
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      margin-bottom: 6px;
+    }
+
+    .progress-track {
+      background: var(--border);
+      border-radius: 9999px;
+      height: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      background: var(--brand);
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.2s ease;
+      width: 0%;
+    }
+
+    /* ─────────────────────────────
+       Results
+    ───────────────────────────── */
+    #results {
+      padding: 16px 16px 56px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .results-meta {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      margin-bottom: 20px;
+    }
+
+    .area-group { margin-bottom: 28px; }
+
+    .area-heading {
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--fg-subtle);
+      margin-bottom: 10px;
+      padding-left: 2px;
+    }
+
+    /* ─────────────────────────────
+       Course Card
+    ───────────────────────────── */
+    .course-card {
+      background: var(--bg);
+      border: 1px solid rgba(26,46,26,0.1);
+      border-radius: 12px;
+      margin-bottom: 10px;
+      overflow: hidden;
+      box-shadow: var(--shadow-xs);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .course-card:hover {
+      box-shadow: 0 12px 36px rgba(0,0,0,0.06);
+      transform: translateY(-3px);
+    }
+
+    .unavailable-card {
+      opacity: 0.45;
+      transition: opacity 0.15s, box-shadow 0.15s;
+    }
+
+    .unavailable-card:hover { opacity: 0.7; }
+
+    .course-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 10px;
+      gap: 10px;
+    }
+
+    .course-name {
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--fg);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .course-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      font-size: 0.63rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .badge-distance {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    /* ─────────────────────────────
+       Time Pills
+    ───────────────────────────── */
+    .times-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      padding: 2px 16px 16px;
+    }
+
+    .time-pill {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #EDF7ED;
+      border: 1px solid rgba(45,122,58,0.2);
+      border-radius: 8px;
+      padding: 8px 4px;
+      height: 52px;
+      min-width: 0;
+      width: 100%;
+      text-decoration: none;
+      color: #2D7A3A;
+      font-family: var(--font);
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .time-pill:hover {
+      background: #2D7A3A;
+      border-color: #2D7A3A;
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(45,122,58,0.2);
+    }
+
+    .time-pill .t-time  { font-weight: 500; font-size: 0.78rem; line-height: 1.2; text-align: center; }
+    .time-pill .t-price { font-size: 0.72rem; font-weight: 300; opacity: 0.8; line-height: 1.2; text-align: center; }
+    .time-pill .t-spots { display: none; }
+
+    .time-pill.pill-hot {
+      background: #fff0f0;
+      border-color: rgba(185,28,28,0.2);
+      color: #b91c1c;
+    }
+    .time-pill.pill-hot:hover {
+      background: #b91c1c;
+      border-color: #b91c1c;
+      color: #fff;
+    }
+
+    .time-pill.pill-low {
+      background: #fffbeb;
+      border-color: rgba(146,64,14,0.2);
+      color: #92400e;
+    }
+    .time-pill.pill-low:hover {
+      background: #d97706;
+      border-color: #d97706;
+      color: #fff;
+    }
+
+    /* ─────────────────────────────
+       States
+    ───────────────────────────── */
+    .no-times {
+      font-size: 0.81rem;
+      color: var(--fg-subtle);
+      padding: 0 16px 14px;
+      font-style: italic;
+    }
+
+    .course-error {
+      font-size: 0.81rem;
+      color: var(--red);
+      opacity: 0.7;
+      padding: 0 16px 14px;
+    }
+
+    .course-login {
+      padding: 0 16px 14px;
+      font-size: 0.81rem;
+    }
+
+    .course-login a {
+      color: var(--brand-dark);
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .course-login a:hover { text-decoration: underline; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--fg-muted);
+    }
+
+    .empty-state p {
+      font-size: 0.95rem;
+      margin-top: 8px;
+      color: var(--fg-subtle);
+    }
+
+    /* ─────────────────────────────
+       Unavailable Toggle
+    ───────────────────────────── */
+    #unavailableToggle {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: 1.5px solid var(--border-strong);
+      color: var(--fg-muted);
+      padding: 7px 18px;
+      border-radius: 9999px;
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 4px 0 20px;
+      transition: all 0.12s;
+    }
+
+    #unavailableToggle:hover { background: var(--bg-muted); color: var(--fg); }
+    #unavailableToggle.shown { display: inline-flex; }
+
+    #unavailableCourses      { display: none; }
+    #unavailableCourses.open { display: block; }
+
+    /* ─────────────────────────────
+       Star / Favorite button
+    ───────────────────────────── */
+    .star-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      color: var(--border-strong);
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      transition: color 0.12s, transform 0.1s;
+    }
+    .star-btn:hover  { color: #f59e0b; transform: scale(1.15); }
+    .star-btn.active { color: #f59e0b; }
+
+    /* ─────────────────────────────
+       Card summary
+    ───────────────────────────── */
+    .card-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .card-from-price {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--brand-dark);
+    }
+
+    .card-count {
+      font-size: 0.72rem;
+      color: var(--fg-subtle);
+      font-weight: 500;
+    }
+
+    /* ─────────────────────────────
+       Compact Sticky Bar
+    ───────────────────────────── */
+    .compact-bar {
+      position: sticky;
+      top: 46px; /* sits just below tab strip */
+      z-index: 9;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.22s ease;
+    }
+
+    .compact-bar.visible { max-height: 48px; }
+
+    .compact-bar-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      height: 48px;
+    }
+
+    .compact-nav {
+      font-family: var(--font);
+      background: none;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+      transition: border-color 0.12s, color 0.12s;
+    }
+
+    .compact-nav:hover { border-color: var(--brand); color: var(--brand); }
+
+    .compact-date {
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--fg);
+      white-space: nowrap;
+    }
+
+    .compact-dot {
+      color: var(--fg-subtle);
+      font-size: 0.7rem;
+    }
+
+    .compact-params {
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+      white-space: nowrap;
+    }
+
+    .compact-spacer { flex: 1; }
+
+    .compact-refresh {
+      font-family: var(--font);
+      background: var(--brand);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .compact-refresh:hover  { background: var(--brand-dark); }
+    .compact-refresh:active { transform: scale(0.96); }
+    .compact-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ─────────────────────────────
+       Responsive — Desktop
+    ───────────────────────────── */
+    @media (min-width: 680px) {
+      header { padding: 18px 48px 22px; }
+      .brand-name    { font-size: 1.5rem; }
+      .brand-tagline { display: block; }
+
+      .search-panel { padding: 14px 20px; }
+
+      /* Single centered row on desktop */
+      .search-inner {
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 20px;
+      }
+
+      .search-date-row {
+        flex: 0 0 auto;
+        width: 260px;
+      }
+
+      .date-nav { width: 36px; height: 38px; font-size: 1rem; }
+      #dateDisplay { padding: 8px 10px; font-size: 0.88rem; }
+
+      .search-filters-row {
+        flex: 0 0 auto;
+        justify-content: flex-start;
+        gap: 12px;
+      }
+
+      .seg-group { gap: 5px; }
+      .seg-btn { padding: 0 13px; }
+
+      .tab-strip-inner {
+        justify-content: center;
+        min-width: unset;
+      }
+
+      #results { padding: 24px 20px 64px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand-icon">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="2" width="1.5" height="12" fill="white" rx="0.5"/>
+        <path d="M4.5 2.5L12 5.5L4.5 8.5V2.5Z" fill="white"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name">
+        Tee-Time
+        <span class="brand-state">Utah</span>
+      </div>
+      <div class="brand-tagline">Every tee time. One search.</div>
+    </div>
+  </div>
+</header>
+
+<div class="search-panel">
+  <div class="search-inner">
+
+    <div class="search-date-row">
+      <button class="date-nav" id="datePrev" aria-label="Previous day">&#8249;</button>
+      <div class="date-display-wrap">
+        <span id="dateDisplay"></span>
+        <input type="date" id="dateInput" />
+      </div>
+      <button class="date-nav" id="dateNext" aria-label="Next day">&#8250;</button>
+    </div>
+
+    <div class="search-filters-row">
+
+      <div class="seg-group">
+        <span class="seg-label">Players</span>
+        <div class="seg-buttons" id="playersGroup">
+          <button class="seg-btn" data-value="1">1</button>
+          <button class="seg-btn active" data-value="2">2</button>
+          <button class="seg-btn" data-value="3">3</button>
+          <button class="seg-btn" data-value="4">4</button>
+        </div>
+      </div>
+
+      <div class="seg-group">
+        <span class="seg-label">Holes</span>
+        <div class="seg-buttons" id="holesGroup">
+          <button class="seg-btn" data-value="9">9</button>
+          <button class="seg-btn active" data-value="18">18</button>
+        </div>
+      </div>
+
+      <button id="searchBtn">Refresh</button>
+    </div>
+
+  </div>
+</div>
+
+<input type="hidden" id="playersInput" value="2" />
+<input type="hidden" id="holesInput" value="18" />
+
+<div class="tab-strip">
+  <div class="tab-strip-inner" id="tabStrip"></div>
+</div>
+
+<div class="compact-bar" id="compactBar">
+  <div class="compact-bar-inner">
+    <button class="compact-nav" id="compactPrev" aria-label="Previous day">&#8249;</button>
+    <span class="compact-date" id="compactDate"></span>
+    <button class="compact-nav" id="compactNext" aria-label="Next day">&#8250;</button>
+    <span class="compact-dot">&#8226;</span>
+    <span class="compact-params" id="compactParams"></span>
+    <div class="compact-spacer"></div>
+    <button class="compact-refresh" id="compactRefresh">&#8635; Refresh</button>
+  </div>
+</div>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-inner">
+    <div class="progress-label" id="progressLabel">Fetching...</div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+</div>
+
+<div id="results"></div>
+
+<script>
+  if (localStorage.getItem('tt_access') !== 'granted') {
+    window.location.href = '/';
+  }
+
+  const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
+
+  let courses = [];
+  let activeTab = 'nearby';
+  let userLocation = null; // { lat, lng }
+
+  // ── Tabs ──
+  const REGION_TABS = [
+    { id: 'nearby',   label: '📍 Near Me' },
+    { id: 'saved',    label: '★ Saved' },
+    { id: 'all',      label: 'All' },
+    { id: 'slc',      label: 'Salt Lake Valley', areas: ['SALT LAKE CITY AREA', 'TOOELE AND WEST'] },
+    { id: 'davis',    label: 'Davis & Weber',     areas: ['DAVIS AND WEBER COUNTY'] },
+    { id: 'utah',     label: 'Utah County',       areas: ['UTAH COUNTY AND SOUTH'] },
+    { id: 'stgeorge', label: 'St. George',        areas: ['ST. GEORGE AND SOUTHWEST', 'CEDAR CITY AND SOUTHWEST', 'CENTRAL AND SOUTHWEST UTAH'] },
+    { id: 'parkcity', label: 'Park City & Heber', areas: ['PARK CITY AND EAST', 'HEBER VALLEY AND EAST'] },
+    { id: 'cache',    label: 'Cache Valley',      areas: ['LOGAN, CACHE VALLEY, NORTH'] },
+    { id: 'eastern',  label: 'Eastern Utah',      areas: ['UINTA BASIN AND EAST'] },
+  ];
+
+  const AREA_LABELS = {
+    'SALT LAKE CITY AREA':           'Salt Lake City',
+    'UTAH COUNTY AND SOUTH':         'Utah County',
+    'DAVIS AND WEBER COUNTY':        'Davis & Weber',
+    'HEBER VALLEY AND EAST':         'Heber Valley',
+    'TOOELE AND WEST':               'Tooele & West',
+    'LOGAN, CACHE VALLEY, NORTH':    'Cache Valley',
+    'ST. GEORGE AND SOUTHWEST':      'St. George',
+    'CEDAR CITY AND SOUTHWEST':      'Cedar City',
+    'CENTRAL AND SOUTHWEST UTAH':    'Central Utah',
+    'PARK CITY AND EAST':            'Park City',
+    'UINTA BASIN AND EAST':          'Eastern Utah',
+  };
+
+  // ── Favorites ──
+  let favorites = new Set(JSON.parse(localStorage.getItem('tt_favorites') || '[]'));
+
+  function saveFavorites() {
+    localStorage.setItem('tt_favorites', JSON.stringify([...favorites]));
+  }
+
+  function toggleFavorite(courseName) {
+    if (favorites.has(courseName)) {
+      favorites.delete(courseName);
+    } else {
+      favorites.add(courseName);
+    }
+    saveFavorites();
+    document.querySelectorAll(`.star-btn[data-course="${CSS.escape(courseName)}"]`).forEach(btn => {
+      btn.classList.toggle('active', favorites.has(courseName));
+      btn.setAttribute('aria-label', favorites.has(courseName) ? 'Unstar course' : 'Star course');
+    });
+    if (activeTab === 'saved') runSearch();
+  }
+
+  // ── Per-course cache ──
+  const courseCache = new Map(); // `name||date||holes||players` → { data, error, fetchedAt }
+  const CACHE_TTL_MS = 3 * 60 * 1000;
+
+  function getCourseKey(course, date, holes, players) {
+    return `${course.name}||${date}||${holes}||${players}`;
+  }
+
+  // ── Haversine ──
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 3958.8;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.asin(Math.sqrt(a));
+  }
+
+  // ── Tab helpers ──
+  function getCoursesForTab(tabId) {
+    if (tabId === 'nearby') return courses;
+    if (tabId === 'saved')  return courses.filter(c => favorites.has(c.name));
+    if (tabId === 'all')    return courses;
+    const tab = REGION_TABS.find(t => t.id === tabId);
+    if (!tab?.areas) return courses;
+    return courses.filter(c => tab.areas.includes(c.area));
+  }
+
+  function buildTabStrip() {
+    const strip = document.getElementById('tabStrip');
+    strip.innerHTML = '';
+    REGION_TABS.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn' + (tab.id === activeTab ? ' active' : '');
+      btn.dataset.tab = tab.id;
+      btn.textContent = tab.label;
+      btn.addEventListener('click', () => switchTab(tab.id));
+      strip.appendChild(btn);
+    });
+  }
+
+  function switchTab(tabId) {
+    activeTab = tabId;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    if (tabId === 'nearby') {
+      requestGeolocation();
+    } else {
+      runSearch();
+    }
+  }
+
+  function requestGeolocation() {
+    if (!navigator.geolocation) {
+      showInlineError('Geolocation is not supported by your browser. Try a different tab.');
+      return;
+    }
+    document.getElementById('results').innerHTML =
+      '<div class="empty-state"><p>Getting your location…</p></div>';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        runSearch();
+      },
+      err => {
+        const msg = err.code === 1
+          ? 'Location access denied. Enable location and tap Near Me again.'
+          : 'Could not get your location. Try a different tab.';
+        showInlineError(msg);
+      },
+      { timeout: 10000, maximumAge: 300000 }
+    );
+  }
+
+  // ── Date setup ──
+  const _now = new Date();
+  const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+  document.getElementById('dateInput').value = todayStr;
+  updateDateDisplay();
+
+  document.getElementById('datePrev').addEventListener('click', () => offsetDate(-1));
+  document.getElementById('dateNext').addEventListener('click', () => offsetDate(1));
+  document.getElementById('dateInput').addEventListener('change', () => {
+    updateDateDisplay();
+    scheduleSearch();
+  });
+
+  function updateDateDisplay() {
+    const val = document.getElementById('dateInput').value;
+    if (!val) return;
+    const d = new Date(val + 'T00:00:00');
+    document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    });
+    updateCompactBar();
+  }
+
+  function updateCompactBar() {
+    const date    = document.getElementById('dateInput').value;
+    const players = document.getElementById('playersInput').value;
+    const holes   = document.getElementById('holesInput').value;
+    if (!date) return;
+    const d = new Date(date + 'T00:00:00');
+    document.getElementById('compactDate').textContent = d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+    });
+    document.getElementById('compactParams').textContent = `${players} players · ${holes} holes`;
+  }
+
+  function offsetDate(days) {
+    const input = document.getElementById('dateInput');
+    const d = new Date(input.value + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    input.value = d.toISOString().slice(0, 10);
+    updateDateDisplay();
+    scheduleSearch();
+  }
+
+  let searchDebounceTimer = null;
+  function scheduleSearch() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      // Invalidate cache when date/holes/players change so all tabs re-fetch
+      courseCache.clear();
+      if (activeTab === 'nearby' && !userLocation) {
+        requestGeolocation();
+      } else {
+        runSearch();
+      }
+    }, 400);
+  }
+
+  // ── Segmented controls ──
+  function initSegment(groupId, inputId) {
+    const group = document.getElementById(groupId);
+    const input = document.getElementById(inputId);
+    group.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        input.value = btn.dataset.value;
+        updateCompactBar();
+        courseCache.clear();
+        if (activeTab === 'nearby' && !userLocation) {
+          requestGeolocation();
+        } else {
+          runSearch();
+        }
+      });
+    });
+  }
+
+  initSegment('playersGroup', 'playersInput');
+  initSegment('holesGroup',   'holesInput');
+
+  // ── Load courses ──
+  fetch('./courses.json')
+    .then(r => r.json())
+    .then(data => {
+      courses = data;
+      buildTabStrip();
+      switchTab('nearby'); // auto-start with Near Me
+    })
+    .catch(() => {
+      document.getElementById('results').innerHTML =
+        '<p style="color:#dc2626;padding:20px">Failed to load courses.json.</p>';
+    });
+
+  // ── Helpers ──
+  function formatTime12h(timeStr) {
+    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return timeStr;
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    if (h > 12) h -= 12;
+    if (h === 0) h = 12;
+    return `${h}:${m} ${ampm}`;
+  }
+
+  function formatPrice(val) {
+    if (val == null || val === 0 || val === '') return null;
+    const n = parseFloat(val);
+    if (isNaN(n) || n === 0) return null;
+    return '$' + n.toFixed(0);
+  }
+
+  function parsePrice(priceStr) {
+    if (!priceStr) return null;
+    const n = parseFloat(priceStr.replace('$', ''));
+    return isNaN(n) ? null : n;
+  }
+
+  // ── API ──
+  async function fetchCourseTimes(course, date, holes, players) {
+    const params = new URLSearchParams({ date });
+    let url;
+
+    if (course.platform === 'foreup') {
+      params.set('schedule_id', course.schedule_id);
+      if (course.booking_class_id) params.set('booking_class_id', course.booking_class_id);
+      params.set('holes', holes);
+      url = `${WORKER_URL}/foreup?${params}`;
+    } else if (course.platform === 'chronogolf') {
+      if (!course.course_ids) return null;
+      params.set('course_ids', course.course_ids.join(','));
+      url = `${WORKER_URL}/chronogolf?${params}`;
+    } else if (course.platform === 'membersports') {
+      params.set('golf_club_id', course.golf_club_id);
+      params.set('golf_course_id', course.golf_course_id);
+      url = `${WORKER_URL}/membersports?${params}`;
+    } else if (course.platform === 'chronogolf_slc') {
+      params.set('club_id', course.club_id);
+      params.set('course_id', course.course_id);
+      params.set('affiliation_type_id', course.affiliation_type_id);
+      params.set('nb_holes', holes);
+      params.set('players', players);
+      url = `${WORKER_URL}/chronogolf-slc?${params}`;
+    }
+
+    if (!url) return null;
+    const res = await fetch(url);
+    return res.json();
+  }
+
+  // ── Normalizers ──
+  function normalizeTimes(course, data, holes) {
+    if (!data) return [];
+    switch (course.platform) {
+      case 'foreup':         return normalizeForeUpTimes(data);
+      case 'membersports':   return normalizeMemberSportsTimes(data, holes);
+      case 'chronogolf_slc': return normalizeChronogolfSlcTimes(data, holes);
+      default:               return normalizeChronogolfTimes(data);
+    }
+  }
+
+  function normalizeForeUpTimes(data) {
+    if (!Array.isArray(data)) return [];
+    return data.map(t => ({
+      rawTime: t.time || '',
+      display: formatTime12h(t.time || ''),
+      spots:   t.available_spots || null,
+      price:   formatPrice(t.green_fee),
+      holes:   t.holes,
+    }));
+  }
+
+  function normalizeMemberSportsTimes(data, holes) {
+    if (!Array.isArray(data)) return [];
+    const requestedHoles = parseInt(holes, 10);
+    const result = [];
+    for (const slot of data) {
+      if (!slot.items?.length) continue;
+      for (const item of slot.items) {
+        if (item.hide || item.bookingNotAllowed) continue;
+        const itemHoles = (item.holesRequirementTypeId !== 1 && !item.isBackNine) ? 18 : 9;
+        if (itemHoles !== requestedHoles) continue;
+        const availableSpots = 4 - (item.playerCount || 0);
+        if (availableSpots <= 0) continue;
+        const h = Math.floor(slot.teeTime / 60);
+        const m = slot.teeTime % 60;
+        const rawTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        result.push({
+          rawTime,
+          display: formatTime12h(rawTime),
+          spots:   availableSpots,
+          price:   formatPrice(item.price),
+          holes:   itemHoles,
+        });
+      }
+    }
+    return result;
+  }
+
+  function normalizeChronogolfSlcTimes(data, holes) {
+    if (!Array.isArray(data)) return [];
+    return data
+      .filter(t => !t.out_of_capacity && !t.frozen)
+      .map(t => ({
+        rawTime: t.start_time || '',
+        display: formatTime12h(t.start_time || ''),
+        spots:   null,
+        price:   formatPrice(t.green_fees?.[0]?.green_fee),
+        holes:   parseInt(holes, 10),
+      }));
+  }
+
+  function normalizeChronogolfTimes(data) {
+    const items = data?.teetimes;
+    if (!Array.isArray(items)) return [];
+    return items.map(t => ({
+      rawTime: t.start_time || '',
+      display: formatTime12h(t.start_time || ''),
+      spots:   t.max_player_size ?? null,
+      price:   formatPrice(t.default_price?.green_fee),
+      holes:   t.default_price?.bookable_holes ?? t.course?.holes,
+    }));
+  }
+
+  // ── Booking URL builder ──
+  function buildBookingUrl(course, date, holes, players) {
+    const base = course.booking_url;
+    if (!base) return '#';
+
+    if (course.platform === 'foreup' && base.includes('foreupsoftware.com')) {
+      // ForeUp hash-router — append date/players/holes to the hash fragment
+      // ForeUp UI expects MM-DD-YYYY
+      const [y, m, d] = date.split('-');
+      return `${base}?date=${m}-${d}-${y}&players=${players}&holes=${holes}`;
+    }
+
+    return base;
+  }
+
+  // ── DOM builders ──
+  function buildTimePill(t, bookingUrl) {
+    const a = document.createElement('a');
+    a.href = bookingUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    let pillClass = 'time-pill';
+    if (t.spots === 1)      pillClass += ' pill-hot';
+    else if (t.spots === 2) pillClass += ' pill-low';
+    a.className = pillClass;
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 't-time';
+    timeEl.textContent = t.display;
+
+    const priceEl = document.createElement('span');
+    priceEl.className = 't-price';
+    priceEl.textContent = t.price || '';
+
+    const spotsEl = document.createElement('span');
+    spotsEl.className = 't-spots';
+    if (t.spots != null) spotsEl.textContent = `${t.spots} spot${t.spots !== 1 ? 's' : ''}`;
+
+    a.appendChild(timeEl);
+    if (t.price) a.appendChild(priceEl);
+    if (t.spots != null) a.appendChild(spotsEl);
+    return a;
+  }
+
+  function buildCourseCard(course, times, error, isUnavailable, distanceMi, date, holes, players) {
+    const bookingUrl = buildBookingUrl(course, date, holes, players);
+    const card = document.createElement('div');
+    card.className = 'course-card' + (isUnavailable ? ' unavailable-card' : '');
+    card.dataset.courseName = course.name;
+
+    const header = document.createElement('div');
+    header.className = 'course-header';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'course-name';
+    nameEl.textContent = course.name;
+
+    const starBtn = document.createElement('button');
+    starBtn.className = 'star-btn' + (favorites.has(course.name) ? ' active' : '');
+    starBtn.dataset.course = course.name;
+    starBtn.setAttribute('aria-label', favorites.has(course.name) ? 'Unstar course' : 'Star course');
+    starBtn.textContent = '★';
+    starBtn.addEventListener('click', e => { e.preventDefault(); toggleFavorite(course.name); });
+
+    const summary = document.createElement('div');
+    summary.className = 'card-summary';
+
+    // Distance badge (Near Me tab)
+    if (distanceMi != null) {
+      const distBadge = document.createElement('span');
+      distBadge.className = 'badge badge-distance';
+      distBadge.textContent = distanceMi < 10
+        ? `${distanceMi.toFixed(1)} mi`
+        : `${Math.round(distanceMi)} mi`;
+      summary.appendChild(distBadge);
+    }
+
+    if (times && times.length > 0) {
+      const prices = times.map(t => parsePrice(t.price)).filter(p => p !== null);
+      if (prices.length) {
+        const fromEl = document.createElement('span');
+        fromEl.className = 'card-from-price';
+        fromEl.textContent = `from $${Math.min(...prices)}`;
+        summary.appendChild(fromEl);
+      }
+      const countEl = document.createElement('span');
+      countEl.className = 'card-count';
+      countEl.textContent = `${times.length} time${times.length !== 1 ? 's' : ''}`;
+      summary.appendChild(countEl);
+    }
+
+    header.appendChild(nameEl);
+    header.appendChild(summary);
+    header.appendChild(starBtn);
+    card.appendChild(header);
+
+    if (error) {
+      const msg = document.createElement('div');
+      if (error === 'login_required') {
+        msg.className = 'course-login';
+        const link = document.createElement('a');
+        link.href = bookingUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Sign in to view times →';
+        msg.appendChild(link);
+      } else {
+        msg.className = 'course-error';
+        const messages = {
+          timeout:        'Request timed out.',
+          upstream_error: 'Course API unavailable.',
+          unavailable:    'Not available via API.',
+          parse_error:    'Unexpected response from course.',
+        };
+        msg.textContent = messages[error] || `Error: ${error}`;
+      }
+      card.appendChild(msg);
+    } else if (!times || times.length === 0) {
+      const msg = document.createElement('div');
+      msg.className = 'no-times';
+      msg.textContent = 'No available tee times for this search.';
+      card.appendChild(msg);
+    } else {
+      const row = document.createElement('div');
+      row.className = 'times-row';
+      for (const t of times) row.appendChild(buildTimePill(t, bookingUrl));
+      card.appendChild(row);
+    }
+
+    return card;
+  }
+
+  function groupByArea(results) {
+    const map = {};
+    for (const r of results) {
+      const area = r.course.area;
+      if (!map[area]) map[area] = [];
+      map[area].push(r);
+    }
+    return map;
+  }
+
+  function showInlineError(msg) {
+    document.getElementById('results').innerHTML =
+      `<p style="color:#dc2626;padding:20px;font-size:0.92rem">${msg}</p>`;
+  }
+
+  // ── Run search ──
+  async function runSearch() {
+    if (!courses.length) return;
+
+    const date    = document.getElementById('dateInput').value;
+    const players = document.getElementById('playersInput').value;
+    const holes   = document.getElementById('holesInput').value;
+    if (!date) return;
+
+    const tabCourses = getCoursesForTab(activeTab);
+
+    if (activeTab === 'saved' && tabCourses.length === 0) {
+      document.getElementById('results').innerHTML =
+        '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3"><circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/><path d="M20 10v10l6 4" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/></svg><p>Tap ★ on any course to save it here.</p></div>';
+      return;
+    }
+
+    // Determine which courses need fetching
+    const toFetch = tabCourses.filter(c => {
+      const key = getCourseKey(c, date, holes, players);
+      const cached = courseCache.get(key);
+      return !cached || Date.now() - cached.fetchedAt >= CACHE_TTL_MS;
+    });
+
+    if (toFetch.length === 0) {
+      renderFromCache(tabCourses, date, holes, players);
+      return;
+    }
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+
+    const progressWrap  = document.getElementById('progressWrap');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressFill  = document.getElementById('progressFill');
+    progressWrap.classList.add('active');
+
+    let done = 0;
+
+    function updateProgress() {
+      done++;
+      progressLabel.textContent = `Fetching… ${done}/${toFetch.length}`;
+      progressFill.style.width = `${Math.round((done / toFetch.length) * 100)}%`;
+    }
+
+    const promises = toFetch.map(course =>
+      fetchCourseTimes(course, date, holes, players)
+        .then(data => {
+          const key = getCourseKey(course, date, holes, players);
+          courseCache.set(key, { data, error: data?.error || null, fetchedAt: Date.now() });
+          updateProgress();
+        })
+        .catch(() => {
+          const key = getCourseKey(course, date, holes, players);
+          courseCache.set(key, { data: null, error: 'upstream_error', fetchedAt: Date.now() });
+          updateProgress();
+        })
+    );
+
+    await Promise.allSettled(promises);
+
+    progressWrap.classList.remove('active');
+    progressFill.style.width = '0%';
+    btn.disabled = false;
+    btn.textContent = 'Refresh';
+
+    renderFromCache(tabCourses, date, holes, players);
+  }
+
+  function renderFromCache(tabCourses, date, holes, players) {
+    const allResults = tabCourses.map(course => {
+      const key = getCourseKey(course, date, holes, players);
+      const cached = courseCache.get(key);
+      return {
+        course,
+        data:  cached?.data  ?? null,
+        error: cached?.error ?? null,
+      };
+    });
+    processAndRender(allResults, players, holes);
+  }
+
+  function processAndRender(apiResults, players, holes) {
+    const date = document.getElementById('dateInput').value;
+    const processed = apiResults.map(r => {
+      if (r.error) return { ...r, times: [] };
+      let times = normalizeTimes(r.course, r.data, holes);
+      times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
+      times = times.filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
+      return { ...r, times };
+    });
+
+    // Nearby: compute distances and sort
+    if (activeTab === 'nearby' && userLocation) {
+      for (const r of processed) {
+        if (r.course.lat != null && r.course.lng != null) {
+          r.distanceMi = haversine(userLocation.lat, userLocation.lng, r.course.lat, r.course.lng);
+        }
+      }
+      processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
+    }
+
+    const available   = processed.filter(r => !r.error && r.times.length > 0);
+    const unavailable = processed.filter(r => r.error || r.times.length === 0);
+
+    const resultsEl = document.getElementById('results');
+    resultsEl.innerHTML = '';
+
+    const meta = document.createElement('div');
+    meta.className = 'results-meta';
+    meta.textContent = `${available.length} course${available.length !== 1 ? 's' : ''} with available times`;
+    resultsEl.appendChild(meta);
+
+    if (available.length > 0) {
+      if (activeTab === 'all') {
+        const grouped = groupByArea(available);
+        for (const [area, items] of Object.entries(grouped)) {
+          const group = document.createElement('div');
+          group.className = 'area-group';
+          const heading = document.createElement('div');
+          heading.className = 'area-heading';
+          heading.textContent = AREA_LABELS[area] || area;
+          group.appendChild(heading);
+          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi, date, holes, players));
+          resultsEl.appendChild(group);
+        }
+      } else {
+        for (const r of available) {
+          resultsEl.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi, date, holes, players));
+        }
+      }
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3">
+          <circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/>
+          <path d="M13 20h14" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p>No tee times found. Try a different date or adjust your filters.</p>
+      `;
+      resultsEl.appendChild(empty);
+    }
+
+    if (unavailable.length > 0) {
+      const startOpen = available.length === 0;
+
+      const noTimesCount = unavailable.filter(r => !r.error).length;
+      const errorCount   = unavailable.filter(r =>  r.error).length;
+      const reasonParts  = [];
+      if (noTimesCount) reasonParts.push(`${noTimesCount} no times`);
+      if (errorCount)   reasonParts.push(`${errorCount} unavailable`);
+      const reasonStr = reasonParts.length ? ` (${reasonParts.join(', ')})` : '';
+
+      const chevronDown = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      const chevronUp   = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 9l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+      const toggle = document.createElement('button');
+      toggle.id = 'unavailableToggle';
+      toggle.className = 'shown';
+      toggle.innerHTML = startOpen
+        ? `${chevronUp} Hide ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`
+        : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
+      resultsEl.appendChild(toggle);
+
+      const unavailSection = document.createElement('div');
+      unavailSection.id = 'unavailableCourses';
+      if (startOpen) unavailSection.classList.add('open');
+
+      if (activeTab === 'all') {
+        const grouped = groupByArea(unavailable);
+        for (const [area, items] of Object.entries(grouped)) {
+          const group = document.createElement('div');
+          group.className = 'area-group';
+          const heading = document.createElement('div');
+          heading.className = 'area-heading';
+          heading.textContent = AREA_LABELS[area] || area;
+          group.appendChild(heading);
+          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi, date, holes, players));
+          unavailSection.appendChild(group);
+        }
+      } else {
+        for (const r of unavailable) {
+          unavailSection.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi, date, holes, players));
+        }
+      }
+
+      toggle.addEventListener('click', () => {
+        const open = unavailSection.classList.toggle('open');
+        toggle.innerHTML = open
+          ? `${chevronUp} Hide unavailable courses`
+          : `${chevronDown} Show ${unavailable.length} unavailable course${unavailable.length !== 1 ? 's' : ''}${reasonStr}`;
+      });
+
+      resultsEl.appendChild(unavailSection);
+    }
+  }
+
+  document.getElementById('searchBtn').addEventListener('click', () => {
+    courseCache.clear();
+    if (activeTab === 'nearby' && !userLocation) {
+      requestGeolocation();
+    } else {
+      runSearch();
+    }
+  });
+
+  // ── Compact sticky bar ──
+  updateCompactBar();
+
+  const compactBar = document.getElementById('compactBar');
+
+  new IntersectionObserver(
+    ([entry]) => compactBar.classList.toggle('visible', !entry.isIntersecting),
+    { threshold: 0 }
+  ).observe(document.querySelector('.search-panel'));
+
+  document.getElementById('compactPrev').addEventListener('click', () => offsetDate(-1));
+  document.getElementById('compactNext').addEventListener('click', () => offsetDate(1));
+
+  document.getElementById('compactRefresh').addEventListener('click', function () {
+    this.disabled = true;
+    courseCache.clear();
+    if (activeTab === 'nearby' && !userLocation) {
+      requestGeolocation();
+    } else {
+      runSearch().finally(() => { this.disabled = false; });
+    }
+  });
+</script>
+</body>
+</html>
