@@ -3,10 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tee-Time — Find Utah Tee Times, Instantly</title>
+  <title>tee-time.io — Every Utah Tee Time, One Search</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+
+  <!-- PostHog analytics -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing opt_in_capturing has_opted_out_capturing has_opted_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_RCaOhjbjWX2KDt0rzHvFuYRFlfM5D6vQfcdiOA7TnfF', {
+      api_host: 'https://us.i.posthog.com',
+    });
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -333,6 +342,131 @@
       .time-grid { grid-template-columns: repeat(2,1fr); }
       .mc-refresh { margin-left: 0; }
     }
+
+    /* ── Before / After Component ── */
+    .ba-wrap { margin-bottom: 64px; }
+    .ba-before { border-radius: 12px; overflow: hidden; box-shadow: 0 6px 28px rgba(0,0,0,0.1); }
+    .ba-tab-strip { display: flex; background: #f2f2f2; border-bottom: 1px solid #ddd; padding: 0 14px; }
+    .ba-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 15px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500; color: #777; cursor: pointer; margin-bottom: -1px; transition: color 0.15s; }
+    .ba-tab.active { color: #111; border-bottom-color: #444; }
+    .ba-panel { display: none; }
+    .ba-panel.active { display: block; }
+
+    /* MemberBook */
+    .mb-hd { background: #1B3152; padding: 10px 15px; display: flex; align-items: center; }
+    .mb-logo { color: #fff; font-size: 0.95rem; font-weight: 800; letter-spacing: -0.01em; }
+    .mb-logo span { color: #5BAEF0; }
+    .mb-sub { background: #152d4a; padding: 6px 15px; display: flex; align-items: center; gap: 8px; overflow-x: auto; }
+    .mb-today-btn { background: #4A9FE8; color: #fff; border: none; padding: 3px 8px; border-radius: 3px; font-size: 0.68rem; font-weight: 700; flex-shrink: 0; cursor: pointer; }
+    .mb-nav { display: flex; align-items: center; gap: 5px; color: #9bb5cc; font-size: 0.75rem; flex-shrink: 0; }
+    .mb-nav button { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #9bb5cc; width: 18px; height: 18px; border-radius: 2px; font-size: 0.65rem; cursor: pointer; }
+    .mb-sbtn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); color: #9bb5cc; padding: 3px 8px; border-radius: 3px; font-size: 0.65rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .mb-body { background: #e8edf3; padding: 10px 14px; }
+    .mb-row { display: flex; align-items: center; background: #fff; border: 1px solid #d8e2ec; border-radius: 4px; margin-bottom: 3px; padding: 8px 11px; gap: 10px; }
+    .mb-row.dim .mb-time, .mb-row.dim .mb-desc { color: #ccc; }
+    .mb-time { font-size: 0.8rem; font-weight: 600; color: #1B3152; min-width: 58px; }
+    .mb-desc { font-size: 0.72rem; color: #556677; flex: 1; }
+    .mb-book-btn { background: #2E7D4F; color: #fff; border: none; padding: 4px 11px; border-radius: 3px; font-size: 0.68rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+    /* ChronoBook */
+    .cb-hd { background: #fff; border-bottom: 1px solid #eee; padding: 11px 15px; display: flex; align-items: center; gap: 10px; }
+    .cb-hd-logo { font-size: 0.85rem; font-weight: 700; color: #111; }
+    .cb-hd-title { font-size: 0.82rem; color: #777; }
+    .cb-body { display: grid; grid-template-columns: 230px 1fr; background: #f7f7f7; }
+    .cb-left { background: #fff; border-right: 1px solid #eee; padding: 15px; }
+    .cb-cname { font-size: 0.82rem; font-weight: 600; color: #111; margin-bottom: 2px; }
+    .cb-caddr { font-size: 0.68rem; color: #bbb; margin-bottom: 12px; }
+    .cb-cal-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .cb-cal-hd span { font-size: 0.75rem; font-weight: 600; color: #111; }
+    .cb-cal-hd button { background: none; border: none; color: #bbb; cursor: pointer; font-size: 0.9rem; }
+    .cb-grid { display: grid; grid-template-columns: repeat(7,1fr); text-align: center; }
+    .cb-dh { font-size: 0.58rem; color: #ccc; font-weight: 600; padding: 2px 0; }
+    .cb-d { font-size: 0.68rem; color: #444; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; margin: 1px auto; border-radius: 50%; }
+    .cb-d.sel { background: #1A2E1A; color: #fff; font-weight: 700; }
+    .cb-d.dim { color: #e8e8e8; }
+    .cb-right { padding: 15px; }
+    .cb-r-title { font-size: 0.85rem; font-weight: 600; color: #111; margin-bottom: 2px; }
+    .cb-r-sub { font-size: 0.68rem; color: #bbb; margin-bottom: 12px; }
+    .cb-slot { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f2f2f2; gap: 10px; }
+    .cb-s-time { font-size: 0.75rem; color: #666; min-width: 55px; }
+    .cb-s-badge { background: #e8f5e9; color: #2D7A3A; border: 1px solid #c8e6c9; padding: 3px 9px; border-radius: 3px; font-size: 0.68rem; font-weight: 500; cursor: pointer; }
+    .cb-s-pl { font-size: 0.65rem; color: #bbb; margin-left: auto; }
+
+    /* FiveUp */
+    .fu-top { background: #fff; border-bottom: 1px solid #ddd; padding: 9px 15px; display: flex; align-items: center; gap: 18px; overflow-x: auto; }
+    .fu-logo { font-size: 0.9rem; font-weight: 800; color: #1a6b3c; flex-shrink: 0; }
+    .fu-nav { display: flex; gap: 14px; align-items: center; }
+    .fu-nav a { font-size: 0.73rem; color: #666; text-decoration: none; }
+    .fu-nav a.on { color: #1a6b3c; font-weight: 600; border-bottom: 2px solid #1a6b3c; padding-bottom: 1px; }
+    .fu-log { margin-left: auto; font-size: 0.73rem; color: #1a6b3c; font-weight: 500; flex-shrink: 0; }
+    .fu-body { display: grid; grid-template-columns: 190px 1fr; min-height: 250px; background: #f3f5f8; }
+    .fu-sb { background: #fff; border-right: 1px solid #e4e4e4; padding: 12px; }
+    .fu-sel { width: 100%; background: #f0f2f4; border: 1px solid #ddd; border-radius: 3px; padding: 5px 7px; font-size: 0.68rem; color: #333; margin-bottom: 7px; }
+    .fu-badge { background: #1B3152; color: #fff; font-size: 0.58rem; padding: 2px 6px; border-radius: 2px; display: inline-block; margin-bottom: 9px; }
+    .fu-lbl { font-size: 0.58rem; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; margin-top: 7px; }
+    .fu-ps { display: flex; gap: 2px; flex-wrap: wrap; }
+    .fu-p { background: #f0f2f4; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; font-size: 0.62rem; color: #666; cursor: pointer; }
+    .fu-p.on { background: #1a6b3c; color: #fff; border-color: #1a6b3c; }
+    .fu-main { padding: 12px; }
+    .fu-row { display: flex; align-items: center; background: #fff; border: 1px solid #e0e4e8; border-radius: 5px; margin-bottom: 5px; padding: 8px 11px; gap: 8px; }
+    .fu-hbs { display: flex; flex-direction: column; gap: 2px; }
+    .fu-hb { background: #e4f2ea; color: #1a6b3c; border-radius: 2px; font-size: 0.58rem; font-weight: 700; padding: 1px 4px; text-align: center; }
+    .fu-av { width: 28px; height: 28px; background: #ddd; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 700; color: #666; flex-shrink: 0; }
+    .fu-ri { flex: 1; }
+    .fu-rt { font-size: 0.78rem; font-weight: 600; color: #111; }
+    .fu-rc { font-size: 0.65rem; color: #aaa; }
+    .fu-rf { text-align: right; font-size: 0.62rem; color: #666; line-height: 1.5; }
+
+    /* Divider */
+    .ba-divider { display: flex; align-items: center; gap: 14px; margin: 18px 0; font-size: 0.68rem; font-weight: 700; color: #8a9a8a; letter-spacing: 0.12em; text-transform: uppercase; }
+    .ba-divider::before, .ba-divider::after { content: ''; flex: 1; height: 1px; background: rgba(26,46,26,0.1); }
+
+    /* Tee-Time after */
+    .ba-after { border-radius: 12px; overflow: hidden; box-shadow: 0 6px 28px rgba(0,0,0,0.1); }
+    .tt-hd { background: #1A2E1A; padding: 10px 15px 12px; display: flex; align-items: center; gap: 9px; }
+    .tt-icon { width: 34px; height: 34px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .tt-name { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: #fff; }
+    .tt-ub { font-size: 0.56rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.1); border-radius: 3px; padding: 2px 5px; }
+    .tt-tl { margin-left: auto; font-size: 0.65rem; color: rgba(255,255,255,0.3); }
+    .tt-ctrl { background: #fff; border-bottom: 1px solid rgba(26,46,26,0.08); padding: 8px 15px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .tt-dn { display: flex; align-items: center; gap: 4px; }
+    .tt-arr { width: 24px; height: 24px; background: #f4f6f4; border: 1px solid rgba(26,46,26,0.1); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #637063; }
+    .tt-dl { background: #f4f6f4; border: 1px solid rgba(26,46,26,0.1); border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; font-weight: 500; color: #111410; }
+    .tt-cg { display: flex; align-items: center; gap: 4px; }
+    .tt-cl { font-size: 0.65rem; color: #637063; font-weight: 500; }
+    .tt-pps { display: flex; gap: 2px; }
+    .tt-pp { padding: 3px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 500; background: #f4f6f4; border: 1px solid rgba(26,46,26,0.1); color: #637063; }
+    .tt-pp.sd { background: #1A2E1A; color: #fff; border-color: #1A2E1A; }
+    .tt-pp.sg { background: #2D7A3A; color: #fff; border-color: #2D7A3A; }
+    .tt-rfr { margin-left: auto; background: #2D7A3A; color: #fff; border: none; padding: 4px 12px; border-radius: 6px; font-size: 0.72rem; font-weight: 500; cursor: pointer; }
+    .tt-tabs { background: #fff; border-bottom: 1px solid rgba(26,46,26,0.07); padding: 0 15px; display: flex; overflow-x: auto; scrollbar-width: none; }
+    .tt-tabs::-webkit-scrollbar { display: none; }
+    .tt-tab { padding: 8px 10px; font-size: 0.68rem; font-weight: 500; color: #637063; white-space: nowrap; border-bottom: 2px solid transparent; cursor: pointer; }
+    .tt-tab.on { color: #2D7A3A; border-bottom-color: #2D7A3A; font-weight: 600; }
+    .tt-results { background: #EEF1EE; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+    .tt-card { background: #fff; border-radius: 12px; border: 0.5px solid rgba(26,46,26,0.12); padding: 11px 13px; opacity: 0; transform: translateY(10px); transition: opacity 0.35s ease, transform 0.35s ease; }
+    .tt-card.vis { opacity: 1; transform: translateY(0); }
+    .tt-ch { display: flex; align-items: center; margin-bottom: 8px; gap: 6px; }
+    .tt-cn { font-size: 0.82rem; font-weight: 500; color: #111410; flex: 1; }
+    .tt-cp { font-size: 0.68rem; color: #2D7A3A; font-weight: 500; }
+    .tt-cc { font-size: 0.65rem; color: #637063; }
+    .tt-cstar { color: #f59e0b; font-size: 0.78rem; }
+    .tt-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tt-chip { background: #EEF7EE; border: 1px solid rgba(45,122,58,0.25); border-radius: 8px; padding: 4px 8px; text-align: center; }
+    .tt-ct { display: block; font-size: 0.68rem; font-weight: 500; color: #2D7A3A; }
+    .tt-cpr { display: block; font-size: 0.58rem; color: #637063; }
+    .tt-more { background: #EEF7EE; border: 1px solid rgba(45,122,58,0.25); border-radius: 8px; padding: 4px 10px; font-size: 0.68rem; color: #2D7A3A; font-weight: 500; display: flex; align-items: center; }
+
+    /* Note bar */
+    .ba-note { background: #fffbeb; border-top: 1px solid #fde68a; padding: 8px 13px; font-size: 0.72rem; color: #92400e; }
+
+    @media (max-width: 680px) {
+      .cb-body { grid-template-columns: 1fr; }
+      .cb-left { display: none; }
+      .fu-body { grid-template-columns: 1fr; }
+      .fu-sb { display: none; }
+      .tt-tl { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -353,9 +487,9 @@
 
   <section class="hero">
     <div class="hero-badge">Early Access &middot; tee-time.io</div>
-    <p class="hero-setup">Most Utah courses aren't on GolfNow.<br>You've been checking them one by one.</p>
+    <p class="hero-setup">Saturday morning. You want to play. Now you're on your fourth tab.</p>
     <h1>Every tee time.<br><em>One search.</em></h1>
-    <p class="hero-sub">Tee-Time searches all 67 Utah courses at once &mdash; ForeUp, Chronogolf, and Member Sports &mdash; so you're not bouncing between websites to find one open slot.</p>
+    <p class="hero-sub">Tee-Time searches every Utah course at once &mdash; so you stop hunting and start playing.</p>
     <div class="platforms">
       <span class="platforms-label">Works with</span>
       <span class="platform-chip">ForeUp</span>
@@ -363,45 +497,297 @@
       <span class="platform-chip">Member Sports</span>
     </div>
 
-    <!-- Device frames -->
-    <div class="devices-wrap">
-
-      <!-- Laptop -->
-      <div class="laptop-frame">
-        <div class="laptop-screen">
-          <div class="laptop-camera-bar"><div class="laptop-camera"></div></div>
-          <div class="laptop-screen-inner">
-            <img src="images/app-desktop.png" alt="Tee-Time app on desktop" />
+    <!-- Before/After Comparison Component -->
+    <div class="ba-wrap">
+      <div class="ba-before">
+        <div class="ba-tab-strip">
+          <button class="ba-tab active" data-tab="memberbook">MemberBook</button>
+          <button class="ba-tab" data-tab="chronobook">ChronoBook</button>
+          <button class="ba-tab" data-tab="fiveup">FiveUp</button>
+        </div>
+        <div class="ba-panel ba-panel-memberbook active">
+          <div class="mb-hd">
+            <div class="mb-logo">Member<span>Book</span></div>
+            <div style="margin-left:auto;display:flex;gap:12px;">
+              <span style="color:#1B3152;font-size:0.8rem;font-weight:600;">Reservations</span>
+              <span style="color:#1B3152;font-size:0.8rem;">Facility Info</span>
+              <span style="color:#1B3152;font-size:0.8rem;">Log In</span>
+            </div>
+          </div>
+          <div style="display:flex;background:#e8edf3;min-height:220px;">
+            <div class="mb-left" style="width:180px;padding:12px 10px 12px 12px;">
+              <select style="width:100%;margin-bottom:7px;padding:5px 7px;font-size:0.68rem;">
+                <option>Cedar Ridge Golf Course</option>
+              </select>
+              <div class="mb-badge" style="background:#152d4a;color:#fff;font-size:0.62rem;padding:2px 7px;border-radius:3px;margin-bottom:8px;">Booking as Online Tee Times</div>
+              <div class="mb-cal" style="background:#fff;border-radius:6px;padding:8px 6px 6px 6px;margin-bottom:10px;">
+                <div style="font-size:0.7rem;color:#1B3152;font-weight:600;margin-bottom:4px;">March 2026</div>
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
+                  <span style="font-size:0.6rem;color:#bbb;">S</span><span style="font-size:0.6rem;color:#bbb;">M</span><span style="font-size:0.6rem;color:#bbb;">T</span><span style="font-size:0.6rem;color:#bbb;">W</span><span style="font-size:0.6rem;color:#bbb;">T</span><span style="font-size:0.6rem;color:#bbb;">F</span><span style="font-size:0.6rem;color:#bbb;">S</span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span style="background:#4A9FE8;color:#fff;border-radius:50%;padding:1px 0;text-align:center;">26</span><span></span><span></span>
+                </div>
+              </div>
+              <div style="display:flex;gap:4px;margin-bottom:7px;">
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 7px;color:#1B3152;">Morning</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 7px;color:#1B3152;">Midday</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 7px;color:#1B3152;">Evening</button>
+              </div>
+              <button style="background:#4A9FE8;color:#fff;border:none;border-radius:3px;font-size:0.62rem;padding:2px 10px;margin-bottom:7px;">Anytime</button>
+              <div style="display:flex;gap:4px;margin-bottom:7px;">
+                <span style="font-size:0.62rem;color:#bbb;">Players:</span>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">1</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">2</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">3</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">4</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">Any</button>
+              </div>
+              <div style="display:flex;gap:4px;margin-bottom:7px;">
+                <span style="font-size:0.62rem;color:#bbb;">Holes:</span>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">9 Holes</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">18 Holes</button>
+                <button style="background:#e8edf3;border:1px solid #bbb;border-radius:3px;font-size:0.62rem;padding:2px 6px;color:#1B3152;">Both</button>
+              </div>
+            </div>
+            <div class="mb-body" style="flex:1;padding:10px 14px;">
+              <div class="mb-row">
+                <div class="mb-hbs">
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">9</div>
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">18</div>
+                </div>
+                <div class="mb-av" style="width:28px;height:28px;background:#ddd;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;color:#666;">CR</div>
+                <div class="mb-time">8:40am</div>
+                <div class="mb-desc">Cedar Ridge GC</div>
+                <div class="mb-rc">Back</div>
+                <div class="mb-rf" style="margin-left:auto;text-align:right;">
+                  <div style="font-size:0.65rem;color:#bbb;">4 players</div>
+                  <div style="font-size:0.65rem;color:#bbb;">$36 + cart</div>
+                </div>
+              </div>
+              <div class="mb-row">
+                <div class="mb-hbs">
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">9</div>
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">18</div>
+                </div>
+                <div class="mb-av" style="width:28px;height:28px;background:#ddd;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;color:#666;">CR</div>
+                <div class="mb-time">8:56am</div>
+                <div class="mb-desc">Cedar Ridge GC</div>
+                <div class="mb-rc">Front</div>
+                <div class="mb-rf" style="margin-left:auto;text-align:right;">
+                  <div style="font-size:0.65rem;color:#bbb;">4 players</div>
+                  <div style="font-size:0.65rem;color:#bbb;">$36 + cart</div>
+                </div>
+              </div>
+              <div class="mb-row">
+                <div class="mb-hbs">
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">9</div>
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">18</div>
+                </div>
+                <div class="mb-av" style="width:28px;height:28px;background:#ddd;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;color:#666;">CR</div>
+                <div class="mb-time">9:12am</div>
+                <div class="mb-desc">Cedar Ridge GC</div>
+                <div class="mb-rc">Back</div>
+                <div class="mb-rf" style="margin-left:auto;text-align:right;">
+                  <div style="font-size:0.65rem;color:#bbb;">4 players</div>
+                  <div style="font-size:0.65rem;color:#bbb;">$36 + cart</div>
+                </div>
+              </div>
+              <div class="mb-row">
+                <div class="mb-hbs">
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">9</div>
+                  <div class="mb-hb" style="background:#e4f2ea;color:#1a6b3c;">18</div>
+                </div>
+                <div class="mb-av" style="width:28px;height:28px;background:#ddd;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;color:#666;">CR</div>
+                <div class="mb-time">9:36am</div>
+                <div class="mb-desc">Cedar Ridge GC</div>
+                <div class="mb-rc">Front</div>
+                <div class="mb-rf" style="margin-left:auto;text-align:right;">
+                  <div style="font-size:0.65rem;color:#bbb;">4 players</div>
+                  <div style="font-size:0.65rem;color:#bbb;">$36 + cart</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ba-note">Cedar Ridge only — still need to check every other course</div>
+        </div>
+        <div class="ba-panel ba-panel-chronobook">
+          <div class="cb-hd">
+            <div class="cb-hd-logo">ChronoBook</div>
+            <div class="cb-hd-title">Book your round</div>
+          </div>
+          <div class="cb-body">
+            <div class="cb-left">
+              <div class="cb-cname">Forest Dale Golf Course</div>
+              <div class="cb-caddr">2375 S 900 E, Salt Lake City, UT</div>
+              <div style="background:#f7f7f7;border-radius:6px;padding:8px 6px 6px 6px;margin-bottom:10px;">
+                <div style="font-size:0.7rem;color:#1A2E1A;font-weight:600;margin-bottom:4px;">March 2026</div>
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">
+                  <span style="font-size:0.6rem;color:#bbb;">S</span><span style="font-size:0.6rem;color:#bbb;">M</span><span style="font-size:0.6rem;color:#bbb;">T</span><span style="font-size:0.6rem;color:#bbb;">W</span><span style="font-size:0.6rem;color:#bbb;">T</span><span style="font-size:0.6rem;color:#bbb;">F</span><span style="font-size:0.6rem;color:#bbb;">S</span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span style="background:#1A2E1A;color:#fff;border-radius:50%;padding:1px 0;text-align:center;">26</span><span></span><span></span>
+                </div>
+              </div>
+            </div>
+            <div class="cb-right">
+              <div class="cb-r-title">Thursday, March 26</div>
+              <div class="cb-r-sub">Per player pricing</div>
+              <div class="cb-slot">
+                <span class="cb-s-time">8:00 AM</span>
+                <span class="cb-s-badge">8:00 AM</span>
+                <span class="cb-s-pl">from $19 (1 player)</span>
+              </div>
+              <div class="cb-slot">
+                <span class="cb-s-time">11:00 AM</span>
+                <span class="cb-s-badge">11:00 AM</span>
+                <span class="cb-s-pl">from $19 (1 player)</span>
+              </div>
+              <div class="cb-slot">
+                <span class="cb-s-time">12:00 PM</span>
+                <span class="cb-s-badge">12:00 PM</span>
+                <span class="cb-s-pl">from $19 (1 player)</span>
+              </div>
+              <div class="cb-slot">
+                <span class="cb-s-time">1:00 PM</span>
+                <span class="cb-s-badge">1:00 PM</span>
+                <span class="cb-s-pl">from $19 (1 player)</span>
+              </div>
+            </div>
+          </div>
+          <div class="ba-note">Only 1-player slots available — you need 2. Still searching…</div>
+        </div>
+        <div class="ba-panel ba-panel-fiveup">
+          <div class="fu-top">
+            <div class="fu-logo">five<span style="color:#5BAEF0;">UP</span></div>
+            <div class="fu-nav">
+              <button class="mb-today-btn">TODAY</button>
+              <span class="mb-nav"><button>&lt;</button> <span>THU MAR 26 2026</span> <button>&gt;</button></span>
+              <button class="mb-sbtn">Refresh</button>
+              <button class="mb-sbtn">Use Voucher</button>
+              <button class="mb-sbtn">APPLY FILTERS</button>
+            </div>
+          </div>
+          <div class="fu-body">
+            <div class="fu-main">
+              <div class="fu-row dim">
+                <div class="fu-rt">10:02 AM</div>
+                <div class="fu-rc">No slots</div>
+              </div>
+              <div class="fu-row dim">
+                <div class="fu-rt">10:10 AM</div>
+                <div class="fu-rc">No slots</div>
+              </div>
+              <div class="fu-row">
+                <div class="fu-rt">10:18 AM</div>
+                <div class="fu-rc"><span class="fu-hb" style="background:#2E7D4F;color:#fff;">Front</span> <span class="fu-hb" style="background:#e4f2ea;color:#1a6b3c;">2-4</span> <span class="fu-hb" style="background:#e4f2ea;color:#1a6b3c;">9/18</span> <span class="fu-hb" style="background:#e4f2ea;color:#1a6b3c;">Cart</span> <span class="fu-hb" style="background:#e4f2ea;color:#1a6b3c;">$60.00</span></div>
+              </div>
+              <div class="fu-row dim">
+                <div class="fu-rt">10:30 AM</div>
+                <div class="fu-rc">No slots</div>
+              </div>
+              <div class="fu-row">
+                <div class="fu-rt">10:50 AM</div>
+                <div class="fu-rc"><span class="fu-hb" style="background:#2E7D4F;color:#fff;">Back</span> <span class="fu-hb" style="background:#e4f2ea;color:#1a6b3c;">9 only</span> <span class="fu-hb" style="background:#e4f2ea;color:#1a6b3c;">$36.00</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="ba-note">Only 2 times at this course — and you haven't checked any others yet</div>
+        </div>
+      </div>
+      <div class="ba-divider">vs. Tee-Time</div>
+      <div class="ba-after">
+        <div class="tt-hd">
+          <div class="tt-icon">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="2" width="1.5" height="12" fill="white" rx="0.5"/><path d="M5 2.5L12.5 5.5L5 8.5V2.5Z" fill="white"/></svg>
+          </div>
+          <span class="tt-name">Tee-Time</span>
+          <span class="tt-ub">UTAH</span>
+          <span class="tt-tl">Every tee time. One search.</span>
+        </div>
+        <div class="tt-ctrl">
+          <div class="tt-dn">
+            <span class="tt-arr">&#8592;</span>
+            <span class="tt-dl">Thu, Mar 26, 2026</span>
+            <span class="tt-arr">&#8594;</span>
+          </div>
+          <div class="tt-cg">
+            <span class="tt-cl">Players:</span>
+            <div class="tt-pps">
+              <span class="tt-pp">1</span>
+              <span class="tt-pp">2</span>
+              <span class="tt-pp">3</span>
+              <span class="tt-pp sd">4</span>
+            </div>
+          </div>
+          <div class="tt-cg">
+            <span class="tt-cl">Holes:</span>
+            <div class="tt-pps">
+              <span class="tt-pp">9</span>
+              <span class="tt-pp sg">18</span>
+            </div>
+          </div>
+          <button class="tt-rfr">Refresh</button>
+        </div>
+        <div class="tt-tabs">
+          <span class="tt-tab on">📍 Near Me</span>
+          <span class="tt-tab">★ Saved</span>
+          <span class="tt-tab">All</span>
+          <span class="tt-tab">Salt Lake Valley</span>
+          <span class="tt-tab">Davis & Weber</span>
+          <span class="tt-tab">Utah County</span>
+          <span class="tt-tab">St. George</span>
+          <span class="tt-tab">Park City & Heber</span>
+          <span class="tt-tab">Cache Valley</span>
+          <span class="tt-tab">Eastern Utah</span>
+        </div>
+        <div class="tt-results">
+          <div class="tt-card" style="animation-delay:0ms;">
+            <div class="tt-ch">
+              <span class="tt-cn">Bountiful Ridge <span class="tt-cc">(Bountiful)</span></span>
+              <span class="tt-cp">from $36</span>
+              <span class="tt-cstar">★</span>
+            </div>
+            <div class="tt-chips">
+              <span class="tt-chip"><span class="tt-ct">8:50 AM</span><span class="tt-cpr">$36</span></span>
+              <span class="tt-chip"><span class="tt-ct">10:50 AM</span><span class="tt-cpr">$36</span></span>
+              <span class="tt-chip"><span class="tt-ct">11:30 AM</span><span class="tt-cpr">$36</span></span>
+              <span class="tt-chip"><span class="tt-ct">12:20 PM</span><span class="tt-cpr">$36</span></span>
+              <span class="tt-chip"><span class="tt-ct">12:30 PM</span><span class="tt-cpr">$36</span></span>
+              <span class="tt-chip"><span class="tt-ct">2:00 PM</span><span class="tt-cpr">$36</span></span>
+              <span class="tt-chip"><span class="tt-ct">2:10 PM</span><span class="tt-cpr">$36</span></span>
+            </div>
+          </div>
+          <div class="tt-card" style="animation-delay:350ms;">
+            <div class="tt-ch">
+              <span class="tt-cn">Eaglewood <span class="tt-cc">(N. Salt Lake)</span></span>
+              <span class="tt-cp">from $64</span>
+              <span class="tt-cstar">★</span>
+            </div>
+            <div class="tt-chips">
+              <span class="tt-chip"><span class="tt-ct">8:00 AM</span><span class="tt-cpr">$64</span></span>
+              <span class="tt-chip"><span class="tt-ct">8:10 AM</span><span class="tt-cpr">$64</span></span>
+              <span class="tt-chip"><span class="tt-ct">8:50 AM</span><span class="tt-cpr">$64</span></span>
+              <span class="tt-chip"><span class="tt-ct">9:10 AM</span><span class="tt-cpr">$64</span></span>
+              <span class="tt-chip"><span class="tt-ct">10:20 AM</span><span class="tt-cpr">$64</span></span>
+              <span class="tt-chip"><span class="tt-ct">10:30 AM</span><span class="tt-cpr">$64</span></span>
+              <span class="tt-chip"><span class="tt-ct">10:40 AM</span><span class="tt-cpr">$64</span></span>
+              <span class="tt-more">+11 more</span>
+            </div>
           </div>
         </div>
-        <div class="laptop-base"><div class="laptop-notch"></div></div>
-        <div class="laptop-foot"></div>
       </div>
-
-      <!-- Phone (overlapping bottom-right) -->
-      <div class="phone-frame">
-        <div class="phone-outer">
-          <div class="phone-top-bar">
-            <div class="phone-speaker"></div>
-            <div class="phone-camera-dot"></div>
-          </div>
-          <div class="phone-screen-inner">
-            <img src="images/app-mobile.png" alt="Tee-Time app on mobile" />
-          </div>
-          <div class="phone-home-bar"><div class="phone-home-indicator"></div></div>
-        </div>
-      </div>
-
     </div>
-    <p class="mockup-caption">All 67 Utah courses &mdash; one results page, sorted by distance from you.</p>
   </section>
 
   <!-- STATS -->
   <div class="section">
     <div class="stats reveal">
-      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Utah courses — not just the GolfNow ones</div></div>
-      <div class="stat"><div class="stat-num">1</div><div class="stat-label">Search to see every available time</div></div>
-      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">To see results across every course</div></div>
+      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Courses searched at once</div></div>
+      <div class="stat"><div class="stat-num">1</div><div class="stat-label">Every Utah course, one place</div></div>
+      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">Find a time in seconds, not tabs</div></div>
     </div>
   </div>
 
@@ -412,18 +798,18 @@
     <div class="steps">
       <div class="step">
         <div class="step-num">01</div>
-        <h3>Pick your date &amp; players</h3>
-        <p>Set the date and how many are in your group. No account, no signup — just search.</p>
+        <h3>Tell us when you want to play</h3>
+        <p>Pick your date, how many players, and 9 or 18 holes. No account, no setup.</p>
       </div>
       <div class="step">
         <div class="step-num">02</div>
-        <h3>We check every course at once</h3>
-        <p>Not just the GolfNow ones. Tee-Time searches all 67 Utah courses &mdash; ForeUp, Chronogolf, Member Sports &mdash; and shows results sorted by distance.</p>
+        <h3>We search every course at once</h3>
+        <p>Not just the partnered ones. Every Utah course, searched simultaneously, sorted by distance from you.</p>
       </div>
       <div class="step">
         <div class="step-num">03</div>
-        <h3>Tap a time, go book it</h3>
-        <p>Hit a time slot and you go straight to that course's booking page with your date and players pre-filled. No middleman, no markup.</p>
+        <h3>Tap a time, go play</h3>
+        <p>Click any result and you're straight to the booking page. No middleman, no markup, no extra tabs.</p>
       </div>
     </div>
   </section>
@@ -433,8 +819,8 @@
     <div class="access-card reveal">
       <div class="access-copy">
         <p class="access-label">Early Access</p>
-        <h2>Got a code?<br>Let's get you in.</h2>
-        <p class="sub">Enter your code, drop your email, and answer a couple quick questions about how you golf. Helps us build the right thing.</p>
+        <h2>Got a code?<br>Stop hunting tee times.</h2>
+        <p class="sub">Enter your code and email below. We'll ask two quick questions to help us build the right product.</p>
       </div>
 
       <div>
@@ -512,8 +898,26 @@
   </footer>
 
   <script>
+    // Before/After tab logic
+    document.addEventListener('DOMContentLoaded', function() {
+      const baTabs = document.querySelectorAll('.ba-tab');
+      const baPanels = document.querySelectorAll('.ba-panel');
+      baTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+          baTabs.forEach(t => t.classList.remove('active'));
+          baPanels.forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.querySelector('.ba-panel-' + tab.dataset.tab).classList.add('active');
+        });
+      });
+      // Tee-Time card fade-in animation
+      const ttCards = document.querySelectorAll('.tt-card');
+      ttCards.forEach((card, i) => {
+        setTimeout(() => card.classList.add('vis'), 350 * i);
+      });
+    });
     const VALID_CODES = ['golf2026', 'teetime', 'earlybird', 'utahgolf'];
-    const APP_URL = './app.html';
+    const APP_URL = 'https://tee-time.io/app.html';
 
     const emailInput     = document.getElementById('emailInput');
     const codeInput      = document.getElementById('codeInput');
@@ -572,7 +976,8 @@
     submitBtn.addEventListener('click', () => {
       if (!codeIsValid) { showStatus('Please verify your code first.', 'error'); return; }
       const payload = { email: emailInput.value.trim(), code: codeInput.value.trim().toUpperCase(), discovery: discoveryInput.value, frequency: frequencyInput.value, wtp: wtpInput.value, ts: Date.now() };
-      trackEvent('early_access_request', payload);
+      if (window.posthog) posthog.identify(payload.email, { email: payload.email });
+      trackEvent('early_access_signup', payload);
       const subs = JSON.parse(localStorage.getItem('tt_submissions') || '[]');
       subs.push(payload); localStorage.setItem('tt_submissions', JSON.stringify(subs));
       submitBtn.disabled = true; submitBtn.innerHTML = 'Sending\u2026';
@@ -589,7 +994,7 @@
     function trackEvent(name, props) {
       console.log('[tee-time.io]', name, props);
       // if (window.plausible) window.plausible(name, { props });
-      // if (window.posthog)  window.posthog.capture(name, props);
+      if (window.posthog)  window.posthog.capture(name, props);
       // if (window.gtag)     window.gtag('event', name, props);
     }
   </script>
