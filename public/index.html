@@ -1065,6 +1065,21 @@
     }));
   }
 
+  // ── Booking URL builder ──
+  function buildBookingUrl(course, date, holes, players) {
+    const base = course.booking_url;
+    if (!base) return '#';
+
+    if (course.platform === 'foreup' && base.includes('foreupsoftware.com')) {
+      // ForeUp hash-router — append date/players/holes to the hash fragment
+      // ForeUp UI expects MM-DD-YYYY
+      const [y, m, d] = date.split('-');
+      return `${base}?date=${m}-${d}-${y}&players=${players}&holes=${holes}`;
+    }
+
+    return base;
+  }
+
   // ── DOM builders ──
   function buildTimePill(t, bookingUrl) {
     const a = document.createElement('a');
@@ -1094,7 +1109,8 @@
     return a;
   }
 
-  function buildCourseCard(course, times, error, isUnavailable, distanceMi) {
+  function buildCourseCard(course, times, error, isUnavailable, distanceMi, date, holes, players) {
+    const bookingUrl = buildBookingUrl(course, date, holes, players);
     const card = document.createElement('div');
     card.className = 'course-card' + (isUnavailable ? ' unavailable-card' : '');
     card.dataset.courseName = course.name;
@@ -1150,7 +1166,7 @@
       if (error === 'login_required') {
         msg.className = 'course-login';
         const link = document.createElement('a');
-        link.href = course.booking_url;
+        link.href = bookingUrl;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.textContent = 'Sign in to view times →';
@@ -1174,7 +1190,7 @@
     } else {
       const row = document.createElement('div');
       row.className = 'times-row';
-      for (const t of times) row.appendChild(buildTimePill(t, course.booking_url));
+      for (const t of times) row.appendChild(buildTimePill(t, bookingUrl));
       card.appendChild(row);
     }
 
@@ -1280,6 +1296,7 @@
   }
 
   function processAndRender(apiResults, players, holes) {
+    const date = document.getElementById('dateInput').value;
     const processed = apiResults.map(r => {
       if (r.error) return { ...r, times: [] };
       let times = normalizeTimes(r.course, r.data, holes);
@@ -1319,12 +1336,12 @@
           heading.className = 'area-heading';
           heading.textContent = AREA_LABELS[area] || area;
           group.appendChild(heading);
-          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi));
+          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi, date, holes, players));
           resultsEl.appendChild(group);
         }
       } else {
         for (const r of available) {
-          resultsEl.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi));
+          resultsEl.appendChild(buildCourseCard(r.course, r.times, r.error, false, r.distanceMi, date, holes, players));
         }
       }
     } else {
@@ -1374,12 +1391,12 @@
           heading.className = 'area-heading';
           heading.textContent = AREA_LABELS[area] || area;
           group.appendChild(heading);
-          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi));
+          for (const r of items) group.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi, date, holes, players));
           unavailSection.appendChild(group);
         }
       } else {
         for (const r of unavailable) {
-          unavailSection.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi));
+          unavailSection.appendChild(buildCourseCard(r.course, r.times, r.error, true, r.distanceMi, date, holes, players));
         }
       }
 
