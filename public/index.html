@@ -89,17 +89,29 @@
       50%      { opacity:0.4; transform:scale(0.75); }
     }
 
+    .hero-setup {
+      font-size: 1.15rem; color: var(--ink-soft); max-width: 520px;
+      margin-bottom: 18px; opacity: 0; animation: fadeUp 0.6s 0.15s ease forwards;
+      line-height: 1.5;
+    }
+
     h1 {
       font-family: 'DM Serif Display', serif;
       font-size: clamp(2.8rem, 6vw, 4.6rem);
       line-height: 1.06; letter-spacing: -0.025em; color: var(--ink);
-      margin-bottom: 22px; opacity: 0; animation: fadeUp 0.6s 0.2s ease forwards;
+      margin-bottom: 22px; opacity: 0; animation: fadeUp 0.6s 0.28s ease forwards;
     }
     h1 em { font-style: italic; color: var(--app-green); }
 
     .hero-sub {
-      font-size: 1.1rem; color: var(--ink-soft); max-width: 500px;
-      margin-bottom: 40px; opacity: 0; animation: fadeUp 0.6s 0.32s ease forwards;
+      font-size: 1rem; color: var(--ink-soft); max-width: 500px;
+      margin-bottom: 40px; opacity: 0; animation: fadeUp 0.6s 0.4s ease forwards;
+    }
+
+    .mockup-caption {
+      font-size: 0.78rem; color: var(--ink-soft); text-align: center;
+      margin-top: 16px; letter-spacing: 0.03em;
+      opacity: 0; animation: fadeUp 0.6s 0.65s ease forwards;
     }
 
     .platforms {
@@ -340,8 +352,9 @@
 
   <section class="hero">
     <div class="hero-badge">Early Access &middot; tee-time.io</div>
+    <p class="hero-setup">Most Utah courses aren't on GolfNow.<br>You've been checking them one by one.</p>
     <h1>Every tee time.<br><em>One search.</em></h1>
-    <p class="hero-sub">Stop opening five tabs to find an open time. Tee-Time searches ForeUp, Chronogolf, and Member Sports courses across Utah simultaneously.</p>
+    <p class="hero-sub">Tee-Time searches all 67 Utah courses at once &mdash; ForeUp, Chronogolf, and Member Sports &mdash; so you're not bouncing between websites to find one open slot.</p>
     <div class="platforms">
       <span class="platforms-label">Works with</span>
       <span class="platform-chip">ForeUp</span>
@@ -379,14 +392,15 @@
       </div>
 
     </div>
+    <p class="mockup-caption">All 67 Utah courses &mdash; one results page, sorted by distance from you.</p>
   </section>
 
   <!-- STATS -->
   <div class="section">
     <div class="stats reveal">
-      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Utah courses indexed</div></div>
-      <div class="stat"><div class="stat-num">3x</div><div class="stat-label">Tee sheet platforms at once</div></div>
-      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">Average time to see all results</div></div>
+      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Utah courses — not just the GolfNow ones</div></div>
+      <div class="stat"><div class="stat-num">1</div><div class="stat-label">Search to see every available time</div></div>
+      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">To see results across every course</div></div>
     </div>
   </div>
 
@@ -398,17 +412,17 @@
       <div class="step">
         <div class="step-num">01</div>
         <h3>Pick your date &amp; players</h3>
-        <p>Set your preferred date, time range, and number of players. No account needed to search.</p>
+        <p>Set the date and how many are in your group. No account, no signup — just search.</p>
       </div>
       <div class="step">
         <div class="step-num">02</div>
-        <h3>We search everything</h3>
-        <p>Tee-Time hits every supported course at once &mdash; ForeUp, Chronogolf, Member Sports, sorted by distance.</p>
+        <h3>We check every course at once</h3>
+        <p>Not just the GolfNow ones. Tee-Time searches all 67 Utah courses &mdash; ForeUp, Chronogolf, Member Sports &mdash; and shows results sorted by distance.</p>
       </div>
       <div class="step">
         <div class="step-num">03</div>
-        <h3>Book directly</h3>
-        <p>Tap any time to go straight to that course's booking page. No middleman, no markup.</p>
+        <h3>Tap a time, go book it</h3>
+        <p>Hit a time slot and you go straight to that course's booking page with your date and players pre-filled. No middleman, no markup.</p>
       </div>
     </div>
   </section>
@@ -419,7 +433,7 @@
       <div class="access-copy">
         <p class="access-label">Early Access</p>
         <h2>Got a code?<br>Let's get you in.</h2>
-        <p class="sub">Drop your email, enter your access code, and tell us a bit about how you golf &mdash; it helps us build the right product.</p>
+        <p class="sub">Enter your code, drop your email, and answer a couple quick questions about how you golf. Helps us build the right thing.</p>
       </div>
 
       <div>
