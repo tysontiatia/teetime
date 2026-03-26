@@ -1096,7 +1096,7 @@
       if (!slot.items?.length) continue;
       for (const item of slot.items) {
         if (item.hide || item.bookingNotAllowed) continue;
-        const itemHoles = item.holesRequirementTypeId === 2 ? 18 : 9;
+        const itemHoles = (item.holesRequirementTypeId !== 1 && !item.isBackNine) ? 18 : 9;
         if (itemHoles !== requestedHoles) continue;
         const availableSpots = 4 - (item.playerCount || 0);
         if (availableSpots <= 0) continue;
