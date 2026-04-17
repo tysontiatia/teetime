@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Signing in…</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    body { font-family: -apple-system, sans-serif; display: flex; align-items: center;
+           justify-content: center; min-height: 100vh; margin: 0; background: #F2F5F2; color: #111; }
+    p { font-size: 1rem; color: #637063; }
+  </style>
+</head>
+<body>
+  <p>Signing in…</p>
+  <script>
+    // TODO: replace with your real project URL and anon key (same values as app.html)
+    const SUPABASE_URL  = 'https://nmwlebcvezybfwertlzs.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
+
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession: true, detectSessionInUrl: true },
+    });
+
+    sb.auth.getSession().then(() => {
+      window.location.replace('/app.html');
+    });
+  </script>
+</body>
+</html>

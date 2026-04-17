@@ -347,8 +347,334 @@ async function handleChronogolfSlc(params) {
   return corsResponse(data);
 }
 
+// ── Supabase + Resend config (set via wrangler secrets) ──────────────
+// env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, env.RESEND_API_KEY
+
+// ── Courses list (embedded at build, or fetched) ─────────────────────
+let coursesCache = null;
+
+async function loadCourses(env) {
+  if (coursesCache) return coursesCache;
+  // Fetch from the Pages site so we have one source of truth
+  const res = await fetch('https://tee-time.io/courses.json');
+  coursesCache = await res.json();
+  return coursesCache;
+}
+
+// ── Normalize helpers (duplicated from app.html for worker context) ──
+function normalizeForeUpTimesWorker(data) {
+  if (!Array.isArray(data)) return [];
+  return data.map(t => ({
+    rawTime: t.time || '',
+    spots: t.available_spots || null,
+    price: t.green_fee ? '$' + parseFloat(t.green_fee).toFixed(0) : null,
+    holes: t.holes,
+  }));
+}
+
+function normalizeChronogolfTimesWorker(data) {
+  const items = data?.teetimes;
+  if (!Array.isArray(items)) return [];
+  return items.map(t => ({
+    rawTime: t.start_time || '',
+    spots: t.max_player_size ?? null,
+    price: t.default_price?.green_fee ? '$' + parseFloat(t.default_price.green_fee).toFixed(0) : null,
+    holes: t.default_price?.bookable_holes ?? t.course?.holes,
+  }));
+}
+
+function normalizeChronogolfSlcTimesWorker(data, holes) {
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter(t => !t.out_of_capacity && !t.frozen)
+    .map(t => ({
+      rawTime: t.start_time || '',
+      spots: null,
+      price: t.green_fees?.[0]?.green_fee ? '$' + parseFloat(t.green_fees[0].green_fee).toFixed(0) : null,
+      holes: parseInt(holes, 10),
+    }));
+}
+
+function normalizeMemberSportsTimesWorker(data, holes) {
+  if (!Array.isArray(data)) return [];
+  const requestedHoles = parseInt(holes, 10);
+  const result = [];
+  for (const slot of data) {
+    if (!slot.items?.length) continue;
+    for (const item of slot.items) {
+      if (item.hide || item.bookingNotAllowed) continue;
+      const itemHoles = (item.holesRequirementTypeId !== 1 && !item.isBackNine) ? 18 : 9;
+      if (itemHoles !== requestedHoles) continue;
+      const availableSpots = 4 - (item.playerCount || 0);
+      if (availableSpots <= 0) continue;
+      const h = Math.floor(slot.teeTime / 60);
+      const m = slot.teeTime % 60;
+      const rawTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      result.push({ rawTime, spots: availableSpots, price: item.price ? '$' + parseFloat(item.price).toFixed(0) : null, holes: itemHoles });
+    }
+  }
+  return result;
+}
+
+function normalizeTimesWorker(course, data, holes) {
+  if (!data || data.error) return [];
+  switch (course.platform) {
+    case 'foreup':         return normalizeForeUpTimesWorker(data);
+    case 'membersports':   return normalizeMemberSportsTimesWorker(data, holes);
+    case 'chronogolf_slc': return normalizeChronogolfSlcTimesWorker(data, holes);
+    case 'chronogolf':     return normalizeChronogolfTimesWorker(data);
+    default:               return [];
+  }
+}
+
+function formatTime12h(timeStr) {
+  const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return timeStr;
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  if (h > 12) h -= 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
+}
+
+// ── Fetch tee times for a course (reuses existing API logic) ─────────
+async function fetchTimesForCourse(course, date, holes, players) {
+  const params = new URLSearchParams({ date });
+  let handler;
+
+  if (course.platform === 'foreup') {
+    params.set('schedule_id', course.schedule_id);
+    if (course.booking_class_id) params.set('booking_class_id', course.booking_class_id);
+    params.set('holes', holes);
+    handler = () => handleForeUp(Object.fromEntries(params.entries()), null);
+  } else if (course.platform === 'chronogolf') {
+    if (!course.course_ids) return null;
+    params.set('course_ids', course.course_ids.join(','));
+    handler = () => handleChronogolf(Object.fromEntries(params.entries()));
+  } else if (course.platform === 'membersports') {
+    params.set('golf_club_id', course.golf_club_id);
+    params.set('golf_course_id', course.golf_course_id);
+    handler = () => handleMemberSports(Object.fromEntries(params.entries()));
+  } else if (course.platform === 'chronogolf_slc') {
+    params.set('club_id', course.club_id);
+    params.set('course_id', course.course_id);
+    params.set('affiliation_type_id', course.affiliation_type_id);
+    params.set('nb_holes', holes);
+    params.set('players', players);
+    handler = () => handleChronogolfSlc(Object.fromEntries(params.entries()));
+  } else {
+    return null; // unsupported platform (golfpay, tenfore, foreup_login)
+  }
+
+  try {
+    const response = await handler();
+    const data = await response.json();
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+// ── Build booking URL ────────────────────────────────────────────────
+function buildBookingUrlWorker(course, date, holes, players) {
+  const base = course.booking_url;
+  if (!base) return 'https://tee-time.io';
+  if (course.platform === 'foreup' && base.includes('foreupsoftware.com')) {
+    const [y, m, d] = date.split('-');
+    return `${base}?date=${m}-${d}-${y}&players=${players}&holes=${holes}`;
+  }
+  return base;
+}
+
+// ── Send email via Resend ────────────────────────────────────────────
+async function sendEmail(env, to, subject, html) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'Tee-Time.io <alerts@tee-time.io>',
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  return res.ok;
+}
+
+// ── Build notification email ─────────────────────────────────────────
+function buildAlertEmail(course, times, date, players) {
+  const dateFormatted = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
+  const bookingUrl = buildBookingUrlWorker(course, date, '18', players);
+
+  const timeRows = times.slice(0, 12).map(t => {
+    const time = formatTime12h(t.rawTime);
+    const price = t.price || '';
+    const spots = t.spots != null ? `${t.spots} spot${t.spots !== 1 ? 's' : ''}` : '';
+    return `<tr><td style="padding:8px 16px;border-bottom:1px solid #f0f0f0;font-size:15px">${time}</td><td style="padding:8px 16px;border-bottom:1px solid #f0f0f0;font-size:15px;color:#666">${price}</td><td style="padding:8px 16px;border-bottom:1px solid #f0f0f0;font-size:15px;color:#666">${spots}</td></tr>`;
+  }).join('');
+
+  const moreText = times.length > 12 ? `<p style="color:#888;font-size:13px;margin-top:8px">+ ${times.length - 12} more times available</p>` : '';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<div style="max-width:520px;margin:0 auto;padding:24px">
+  <div style="background:#1A2E1A;border-radius:12px 12px 0 0;padding:20px 24px">
+    <h1 style="margin:0;color:#fff;font-size:18px;font-weight:600">⛳ Tee Times Available!</h1>
+  </div>
+  <div style="background:#fff;padding:24px;border-radius:0 0 12px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+    <h2 style="margin:0 0 4px;font-size:17px;color:#111">${course.name}</h2>
+    <p style="margin:0 0 16px;color:#666;font-size:14px">${dateFormatted} · ${players} player${players !== 1 ? 's' : ''}</p>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#f8faf8">
+        <th style="padding:8px 16px;text-align:left;font-size:12px;color:#888;font-weight:600;text-transform:uppercase">Time</th>
+        <th style="padding:8px 16px;text-align:left;font-size:12px;color:#888;font-weight:600;text-transform:uppercase">Price</th>
+        <th style="padding:8px 16px;text-align:left;font-size:12px;color:#888;font-weight:600;text-transform:uppercase">Spots</th>
+      </tr></thead>
+      <tbody>${timeRows}</tbody>
+    </table>
+    ${moreText}
+    <a href="${bookingUrl}" style="display:block;text-align:center;background:#2D7A3A;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin-top:20px">Book Now →</a>
+    <p style="color:#aaa;font-size:12px;text-align:center;margin-top:16px">You received this because you set a tee time alert on <a href="https://tee-time.io" style="color:#2D7A3A">tee-time.io</a>.</p>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+// ── Cron handler: check alerts and send notifications ────────────────
+async function handleScheduled(env) {
+  const courses = await loadCourses(env);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Fetch all active alert preferences with target_date >= today
+  const prefsRes = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/notification_preferences?active=eq.true&target_date=gte.${todayStr}&select=*`,
+    {
+      headers: {
+        'apikey': env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  if (!prefsRes.ok) return;
+  const prefs = await prefsRes.json();
+  if (!prefs.length) return;
+
+  // Only process alerts where target_date is within 14 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + 14);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const activePrefs = prefs.filter(p => p.target_date <= cutoffStr);
+  if (!activePrefs.length) return;
+
+  // Fetch existing notification_log entries to avoid duplicates
+  const courseIds = [...new Set(activePrefs.map(p => p.course_id))];
+  const userIds = [...new Set(activePrefs.map(p => p.user_id))];
+  const logRes = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/notification_log?user_id=in.(${userIds.join(',')})&channel=eq.email&select=user_id,course_id,target_date`,
+    {
+      headers: {
+        'apikey': env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+    }
+  );
+  const existingLogs = logRes.ok ? await logRes.json() : [];
+  const sentKeys = new Set(existingLogs.map(l => `${l.user_id}|${l.course_id}|${l.target_date}`));
+
+  // Group prefs by course+date so we only fetch each combo once
+  const groupKey = p => `${p.course_id}||${p.target_date}`;
+  const groups = {};
+  for (const pref of activePrefs) {
+    const key = groupKey(pref);
+    if (!groups[key]) groups[key] = { course_id: pref.course_id, target_date: pref.target_date, prefs: [] };
+    groups[key].prefs.push(pref);
+  }
+
+  for (const group of Object.values(groups)) {
+    const course = courses.find(c => c.name === group.course_id);
+    if (!course) continue;
+
+    // Fetch times for this course+date (use 18 holes as default)
+    const data = await fetchTimesForCourse(course, group.target_date, '18', '1');
+    if (!data) continue;
+
+    const allTimes = normalizeTimesWorker(course, data, '18');
+    if (!allTimes.length) continue; // No times released yet
+
+    // For each user pref in this group, filter times and notify
+    for (const pref of group.prefs) {
+      const logKey = `${pref.user_id}|${pref.course_id}|${pref.target_date}`;
+      if (sentKeys.has(logKey)) continue; // Already notified
+
+      // Filter by time window and spots
+      const earliest = pref.earliest_time?.slice(0, 5) || '00:00';
+      const latest = pref.latest_time?.slice(0, 5) || '23:59';
+      const minSpots = pref.min_spots || pref.players || 1;
+
+      const matching = allTimes.filter(t => {
+        if (t.rawTime < earliest || t.rawTime > latest) return false;
+        if (t.spots != null && t.spots < minSpots) return false;
+        return true;
+      });
+
+      if (!matching.length) continue;
+
+      // Look up user email
+      const userRes = await fetch(
+        `${env.SUPABASE_URL}/auth/v1/admin/users/${pref.user_id}`,
+        {
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+          },
+        }
+      );
+      if (!userRes.ok) continue;
+      const user = await userRes.json();
+      if (!user.email) continue;
+
+      // Send email
+      const subject = `⛳ ${matching.length} tee time${matching.length !== 1 ? 's' : ''} at ${course.name}`;
+      const html = buildAlertEmail(course, matching, group.target_date, pref.players || 1);
+      const sent = await sendEmail(env, user.email, subject, html);
+
+      if (sent) {
+        // Log it to prevent duplicates
+        await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
+          method: 'POST',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({
+            user_id: pref.user_id,
+            course_id: pref.course_id,
+            target_date: pref.target_date,
+            channel: 'email',
+            times_found: matching.length,
+          }),
+        });
+        sentKeys.add(logKey);
+      }
+    }
+  }
+}
+
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 200, headers: CORS_HEADERS });
     }
@@ -387,5 +713,9 @@ export default {
     }
 
     return corsResponse({ error: 'not_found' }, 404);
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(handleScheduled(env));
   },
 };

@@ -3,10 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tee-Time — Utah Golf</title>
+  <title>Tee-Time — Utah Tee Times</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- PostHog analytics -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing opt_in_capturing has_opted_out_capturing has_opted_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_RCaOhjbjWX2KDt0rzHvFuYRFlfM5D6vQfcdiOA7TnfF', {
+      api_host: 'https://us.i.posthog.com',
+      session_recording: {
+        enable_recording_console_log: true
+      }
+    });
+  </script>
+
   <style>
     :root {
       --brand:         #2D7A3A;
@@ -187,6 +203,66 @@
       width: 100%;
       height: 100%;
     }
+
+    /* Hide native date input on desktop — use custom calendar */
+    @media (min-width: 600px) {
+      #dateInput { display: none; }
+      #dateDisplay { pointer-events: auto; cursor: pointer; }
+    }
+
+    /* ─── Calendar dropdown ─── */
+    .cal-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      background: #fff;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+      padding: 14px;
+      width: 300px;
+      display: none;
+    }
+    .cal-dropdown.open { display: block; }
+
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .cal-header-title {
+      font-family: var(--font); font-size: 0.9rem; font-weight: 600; color: var(--fg);
+    }
+    .cal-nav {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      width: 30px; height: 30px; font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--fg-muted); transition: border-color 0.12s;
+    }
+    .cal-nav:hover { border-color: var(--brand); color: var(--brand); }
+
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+      text-align: center;
+    }
+    .cal-dow {
+      font-size: 0.68rem; font-weight: 600; color: var(--fg-subtle);
+      padding: 4px 0; text-transform: uppercase;
+    }
+    .cal-day {
+      font-family: var(--font); font-size: 0.82rem;
+      width: 36px; height: 36px; margin: 0 auto;
+      border-radius: 50%; border: none; background: none;
+      cursor: pointer; color: var(--fg);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s, color 0.1s;
+    }
+    .cal-day:hover { background: var(--bg-subtle); }
+    .cal-day.today { font-weight: 700; border: 1.5px solid var(--brand-bg); }
+    .cal-day.selected { background: var(--brand-bg); color: #fff; font-weight: 600; }
+    .cal-day.outside { color: var(--fg-subtle); opacity: 0.4; }
+    .cal-day.disabled { opacity: 0.25; pointer-events: none; }
 
     .search-filters-row {
       display: flex;
@@ -375,6 +451,20 @@
     /* ─────────────────────────────
        Course Card
     ───────────────────────────── */
+    .course-photo {
+      width: 100%;
+      height: 96px;
+      object-fit: cover;
+      display: block;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .badge-rating {
+      background: #fffbeb;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
+
     .course-card {
       background: var(--bg);
       border: 1px solid rgba(26,46,26,0.1);
@@ -399,10 +489,16 @@
 
     .course-header {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      flex-direction: column;
       padding: 12px 16px 10px;
-      gap: 10px;
+      gap: 5px;
+    }
+
+    .course-header-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .course-name {
@@ -411,6 +507,7 @@
       color: var(--fg);
       flex: 1;
       min-width: 0;
+      line-height: 1.3;
     }
 
     .course-meta {
@@ -514,6 +611,18 @@
       opacity: 0.7;
       padding: 0 16px 14px;
     }
+
+    .notify-cta {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 0.81rem;
+      font-style: normal;
+      color: var(--brand-dark);
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .notify-cta:hover { text-decoration: underline; }
 
     .course-login {
       padding: 0 16px 14px;
@@ -731,9 +840,445 @@
 
       #results { padding: 24px 20px 64px; }
     }
+    /* ─────────────────────────────
+       Course Detail Panel
+    ───────────────────────────── */
+    .cd-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .cd-overlay.open { opacity: 1; pointer-events: all; }
+
+    .cd-panel {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 201;
+      background: var(--bg);
+      border-radius: 20px 20px 0 0;
+      max-height: 88vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+    .cd-panel.open { transform: translateY(0); }
+
+    .cd-handle {
+      width: 36px; height: 4px;
+      background: rgba(0,0,0,0.15);
+      border-radius: 2px;
+      margin: 0 auto;
+      pointer-events: none;
+    }
+
+    .cd-handle-bar {
+      padding: 12px 0 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cd-close {
+      position: absolute; top: 12px; right: 12px;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.45);
+      color: #fff; border: none;
+      font-size: 18px; line-height: 32px;
+      text-align: center;
+      cursor: pointer;
+      z-index: 2;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cd-photo {
+      width: 100%; height: 180px;
+      object-fit: cover; display: block;
+      margin-top: 12px;
+    }
+
+    .cd-body { padding: 16px 20px 32px; }
+
+    .cd-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 10px;
+      margin-bottom: 6px;
+    }
+    .cd-name { font-weight: 700; font-size: 1.05rem; flex: 1; line-height: 1.3; }
+    .cd-rating {
+      font-size: 0.82rem; font-weight: 600; color: #92400e;
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 99px; padding: 3px 10px; white-space: nowrap;
+    }
+    .cd-reviews { font-size: 0.72rem; color: var(--fg-subtle); margin-bottom: 12px; }
+
+    .cd-description {
+      font-size: 0.86rem; color: var(--fg-subtle);
+      line-height: 1.65; margin-bottom: 16px;
+    }
+
+    .cd-facts {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 8px; margin-bottom: 14px;
+    }
+    .cd-fact {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .cd-fact-label {
+      font-size: 0.62rem; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--fg-subtle); margin-bottom: 3px;
+    }
+    .cd-fact-value { font-size: 0.9rem; font-weight: 600; color: var(--fg); }
+
+    .cd-address {
+      font-size: 0.78rem; color: var(--fg-subtle);
+      margin-bottom: 20px; line-height: 1.4;
+    }
+
+    .cd-times-label {
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--fg-subtle); margin-bottom: 10px;
+    }
+    .cd-times {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px;
+    }
+
+    /* ─────────────────────────────
+       Header auth
+    ───────────────────────────── */
+    .header-spacer { flex: 1; }
+
+    .auth-btn {
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 7px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .auth-btn:hover { background: rgba(255,255,255,0.22); }
+
+    .avatar-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--brand);
+      border: 2px solid rgba(255,255,255,0.3);
+      color: #fff;
+      font-size: 0.82rem; font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: border-color 0.15s;
+      overflow: hidden; padding: 0;
+    }
+    .avatar-btn img {
+      width: 100%; height: 100%; object-fit: cover;
+      border-radius: 50%;
+    }
+    .avatar-btn:hover { border-color: rgba(255,255,255,0.7); }
+
+    /* ─────────────────────────────
+       Modal backdrop + box
+    ───────────────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.52);
+      z-index: 300;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: all; }
+
+    .modal-box {
+      background: var(--bg);
+      border-radius: var(--radius-lg);
+      width: 100%; max-width: 400px;
+      padding: 28px 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      transform: translateY(10px) scale(0.98);
+      transition: transform 0.22s;
+    }
+    .modal-backdrop.open .modal-box { transform: translateY(0) scale(1); }
+
+    .modal-close {
+      position: absolute; top: 14px; right: 14px;
+      background: none; border: none;
+      font-size: 1.2rem; line-height: 1;
+      color: var(--fg-muted); cursor: pointer;
+      padding: 4px 8px; border-radius: 6px;
+      transition: background 0.12s;
+    }
+    .modal-close:hover { background: var(--bg-muted); }
+
+    /* ─────────────────────────────
+       Auth modal
+    ───────────────────────────── */
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 1.3rem; font-weight: 400;
+      color: var(--fg); margin-bottom: 5px;
+    }
+    .modal-sub {
+      font-size: 0.83rem; color: var(--fg-muted);
+      margin-bottom: 20px; line-height: 1.4;
+    }
+
+    .oauth-btn {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: var(--font); font-size: 0.88rem; font-weight: 500;
+      background: var(--bg);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 11px 16px; cursor: pointer;
+      color: var(--fg); margin-bottom: 16px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .oauth-btn:hover { border-color: var(--brand); background: var(--brand-light); }
+
+    .auth-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .auth-divider span { font-size: 0.75rem; color: var(--fg-subtle); }
+
+    .auth-field {
+      display: flex; flex-direction: column; gap: 5px;
+      margin-bottom: 12px;
+    }
+    .auth-field label {
+      font-size: 0.72rem; font-weight: 600;
+      color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .auth-field input, .auth-field select {
+      font-family: var(--font); font-size: 0.9rem;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg); color: var(--fg); outline: none;
+      transition: border-color 0.15s;
+    }
+    .auth-field input:focus, .auth-field select:focus { border-color: var(--brand); }
+
+    .auth-submit {
+      width: 100%;
+      font-family: var(--font); font-size: 0.9rem; font-weight: 600;
+      background: var(--brand-bg); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      padding: 12px; cursor: pointer; margin-top: 4px;
+      transition: background 0.15s;
+    }
+    .auth-submit:hover  { background: var(--brand-dark); }
+    .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .auth-toggle {
+      text-align: center; font-size: 0.82rem;
+      color: var(--fg-muted); margin-top: 14px;
+    }
+    .auth-toggle a {
+      color: var(--brand-dark); font-weight: 500;
+      cursor: pointer; text-decoration: none;
+    }
+    .auth-toggle a:hover { text-decoration: underline; }
+
+    .auth-error {
+      font-size: 0.82rem; color: var(--red);
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: var(--radius-sm);
+      padding: 9px 12px; margin-bottom: 12px; display: none;
+    }
+    .auth-error.shown { display: block; }
+
+    .auth-info {
+      font-size: 0.82rem; color: var(--brand-dark);
+      background: var(--brand-light); border: 1px solid rgba(45,122,58,0.2);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px; margin-bottom: 12px; display: none;
+    }
+    .auth-info.shown { display: block; }
+
+    /* ─────────────────────────────
+       Account panel (bottom sheet)
+    ───────────────────────────── */
+    .acct-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 249;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .acct-overlay.open { opacity: 1; pointer-events: all; }
+
+    .acct-panel {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 250;
+      background: var(--bg); border-radius: 20px 20px 0 0;
+      max-height: 85vh; overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    .acct-panel.open { transform: translateY(0); }
+
+    .acct-handle {
+      width: 36px; height: 4px;
+      background: rgba(0,0,0,0.15); border-radius: 2px;
+      margin: 12px auto 0;
+    }
+
+    .acct-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .acct-title { font-weight: 700; font-size: 1rem; }
+    .acct-email { font-size: 0.78rem; color: var(--fg-muted); margin-top: 2px; }
+
+    .acct-signout {
+      font-family: var(--font); font-size: 0.8rem; font-weight: 500;
+      color: var(--fg-muted); background: none;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm); padding: 5px 12px; cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .acct-signout:hover { color: var(--red); border-color: var(--red); }
+
+    .acct-body { padding: 16px 20px 32px; }
+
+    .acct-section { margin-bottom: 24px; }
+    .acct-section-title {
+      font-size: 0.67rem; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--fg-subtle); margin-bottom: 10px;
+    }
+
+    .acct-save-btn {
+      font-family: var(--font); font-size: 0.85rem; font-weight: 600;
+      background: var(--brand-bg); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      padding: 9px 18px; cursor: pointer; transition: background 0.15s;
+    }
+    .acct-save-btn:hover { background: var(--brand-dark); }
+
+    .saved-course-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 0; border-bottom: 1px solid var(--border);
+      font-size: 0.88rem; color: var(--fg);
+    }
+    .saved-course-item:last-child { border-bottom: none; }
+
+    .acct-remove-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--fg-subtle); font-size: 1.1rem; line-height: 1; padding: 4px;
+      transition: color 0.12s;
+    }
+    .acct-remove-btn:hover { color: var(--red); }
+
+    .alert-item {
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px;
+    }
+    .alert-item-name { font-size: 0.87rem; font-weight: 600; margin-bottom: 3px; }
+    .alert-item-detail { font-size: 0.78rem; color: var(--fg-muted); }
+    .alert-item-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .alert-action-btn {
+      font-family: var(--font); font-size: 0.75rem; font-weight: 500;
+      background: none; border: 1px solid var(--border-strong);
+      border-radius: 6px; padding: 4px 10px; cursor: pointer;
+      color: var(--fg-muted); transition: all 0.12s;
+    }
+    .alert-action-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .alert-action-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+    /* ─────────────────────────────
+       Notification prefs modal
+    ───────────────────────────── */
+    .notif-date-display {
+      display: block;
+      font-family: var(--font);
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--fg);
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .days-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .day-toggle {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 1.5px solid var(--border-strong); background: var(--bg);
+      font-family: var(--font); font-size: 0.72rem; font-weight: 600;
+      color: var(--fg-muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.12s;
+    }
+    .day-toggle.active {
+      background: var(--brand-bg); border-color: var(--brand-bg); color: #fff;
+    }
+
+    .notif-row { display: flex; gap: 12px; }
+    .notif-row .auth-field { flex: 1; }
+
+    .notif-min-spots { display: flex; gap: 6px; }
+    .notif-min-spots .seg-btn { min-height: 34px; font-size: 0.8rem; }
+
+    /* ─────────────────────────────
+       Bell button (course card)
+    ───────────────────────────── */
+    .bell-btn {
+      background: none; border: none;
+      cursor: pointer; padding: 4px; font-size: 1rem; line-height: 1;
+      color: var(--border-strong); flex-shrink: 0;
+      transition: color 0.12s, transform 0.1s;
+    }
+    .bell-btn:hover  { color: var(--brand); transform: scale(1.15); }
+    .bell-btn.active { color: var(--brand); }
+
+    /* ─────────────────────────────
+       Toast
+    ───────────────────────────── */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+      z-index: 500;
+      background: #1A2E1A; color: #fff;
+      font-family: var(--font); font-size: 0.88rem; font-weight: 500;
+      padding: 12px 20px; border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s, transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+      max-width: 90vw; text-align: center;
+      line-height: 1.4;
+    }
+    .toast.show {
+      opacity: 1; pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
   </style>
 </head>
 <body>
+
+<div class="toast" id="toast"></div>
 
 <header>
   <div class="header-inner">
@@ -750,6 +1295,8 @@
       </div>
       <div class="brand-tagline">Every tee time. One search.</div>
     </div>
+    <div class="header-spacer"></div>
+    <button class="auth-btn" id="authBtn">Sign in</button>
   </div>
 </header>
 
@@ -761,6 +1308,14 @@
       <div class="date-display-wrap">
         <span id="dateDisplay"></span>
         <input type="date" id="dateInput" />
+        <div class="cal-dropdown" id="calDropdown">
+          <div class="cal-header">
+            <button class="cal-nav" id="calPrevMonth" aria-label="Previous month">&#8249;</button>
+            <span class="cal-header-title" id="calTitle"></span>
+            <button class="cal-nav" id="calNextMonth" aria-label="Next month">&#8250;</button>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
       </div>
       <button class="date-nav" id="dateNext" aria-label="Next day">&#8250;</button>
     </div>
@@ -817,14 +1372,756 @@
   </div>
 </div>
 
+<div class="cd-overlay" id="cdOverlay"></div>
+<div class="cd-panel" id="cdPanel">
+  <div class="cd-handle-bar" id="cdHandleBar"><div class="cd-handle"></div></div>
+  <button class="cd-close" id="cdClose" aria-label="Close">&#x2715;</button>
+  <img id="cdPhoto" class="cd-photo" alt="" style="display:none" />
+  <div class="cd-body">
+    <div class="cd-top">
+      <div class="cd-name" id="cdName"></div>
+      <div class="cd-rating" id="cdRating" style="display:none"></div>
+    </div>
+    <div class="cd-reviews" id="cdReviews"></div>
+    <p class="cd-description" id="cdDescription" style="display:none"></p>
+    <div class="cd-facts" id="cdFacts"></div>
+    <div class="cd-address" id="cdAddress" style="display:none"></div>
+    <div id="cdTimesSection" style="display:none">
+      <div class="cd-times-label">Available times</div>
+      <div class="cd-times" id="cdTimes"></div>
+    </div>
+  </div>
+</div>
+
 <div id="results"></div>
 
+<!-- ── Auth modal ─────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="authModal">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" id="authModalClose">&#x2715;</button>
+    <div class="modal-title" id="authTitle">Welcome back</div>
+    <div class="modal-sub" id="authSub">Sign in to save courses and set tee time alerts.</div>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-info"  id="authInfo"></div>
+    <button class="oauth-btn" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.705 17.64 9.2z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="auth-divider"><span>or</span></div>
+    <div class="auth-field" id="authNameField" style="display:none">
+      <label>Name</label>
+      <input type="text" id="authName" placeholder="Your name" autocomplete="name" />
+    </div>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="auth-submit" id="authSubmit">Sign in</button>
+    <div class="auth-toggle">
+      <span id="authToggleText">Don't have an account?</span>
+      <a id="authToggleLink"> Create one</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Account panel ──────────────────────────────────────────────────── -->
+<div class="acct-overlay" id="acctOverlay"></div>
+<div class="acct-panel" id="acctPanel">
+  <div class="acct-handle"></div>
+  <div class="acct-header">
+    <div>
+      <div class="acct-title" id="acctUserName">My Account</div>
+      <div class="acct-email" id="acctUserEmail"></div>
+    </div>
+    <button class="acct-signout" id="acctSignOut">Sign out</button>
+  </div>
+  <div class="acct-body">
+
+    <div class="acct-section">
+      <div class="acct-section-title">Notification Settings</div>
+      <div class="auth-field">
+        <label>Notify via</label>
+        <select id="acctNotifyVia">
+          <option value="email">Email</option>
+          <option value="sms">SMS</option>
+          <option value="both">Email &amp; SMS</option>
+        </select>
+      </div>
+      <div class="auth-field">
+        <label>Phone number</label>
+        <input type="tel" id="acctPhone" placeholder="+1 (801) 555-0100" autocomplete="tel" />
+      </div>
+      <button class="acct-save-btn" id="acctProfileSave">Save</button>
+    </div>
+
+    <div class="acct-section">
+      <div class="acct-section-title">Saved Courses</div>
+      <div id="acctSavedList"></div>
+    </div>
+
+    <div class="acct-section">
+      <div class="acct-section-title">Tee Time Alerts</div>
+      <div id="acctAlertsList"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Notification prefs modal ───────────────────────────────────────── -->
+<div class="modal-backdrop" id="notifModal">
+  <div class="modal-box" style="position:relative">
+    <button class="modal-close" id="notifModalClose">&#x2715;</button>
+    <div class="modal-title" id="notifCourseName">Set Alert</div>
+    <div class="modal-sub">We'll notify you as soon as matching tee times are released.</div>
+    <div class="auth-error" id="notifError"></div>
+
+    <div class="auth-field">
+      <label>Date you want to play</label>
+      <div class="date-display-wrap" style="position:relative">
+        <span id="notifDateDisplay" class="notif-date-display"></span>
+        <input type="date" id="notifTargetDate" style="display:none" />
+        <div class="cal-dropdown" id="notifCalDropdown">
+          <div class="cal-header">
+            <button class="cal-nav" id="notifCalPrev" type="button" aria-label="Previous month">&#8249;</button>
+            <span class="cal-header-title" id="notifCalTitle"></span>
+            <button class="cal-nav" id="notifCalNext" type="button" aria-label="Next month">&#8250;</button>
+          </div>
+          <div class="cal-grid" id="notifCalGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-field">
+      <label>Players</label>
+      <div class="notif-min-spots seg-buttons" id="notifPlayers">
+        <button class="seg-btn" data-value="1">1</button>
+        <button class="seg-btn active" data-value="2">2</button>
+        <button class="seg-btn" data-value="3">3</button>
+        <button class="seg-btn" data-value="4">4</button>
+      </div>
+    </div>
+
+    <div class="notif-row">
+      <div class="auth-field">
+        <label>Earliest time</label>
+        <select id="notifEarliest"></select>
+        <input type="hidden" id="notifEarliestVal" value="06:00" />
+      </div>
+      <div class="auth-field">
+        <label>Latest time</label>
+        <select id="notifLatest"></select>
+        <input type="hidden" id="notifLatestVal" value="10:00" />
+      </div>
+    </div>
+
+    <button class="auth-submit" id="notifSaveBtn">Save Alert</button>
+    <button class="auth-submit" id="notifDeleteBtn" style="background:var(--red);margin-top:8px;display:none">Remove Alert</button>
+  </div>
+</div>
+
 <script>
-  if (localStorage.getItem('tt_access') !== 'granted') {
-    window.location.href = '/';
-  }
+  // ── PostHog custom events ──────────────────────────────────────────────
+  // search_performed        { date, players, holes, region }
+  // results_returned        { count, search_date, players }
+  // tee_time_clicked        { course_name, time, price, region }
+  // outbound_booking_click  { course_name, time, price }   ← most important
+  // course_saved            { course_name }
+  // region_tab_switched     { from_tab, to_tab, results_count_before_switch }
+  // ────────────────────────────────────────────────────────────────────────
+
+  // Body stays hidden until Supabase confirms a valid session
+  document.body.style.visibility = 'hidden';
 
   const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
+
+  // ── Supabase config ─────────────────────────────────────────────────────
+  // TODO: replace these two values with your real project URL and anon key
+  const SUPABASE_URL  = 'https://nmwlebcvezybfwertlzs.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { persistSession: true, detectSessionInUrl: true },
+  });
+
+  // ── Auth state ──────────────────────────────────────────────────────────
+  let authUser     = null;
+  let savedCourses = new Set();  // course.name strings, Supabase-backed when authed
+  let notifPrefs   = [];         // notification_preferences rows
+  let authMode     = 'signin';   // 'signin' | 'signup'
+  let currentNotifCourseId = null;
+
+  // ── Auth init ──────────────────────────────────────────────────────────
+  async function initAuth() {
+    const { data: { session } } = await sb.auth.getSession();
+
+    // Allow page to render during an OAuth callback (code/token in URL)
+    const isOAuthCallback = window.location.hash.includes('access_token') ||
+                            window.location.search.includes('code=');
+
+    if (!session && !isOAuthCallback) {
+      window.location.replace('https://tee-time.io');
+      return;
+    }
+
+    if (session?.user) {
+      await onSignedIn(session.user);
+      // Identify authed user in PostHog
+      posthog.identify(session.user.email, { email: session.user.email });
+    }
+    document.body.style.visibility = '';
+
+    sb.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        await onSignedIn(session.user);
+        document.body.style.visibility = '';
+      } else {
+        // Signed out — send back to landing
+        window.location.replace('https://tee-time.io');
+      }
+    });
+  }
+
+  async function onSignedIn(user) {
+    authUser = user;
+    await Promise.all([loadSavedCourses(), loadNotifPrefs()]);
+    renderAuthButton();
+    closeAuthModal();
+
+    // Merge any pre-auth localStorage stars into Supabase, then clear local
+    const localFavs = JSON.parse(localStorage.getItem('tt_favorites') || '[]');
+    if (localFavs.length) {
+      await Promise.all(localFavs
+        .filter(id => !savedCourses.has(id))
+        .map(id => insertSavedCourse(id))
+      );
+      localStorage.removeItem('tt_favorites');
+    }
+    // Refresh star buttons now that savedCourses is populated
+    document.querySelectorAll('.star-btn').forEach(btn => {
+      const saved = savedCourses.has(btn.dataset.course);
+      btn.classList.toggle('active', saved);
+      btn.setAttribute('aria-label', saved ? 'Unsave course' : 'Save course');
+    });
+    document.querySelectorAll('.bell-btn').forEach(btn => {
+      btn.classList.toggle('active', notifPrefs.some(p => p.course_id === btn.dataset.course));
+    });
+  }
+
+  // ── Header button ──────────────────────────────────────────────────────
+  function renderAuthButton() {
+    const btn = document.getElementById('authBtn');
+    if (!btn) return;
+    if (authUser) {
+      const name = authUser.user_metadata?.full_name || authUser.email || '';
+      const avatarUrl = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
+      btn.className   = 'avatar-btn';
+      if (avatarUrl) {
+        btn.innerHTML = `<img src="${avatarUrl}" alt="" referrerpolicy="no-referrer">`;
+      } else {
+        btn.textContent = (name.charAt(0) || '?').toUpperCase();
+      }
+      btn.title       = name;
+      btn.onclick     = openAccountPanel;
+    } else {
+      btn.className   = 'auth-btn';
+      btn.textContent = 'Sign in';
+      btn.onclick     = () => openAuthModal('signin');
+    }
+  }
+
+  // ── Auth modal ─────────────────────────────────────────────────────────
+  function openAuthModal(mode = 'signin') {
+    setAuthMode(mode);
+    clearAuthFeedback();
+    document.getElementById('authModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('authEmail')?.focus(), 150);
+  }
+
+  function closeAuthModal() {
+    document.getElementById('authModal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    const isUp = mode === 'signup';
+    document.getElementById('authTitle').textContent       = isUp ? 'Create account' : 'Welcome back';
+    document.getElementById('authSub').textContent         = isUp
+      ? 'Save courses and get tee time alerts.'
+      : 'Sign in to save courses and set tee time alerts.';
+    document.getElementById('authSubmit').textContent      = isUp ? 'Create account' : 'Sign in';
+    document.getElementById('authToggleText').textContent  = isUp ? 'Already have an account?' : "Don't have an account?";
+    document.getElementById('authToggleLink').textContent  = isUp ? ' Sign in' : ' Create one';
+    document.getElementById('authNameField').style.display = isUp ? '' : 'none';
+    document.getElementById('authPassword').autocomplete   = isUp ? 'new-password' : 'current-password';
+  }
+
+  function toggleAuthMode() {
+    setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+    clearAuthFeedback();
+  }
+
+  function clearAuthFeedback() {
+    const err  = document.getElementById('authError');
+    const info = document.getElementById('authInfo');
+    err.textContent  = ''; err.classList.remove('shown');
+    info.textContent = ''; info.classList.remove('shown');
+  }
+
+  function showAuthError(msg) {
+    const el = document.getElementById('authError');
+    el.textContent = msg; el.classList.add('shown');
+  }
+
+  function showAuthInfo(msg) {
+    const el = document.getElementById('authInfo');
+    el.textContent = msg; el.classList.add('shown');
+  }
+
+  async function handleGoogleAuth() {
+    const btn = document.getElementById('googleBtn');
+    btn.disabled = true; btn.style.opacity = '0.6';
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/app.html' },
+    });
+    if (error) {
+      showAuthError(error.message);
+      btn.disabled = false; btn.style.opacity = '';
+    }
+  }
+
+  async function handleEmailAuth() {
+    const email    = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const name     = document.getElementById('authName').value.trim();
+    const btn      = document.getElementById('authSubmit');
+    clearAuthFeedback();
+    if (!email || !password) return showAuthError('Email and password are required.');
+
+    btn.disabled = true;
+    btn.textContent = authMode === 'signup' ? 'Creating…' : 'Signing in…';
+
+    if (authMode === 'signup') {
+      const { error } = await sb.auth.signUp({
+        email, password,
+        options: { data: { full_name: name || null } },
+      });
+      btn.disabled = false; btn.textContent = 'Create account';
+      if (error) return showAuthError(error.message);
+      showAuthInfo('Check your email to confirm your account, then sign in.');
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      btn.disabled = false; btn.textContent = 'Sign in';
+      if (error) return showAuthError(error.message);
+    }
+  }
+
+  async function handleSignOut() {
+    await sb.auth.signOut();
+    authUser = null; savedCourses = new Set(); notifPrefs = [];
+    closeAccountPanel();
+    renderAuthButton();
+    // Reset all star + bell buttons to unauthenticated state
+    document.querySelectorAll('.star-btn').forEach(btn => {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-label', 'Save course');
+    });
+    document.querySelectorAll('.bell-btn').forEach(btn => btn.classList.remove('active'));
+    if (activeTab === 'saved') runSearch();
+  }
+
+  // Wire up auth modal events
+  document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
+  document.getElementById('authModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('authModal')) closeAuthModal();
+  });
+  document.getElementById('authToggleLink').addEventListener('click', toggleAuthMode);
+  document.getElementById('googleBtn').addEventListener('click', handleGoogleAuth);
+  document.getElementById('authSubmit').addEventListener('click', handleEmailAuth);
+  document.getElementById('authEmail').addEventListener('keydown', e => { if (e.key === 'Enter') handleEmailAuth(); });
+  document.getElementById('authPassword').addEventListener('keydown', e => { if (e.key === 'Enter') handleEmailAuth(); });
+
+  // ── Saved courses ──────────────────────────────────────────────────────
+  async function loadSavedCourses() {
+    if (!authUser) return;
+    const { data } = await sb.from('saved_courses')
+      .select('course_id')
+      .eq('user_id', authUser.id);
+    savedCourses = new Set((data || []).map(r => r.course_id));
+  }
+
+  async function insertSavedCourse(courseId) {
+    const { error } = await sb.from('saved_courses')
+      .insert({ user_id: authUser.id, course_id: courseId });
+    if (!error) savedCourses.add(courseId);
+  }
+
+  async function deleteSavedCourse(courseId) {
+    const { error } = await sb.from('saved_courses').delete()
+      .eq('user_id', authUser.id).eq('course_id', courseId);
+    if (!error) savedCourses.delete(courseId);
+  }
+
+  // ── Notification prefs ─────────────────────────────────────────────────
+  async function loadNotifPrefs() {
+    if (!authUser) return;
+    const { data } = await sb.from('notification_preferences')
+      .select('*')
+      .eq('user_id', authUser.id)
+      .eq('active', true);
+    notifPrefs = data || [];
+  }
+
+  function openNotifModal(courseId) {
+    if (!authUser) { openAuthModal('signin'); return; }
+    currentNotifCourseId = courseId;
+    document.getElementById('notifCourseName').textContent = courseId;
+    document.getElementById('notifError').classList.remove('shown');
+
+    const existing = notifPrefs.find(p => p.course_id === courseId);
+
+    // Target date — default to current search date
+    const defaultDate = document.getElementById('dateInput').value || todayStr;
+    document.getElementById('notifTargetDate').value = existing?.target_date || defaultDate;
+    // Set min to today
+    document.getElementById('notifTargetDate').min = todayStr;
+    updateNotifDateDisplay();
+    notifCalViewDate = new Date((existing?.target_date || defaultDate) + 'T00:00:00');
+
+    // Players
+    const players = existing?.players || parseInt(document.getElementById('playersInput').value) || 2;
+    document.querySelectorAll('#notifPlayers .seg-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.value) === players);
+    });
+
+    document.getElementById('notifEarliest').value = existing?.earliest_time?.slice(0, 5) || '06:00';
+    document.getElementById('notifLatest').value   = existing?.latest_time?.slice(0, 5)   || '10:00';
+    document.getElementById('notifDeleteBtn').style.display = existing ? '' : 'none';
+    document.getElementById('notifModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeNotifModal() {
+    document.getElementById('notifModal').classList.remove('open');
+    document.body.style.overflow = '';
+    currentNotifCourseId = null;
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 4500);
+  }
+
+  async function saveNotifPref() {
+    const errEl = document.getElementById('notifError');
+    const targetDate = document.getElementById('notifTargetDate').value;
+    if (!targetDate) {
+      errEl.textContent = 'Please select a date.'; errEl.classList.add('shown'); return;
+    }
+    if (targetDate < todayStr) {
+      errEl.textContent = 'Date must be today or later.'; errEl.classList.add('shown'); return;
+    }
+    errEl.classList.remove('shown');
+    const earliest = document.getElementById('notifEarliest').value;
+    const latest   = document.getElementById('notifLatest').value;
+    const players = parseInt(
+      document.querySelector('#notifPlayers .seg-btn.active')?.dataset.value || '2'
+    );
+    const btn = document.getElementById('notifSaveBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    const existing = notifPrefs.find(p => p.course_id === currentNotifCourseId);
+    let error;
+    if (existing) {
+      ({ error } = await sb.from('notification_preferences')
+        .update({ target_date: targetDate, players, earliest_time: earliest, latest_time: latest, min_spots: players })
+        .eq('id', existing.id));
+    } else {
+      ({ error } = await sb.from('notification_preferences').insert({
+        user_id: authUser.id, course_id: currentNotifCourseId,
+        target_date: targetDate, players, earliest_time: earliest, latest_time: latest,
+        min_spots: players, days_of_week: [], active: true,
+      }));
+    }
+
+    btn.disabled = false; btn.textContent = 'Save Alert';
+    if (error) { errEl.textContent = error.message; errEl.classList.add('shown'); return; }
+
+    await loadNotifPrefs();
+    const savedCourseId = currentNotifCourseId;
+    const savedDate = targetDate;
+    closeNotifModal();
+    document.querySelectorAll(`.bell-btn[data-course="${CSS.escape(savedCourseId)}"]`)
+      .forEach(b => b.classList.add('active'));
+
+    // Show confirmation toast
+    const dateLabel = new Date(savedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const email = authUser?.email || 'your email';
+    showToast(`Alert saved! We'll email ${email} when tee times open for ${dateLabel}.`);
+  }
+
+  async function deleteNotifPref() {
+    const existing = notifPrefs.find(p => p.course_id === currentNotifCourseId);
+    if (!existing) return;
+    const { error } = await sb.from('notification_preferences').delete().eq('id', existing.id);
+    if (error) return;
+    await loadNotifPrefs();
+    const removedId = currentNotifCourseId;
+    closeNotifModal();
+    document.querySelectorAll(`.bell-btn[data-course="${CSS.escape(removedId)}"]`)
+      .forEach(b => b.classList.remove('active'));
+    showToast('Alert removed.');
+  }
+
+  // Wire up notif modal events
+  document.getElementById('notifModalClose').addEventListener('click', closeNotifModal);
+  document.getElementById('notifModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('notifModal')) closeNotifModal();
+  });
+  document.getElementById('notifSaveBtn').addEventListener('click', saveNotifPref);
+  document.getElementById('notifDeleteBtn').addEventListener('click', deleteNotifPref);
+
+  // Populate time selects with 30-min increments in 12h format
+  (function populateTimeSelects() {
+    const selects = [document.getElementById('notifEarliest'), document.getElementById('notifLatest')];
+    for (const sel of selects) {
+      sel.innerHTML = '';
+      for (let h = 5; h <= 21; h++) {
+        for (const m of ['00', '30']) {
+          const val24 = `${String(h).padStart(2, '0')}:${m}`;
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          const h12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+          const label = `${h12}:${m} ${ampm}`;
+          const opt = document.createElement('option');
+          opt.value = val24;
+          opt.textContent = label;
+          sel.appendChild(opt);
+        }
+      }
+    }
+    document.getElementById('notifEarliest').value = '06:00';
+    document.getElementById('notifLatest').value = '10:00';
+  })();
+
+  document.querySelectorAll('#notifPlayers .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#notifPlayers .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // ── Notif modal calendar ──────────────────────────────────────────────
+  let notifCalViewDate = new Date();
+  const notifCalDropdown = document.getElementById('notifCalDropdown');
+  const notifCalGrid     = document.getElementById('notifCalGrid');
+  const notifCalTitle    = document.getElementById('notifCalTitle');
+  const notifDateDisplay = document.getElementById('notifDateDisplay');
+
+  function updateNotifDateDisplay() {
+    const val = document.getElementById('notifTargetDate').value;
+    if (!val) { notifDateDisplay.textContent = 'Select a date'; return; }
+    const d = new Date(val + 'T00:00:00');
+    notifDateDisplay.textContent = d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    });
+  }
+
+  notifDateDisplay.addEventListener('click', () => {
+    const cur = document.getElementById('notifTargetDate').value;
+    if (cur) notifCalViewDate = new Date(cur + 'T00:00:00');
+    renderNotifCalendar();
+    notifCalDropdown.classList.toggle('open');
+  });
+
+  document.getElementById('notifCalPrev').addEventListener('click', e => {
+    e.stopPropagation();
+    notifCalViewDate.setMonth(notifCalViewDate.getMonth() - 1);
+    renderNotifCalendar();
+  });
+  document.getElementById('notifCalNext').addEventListener('click', e => {
+    e.stopPropagation();
+    notifCalViewDate.setMonth(notifCalViewDate.getMonth() + 1);
+    renderNotifCalendar();
+  });
+
+  // Close notif calendar when clicking outside it
+  document.addEventListener('click', e => {
+    if (!notifCalDropdown.classList.contains('open')) return;
+    if (e.target.closest('#notifCalDropdown') || e.target === notifDateDisplay) return;
+    notifCalDropdown.classList.remove('open');
+  });
+
+  function renderNotifCalendar() {
+    const year = notifCalViewDate.getFullYear();
+    const month = notifCalViewDate.getMonth();
+    notifCalTitle.textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    notifCalGrid.innerHTML = '';
+    const dows = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    dows.forEach(d => {
+      const el = document.createElement('span');
+      el.className = 'cal-dow';
+      el.textContent = d;
+      notifCalGrid.appendChild(el);
+    });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const selected = document.getElementById('notifTargetDate').value;
+
+    for (let i = 0; i < firstDay; i++) {
+      notifCalGrid.appendChild(document.createElement('span'));
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cal-day';
+      btn.textContent = day;
+
+      if (dateStr === todayStr) btn.classList.add('today');
+      if (dateStr === selected) btn.classList.add('selected');
+      if (dateStr < todayStr) btn.classList.add('disabled');
+
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        document.getElementById('notifTargetDate').value = dateStr;
+        updateNotifDateDisplay();
+        notifCalDropdown.classList.remove('open');
+      });
+
+      notifCalGrid.appendChild(btn);
+    }
+  }
+
+  // ── Account panel ──────────────────────────────────────────────────────
+  function openAccountPanel() {
+    if (!authUser) return;
+    const name = authUser.user_metadata?.full_name || '';
+    document.getElementById('acctUserName').textContent  = name || 'My Account';
+    document.getElementById('acctUserEmail').textContent = authUser.email || '';
+    renderAccountPanel();
+    document.getElementById('acctPanel').classList.add('open');
+    document.getElementById('acctOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeAccountPanel() {
+    document.getElementById('acctPanel').classList.remove('open');
+    document.getElementById('acctOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  async function renderAccountPanel() {
+    // Load profile row for phone + notify_via
+    const { data: profile } = await sb.from('profiles')
+      .select('phone, notify_via')
+      .eq('id', authUser.id)
+      .single();
+    if (profile) {
+      document.getElementById('acctPhone').value     = profile.phone || '';
+      document.getElementById('acctNotifyVia').value = profile.notify_via || 'email';
+    }
+
+    // Saved courses list
+    const savedList = document.getElementById('acctSavedList');
+    savedList.innerHTML = '';
+    if (savedCourses.size === 0) {
+      savedList.innerHTML = '<p style="font-size:0.84rem;color:var(--fg-subtle)">No saved courses yet. Tap ★ on any course card.</p>';
+    } else {
+      for (const courseId of savedCourses) {
+        const item = document.createElement('div');
+        item.className = 'saved-course-item';
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = courseId;
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'acct-remove-btn';
+        removeBtn.title     = 'Remove';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', async () => {
+          await deleteSavedCourse(courseId);
+          renderAccountPanel();
+          document.querySelectorAll(`.star-btn[data-course="${CSS.escape(courseId)}"]`)
+            .forEach(b => { b.classList.remove('active'); b.setAttribute('aria-label', 'Save course'); });
+          if (activeTab === 'saved') runSearch();
+        });
+        item.appendChild(nameSpan);
+        item.appendChild(removeBtn);
+        savedList.appendChild(item);
+      }
+    }
+
+    // Alerts list
+    const alertsList = document.getElementById('acctAlertsList');
+    alertsList.innerHTML = '';
+    if (notifPrefs.length === 0) {
+      alertsList.innerHTML = '<p style="font-size:0.84rem;color:var(--fg-subtle)">No alerts set. Tap 🔔 on a course card.</p>';
+    } else {
+      for (const pref of notifPrefs) {
+        const dateStr = pref.target_date
+          ? new Date(pref.target_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          : 'Any day';
+        const item = document.createElement('div');
+        item.className = 'alert-item';
+        item.innerHTML = `
+          <div class="alert-item-name">${pref.course_id}</div>
+          <div class="alert-item-detail">${dateStr} &bull; ${pref.players || 1} player${(pref.players || 1) !== 1 ? 's' : ''} &bull; ${formatTime12h(pref.earliest_time.slice(0,5))}–${formatTime12h(pref.latest_time.slice(0,5))}</div>
+          <div class="alert-item-actions">
+            <button class="alert-action-btn" data-edit="${CSS.escape(pref.course_id)}">Edit</button>
+            <button class="alert-action-btn danger" data-del="${pref.id}">Remove</button>
+          </div>`;
+        item.querySelector('[data-edit]').addEventListener('click', () => {
+          closeAccountPanel();
+          openNotifModal(pref.course_id);
+        });
+        item.querySelector('[data-del]').addEventListener('click', async () => {
+          await sb.from('notification_preferences').delete().eq('id', pref.id);
+          await loadNotifPrefs();
+          document.querySelectorAll(`.bell-btn[data-course="${CSS.escape(pref.course_id)}"]`)
+            .forEach(b => b.classList.remove('active'));
+          renderAccountPanel();
+        });
+        alertsList.appendChild(item);
+      }
+    }
+  }
+
+  async function saveProfile() {
+    if (!authUser) return;
+    const phone      = document.getElementById('acctPhone').value.trim();
+    const notify_via = document.getElementById('acctNotifyVia').value;
+    const btn        = document.getElementById('acctProfileSave');
+    btn.disabled = true;
+    const { error } = await sb.from('profiles')
+      .update({ phone: phone || null, notify_via })
+      .eq('id', authUser.id);
+    btn.disabled = false;
+    if (!error) { btn.textContent = 'Saved ✓'; setTimeout(() => { btn.textContent = 'Save'; }, 2000); }
+  }
+
+  // Wire up account panel events
+  document.getElementById('acctOverlay').addEventListener('click', closeAccountPanel);
+  document.getElementById('acctSignOut').addEventListener('click', handleSignOut);
+  document.getElementById('acctProfileSave').addEventListener('click', saveProfile);
+
+  // Kick off auth
+  initAuth();
 
   let courses = [];
   let activeTab = 'nearby';
@@ -865,16 +2162,21 @@
     localStorage.setItem('tt_favorites', JSON.stringify([...favorites]));
   }
 
-  function toggleFavorite(courseName) {
-    if (favorites.has(courseName)) {
-      favorites.delete(courseName);
-    } else {
-      favorites.add(courseName);
+  async function toggleFavorite(courseName) {
+    if (!authUser) {
+      openAuthModal('signin');
+      return;
     }
-    saveFavorites();
+    if (savedCourses.has(courseName)) {
+      await deleteSavedCourse(courseName);
+    } else {
+      await insertSavedCourse(courseName);
+      posthog.capture('course_saved', { course_name: courseName });
+    }
+    const isSaved = savedCourses.has(courseName);
     document.querySelectorAll(`.star-btn[data-course="${CSS.escape(courseName)}"]`).forEach(btn => {
-      btn.classList.toggle('active', favorites.has(courseName));
-      btn.setAttribute('aria-label', favorites.has(courseName) ? 'Unstar course' : 'Star course');
+      btn.classList.toggle('active', isSaved);
+      btn.setAttribute('aria-label', isSaved ? 'Unsave course' : 'Save course');
     });
     if (activeTab === 'saved') runSearch();
   }
@@ -900,7 +2202,10 @@
   // ── Tab helpers ──
   function getCoursesForTab(tabId) {
     if (tabId === 'nearby') return courses;
-    if (tabId === 'saved')  return courses.filter(c => favorites.has(c.name));
+    if (tabId === 'saved') {
+      const ids = authUser ? savedCourses : favorites;
+      return courses.filter(c => ids.has(c.name));
+    }
     if (tabId === 'all')    return courses;
     const tab = REGION_TABS.find(t => t.id === tabId);
     if (!tab?.areas) return courses;
@@ -921,9 +2226,16 @@
   }
 
   function switchTab(tabId) {
+    const fromTab = activeTab;
+    const resultsBefore = document.querySelectorAll('.course-card').length;
     activeTab = tabId;
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    posthog.capture('region_tab_switched', {
+      from_tab: fromTab,
+      to_tab: tabId,
+      results_count_before_switch: resultsBefore,
     });
     if (tabId === 'nearby') {
       requestGeolocation();
@@ -966,6 +2278,88 @@
     updateDateDisplay();
     scheduleSearch();
   });
+
+  // ── Desktop calendar dropdown ──
+  const calDropdown = document.getElementById('calDropdown');
+  const calGrid     = document.getElementById('calGrid');
+  const calTitle    = document.getElementById('calTitle');
+  let calViewDate   = new Date(); // the month being viewed
+
+  function isDesktop() { return window.matchMedia('(min-width: 600px)').matches; }
+
+  // Open calendar on desktop when clicking the date display
+  document.getElementById('dateDisplay').addEventListener('click', () => {
+    if (!isDesktop()) return;
+    const cur = document.getElementById('dateInput').value;
+    if (cur) calViewDate = new Date(cur + 'T00:00:00');
+    renderCalendar();
+    calDropdown.classList.toggle('open');
+  });
+
+  // Close calendar when clicking outside
+  document.addEventListener('click', e => {
+    if (!calDropdown.classList.contains('open')) return;
+    if (e.target.closest('.date-display-wrap') || e.target.closest('.cal-dropdown')) return;
+    calDropdown.classList.remove('open');
+  });
+
+  document.getElementById('calPrevMonth').addEventListener('click', e => {
+    e.stopPropagation();
+    calViewDate.setMonth(calViewDate.getMonth() - 1);
+    renderCalendar();
+  });
+  document.getElementById('calNextMonth').addEventListener('click', e => {
+    e.stopPropagation();
+    calViewDate.setMonth(calViewDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  function renderCalendar() {
+    const year = calViewDate.getFullYear();
+    const month = calViewDate.getMonth();
+    calTitle.textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    calGrid.innerHTML = '';
+    const dows = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    dows.forEach(d => {
+      const el = document.createElement('span');
+      el.className = 'cal-dow';
+      el.textContent = d;
+      calGrid.appendChild(el);
+    });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const selected = document.getElementById('dateInput').value;
+
+    // Leading blanks
+    for (let i = 0; i < firstDay; i++) {
+      const blank = document.createElement('span');
+      calGrid.appendChild(blank);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cal-day';
+      btn.textContent = day;
+
+      if (dateStr === todayStr) btn.classList.add('today');
+      if (dateStr === selected) btn.classList.add('selected');
+      if (dateStr < todayStr) btn.classList.add('disabled');
+
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        document.getElementById('dateInput').value = dateStr;
+        updateDateDisplay();
+        scheduleSearch();
+        calDropdown.classList.remove('open');
+      });
+
+      calGrid.appendChild(btn);
+    }
+  }
 
   function updateDateDisplay() {
     const val = document.getElementById('dateInput').value;
@@ -1195,11 +2589,16 @@
   }
 
   // ── DOM builders ──
-  function buildTimePill(t, bookingUrl) {
+  function buildTimePill(t, bookingUrl, courseName) {
     const a = document.createElement('a');
     a.href = bookingUrl;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
+    a.addEventListener('click', () => {
+      const props = { course_name: courseName, time: t.display, price: t.price || null, region: activeTab };
+      posthog.capture('tee_time_clicked', props);
+      posthog.capture('outbound_booking_click', { course_name: courseName, time: t.display, price: t.price || null });
+    });
     let pillClass = 'time-pill';
     if (t.spots === 1)      pillClass += ' pill-hot';
     else if (t.spots === 2) pillClass += ' pill-low';
@@ -1229,6 +2628,16 @@
     card.className = 'course-card' + (isUnavailable ? ' unavailable-card' : '');
     card.dataset.courseName = course.name;
 
+    if (course.photo_url && !isUnavailable) {
+      const img = document.createElement('img');
+      img.className = 'course-photo';
+      img.src = course.photo_url;
+      img.alt = course.name;
+      img.loading = 'lazy';
+      img.onerror = () => img.remove();
+      card.appendChild(img);
+    }
+
     const header = document.createElement('div');
     header.className = 'course-header';
 
@@ -1236,15 +2645,32 @@
     nameEl.className = 'course-name';
     nameEl.textContent = course.name;
 
+    const isSaved = authUser ? savedCourses.has(course.name) : favorites.has(course.name);
     const starBtn = document.createElement('button');
-    starBtn.className = 'star-btn' + (favorites.has(course.name) ? ' active' : '');
+    starBtn.className = 'star-btn' + (isSaved ? ' active' : '');
     starBtn.dataset.course = course.name;
-    starBtn.setAttribute('aria-label', favorites.has(course.name) ? 'Unstar course' : 'Star course');
+    starBtn.setAttribute('aria-label', isSaved ? 'Unsave course' : 'Save course');
     starBtn.textContent = '★';
     starBtn.addEventListener('click', e => { e.preventDefault(); toggleFavorite(course.name); });
 
+    const bellBtn = document.createElement('button');
+    const hasAlert = notifPrefs.some(p => p.course_id === course.name);
+    bellBtn.className = 'bell-btn' + (hasAlert ? ' active' : '');
+    bellBtn.dataset.course = course.name;
+    bellBtn.setAttribute('aria-label', 'Set tee time alert');
+    bellBtn.textContent = '🔔';
+    bellBtn.addEventListener('click', e => { e.preventDefault(); openNotifModal(course.name); });
+
     const summary = document.createElement('div');
     summary.className = 'card-summary';
+
+    // Rating badge
+    if (course.rating != null) {
+      const ratingBadge = document.createElement('span');
+      ratingBadge.className = 'badge badge-rating';
+      ratingBadge.textContent = `★ ${course.rating.toFixed(1)}`;
+      summary.appendChild(ratingBadge);
+    }
 
     // Distance badge (Near Me tab)
     if (distanceMi != null) {
@@ -1270,9 +2696,14 @@
       summary.appendChild(countEl);
     }
 
-    header.appendChild(nameEl);
+    const headerTop = document.createElement('div');
+    headerTop.className = 'course-header-top';
+    headerTop.appendChild(nameEl);
+    headerTop.appendChild(bellBtn);
+    headerTop.appendChild(starBtn);
+
+    header.appendChild(headerTop);
     header.appendChild(summary);
-    header.appendChild(starBtn);
     card.appendChild(header);
 
     if (error) {
@@ -1292,19 +2723,36 @@
           upstream_error: 'Course API unavailable.',
           unavailable:    'Not available via API.',
           parse_error:    'Unexpected response from course.',
+          booking_closed: 'Booking not yet open for this date.',
         };
         msg.textContent = messages[error] || `Error: ${error}`;
+      }
+      if (authUser && (error === 'timeout' || error === 'upstream_error' || error === 'booking_closed')) {
+        const cta = document.createElement('a');
+        cta.className = 'notify-cta';
+        cta.textContent = '🔔 Get notified when times open up';
+        cta.addEventListener('click', e => { e.preventDefault(); openNotifModal(course.name); });
+        msg.appendChild(document.createElement('br'));
+        msg.appendChild(cta);
       }
       card.appendChild(msg);
     } else if (!times || times.length === 0) {
       const msg = document.createElement('div');
       msg.className = 'no-times';
       msg.textContent = 'No available tee times for this search.';
+      if (authUser) {
+        const cta = document.createElement('a');
+        cta.className = 'notify-cta';
+        cta.textContent = '🔔 Get notified when times open up';
+        cta.addEventListener('click', e => { e.preventDefault(); openNotifModal(course.name); });
+        msg.appendChild(document.createElement('br'));
+        msg.appendChild(cta);
+      }
       card.appendChild(msg);
     } else {
       const row = document.createElement('div');
       row.className = 'times-row';
-      for (const t of times) row.appendChild(buildTimePill(t, bookingUrl));
+      for (const t of times) row.appendChild(buildTimePill(t, bookingUrl, course.name));
       card.appendChild(row);
     }
 
@@ -1335,11 +2783,16 @@
     const holes   = document.getElementById('holesInput').value;
     if (!date) return;
 
+    posthog.capture('search_performed', { date, players, holes, region: activeTab });
+
     const tabCourses = getCoursesForTab(activeTab);
 
     if (activeTab === 'saved' && tabCourses.length === 0) {
+      const msg = !authUser
+        ? 'Sign in to save courses and access them here.'
+        : 'Tap ★ on any course to save it here.';
       document.getElementById('results').innerHTML =
-        '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3"><circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/><path d="M20 10v10l6 4" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/></svg><p>Tap ★ on any course to save it here.</p></div>';
+        `<div class="empty-state"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto;display:block;opacity:0.3"><circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/><path d="M20 10v10l6 4" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/></svg><p>${msg}</p></div>`;
       return;
     }
 
@@ -1376,7 +2829,9 @@
       fetchCourseTimes(course, date, holes, players)
         .then(data => {
           const key = getCourseKey(course, date, holes, players);
-          courseCache.set(key, { data, error: data?.error || null, fetchedAt: Date.now() });
+          let error = data?.error || null;
+          if (!error && data?.status === 'closed') error = 'booking_closed';
+          courseCache.set(key, { data, error, fetchedAt: Date.now() });
           updateProgress();
         })
         .catch(() => {
@@ -1416,21 +2871,36 @@
       let times = normalizeTimes(r.course, r.data, holes);
       times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
       times = times.filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
+      if (date === todayStr) {
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        times = times.filter(t => {
+          const m = t.rawTime.match(/^(\d{1,2}):(\d{2})/);
+          if (!m) return true;
+          return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) > nowMinutes;
+        });
+      }
       return { ...r, times };
     });
 
-    // Nearby: compute distances and sort
-    if (activeTab === 'nearby' && userLocation) {
+    // Compute distances when user location is available
+    if (userLocation) {
       for (const r of processed) {
         if (r.course.lat != null && r.course.lng != null) {
           r.distanceMi = haversine(userLocation.lat, userLocation.lng, r.course.lat, r.course.lng);
         }
       }
+    }
+
+    // Sort by distance when user location is available
+    if (userLocation) {
       processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
     }
 
     const available   = processed.filter(r => !r.error && r.times.length > 0);
     const unavailable = processed.filter(r => r.error || r.times.length === 0);
+
+    posthog.capture('results_returned', { count: available.length, search_date: date, players });
 
     const resultsEl = document.getElementById('results');
     resultsEl.innerHTML = '';
@@ -1555,6 +3025,141 @@
     } else {
       runSearch().finally(() => { this.disabled = false; });
     }
+  });
+
+  // ── Course Detail Panel ──────────────────────────────────────────────────
+  const cdOverlay = document.getElementById('cdOverlay');
+  const cdPanel   = document.getElementById('cdPanel');
+
+  function openCourseDetail(course, times, date, holes, players) {
+    const photo       = document.getElementById('cdPhoto');
+    const nameEl      = document.getElementById('cdName');
+    const ratingEl    = document.getElementById('cdRating');
+    const reviewsEl   = document.getElementById('cdReviews');
+    const descEl      = document.getElementById('cdDescription');
+    const factsEl     = document.getElementById('cdFacts');
+    const addressEl   = document.getElementById('cdAddress');
+    const timesSection = document.getElementById('cdTimesSection');
+    const timesEl     = document.getElementById('cdTimes');
+
+    // Photo
+    if (course.photo_url) {
+      photo.src = course.photo_url;
+      photo.style.display = 'block';
+      photo.onerror = () => { photo.style.display = 'none'; };
+    } else {
+      photo.style.display = 'none';
+    }
+
+    // Name + rating
+    nameEl.textContent = course.name;
+    if (course.rating != null) {
+      ratingEl.textContent = `★ ${course.rating.toFixed(1)}`;
+      ratingEl.style.display = '';
+    } else {
+      ratingEl.style.display = 'none';
+    }
+    reviewsEl.textContent = course.review_count
+      ? `${course.review_count.toLocaleString()} Google reviews`
+      : '';
+
+    // Description
+    if (course.description) {
+      descEl.textContent = course.description;
+      descEl.style.display = '';
+    } else {
+      descEl.style.display = 'none';
+    }
+
+    // Facts grid
+    factsEl.innerHTML = '';
+    const facts = [];
+    if (course.holes != null) facts.push({ label: 'Holes', value: course.holes });
+    if (course.par   != null) facts.push({ label: 'Par',   value: course.par   });
+    if (course.walkable != null) facts.push({
+      label: 'Walking',
+      value: course.walkable ? 'Allowed' : 'Cart required',
+    });
+    const bookingUrl = buildBookingUrl(course, date, holes, players);
+    if (times && times.length > 0) {
+      const prices = times.map(t => parsePrice(t.price)).filter(p => p !== null);
+      if (prices.length) facts.push({ label: 'From', value: `$${Math.min(...prices)}` });
+    }
+    for (const f of facts) {
+      const fact = document.createElement('div');
+      fact.className = 'cd-fact';
+      fact.innerHTML = `<div class="cd-fact-label">${f.label}</div><div class="cd-fact-value">${f.value}</div>`;
+      factsEl.appendChild(fact);
+    }
+
+    // Address
+    if (course.address) {
+      addressEl.textContent = '📍 ' + course.address;
+      addressEl.style.display = '';
+    } else {
+      addressEl.style.display = 'none';
+    }
+
+    // Times
+    timesEl.innerHTML = '';
+    if (times && times.length > 0) {
+      for (const t of times) timesEl.appendChild(buildTimePill(t, bookingUrl, course.name));
+      timesSection.style.display = '';
+    } else {
+      timesSection.style.display = 'none';
+    }
+
+    cdOverlay.classList.add('open');
+    cdPanel.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCourseDetail() {
+    cdOverlay.classList.remove('open');
+    cdPanel.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  cdOverlay.addEventListener('click', closeCourseDetail);
+  document.getElementById('cdHandleBar').addEventListener('click', closeCourseDetail);
+  document.getElementById('cdClose').addEventListener('click', closeCourseDetail);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCourseDetail(); });
+
+  // Attach panel trigger to course cards (tap on card body, not time pill or star)
+  document.getElementById('results').addEventListener('click', e => {
+    if (e.target.closest('.time-pill') || e.target.closest('.star-btn')) return;
+    const card = e.target.closest('.course-card');
+    if (!card) return;
+    const courseName = card.dataset.courseName;
+    if (!courseName) return;
+
+    const date    = document.getElementById('dateInput').value;
+    const players = document.getElementById('playersInput').value;
+    const holes   = document.getElementById('holesInput').value;
+
+    const course = courses.find(c => c.name === courseName);
+    if (!course) return;
+
+    // Get current times from cache
+    const key    = getCourseKey(course, date, holes, players);
+    const cached = courseCache.get(key);
+    let times = [];
+    if (cached?.data) {
+      times = normalizeTimes(course, cached.data, holes)
+        .filter(t => t.spots == null || t.spots >= parseInt(players, 10))
+        .filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
+      if (date === todayStr) {
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        times = times.filter(t => {
+          const m = t.rawTime.match(/^(\d{1,2}):(\d{2})/);
+          if (!m) return true;
+          return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) > nowMinutes;
+        });
+      }
+    }
+
+    openCourseDetail(course, times, date, holes, players);
   });
 </script>
 </body>

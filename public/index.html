@@ -3,10 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tee-Time — Find Utah Tee Times, Instantly</title>
+  <title>tee-time.io — Every Utah Tee Time, One Search</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- PostHog analytics -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing opt_in_capturing has_opted_out_capturing has_opted_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('phc_RCaOhjbjWX2KDt0rzHvFuYRFlfM5D6vQfcdiOA7TnfF', {
+      api_host: 'https://us.i.posthog.com',
+    });
+  </script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -26,7 +38,7 @@
       --radius:       12px;
     }
 
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
     body {
       background: var(--bg);
       color: var(--ink);
@@ -34,7 +46,7 @@
       font-weight: 300;
       line-height: 1.6;
       min-height: 100vh;
-      overflow-x: hidden;
+      overflow-x: clip;
     }
 
     /* NAV */
@@ -68,6 +80,13 @@
       transition: background 0.2s, transform 0.15s;
     }
     .nav-cta:hover { background: var(--green-light); transform: translateY(-1px); }
+    .nav-signin {
+      font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
+      color: rgba(255,255,255,0.7); text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-signin:hover { color: #fff; }
+    .nav-actions { display: flex; align-items: center; gap: 20px; }
 
     /* HERO */
     .hero { padding: 150px 48px 80px; max-width: 960px; margin: 0 auto; }
@@ -108,114 +127,15 @@
       margin-bottom: 40px; opacity: 0; animation: fadeUp 0.6s 0.4s ease forwards;
     }
 
-    .mockup-caption {
-      font-size: 0.78rem; color: var(--ink-soft); text-align: center;
-      margin-top: 16px; letter-spacing: 0.03em;
-      opacity: 0; animation: fadeUp 0.6s 0.65s ease forwards;
-    }
-
     .platforms {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      opacity: 0; animation: fadeUp 0.6s 0.44s ease forwards; margin-bottom: 64px;
+      opacity: 0; animation: fadeUp 0.6s 0.44s ease forwards; margin-bottom: 48px;
     }
     .platforms-label { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
     .platform-chip {
       background: var(--card); border: 1px solid var(--border);
       color: var(--ink-soft); font-size: 0.78rem; font-weight: 500;
       padding: 4px 12px; border-radius: 99px;
-    }
-
-    /* DEVICE FRAMES */
-    .devices-wrap {
-      opacity: 0; animation: fadeUp 0.7s 0.55s ease forwards;
-      position: relative; margin-bottom: 96px;
-      padding-bottom: 48px; /* space for laptop base */
-    }
-
-    /* LAPTOP */
-    .laptop-frame {
-      position: relative; width: 100%;
-    }
-    .laptop-screen {
-      background: #1a1a1a;
-      border-radius: 12px 12px 0 0;
-      padding: 10px 10px 0;
-      box-shadow: 0 0 0 1px #111, 0 28px 70px rgba(0,0,0,0.22);
-    }
-    .laptop-camera-bar {
-      display: flex; justify-content: center; align-items: center;
-      height: 10px; margin-bottom: 6px;
-    }
-    .laptop-camera {
-      width: 6px; height: 6px; background: #333; border-radius: 50%;
-    }
-    .laptop-screen-inner {
-      border-radius: 4px 4px 0 0;
-      overflow: hidden; line-height: 0;
-    }
-    .laptop-screen-inner img {
-      width: 100%; height: auto; display: block;
-    }
-    .laptop-base {
-      background: linear-gradient(to bottom, #2a2a2a, #222);
-      height: 22px; border-radius: 0 0 4px 4px;
-      box-shadow: 0 0 0 1px #111;
-      display: flex; justify-content: center; align-items: center;
-    }
-    .laptop-notch {
-      width: 60px; height: 5px; background: #1a1a1a;
-      border-radius: 0 0 4px 4px; margin-top: -1px;
-    }
-    .laptop-foot {
-      height: 8px;
-      background: linear-gradient(to bottom, #1c1c1c, #181818);
-      border-radius: 0 0 6px 6px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px #111;
-      margin: 0 3%;
-    }
-
-    /* PHONE */
-    .phone-frame {
-      position: absolute;
-      bottom: 0; right: -20px;
-      width: 22%;
-      min-width: 120px; max-width: 180px;
-      z-index: 10;
-      filter: drop-shadow(0 20px 40px rgba(0,0,0,0.25));
-    }
-    .phone-outer {
-      background: #1a1a1a;
-      border-radius: 28px;
-      padding: 10px 7px;
-      box-shadow: 0 0 0 1px #111, inset 0 0 0 1px #333;
-    }
-    .phone-top-bar {
-      display: flex; justify-content: center; align-items: center;
-      height: 10px; margin-bottom: 5px; gap: 6px;
-    }
-    .phone-speaker {
-      width: 36px; height: 4px; background: #333; border-radius: 2px;
-    }
-    .phone-camera-dot {
-      width: 5px; height: 5px; background: #333; border-radius: 50%;
-    }
-    .phone-screen-inner {
-      border-radius: 16px; overflow: hidden; line-height: 0;
-    }
-    .phone-screen-inner img {
-      width: 100%; height: auto; display: block;
-    }
-    .phone-home-bar {
-      display: flex; justify-content: center; align-items: center;
-      height: 12px; margin-top: 5px;
-    }
-    .phone-home-indicator {
-      width: 36px; height: 4px; background: #444; border-radius: 2px;
-    }
-
-    @media (max-width: 680px) {
-      .phone-frame { right: -10px; width: 28%; min-width: 90px; }
-      .devices-wrap { padding-bottom: 32px; }
     }
 
     /* STATS */
@@ -320,6 +240,215 @@
     .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
     .reveal.visible { opacity: 1; transform: translateY(0); }
 
+    /* ── Before / After Component ── */
+    .ba-wrap { margin-bottom: 64px; opacity: 0; animation: fadeUp 0.7s 0.55s ease forwards; }
+    .ba-before { border-radius: 12px; box-shadow: 0 6px 28px rgba(0,0,0,0.1); background: #f2f2f2; }
+    .ba-tab-sticky { position: sticky; top: 72px; z-index: 50; border-radius: 12px 12px 0 0; overflow: hidden; }
+    .ba-panels { overflow: hidden; border-radius: 0 0 12px 12px; }
+    .ba-tab-strip { display: flex; background: #f2f2f2; border-bottom: 1px solid #ddd; padding: 0 14px; }
+    .ba-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 15px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500; color: #777; cursor: pointer; margin-bottom: -1px; transition: color 0.15s; }
+    .ba-tab.active { color: #111; border-bottom-color: #444; }
+    .ba-panel { display: none; }
+    .ba-panel.active { display: block; }
+
+    /* MemberBook */
+    .mb-hd { background: #1B3152; padding: 10px 15px; display: flex; align-items: center; }
+    .mb-logo { color: #fff; font-size: 0.95rem; font-weight: 800; }
+    .mb-logo span { color: #5BAEF0; }
+    .mb-sub { background: #152d4a; padding: 6px 15px; display: flex; align-items: center; gap: 8px; overflow-x: auto; }
+    .mb-today-btn { background: #4A9FE8; color: #fff; border: none; padding: 3px 8px; border-radius: 3px; font-size: 0.68rem; font-weight: 700; flex-shrink: 0; cursor: pointer; }
+    .mb-nav { display: flex; align-items: center; gap: 5px; color: #9bb5cc; font-size: 0.75rem; flex-shrink: 0; }
+    .mb-nav button { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #9bb5cc; width: 18px; height: 18px; border-radius: 2px; font-size: 0.65rem; cursor: pointer; }
+    .mb-sbtn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); color: #9bb5cc; padding: 3px 8px; border-radius: 3px; font-size: 0.65rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .mb-body { background: #e8edf3; padding: 10px 14px; }
+    .mb-row { display: flex; align-items: center; background: #fff; border: 1px solid #d8e2ec; border-radius: 4px; margin-bottom: 3px; padding: 8px 11px; gap: 10px; }
+    .mb-row.dim .mb-time, .mb-row.dim .mb-desc { color: #ccc; }
+    .mb-time { font-size: 0.8rem; font-weight: 600; color: #1B3152; min-width: 58px; }
+    .mb-desc { font-size: 0.72rem; color: #556677; flex: 1; }
+    .mb-book-btn { background: #2E7D4F; color: #fff; border: none; padding: 4px 11px; border-radius: 3px; font-size: 0.68rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+    /* ChronoBook */
+    .cb-hd { background: #fff; border-bottom: 1px solid #eee; padding: 11px 15px; display: flex; align-items: center; gap: 10px; }
+    .cb-hd-logo { font-size: 0.85rem; font-weight: 700; color: #111; }
+    .cb-hd-title { font-size: 0.82rem; color: #777; }
+    .cb-body { display: grid; grid-template-columns: 230px 1fr; background: #f7f7f7; }
+    .cb-left { background: #fff; border-right: 1px solid #eee; padding: 15px; }
+    .cb-cname { font-size: 0.82rem; font-weight: 600; color: #111; margin-bottom: 2px; }
+    .cb-caddr { font-size: 0.68rem; color: #bbb; margin-bottom: 12px; }
+    .cb-cal-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .cb-cal-hd span { font-size: 0.75rem; font-weight: 600; color: #111; }
+    .cb-cal-hd button { background: none; border: none; color: #bbb; cursor: pointer; font-size: 0.9rem; }
+    .cb-grid { display: grid; grid-template-columns: repeat(7,1fr); text-align: center; }
+    .cb-dh { font-size: 0.58rem; color: #ccc; font-weight: 600; padding: 2px 0; }
+    .cb-d { font-size: 0.68rem; color: #444; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; margin: 1px auto; border-radius: 50%; }
+    .cb-d.sel { background: #1A2E1A; color: #fff; font-weight: 700; }
+    .cb-d.dim { color: #e8e8e8; }
+    .cb-right { padding: 15px; }
+    .cb-r-title { font-size: 0.85rem; font-weight: 600; color: #111; margin-bottom: 2px; }
+    .cb-r-sub { font-size: 0.68rem; color: #bbb; margin-bottom: 12px; }
+    .cb-slot { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f2f2f2; gap: 10px; }
+    .cb-s-time { font-size: 0.75rem; color: #666; min-width: 55px; }
+    .cb-s-badge { background: #e8f5e9; color: #2D7A3A; border: 1px solid #c8e6c9; padding: 3px 9px; border-radius: 3px; font-size: 0.68rem; font-weight: 500; cursor: pointer; }
+    .cb-s-pl { font-size: 0.65rem; color: #bbb; margin-left: auto; }
+
+    /* FiveUp */
+    .fu-top { background: #fff; border-bottom: 1px solid #ddd; padding: 9px 15px; display: flex; align-items: center; gap: 18px; overflow-x: auto; }
+    .fu-logo { font-size: 0.9rem; font-weight: 800; color: #1a6b3c; flex-shrink: 0; }
+    .fu-nav { display: flex; gap: 14px; align-items: center; }
+    .fu-nav a { font-size: 0.73rem; color: #666; text-decoration: none; }
+    .fu-nav a.on { color: #1a6b3c; font-weight: 600; border-bottom: 2px solid #1a6b3c; padding-bottom: 1px; }
+    .fu-log { margin-left: auto; font-size: 0.73rem; color: #1a6b3c; font-weight: 500; flex-shrink: 0; }
+    .fu-body { display: grid; grid-template-columns: 190px 1fr; min-height: 250px; background: #f3f5f8; }
+    .fu-sb { background: #fff; border-right: 1px solid #e4e4e4; padding: 12px; }
+    .fu-sel { width: 100%; background: #f0f2f4; border: 1px solid #ddd; border-radius: 3px; padding: 5px 7px; font-size: 0.68rem; color: #333; margin-bottom: 7px; }
+    .fu-badge { background: #1B3152; color: #fff; font-size: 0.58rem; padding: 2px 6px; border-radius: 2px; display: inline-block; margin-bottom: 9px; }
+    .fu-lbl { font-size: 0.58rem; color: #bbb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; margin-top: 7px; }
+    .fu-ps { display: flex; gap: 2px; flex-wrap: wrap; }
+    .fu-p { background: #f0f2f4; border: 1px solid #ddd; border-radius: 3px; padding: 2px 6px; font-size: 0.62rem; color: #666; cursor: pointer; }
+    .fu-p.on { background: #1a6b3c; color: #fff; border-color: #1a6b3c; }
+    .fu-main { padding: 12px; }
+    .fu-row { display: flex; align-items: center; background: #fff; border: 1px solid #e0e4e8; border-radius: 5px; margin-bottom: 5px; padding: 8px 11px; gap: 8px; }
+    .fu-hbs { display: flex; flex-direction: column; gap: 2px; }
+    .fu-hb { background: #e4f2ea; color: #1a6b3c; border-radius: 2px; font-size: 0.58rem; font-weight: 700; padding: 1px 4px; text-align: center; }
+    .fu-av { width: 28px; height: 28px; background: #ddd; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 700; color: #666; flex-shrink: 0; }
+    .fu-ri { flex: 1; }
+    .fu-rt { font-size: 0.78rem; font-weight: 600; color: #111; }
+    .fu-rc { font-size: 0.65rem; color: #aaa; }
+    .fu-rf { text-align: right; font-size: 0.62rem; color: #666; line-height: 1.5; }
+
+    /* Divider */
+    .ba-divider { display: flex; align-items: center; gap: 14px; margin: 18px 0; font-size: 0.68rem; font-weight: 700; color: #8a9a8a; letter-spacing: 0.12em; text-transform: uppercase; }
+    .ba-divider::before, .ba-divider::after { content: ''; flex: 1; height: 1px; background: rgba(26,46,26,0.1); }
+
+    /* Tee-Time after */
+    .ba-after { border-radius: 12px; overflow: hidden; box-shadow: 0 6px 28px rgba(0,0,0,0.1); }
+    .tt-hd { background: #1A2E1A; padding: 10px 15px 12px; display: flex; align-items: center; gap: 9px; }
+    .tt-icon { width: 34px; height: 34px; background: rgba(255,255,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .tt-name { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: #fff; }
+    .tt-ub { font-size: 0.56rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.1); border-radius: 3px; padding: 2px 5px; }
+    .tt-tl { margin-left: auto; font-size: 0.65rem; color: rgba(255,255,255,0.3); }
+    .tt-ctrl { background: #fff; border-bottom: 1px solid rgba(26,46,26,0.08); padding: 8px 15px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .tt-dn { display: flex; align-items: center; gap: 4px; }
+    .tt-arr { width: 24px; height: 24px; background: #f4f6f4; border: 1px solid rgba(26,46,26,0.1); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #637063; }
+    .tt-dl { background: #f4f6f4; border: 1px solid rgba(26,46,26,0.1); border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; font-weight: 500; color: #111410; }
+    .tt-cg { display: flex; align-items: center; gap: 4px; }
+    .tt-cl { font-size: 0.65rem; color: #637063; font-weight: 500; }
+    .tt-pps { display: flex; gap: 2px; }
+    .tt-pp { padding: 3px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 500; background: #f4f6f4; border: 1px solid rgba(26,46,26,0.1); color: #637063; }
+    .tt-pp.sd { background: #1A2E1A; color: #fff; border-color: #1A2E1A; }
+    .tt-pp.sg { background: #2D7A3A; color: #fff; border-color: #2D7A3A; }
+    .tt-rfr { margin-left: auto; background: #2D7A3A; color: #fff; border: none; padding: 4px 12px; border-radius: 6px; font-size: 0.72rem; font-weight: 500; cursor: pointer; }
+    .tt-tabs { background: #fff; border-bottom: 1px solid rgba(26,46,26,0.07); padding: 0 15px; display: flex; overflow-x: auto; scrollbar-width: none; }
+    .tt-tabs::-webkit-scrollbar { display: none; }
+    .tt-tab { padding: 8px 10px; font-size: 0.68rem; font-weight: 500; color: #637063; white-space: nowrap; border-bottom: 2px solid transparent; cursor: pointer; }
+    .tt-tab.on { color: #2D7A3A; border-bottom-color: #2D7A3A; font-weight: 600; }
+    .tt-results { background: #EEF1EE; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+    .tt-card { background: #fff; border-radius: 12px; border: 0.5px solid rgba(26,46,26,0.12); padding: 11px 13px; opacity: 0; transform: translateY(10px); transition: opacity 0.35s ease, transform 0.35s ease; }
+    .tt-card.vis { opacity: 1; transform: translateY(0); }
+    .tt-ch { display: flex; align-items: center; margin-bottom: 8px; gap: 6px; }
+    .tt-cn { font-size: 0.82rem; font-weight: 500; color: #111410; flex: 1; }
+    .tt-cp { font-size: 0.68rem; color: #2D7A3A; font-weight: 500; }
+    .tt-cc { font-size: 0.65rem; color: #637063; }
+    .tt-cstar { color: #f59e0b; font-size: 0.78rem; }
+    .tt-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tt-chip { background: #EEF7EE; border: 1px solid rgba(45,122,58,0.25); border-radius: 8px; padding: 4px 8px; text-align: center; }
+    .tt-ct { display: block; font-size: 0.68rem; font-weight: 500; color: #2D7A3A; }
+    .tt-cpr { display: block; font-size: 0.58rem; color: #637063; }
+    .tt-more { background: #EEF7EE; border: 1px solid rgba(45,122,58,0.25); border-radius: 8px; padding: 4px 10px; font-size: 0.68rem; color: #2D7A3A; font-weight: 500; display: flex; align-items: center; }
+
+    .ba-note { background: #fffbeb; border-top: 1px solid #fde68a; padding: 8px 13px; font-size: 0.72rem; color: #92400e; }
+
+    /* ── Compare Component ── */
+    .compare-wrap { margin-bottom: 64px; opacity: 0; animation: fadeUp 0.7s 0.55s ease forwards; }
+    .compare-card { display: grid; grid-template-columns: 1fr auto 1fr; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 32px rgba(0,0,0,0.1); }
+    .compare-before { background: #fff; padding: 32px 28px; }
+    .compare-divider { display: flex; align-items: center; justify-content: center; width: 48px; background: var(--bg); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    .compare-after { background: #1A2E1A; padding: 32px 28px; color: #fff; }
+    .compare-lbl { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px; }
+    .compare-before .compare-lbl { color: #aaa; }
+    .compare-after .compare-lbl { color: rgba(255,255,255,0.4); }
+    .cmp-platforms { margin-bottom: 18px; }
+    .cmp-row { display: flex; align-items: center; justify-content: space-between; background: #f7f8f7; border: 1px solid rgba(26,46,26,0.08); border-radius: 8px; padding: 9px 13px; }
+    .cmp-platform { font-size: 0.82rem; font-weight: 500; color: var(--ink); }
+    .cmp-one { font-size: 0.7rem; color: #c8cec8; }
+    .cmp-arrow { text-align: center; font-size: 0.65rem; color: #d0d8d0; padding: 5px 0; }
+    .cmp-pain { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.5; }
+    .cmp-search { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 7px 12px; margin-bottom: 12px; font-size: 0.75rem; color: rgba(255,255,255,0.6); flex-wrap: wrap; }
+    .cmp-dot { color: rgba(255,255,255,0.25); }
+    .cmp-results { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+    .cmp-result { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 12px; }
+    .cmp-rh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+    .cmp-rn { font-size: 0.82rem; font-weight: 500; color: #fff; }
+    .cmp-rl { font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 300; }
+    .cmp-rp { font-size: 0.72rem; color: #9DE0A2; font-weight: 500; }
+    .cmp-chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+    .cmp-chip { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 3px 8px; font-size: 0.68rem; color: rgba(255,255,255,0.8); }
+    .cmp-more { font-size: 0.68rem; color: rgba(255,255,255,0.35); padding-left: 2px; }
+    .cmp-win { font-size: 0.78rem; color: rgba(255,255,255,0.5); line-height: 1.5; }
+
+    /* AUTH MODAL */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+    .modal-box {
+      background: #fff; border-radius: 16px; padding: 36px 32px;
+      width: min(420px, calc(100vw - 32px)); position: relative;
+      transform: translateY(12px); transition: transform 0.2s;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.18);
+    }
+    .modal-backdrop.open .modal-box { transform: translateY(0); }
+    .modal-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; font-size: 1.3rem; color: #aaa;
+      cursor: pointer; line-height: 1; padding: 4px 8px;
+    }
+    .modal-close:hover { color: #555; }
+    .modal-title {
+      font-family: 'DM Serif Display', serif; font-size: 1.5rem;
+      color: var(--ink); margin-bottom: 6px; letter-spacing: -0.02em;
+    }
+    .modal-sub { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 24px; }
+    .modal-toggle { font-size: 0.85rem; color: var(--ink-soft); margin-top: 18px; text-align: center; }
+    .modal-toggle a { color: var(--app-green); font-weight: 500; cursor: pointer; text-decoration: none; }
+    .modal-toggle a:hover { text-decoration: underline; }
+    .oauth-btn {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      background: #fff; color: var(--ink); font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem; font-weight: 500; padding: 11px 18px; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .oauth-btn:hover { background: #f6f8f6; border-color: rgba(26,46,26,0.25); }
+    .auth-divider {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 0.75rem; color: #bbb; margin: 18px 0;
+    }
+    .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .auth-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
+    .auth-field label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
+    .auth-field input {
+      border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px;
+      font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--ink);
+      outline: none; transition: border-color 0.15s;
+    }
+    .auth-field input:focus { border-color: var(--app-green); }
+    .auth-submit {
+      width: 100%; background: var(--app-green); color: #fff; border: none;
+      border-radius: 10px; padding: 12px; font-family: 'DM Sans', sans-serif;
+      font-size: 0.92rem; font-weight: 500; cursor: pointer; margin-top: 4px;
+      transition: background 0.15s;
+    }
+    .auth-submit:hover { background: var(--green-light); }
+    .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-error { font-size: 0.8rem; color: #e05252; margin-top: 10px; text-align: center; min-height: 1.2em; }
+
+    /* nav sign-in as button */
+    .nav-signin { background: none; border: none; cursor: pointer; }
+
     @media (max-width: 680px) {
       nav { padding: 16px 20px; }
       .hero { padding: 110px 20px 60px; }
@@ -330,8 +459,8 @@
       .access-section { padding-bottom: 40px; }
       .stats { grid-template-columns: 1fr; }
       footer { flex-direction: column; gap: 10px; text-align: center; }
-      .time-grid { grid-template-columns: repeat(2,1fr); }
-      .mc-refresh { margin-left: 0; }
+      .compare-card { grid-template-columns: 1fr; }
+      .compare-divider { width: auto; height: 36px; border-left: none; border-right: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
     }
   </style>
 </head>
@@ -348,60 +477,297 @@
       <span class="logo-text">Tee-Time</span>
       <span class="logo-badge">Utah</span>
     </a>
-    <a href="#access" class="nav-cta">Get Early Access</a>
+    <div class="nav-actions">
+      <a href="#access" class="nav-cta">Get Early Access</a>
+    </div>
   </nav>
 
   <section class="hero">
     <div class="hero-badge">Early Access &middot; tee-time.io</div>
-    <p class="hero-setup">Most Utah courses aren't on GolfNow.<br>You've been checking them one by one.</p>
+    <p class="hero-setup">Every golf course uses its own booking platform. To find a tee time, you visit each one — re-entering your date, players, and holes every single time.</p>
     <h1>Every tee time.<br><em>One search.</em></h1>
-    <p class="hero-sub">Tee-Time searches all 67 Utah courses at once &mdash; ForeUp, Chronogolf, and Member Sports &mdash; so you're not bouncing between websites to find one open slot.</p>
+    <p class="hero-sub">Tee-Time is the first universal search for Utah tee times &mdash; one set of filters, every course, every platform, every open slot.</p>
     <div class="platforms">
-      <span class="platforms-label">Works with</span>
+      <span class="platforms-label">Searches across</span>
       <span class="platform-chip">ForeUp</span>
       <span class="platform-chip">Chronogolf</span>
       <span class="platform-chip">Member Sports</span>
     </div>
 
-    <!-- Device frames -->
-    <div class="devices-wrap">
-
-      <!-- Laptop -->
-      <div class="laptop-frame">
-        <div class="laptop-screen">
-          <div class="laptop-camera-bar"><div class="laptop-camera"></div></div>
-          <div class="laptop-screen-inner">
-            <img src="images/app-desktop.png" alt="Tee-Time app on desktop" />
+    <!-- Compare Component -->
+    <div class="compare-wrap">
+      <div class="compare-card">
+        <div class="compare-before">
+          <p class="compare-lbl">Without Tee-Time</p>
+          <div class="cmp-platforms">
+            <div class="cmp-row">
+              <span class="cmp-platform">Bonneville Golf</span>
+              <span class="cmp-one">ForeUp</span>
+            </div>
+            <div class="cmp-arrow">↓ new tab, re-enter filters</div>
+            <div class="cmp-row">
+              <span class="cmp-platform">Eaglewood Golf</span>
+              <span class="cmp-one">Chronogolf</span>
+            </div>
+            <div class="cmp-arrow">↓ new tab, re-enter filters</div>
+            <div class="cmp-row">
+              <span class="cmp-platform">Thanksgiving Point</span>
+              <span class="cmp-one">Member Sports</span>
+            </div>
+            <div class="cmp-arrow" style="color:#e0e8e0">+ 64 more courses, each on a different platform</div>
           </div>
+          <p class="cmp-pain">No universal search. Every course, a different site.</p>
         </div>
-        <div class="laptop-base"><div class="laptop-notch"></div></div>
-        <div class="laptop-foot"></div>
-      </div>
-
-      <!-- Phone (overlapping bottom-right) -->
-      <div class="phone-frame">
-        <div class="phone-outer">
-          <div class="phone-top-bar">
-            <div class="phone-speaker"></div>
-            <div class="phone-camera-dot"></div>
+        <div class="compare-divider"><span>vs</span></div>
+        <div class="compare-after">
+          <p class="compare-lbl">With Tee-Time</p>
+          <div class="cmp-search">
+            <span>Thu Mar 26</span><span class="cmp-dot">&middot;</span>
+            <span>4 players</span><span class="cmp-dot">&middot;</span>
+            <span>18 holes</span>
           </div>
-          <div class="phone-screen-inner">
-            <img src="images/app-mobile.png" alt="Tee-Time app on mobile" />
+          <div class="cmp-results">
+            <div class="cmp-result">
+              <div class="cmp-rh">
+                <span class="cmp-rn">Bonneville <span class="cmp-rl">(SLC)</span></span>
+                <span class="cmp-rp">from $36</span>
+              </div>
+              <div class="cmp-chips">
+                <span class="cmp-chip">8:50 AM</span>
+                <span class="cmp-chip">10:50 AM</span>
+                <span class="cmp-chip">11:30 AM</span>
+                <span class="cmp-more">+5 more</span>
+              </div>
+            </div>
+            <div class="cmp-result">
+              <div class="cmp-rh">
+                <span class="cmp-rn">Eaglewood <span class="cmp-rl">(N. Salt Lake)</span></span>
+                <span class="cmp-rp">from $64</span>
+              </div>
+              <div class="cmp-chips">
+                <span class="cmp-chip">8:00 AM</span>
+                <span class="cmp-chip">8:10 AM</span>
+                <span class="cmp-chip">8:50 AM</span>
+                <span class="cmp-more">+14 more</span>
+              </div>
+            </div>
           </div>
-          <div class="phone-home-bar"><div class="phone-home-indicator"></div></div>
+          <p class="cmp-win">67 courses searched. Done in seconds.</p>
         </div>
       </div>
-
     </div>
-    <p class="mockup-caption">All 67 Utah courses &mdash; one results page, sorted by distance from you.</p>
   </section>
+
+  <!-- PLACEHOLDER - replaced ba-before below this line, can be deleted -->
+  <div style="display:none"><div class="ba-before">
+        <div class="ba-tab-sticky">
+          <div class="ba-tab-strip">
+            <button class="ba-tab active" data-ba="memberbook">MemberBook</button>
+            <button class="ba-tab" data-ba="chronobook">ChronoBook</button>
+            <button class="ba-tab" data-ba="fiveup">FiveUp</button>
+          </div>
+        </div>
+        <div class="ba-panels">
+
+        <!-- MemberBook -->
+        <div class="ba-panel active" id="ba-memberbook">
+          <div class="mb-hd"><div class="mb-logo">Member<span>BOOK</span></div></div>
+          <div class="mb-sub">
+            <button class="mb-today-btn">TODAY</button>
+            <div class="mb-nav"><button>&#8249;</button><span>THU MAR 26 2026</span><button>&#8250;</button></div>
+            <button class="mb-sbtn">&#8635;</button>
+            <button class="mb-sbtn">Use Voucher</button>
+            <button class="mb-sbtn">APPLY FILTERS</button>
+          </div>
+          <div class="mb-body">
+            <div class="mb-row dim"><span class="mb-time">10:02 AM</span><span class="mb-desc">No available slots</span></div>
+            <div class="mb-row dim"><span class="mb-time">10:10 AM</span><span class="mb-desc">No available slots</span></div>
+            <div class="mb-row"><span class="mb-time">10:18 AM</span><span class="mb-desc">Front &middot; 9/18 &middot; 2&ndash;4 Players &middot; Cart incl. &middot; $60.00</span><button class="mb-book-btn">BOOK</button></div>
+            <div class="mb-row dim"><span class="mb-time">10:26 AM</span><span class="mb-desc">No available slots</span></div>
+            <div class="mb-row dim"><span class="mb-time">10:34 AM</span><span class="mb-desc">No available slots</span></div>
+            <div class="mb-row dim"><span class="mb-time">10:42 AM</span><span class="mb-desc">No available slots</span></div>
+            <div class="mb-row"><span class="mb-time">10:50 AM</span><span class="mb-desc">Back &middot; 9 Holes &middot; Cart incl. &middot; $36.00</span><button class="mb-book-btn">BOOK</button></div>
+          </div>
+          <div class="ba-note">Only 2 times at this course &mdash; and you haven't checked any others yet</div>
+        </div>
+
+        <!-- ChronoBook -->
+        <div class="ba-panel" id="ba-chronobook">
+          <div class="cb-hd">
+            <span class="cb-hd-logo">ChronoBook</span>
+            <span class="cb-hd-title">Book your round</span>
+          </div>
+          <div class="cb-body">
+            <div class="cb-left">
+              <div class="cb-cname">Forest Dale Golf Course</div>
+              <div class="cb-caddr">2715 S 900 E, Salt Lake City, UT</div>
+              <div class="cb-cal-hd"><span>March 2026</span><button>&#8250;</button></div>
+              <div class="cb-grid">
+                <div class="cb-dh">Su</div><div class="cb-dh">Mo</div><div class="cb-dh">Tu</div><div class="cb-dh">We</div><div class="cb-dh">Th</div><div class="cb-dh">Fr</div><div class="cb-dh">Sa</div>
+                <div class="cb-d">1</div><div class="cb-d">2</div><div class="cb-d">3</div><div class="cb-d">4</div><div class="cb-d">5</div><div class="cb-d">6</div><div class="cb-d">7</div>
+                <div class="cb-d">8</div><div class="cb-d">9</div><div class="cb-d">10</div><div class="cb-d">11</div><div class="cb-d">12</div><div class="cb-d">13</div><div class="cb-d">14</div>
+                <div class="cb-d">15</div><div class="cb-d">16</div><div class="cb-d">17</div><div class="cb-d">18</div><div class="cb-d">19</div><div class="cb-d">20</div><div class="cb-d">21</div>
+                <div class="cb-d">22</div><div class="cb-d">23</div><div class="cb-d">24</div><div class="cb-d">25</div><div class="cb-d sel">26</div><div class="cb-d">27</div><div class="cb-d">28</div>
+                <div class="cb-d">29</div><div class="cb-d">30</div><div class="cb-d">31</div><div class="cb-d dim"></div><div class="cb-d dim"></div><div class="cb-d dim"></div><div class="cb-d dim"></div>
+              </div>
+            </div>
+            <div class="cb-right">
+              <div class="cb-r-title">Thursday, March 26</div>
+              <div class="cb-r-sub">Per player pricing</div>
+              <div class="cb-slot"><span class="cb-s-time">8:00 AM</span><button class="cb-s-badge">1 player &middot; from $19</button><span class="cb-s-pl">1 spot only</span></div>
+              <div class="cb-slot"><span class="cb-s-time">11:00 AM</span><button class="cb-s-badge">1 player &middot; from $19</button><span class="cb-s-pl">1 spot only</span></div>
+              <div class="cb-slot"><span class="cb-s-time">12:00 PM</span><button class="cb-s-badge">1 player &middot; from $19</button><span class="cb-s-pl">1 spot only</span></div>
+              <div class="cb-slot"><span class="cb-s-time">1:00 PM</span><button class="cb-s-badge">1 player &middot; from $19</button><span class="cb-s-pl">1 spot only</span></div>
+            </div>
+          </div>
+          <div class="ba-note">Only 1-player slots available &mdash; you need 2. Still searching&hellip;</div>
+        </div>
+
+        <!-- FiveUp -->
+        <div class="ba-panel" id="ba-fiveup">
+          <div class="fu-top">
+            <div class="fu-logo">fiveUP</div>
+            <nav class="fu-nav">
+              <a href="#" class="on">Reservations</a>
+              <a href="#">Facility Info</a>
+            </nav>
+            <span class="fu-log">Log In</span>
+          </div>
+          <div class="fu-body">
+            <div class="fu-sb">
+              <select class="fu-sel"><option>Cedar Ridge Golf Course</option></select>
+              <div class="fu-badge">Booking as Online Tee Times</div>
+              <div class="fu-lbl">Time of day</div>
+              <div class="fu-ps"><div class="fu-p on">Morning</div><div class="fu-p">Midday</div><div class="fu-p">Evening</div></div>
+              <div class="fu-lbl">Players</div>
+              <div class="fu-ps"><div class="fu-p">1</div><div class="fu-p">2</div><div class="fu-p">3</div><div class="fu-p on">4</div><div class="fu-p">Any</div></div>
+              <div class="fu-lbl">Holes</div>
+              <div class="fu-ps"><div class="fu-p">9</div><div class="fu-p on">18</div><div class="fu-p">Both</div></div>
+            </div>
+            <div class="fu-main">
+              <div class="fu-row">
+                <div class="fu-hbs"><div class="fu-hb">9</div><div class="fu-hb">18</div></div>
+                <div class="fu-av">CR</div>
+                <div class="fu-ri"><div class="fu-rt">8:40 am</div><div class="fu-rc">Cedar Ridge GC &middot; Back/Front</div></div>
+                <div class="fu-rf">4 players<br>Green: $28 &middot; Cart: $18</div>
+              </div>
+              <div class="fu-row">
+                <div class="fu-hbs"><div class="fu-hb">9</div><div class="fu-hb">18</div></div>
+                <div class="fu-av">CR</div>
+                <div class="fu-ri"><div class="fu-rt">8:56 am</div><div class="fu-rc">Cedar Ridge GC &middot; Back/Front</div></div>
+                <div class="fu-rf">4 players<br>Green: $28 &middot; Cart: $18</div>
+              </div>
+              <div class="fu-row">
+                <div class="fu-hbs"><div class="fu-hb">9</div><div class="fu-hb">18</div></div>
+                <div class="fu-av">CR</div>
+                <div class="fu-ri"><div class="fu-rt">9:12 am</div><div class="fu-rc">Cedar Ridge GC &middot; Back/Front</div></div>
+                <div class="fu-rf">4 players<br>Green: $28 &middot; Cart: $18</div>
+              </div>
+              <div class="fu-row">
+                <div class="fu-hbs"><div class="fu-hb">9</div><div class="fu-hb">18</div></div>
+                <div class="fu-av">CR</div>
+                <div class="fu-ri"><div class="fu-rt">9:36 am</div><div class="fu-rc">Cedar Ridge GC &middot; Back/Front</div></div>
+                <div class="fu-rf">4 players<br>Green: $28 &middot; Cart: $18</div>
+              </div>
+            </div>
+          </div>
+          <div class="ba-note">Cedar Ridge only &mdash; still need to check every other course</div>
+        </div>
+
+        </div><!-- /.ba-panels -->
+      </div><!-- /.ba-before -->
+
+      <!-- Divider -->
+      <div class="ba-divider">vs. Tee-Time</div>
+
+      <!-- Tee-Time UI -->
+      <div class="ba-after">
+        <div class="tt-hd">
+          <div class="tt-icon">
+            <svg viewBox="0 0 16 16" fill="none" width="16" height="16">
+              <rect x="3.5" y="2" width="1.5" height="12" fill="white" rx="0.5"/>
+              <path d="M5 2.5L12.5 5.5L5 8.5V2.5Z" fill="white"/>
+            </svg>
+          </div>
+          <span class="tt-name">Tee-Time</span>
+          <span class="tt-ub">Utah</span>
+          <span class="tt-tl">Every tee time. One search.</span>
+        </div>
+        <div class="tt-ctrl">
+          <div class="tt-dn">
+            <div class="tt-arr">&#8249;</div>
+            <div class="tt-dl">Thu, Mar 26, 2026</div>
+            <div class="tt-arr">&#8250;</div>
+          </div>
+          <div class="tt-cg">
+            <span class="tt-cl">Players</span>
+            <div class="tt-pps"><div class="tt-pp">1</div><div class="tt-pp">2</div><div class="tt-pp">3</div><div class="tt-pp sd">4</div></div>
+          </div>
+          <div class="tt-cg">
+            <span class="tt-cl">Holes</span>
+            <div class="tt-pps"><div class="tt-pp">9</div><div class="tt-pp sg">18</div></div>
+          </div>
+          <button class="tt-rfr">Refresh</button>
+        </div>
+        <div class="tt-tabs">
+          <div class="tt-tab">&#128205; Near Me</div>
+          <div class="tt-tab on">&#9733; Saved</div>
+          <div class="tt-tab">All</div>
+          <div class="tt-tab">Salt Lake Valley</div>
+          <div class="tt-tab">Davis &amp; Weber</div>
+          <div class="tt-tab">Utah County</div>
+          <div class="tt-tab">St. George</div>
+          <div class="tt-tab">Park City &amp; Heber</div>
+          <div class="tt-tab">Cache Valley</div>
+          <div class="tt-tab">Eastern Utah</div>
+        </div>
+        <div class="tt-results">
+          <div class="tt-card">
+            <div class="tt-ch">
+              <span class="tt-cn">Bountiful Ridge <span style="color:#637063;font-weight:400;font-size:0.72rem">(Bountiful)</span></span>
+              <span class="tt-cp">from $36</span>
+              <span class="tt-cc">8 times</span>
+              <span class="tt-cstar">&#9733;</span>
+            </div>
+            <div class="tt-chips">
+              <div class="tt-chip"><span class="tt-ct">8:50 AM</span><span class="tt-cpr">$36</span></div>
+              <div class="tt-chip"><span class="tt-ct">10:50 AM</span><span class="tt-cpr">$36</span></div>
+              <div class="tt-chip"><span class="tt-ct">11:30 AM</span><span class="tt-cpr">$36</span></div>
+              <div class="tt-chip"><span class="tt-ct">12:20 PM</span><span class="tt-cpr">$36</span></div>
+              <div class="tt-chip"><span class="tt-ct">12:30 PM</span><span class="tt-cpr">$36</span></div>
+              <div class="tt-chip"><span class="tt-ct">2:00 PM</span><span class="tt-cpr">$36</span></div>
+              <div class="tt-chip"><span class="tt-ct">2:10 PM</span><span class="tt-cpr">$36</span></div>
+            </div>
+          </div>
+          <div class="tt-card">
+            <div class="tt-ch">
+              <span class="tt-cn">Eaglewood <span style="color:#637063;font-weight:400;font-size:0.72rem">(N. Salt Lake)</span></span>
+              <span class="tt-cp">from $64</span>
+              <span class="tt-cc">18 times</span>
+              <span class="tt-cstar">&#9733;</span>
+            </div>
+            <div class="tt-chips">
+              <div class="tt-chip"><span class="tt-ct">8:00 AM</span><span class="tt-cpr">$64</span></div>
+              <div class="tt-chip"><span class="tt-ct">8:10 AM</span><span class="tt-cpr">$64</span></div>
+              <div class="tt-chip"><span class="tt-ct">8:50 AM</span><span class="tt-cpr">$64</span></div>
+              <div class="tt-chip"><span class="tt-ct">9:10 AM</span><span class="tt-cpr">$64</span></div>
+              <div class="tt-chip"><span class="tt-ct">10:20 AM</span><span class="tt-cpr">$64</span></div>
+              <div class="tt-chip"><span class="tt-ct">10:30 AM</span><span class="tt-cpr">$64</span></div>
+              <div class="tt-chip"><span class="tt-ct">10:40 AM</span><span class="tt-cpr">$64</span></div>
+              <div class="tt-more">+11 more</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- end hidden ba wrapper -->
 
   <!-- STATS -->
   <div class="section">
     <div class="stats reveal">
-      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Utah courses — not just the GolfNow ones</div></div>
-      <div class="stat"><div class="stat-num">1</div><div class="stat-label">Search to see every available time</div></div>
-      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">To see results across every course</div></div>
+      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Courses searched at once</div></div>
+      <div class="stat"><div class="stat-num">1</div><div class="stat-label">Every Utah course, one place</div></div>
+      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">Find a time in seconds, not tabs</div></div>
     </div>
   </div>
 
@@ -412,18 +778,18 @@
     <div class="steps">
       <div class="step">
         <div class="step-num">01</div>
-        <h3>Pick your date &amp; players</h3>
-        <p>Set the date and how many are in your group. No account, no signup — just search.</p>
+        <h3>Tell us when you want to play</h3>
+        <p>Pick your date, how many players, and 9 or 18 holes. No account, no setup.</p>
       </div>
       <div class="step">
         <div class="step-num">02</div>
-        <h3>We check every course at once</h3>
-        <p>Not just the GolfNow ones. Tee-Time searches all 67 Utah courses &mdash; ForeUp, Chronogolf, Member Sports &mdash; and shows results sorted by distance.</p>
+        <h3>We search every course at once</h3>
+        <p>Not just the partnered ones. Every Utah course, searched simultaneously, sorted by distance from you.</p>
       </div>
       <div class="step">
         <div class="step-num">03</div>
-        <h3>Tap a time, go book it</h3>
-        <p>Hit a time slot and you go straight to that course's booking page with your date and players pre-filled. No middleman, no markup.</p>
+        <h3>Tap a time, go play</h3>
+        <p>Click any result and you're straight to the booking page. No middleman, no markup, no extra tabs.</p>
       </div>
     </div>
   </section>
@@ -433,16 +799,12 @@
     <div class="access-card reveal">
       <div class="access-copy">
         <p class="access-label">Early Access</p>
-        <h2>Got a code?<br>Let's get you in.</h2>
-        <p class="sub">Enter your code, drop your email, and answer a couple quick questions about how you golf. Helps us build the right thing.</p>
+        <h2>Got a code?<br>Stop hunting tee times.</h2>
+        <p class="sub">Enter your code and email below. We'll ask two quick questions to help us build the right product.</p>
       </div>
 
       <div>
       <div class="form" id="accessForm">
-        <div class="field">
-          <label>Email address</label>
-          <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" />
-        </div>
         <div class="field">
           <label>Access code</label>
           <div class="code-row">
@@ -491,12 +853,50 @@
       </div>
 
       <div id="successState" style="display:none;">
-        <p style="font-size:1.1rem;font-weight:500;margin-bottom:10px;">You're in. Taking you to the app&hellip;</p>
-        <p style="color:rgba(255,255,255,0.55);font-size:0.88rem;line-height:1.7;">Thanks for being an early supporter of tee-time.io. Enjoy!</p>
+        <p style="font-size:1.1rem;font-weight:500;margin-bottom:10px;">You're in. One last step&hellip;</p>
+        <p style="color:rgba(255,255,255,0.55);font-size:0.88rem;line-height:1.7;">Create your account to start searching tee times.</p>
       </div>
+      <p style="margin-top:18px;font-size:0.8rem;color:rgba(255,255,255,0.3);">Already have an account? <a href="#" onclick="event.preventDefault();openAuthModal('signin')" style="color:rgba(255,255,255,0.5);text-decoration:underline;">Sign in</a></p>
       </div>
     </div>
   </section>
+
+  <!-- AUTH MODAL -->
+  <div class="modal-backdrop" id="authModal" role="dialog" aria-modal="true" aria-label="Sign in">
+    <div class="modal-box">
+      <button class="modal-close" id="authModalClose" aria-label="Close">&times;</button>
+      <h2 class="modal-title" id="authTitle">Welcome back</h2>
+      <p class="modal-sub" id="authSub">Sign in to search tee times &amp; save favourites.</p>
+
+      <button class="oauth-btn" id="googleBtn">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+          <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <div class="auth-divider">or</div>
+
+      <div class="auth-field">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="auth-field">
+        <label for="authPassword">Password</label>
+        <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+
+      <button class="auth-submit" id="authSubmit">Sign in</button>
+      <p class="auth-error" id="authError"></p>
+
+      <p class="modal-toggle" id="authToggle">
+        No account? <a id="authSwitchLink">Create one</a>
+      </p>
+    </div>
+  </div>
 
   <footer>
     <div class="footer-logo">
@@ -513,9 +913,8 @@
 
   <script>
     const VALID_CODES = ['golf2026', 'teetime', 'earlybird', 'utahgolf'];
-    const APP_URL = './app.html';
+    const APP_URL = 'https://tee-time.io/app.html';
 
-    const emailInput     = document.getElementById('emailInput');
     const codeInput      = document.getElementById('codeInput');
     const verifyBtn      = document.getElementById('verifyBtn');
     const codeVerified   = document.getElementById('codeVerified');
@@ -561,25 +960,29 @@
       }
     });
 
-    [emailInput, discoveryInput, frequencyInput, wtpInput].forEach(el => {
+    [discoveryInput, frequencyInput, wtpInput].forEach(el => {
       el.addEventListener('change', checkReady); el.addEventListener('input', checkReady);
     });
 
     function checkReady() {
-      submitBtn.disabled = !(emailInput.value.includes('@') && codeIsValid && discoveryInput.value && frequencyInput.value && wtpInput.value);
+      submitBtn.disabled = !(codeIsValid && discoveryInput.value && frequencyInput.value && wtpInput.value);
     }
 
     submitBtn.addEventListener('click', () => {
       if (!codeIsValid) { showStatus('Please verify your code first.', 'error'); return; }
-      const payload = { email: emailInput.value.trim(), code: codeInput.value.trim().toUpperCase(), discovery: discoveryInput.value, frequency: frequencyInput.value, wtp: wtpInput.value, ts: Date.now() };
-      trackEvent('early_access_request', payload);
+      const payload = { code: codeInput.value.trim().toUpperCase(), discovery: discoveryInput.value, frequency: frequencyInput.value, wtp: wtpInput.value, ts: Date.now() };
+      trackEvent('early_access_signup', payload);
       const subs = JSON.parse(localStorage.getItem('tt_submissions') || '[]');
       subs.push(payload); localStorage.setItem('tt_submissions', JSON.stringify(subs));
       submitBtn.disabled = true; submitBtn.innerHTML = 'Sending\u2026';
       setTimeout(() => {
         accessForm.style.display = 'none'; successState.style.display = 'block';
         localStorage.setItem('tt_access', 'granted');
-        setTimeout(() => { window.location.href = APP_URL; }, 2500);
+        // Open auth modal in signup mode
+        allowSignup = true;
+        setTimeout(() => {
+          openAuthModal('signup');
+        }, 1200);
       }, 800);
     });
 
@@ -588,10 +991,125 @@
 
     function trackEvent(name, props) {
       console.log('[tee-time.io]', name, props);
-      // if (window.plausible) window.plausible(name, { props });
-      // if (window.posthog)  window.posthog.capture(name, props);
-      // if (window.gtag)     window.gtag('event', name, props);
+      if (window.posthog) window.posthog.capture(name, props);
     }
+
+    // ── Supabase Auth ──────────────────────────────────────────
+    const SUPABASE_URL  = 'https://nmwlebcvezybfwertlzs.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession: true, detectSessionInUrl: true },
+    });
+
+    // If user already has a session, send them straight to the app
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.replace('/app.html');
+    });
+
+    // Auth modal state
+    let authMode = 'signin'; // 'signin' | 'signup'
+    const authModal    = document.getElementById('authModal');
+    const authTitle    = document.getElementById('authTitle');
+    const authSub      = document.getElementById('authSub');
+    const authSubmit   = document.getElementById('authSubmit');
+    const authToggle   = document.getElementById('authToggle');
+    const authSwitchLink = document.getElementById('authSwitchLink');
+    const authError    = document.getElementById('authError');
+    const authEmailEl  = document.getElementById('authEmail');
+    const authPasswordEl = document.getElementById('authPassword');
+
+    let allowSignup = false; // only true after access code is verified
+
+    function openAuthModal(mode) {
+      setAuthMode(mode || 'signin');
+      authToggle.style.display = (allowSignup || mode === 'signin') ? '' : 'none';
+      if (!allowSignup) {
+        // Lock to sign-in only — hide the toggle to prevent account creation
+        authToggle.style.display = 'none';
+      } else {
+        authToggle.style.display = '';
+      }
+      authModal.classList.add('open');
+      setTimeout(() => authEmailEl.focus(), 150);
+    }
+    function closeAuthModal() {
+      authModal.classList.remove('open');
+      authError.textContent = '';
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      if (mode === 'signin') {
+        authTitle.textContent = 'Welcome back';
+        authSub.textContent = 'Sign in to search tee times & save favourites.';
+        authSubmit.textContent = 'Sign in';
+        authSwitchLink.textContent = 'Create one';
+        authToggle.firstChild.textContent = 'No account? ';
+        authPasswordEl.autocomplete = 'current-password';
+      } else {
+        authTitle.textContent = 'Create account';
+        authSub.textContent = 'Join tee-time.io — it\'s free.';
+        authSubmit.textContent = 'Create account';
+        authSwitchLink.textContent = 'Sign in instead';
+        authToggle.firstChild.textContent = 'Already have an account? ';
+        authPasswordEl.autocomplete = 'new-password';
+      }
+      authError.textContent = '';
+    }
+
+    document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
+    authModal.addEventListener('click', e => { if (e.target === authModal) closeAuthModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuthModal(); });
+    authSwitchLink.addEventListener('click', () => setAuthMode(authMode === 'signin' ? 'signup' : 'signin'));
+
+    document.getElementById('googleBtn').addEventListener('click', async () => {
+      authError.textContent = '';
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/auth/callback.html' },
+      });
+      if (error) authError.textContent = error.message;
+    });
+
+    authSubmit.addEventListener('click', async () => {
+      const email    = authEmailEl.value.trim();
+      const password = authPasswordEl.value;
+      if (!email || !password) { authError.textContent = 'Please fill in both fields.'; return; }
+
+      authSubmit.disabled = true;
+      authSubmit.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
+      authError.textContent = '';
+
+      let result;
+      if (authMode === 'signin') {
+        result = await sb.auth.signInWithPassword({ email, password });
+      } else {
+        result = await sb.auth.signUp({ email, password });
+      }
+
+      authSubmit.disabled = false;
+      authSubmit.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+
+      if (result.error) {
+        authError.textContent = result.error.message;
+        return;
+      }
+
+      // On signup, Supabase may require email confirmation
+      if (authMode === 'signup' && !result.data?.session) {
+        authError.style.color = 'var(--app-green)';
+        authError.textContent = 'Check your email to confirm your account, then sign in.';
+        setAuthMode('signin');
+        return;
+      }
+
+      window.location.replace('/app.html');
+    });
+
+    // Allow Enter key in password field
+    authPasswordEl.addEventListener('keydown', e => { if (e.key === 'Enter') authSubmit.click(); });
+    authEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') authPasswordEl.focus(); });
+
   </script>
 </body>
 </html>

@@ -4,3 +4,11 @@ compatibility_date = "2025-01-01"
 
 [vars]
 ALLOWED_ORIGIN = "*"
+SUPABASE_URL = "https://nmwlebcvezybfwertlzs.supabase.co"
+
+# Secrets (set via `wrangler secret put`):
+#   SUPABASE_SERVICE_KEY
+#   RESEND_API_KEY
+
+[triggers]
+crons = ["*/15 6-23 * * *"]

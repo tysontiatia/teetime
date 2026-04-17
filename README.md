@@ -1,95 +1,256 @@
-# Utah Tee Times
+# Tee-Time.io
 
-A tee time aggregator for 43 Utah golf courses (29 on ForeUp, 14 on Chronogolf).
-Pick a date, number of players, and time window — see all available tee times in one place.
-Click any tee time to open the course's booking page. Nothing is booked automatically.
+Universal tee time search for Utah golf courses. One set of filters, every course, every platform, every open slot.
+
+Live at **[tee-time.io](https://tee-time.io)**
+
+---
+
+## What it does
+
+- Searches 67 Utah courses simultaneously across ForeUp, Chronogolf, and MemberSports
+- Filters by date, players (1–4), holes (9/18), and region
+- **Near Me** tab sorts results by distance using browser geolocation
+- Links directly to the course's booking page — nothing is booked automatically
+- Saves favourite courses and syncs them across devices (requires account)
+- **Notification alerts** — users set a target date for a course and get an email via Resend when tee times open up
+- Google profile avatar shown in header for OAuth users
+- Course cards show Google Places photos, ratings, and review counts
+- Custom desktop calendar date picker (replaces native date input on screens ≥600px)
+- Course detail panel with photo, address, rating, and all available times
+
+---
+
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | Single-file HTML/CSS/JS (`public/app.html`) |
+| Landing page | `public/index.html` |
+| Auth | Supabase (Google OAuth + email/password) |
+| Database | Supabase PostgreSQL (profiles, saved courses, notification prefs, notification log) |
+| API proxy | Cloudflare Worker (`worker/index.js`) |
+| Notifications | Cron trigger on Worker → Resend email API |
+| Email | Resend (verified domain: `tee-time.io`, from: `alerts@tee-time.io`) |
+| Hosting | Cloudflare Pages (`utah-tee-times` project) |
+| Domain | `tee-time.io` (Cloudflare DNS) |
+| Analytics | PostHog |
+
+---
+
+## Auth & Access
+
+The app is behind a two-step gate:
+
+1. **Early access code** — users enter a code + survey answers on the landing page
+2. **Supabase account** — after the code is verified, the auth modal opens (Google OAuth or email/password). The signup toggle is hidden unless the user came through the access code flow (prevents direct signup bypass).
+
+Returning users with an active session are auto-redirected from the landing page to the app.
+
+### Supabase project
+
+- Project ref: `nmwlebcvezybfwertlzs`
+- URL: `https://nmwlebcvezybfwertlzs.supabase.co`
+- Auth providers: Google OAuth, email/password
+
+### Database schema
+
+```sql
+profiles                    -- auto-created on signup via trigger
+  id, display_name, phone, notify_via, created_at
+
+saved_courses               -- user's starred courses
+  id, user_id, course_id, created_at
+
+notification_preferences    -- per-course alert config
+  id, user_id, course_id,
+  target_date,              -- the date the user wants to play
+  players,                  -- number of players (1-4)
+  days_of_week,             -- legacy, unused
+  earliest_time, latest_time,  -- time window filter (HH:MM, 24h)
+  min_spots,                -- minimum available spots
+  active,                   -- toggle on/off
+  created_at
+
+notification_log            -- prevents duplicate emails
+  id, user_id, course_id, target_date, channel, times_found, sent_at
+  UNIQUE(user_id, course_id, target_date, channel)
+```
+
+All tables have RLS enabled — users can only read/write their own rows.
+
+---
+
+## Notification system
+
+Users can set an alert on any course for a specific date. The system emails them when matching tee times are found.
+
+### Flow
+
+1. User taps the 🔔 bell icon on a course card → notification modal opens
+2. User picks a target date, player count, and time window → saves to `notification_preferences`
+3. Toast confirmation: *"Alert saved! We'll email you@example.com when tee times open for Sat, Jun 14."*
+4. Cron trigger runs every 15 min (6 AM–11 PM UTC): `*/15 6-23 * * *`
+5. Worker fetches active prefs with `target_date` within 14 days
+6. For each course+date combo, fetches tee times via the same API proxy handlers
+7. Filters by user's time window and player count
+8. If matches found and not already notified → sends email via Resend, logs to `notification_log`
+
+### Empty state CTAs
+
+When a course shows "No available tee times" or "Booking not yet open for this date", logged-in users see a **"🔔 Get notified when times open up"** link that opens the notification modal.
+
+### Worker secrets (set via `wrangler secret put`)
+
+- `SUPABASE_SERVICE_KEY` — Supabase service role key (bypasses RLS)
+- `RESEND_API_KEY` — Resend API key for sending emails
+
+---
+
+## Booking platforms
+
+| Platform | Endpoint | Courses | Notes |
+|---|---|---|---|
+| `foreup` | ForeUp public API | 37 | Requires `schedule_id`, optional `booking_class_id` |
+| `chronogolf_slc` | Chronogolf club-specific API (`/marketplace/clubs/{id}/teetimes`) | 17 | Requires `club_id`, `course_id`, `affiliation_type_id`. All former `chronogolf` courses were migrated to this endpoint — the marketplace search endpoint (`/v2/teetimes`) returns "closed" for these clubs. |
+| `membersports` | MemberSports POST API | 10 | Requires `golf_club_id`, `golf_course_id` |
+| `foreup_login` | ForeUp (login-gated) | 1 | Shows "Sign in to view times →" link |
+| `golfpay` | — | 1 | No API support, booking link only |
+| `tenfore` | — | 1 | No API support, booking link only |
+
+The Cloudflare Worker proxies requests to each platform's API and returns results with CORS headers. Sessions for ForeUp and Chronogolf are cached in-memory for 30 minutes.
+
+### Chronogolf note
+
+All Chronogolf courses use the **club-specific** endpoint (`chronogolf_slc` platform), not the marketplace v2 search. The marketplace endpoint returns `{ "status": "closed" }` for these SLC-area clubs even when times are available. The club endpoint requires `club_id` (numeric), `course_id` (numeric, first course), and `affiliation_type_id`.
+
+When the club endpoint returns `status: "closed"`, the app shows **"Booking not yet open for this date"** instead of a generic error.
+
+---
+
+## Course data (`courses.json`)
+
+Each course entry contains:
+
+```json
+{
+  "name": "Rose Park (SLC)",
+  "area": "SALT LAKE CITY AREA",
+  "platform": "chronogolf_slc",
+  "club_id": "14222",
+  "course_id": "16310",
+  "affiliation_type_id": "57710",
+  "booking_url": "https://www.chronogolf.com/club/14222",
+  "lat": 40.7982542,
+  "lng": -111.9261956,
+  "photo_url": "https://lh3.googleusercontent.com/places/...",
+  "rating": 3.6,
+  "review_count": 205,
+  "address": "1386 N Redwood Rd, Salt Lake City, UT 84116, USA"
+}
+```
+
+Fields vary by platform. `lat`/`lng` are required for Near Me sorting. `photo_url`, `rating`, `review_count`, and `address` are fetched via Google Places API using `scripts/fetch-place-data.mjs` (requires `GOOGLE_PLACES_KEY` env var).
+
+The root `courses.json` and `public/courses.json` must stay in sync. Always edit `public/courses.json` (the source of truth) and copy to root, or vice versa.
+
+---
+
+## Analytics (PostHog)
+
+Events tracked:
+
+| Event | Where | Data |
+|---|---|---|
+| `early_access_signup` | Landing page | email, code, discovery, frequency, WTP |
+| `posthog.identify` | App on sign-in | email |
+| `search_performed` | App | date, players, holes, region |
+| `results_returned` | App | count, search_date, players |
+| `course_saved` | App | course_name |
+| `region_tab_switched` | App | region |
+| `tee_time_clicked` | App | course, time, price |
+| `outbound_booking_click` | App | course_name, time, price |
+
+---
+
+## File structure
+
+```
+tee-time/
+├── public/
+│   ├── index.html            ← Landing page (early access form + auth modal)
+│   ├── app.html              ← Main app (single file, all UI + auth + data fetching)
+│   ├── auth/
+│   │   └── callback.html     ← OAuth redirect handler
+│   ├── courses.json          ← Master list of 67 courses (source of truth)
+│   └── images/
+│       ├── app-desktop.png
+│       └── app-mobile.png
+├── worker/
+│   ├── index.js              ← Cloudflare Worker (CORS proxy + cron notification handler)
+│   └── wrangler.toml         ← Worker config (cron trigger, env vars, secrets)
+├── courses.json              ← Copy of public/courses.json (keep in sync)
+├── scripts/
+│   ├── fetch-place-data.mjs  ← Fetch Google Places photos/ratings for all courses
+│   ├── fetch-place-patch.mjs ← Patch Google Places data for specific courses
+│   ├── add-course-fields.mjs ← Add fields to courses
+│   ├── geocode.mjs           ← Geocode courses via Google Maps
+│   ├── geocode-patch.mjs     ← Patch geocoding for specific courses
+│   └── geocode-manual.mjs    ← Manual geocoding
+└── supabase/
+    ├── config.toml
+    └── migrations/
+        ├── 20260416212118_initial_schema.sql
+        └── 20260416220000_notification_alerts.sql
+```
 
 ---
 
 ## Deploy
 
-### 1. Install Wrangler CLI
+### Worker
 
 ```bash
-npm install -g wrangler
+cd worker && npx wrangler deploy
 ```
 
-### 2. Login to Cloudflare
+Worker URL: `https://utah-tee-times.tysontiatia.workers.dev`
+
+### Frontend (Cloudflare Pages)
 
 ```bash
-wrangler login
+npx wrangler pages deploy public --project-name utah-tee-times
 ```
 
-### 3. Deploy the Worker
+Production URL: `https://tee-time.io` (custom domain on Cloudflare Pages)
+
+### Supabase migrations
 
 ```bash
-cd worker && wrangler deploy
+supabase link --project-ref nmwlebcvezybfwertlzs
+supabase db push
 ```
-
-Copy the Worker URL from the output — it looks like:
-
-```
-https://utah-tee-times.yourname.workers.dev
-```
-
-### 4. Update the Frontend
-
-Open `public/index.html` and replace `YOUR_SUBDOMAIN` in the `WORKER_URL` constant at the top of the `<script>` block:
-
-```js
-const WORKER_URL = 'https://utah-tee-times.yourname.workers.dev';
-```
-
-### 5. Deploy the Frontend to Cloudflare Pages
-
-Option A — Wrangler CLI:
-
-```bash
-wrangler pages deploy public/
-```
-
-Option B — Cloudflare Dashboard:
-
-- Go to [pages.cloudflare.com](https://pages.cloudflare.com)
-- Create a new project → **Upload assets** → upload the contents of the `public/` folder
-- Done — Cloudflare will give you a `.pages.dev` URL
-
-### 6. Open the App
-
-Visit your Pages URL. Search by date, players, and time window. All 43 courses load in parallel.
 
 ---
 
-## Login-Gated Courses
+## Google OAuth setup
 
-Three courses require a ForeUp account to view tee times:
+1. Google Cloud Console → APIs & Services → OAuth consent screen
+   - App name: `Tee Time`
+   - Authorised domain: `tee-time.io`
+2. Create OAuth 2.0 Client ID (Web application)
+   - Authorised redirect URI: `https://nmwlebcvezybfwertlzs.supabase.co/auth/v1/callback`
+3. Paste Client ID + Secret into Supabase → Auth → Providers → Google
 
-- **Stonebridge** (West Valley City)
-- **The Ridge** (West Valley)
-- **Timpanogos** (Provo)
-
-For each of these, the app shows a token input. To get your session token:
-
-1. Log into the course's booking page in your browser (e.g. `foreupsoftware.com/index.php/booking/22130`)
-2. Open DevTools (`F12` or `Cmd+Option+I`)
-3. Go to **Application** → **Cookies** → select the foreupsoftware.com domain
-4. Find the cookie named `remember_82539b771b3a70569040bf4eb434cdf1` and copy its value
-5. Paste the value into the token field in the app and click **Save & retry**
-
-The token is stored in your browser's `localStorage` — you won't need to re-enter it unless you log out of ForeUp or clear your browser data.
+Supabase → Auth → URL Configuration → add `https://tee-time.io/auth/callback.html` to allowed redirect URLs.
 
 ---
 
-## File Structure
+## Key UI details
 
-```
-utah-tee-times/
-├── worker/
-│   ├── index.js          ← Cloudflare Worker (CORS proxy)
-│   └── wrangler.toml     ← Worker config
-├── public/
-│   └── index.html        ← Entire frontend (single file, no build step)
-└── courses.json          ← Master list of 43 courses
-```
-
-The worker acts as a CORS proxy — it forwards requests from the browser to ForeUp and Chronogolf APIs and returns the results with proper CORS headers. Session tokens for login-gated courses are passed through in-memory only and never logged or stored by the worker.
+- **Mobile close**: Course detail panel has an X close button (`.cd-close`) at top-right for mobile users
+- **Calendar**: Custom dropdown calendar for desktop (hides native `<input type="date">`). Matching calendar in notification modal.
+- **Time pickers**: Notification modal uses `<select>` dropdowns with 30-min increments in 12-hour format (5:00 AM – 9:30 PM)
+- **Toast notifications**: Slide-up toasts for save/delete confirmations (auto-dismiss after 4.5s)
+- **Avatar**: Google OAuth users see their profile photo in the header; fallback to first initial
+- **Favourites**: Star button on course cards, stored in localStorage + synced to Supabase `saved_courses` for logged-in users
