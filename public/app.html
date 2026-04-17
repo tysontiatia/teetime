@@ -266,7 +266,7 @@
 
     .search-filters-row {
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
       gap: 10px;
       flex-wrap: nowrap;
@@ -290,7 +290,7 @@
     .seg-buttons {
       display: flex;
       gap: 5px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
 
     .seg-btn {
@@ -858,21 +858,68 @@
        Responsive — Mobile
     ───────────────────────────── */
     @media (max-width: 679px) {
+      .search-inner {
+        gap: 8px;
+      }
+
+      .search-date-row {
+        gap: 6px;
+      }
+
+      .date-nav {
+        width: 32px;
+        height: 34px;
+        font-size: 0.95rem;
+      }
+
+      #dateDisplay {
+        font-size: 0.82rem;
+        padding: 6px 8px;
+      }
+
       .search-filters-row {
+        display: flex;
         flex-wrap: nowrap;
         overflow-x: auto;
         overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
-        gap: 6px;
+        gap: 5px;
         padding-bottom: 2px;
         justify-content: flex-start;
+        align-items: center;
       }
       .search-filters-row::-webkit-scrollbar { display: none; }
-      .seg-group { flex-direction: row; gap: 5px; align-items: center; }
+
+      .seg-group {
+        flex-direction: row;
+        gap: 3px;
+        align-items: center;
+        flex-shrink: 0;
+      }
+
+      .seg-buttons {
+        flex-wrap: nowrap;
+        gap: 3px;
+      }
+
       .seg-label { display: none; }
-      .seg-btn { min-height: 36px; padding: 0 10px; font-size: 12px; }
-      #searchBtn { min-height: 36px; padding: 0 14px; font-size: 13px; flex-shrink: 0; }
+
+      .seg-btn {
+        min-height: 34px;
+        height: 34px;
+        padding: 0 10px;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+
+      #searchBtn {
+        min-height: 34px;
+        height: 34px;
+        padding: 0 14px;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
     }
 
     /* ─────────────────────────────
