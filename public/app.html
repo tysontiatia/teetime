@@ -284,6 +284,7 @@
       color: var(--fg-muted);
       text-transform: uppercase;
       letter-spacing: 0.6px;
+      display: none;
     }
 
     .seg-buttons {
@@ -551,7 +552,7 @@
       border: 1px solid rgba(45,122,58,0.2);
       border-radius: 8px;
       padding: 8px 4px;
-      height: 52px;
+      height: 58px;
       min-width: 0;
       width: 100%;
       text-decoration: none;
@@ -569,7 +570,7 @@
       box-shadow: 0 4px 12px rgba(45,122,58,0.2);
     }
 
-    .time-pill .t-time  { font-weight: 500; font-size: 0.78rem; line-height: 1.2; text-align: center; }
+    .time-pill .t-time  { font-weight: 500; font-size: 0.85rem; line-height: 1.2; text-align: center; }
     .time-pill .t-price { font-size: 0.72rem; font-weight: 300; opacity: 0.8; line-height: 1.2; text-align: center; }
     .time-pill .t-spots { display: none; }
 
@@ -688,6 +689,11 @@
       font-size: 1.1rem;
       flex-shrink: 0;
       transition: color 0.12s, transform 0.1s;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .star-btn:hover  { color: #f59e0b; transform: scale(1.15); }
     .star-btn.active { color: #f59e0b; }
@@ -805,6 +811,7 @@
       header { padding: 18px 48px 22px; }
       .brand-name    { font-size: 1.5rem; }
       .brand-tagline { display: block; }
+      .seg-label     { display: block; }
 
       .search-panel { padding: 14px 20px; }
 
@@ -1250,6 +1257,11 @@
       cursor: pointer; padding: 4px; font-size: 1rem; line-height: 1;
       color: var(--border-strong); flex-shrink: 0;
       transition: color 0.12s, transform 0.1s;
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .bell-btn:hover  { color: var(--brand); transform: scale(1.15); }
     .bell-btn.active { color: var(--brand); }
@@ -1274,6 +1286,236 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* ─────────────────────────────
+       Search Bar
+    ───────────────────────────── */
+    .search-bar {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 10px 16px 0;
+    }
+
+    .search-bar input {
+      width: 100%;
+      font-family: var(--font);
+      font-size: 0.88rem;
+      padding: 10px 14px 10px 36px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Ccircle cx='7' cy='7' r='5.5' stroke='%239ca3af' stroke-width='1.5'/%3E%3Cpath d='M11 11l3.5 3.5' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 12px center;
+      color: var(--fg);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-bar input:focus { border-color: var(--brand); }
+    .search-bar input::placeholder { color: var(--fg-subtle); }
+
+    /* ─────────────────────────────
+       Plan a Round Banner
+    ───────────────────────────── */
+    .plan-round-banner {
+      padding: 0 16px;
+      max-width: 960px;
+      margin: 12px auto;
+    }
+
+    .plan-round-inner {
+      background: var(--brand-bg);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .plan-round-title {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .plan-round-sub {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .plan-round-btn {
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--brand-bg);
+      background: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 8px 18px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .plan-round-btn:hover { background: rgba(255,255,255,0.9); transform: translateY(-1px); }
+
+    /* ─────────────────────────────
+       Header Nav
+    ───────────────────────────── */
+    .header-nav {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      margin-left: 24px;
+    }
+
+    .header-nav-link {
+      font-family: var(--font);
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.6);
+      background: none;
+      border: none;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.12s, background 0.12s;
+    }
+
+    .header-nav-link:hover { color: #fff; background: rgba(255,255,255,0.08); }
+    .header-nav-link.active { color: #fff; font-weight: 600; }
+
+    /* ─────────────────────────────
+       Main Layout + Sidebar
+    ───────────────────────────── */
+    .main-layout {
+      display: flex;
+      min-height: calc(100vh - 200px);
+    }
+
+    .desktop-sidebar {
+      display: none;
+    }
+
+    .main-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 16px 12px;
+    }
+
+    .sidebar-link {
+      font-family: var(--font);
+      font-size: 0.84rem;
+      font-weight: 500;
+      color: var(--fg-muted);
+      background: none;
+      border: none;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .sidebar-link:hover { background: var(--bg-subtle); color: var(--fg); }
+
+    .sidebar-link.active {
+      background: var(--brand-light);
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    .sidebar-stats {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      margin: 8px 12px 0;
+    }
+
+    .sidebar-stat {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      padding: 4px 0;
+    }
+
+    .sidebar-stat-val {
+      font-weight: 600;
+      color: var(--fg);
+    }
+
+    /* ─────────────────────────────
+       Desktop ≥960px
+    ───────────────────────────── */
+    @media (min-width: 960px) {
+      .header-nav { display: flex; }
+
+      .desktop-sidebar {
+        display: block;
+        width: 220px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        background: var(--bg);
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+      }
+
+      .tab-strip { display: none; }
+
+      #results {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+
+      #results .results-meta,
+      #results .area-group,
+      #results .empty-state,
+      #results #unavailableToggle,
+      #results #unavailableCourses {
+        grid-column: 1 / -1;
+      }
+
+      #results > .course-card {
+        margin-bottom: 0;
+      }
+
+      .area-group {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-bottom: 0;
+      }
+
+      .area-group .area-heading {
+        grid-column: 1 / -1;
+      }
+
+      .times-row {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .plan-round-banner {
+        max-width: unset;
+        padding: 0 20px;
+      }
+
+      .search-bar {
+        max-width: unset;
+        padding: 10px 20px 0;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1295,12 +1537,20 @@
       </div>
       <div class="brand-tagline">Every tee time. One search.</div>
     </div>
+    <nav class="header-nav">
+      <button class="header-nav-link active" data-nav="teetimes">Tee times</button>
+      <button class="header-nav-link" data-nav="courses">Courses</button>
+      <button class="header-nav-link" data-nav="myrounds">My rounds</button>
+    </nav>
     <div class="header-spacer"></div>
     <button class="auth-btn" id="authBtn">Sign in</button>
   </div>
 </header>
 
 <div class="search-panel">
+  <div class="search-bar">
+    <input type="text" id="courseSearch" placeholder="Search courses..." autocomplete="off" />
+  </div>
   <div class="search-inner">
 
     <div class="search-date-row">
@@ -1340,6 +1590,15 @@
         </div>
       </div>
 
+      <div class="seg-group">
+        <span class="seg-label">Time</span>
+        <div class="seg-buttons" id="timeOfDayGroup">
+          <button class="seg-btn active" data-value="any">Any</button>
+          <button class="seg-btn" data-value="morning">AM</button>
+          <button class="seg-btn" data-value="afternoon">PM</button>
+        </div>
+      </div>
+
       <button id="searchBtn">Refresh</button>
     </div>
 
@@ -1348,6 +1607,14 @@
 
 <input type="hidden" id="playersInput" value="2" />
 <input type="hidden" id="holesInput" value="18" />
+<input type="hidden" id="timeOfDayInput" value="any" />
+
+<div class="main-layout">
+<aside class="desktop-sidebar" id="desktopSidebar">
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+  <div class="sidebar-stats" id="sidebarStats"></div>
+</aside>
+<div class="main-content">
 
 <div class="tab-strip">
   <div class="tab-strip-inner" id="tabStrip"></div>
@@ -1369,6 +1636,16 @@
   <div class="progress-inner">
     <div class="progress-label" id="progressLabel">Fetching...</div>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+</div>
+
+<div class="plan-round-banner" id="planRoundBanner">
+  <div class="plan-round-inner">
+    <div>
+      <div class="plan-round-title">Plan a Round</div>
+      <div class="plan-round-sub">Get course suggestions based on your preferences</div>
+    </div>
+    <button class="plan-round-btn" onclick="openPlanRound()">Start →</button>
   </div>
 </div>
 
@@ -1394,6 +1671,9 @@
 </div>
 
 <div id="results"></div>
+
+</div><!-- .main-content -->
+</div><!-- .main-layout -->
 
 <!-- ── Auth modal ─────────────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="authModal">
@@ -2223,6 +2503,21 @@
       btn.addEventListener('click', () => switchTab(tab.id));
       strip.appendChild(btn);
     });
+    buildSidebarNav();
+  }
+
+  function buildSidebarNav() {
+    const nav = document.getElementById('sidebarNav');
+    if (!nav) return;
+    nav.innerHTML = '';
+    REGION_TABS.forEach(tab => {
+      const link = document.createElement('button');
+      link.className = 'sidebar-link' + (tab.id === activeTab ? ' active' : '');
+      link.dataset.tab = tab.id;
+      link.textContent = tab.label;
+      link.addEventListener('click', () => switchTab(tab.id));
+      nav.appendChild(link);
+    });
   }
 
   function switchTab(tabId) {
@@ -2231,6 +2526,9 @@
     activeTab = tabId;
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    document.querySelectorAll('.sidebar-link').forEach(link => {
+      link.classList.toggle('active', link.dataset.tab === tabId);
     });
     posthog.capture('region_tab_switched', {
       from_tab: fromTab,
@@ -2428,6 +2726,40 @@
 
   initSegment('playersGroup', 'playersInput');
   initSegment('holesGroup',   'holesInput');
+
+  // Time-of-day uses client-side filtering only (no cache clear needed)
+  (function initTimeOfDay() {
+    const group = document.getElementById('timeOfDayGroup');
+    const input = document.getElementById('timeOfDayInput');
+    group.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        input.value = btn.dataset.value;
+        // Re-render from cache without re-fetching
+        const tabCourses = getCoursesForTab(activeTab);
+        const date = document.getElementById('dateInput').value;
+        const players = document.getElementById('playersInput').value;
+        const holes = document.getElementById('holesInput').value;
+        if (date) renderFromCache(tabCourses, date, holes, players);
+      });
+    });
+  })();
+
+  // ── Plan a Round placeholder ──
+  function openPlanRound() {
+    console.log('Plan a Round clicked — feature coming soon');
+    showToast('Plan a Round coming soon!');
+  }
+
+  // ── Course search filter ──
+  document.getElementById('courseSearch').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase().trim();
+    document.querySelectorAll('.course-card').forEach(card => {
+      const name = (card.dataset.courseName || '').toLowerCase();
+      card.style.display = name.includes(q) ? '' : 'none';
+    });
+  });
 
   // ── Load courses ──
   fetch('./courses.json')
@@ -2871,6 +3203,19 @@
       let times = normalizeTimes(r.course, r.data, holes);
       times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
       times = times.filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
+      // Time-of-day filter
+      const tod = document.getElementById('timeOfDayInput').value;
+      if (tod === 'morning') {
+        times = times.filter(t => {
+          const m = t.rawTime.match(/^(\d{1,2}):/);
+          return m ? parseInt(m[1], 10) < 12 : true;
+        });
+      } else if (tod === 'afternoon') {
+        times = times.filter(t => {
+          const m = t.rawTime.match(/^(\d{1,2}):/);
+          return m ? parseInt(m[1], 10) >= 12 : true;
+        });
+      }
       if (date === todayStr) {
         const now = new Date();
         const nowMinutes = now.getHours() * 60 + now.getMinutes();
