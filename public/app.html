@@ -550,9 +550,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #fff;
-      border: 1px solid #d1e8d3;
-      border-left: 3px solid #2D7A3A;
+      background: #fff !important;
+      border: 1px solid #d1e8d3 !important;
+      border-left: 3px solid #2D7A3A !important;
+      color: #1a1a1a !important;
       border-radius: 8px;
       padding: 10px 8px;
       height: 58px;
@@ -572,17 +573,17 @@
     .time-pill:hover .t-time  { color: #fff; }
     .time-pill:hover .t-price { color: rgba(255,255,255,0.75); }
     .time-pill .t-time {
-      font-size: 13.5px;
-      font-weight: 600;
-      color: #1a1a1a;
+      font-size: 13.5px !important;
+      font-weight: 600 !important;
+      color: #1a1a1a !important;
       letter-spacing: -0.01em;
       line-height: 1.2;
       text-align: center;
     }
     .time-pill .t-price {
-      font-size: 11px;
+      font-size: 11px !important;
       font-weight: 400;
-      color: #2D7A3A;
+      color: #2D7A3A !important;
       line-height: 1.2;
       text-align: center;
     }
@@ -597,9 +598,9 @@
       display: block;
     }
     .time-pill.pill-hot {
-      background: #fff8f0;
-      border-color: #fdd5a8;
-      border-left-color: #e07c2a;
+      background: #fff8f0 !important;
+      border-color: #fdd5a8 !important;
+      border-left-color: #e07c2a !important;
     }
     .time-pill.pill-hot:hover {
       background: #e07c2a;
@@ -758,8 +759,8 @@
     }
 
     .card-from-price {
-      font-size: 0.8rem;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 500;
       color: var(--brand-dark);
     }
 
@@ -854,6 +855,27 @@
     .compact-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* ─────────────────────────────
+       Responsive — Mobile
+    ───────────────────────────── */
+    @media (max-width: 679px) {
+      .search-filters-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 6px;
+        padding-bottom: 2px;
+        justify-content: flex-start;
+      }
+      .search-filters-row::-webkit-scrollbar { display: none; }
+      .seg-group { flex-direction: row; gap: 5px; align-items: center; }
+      .seg-label { display: none; }
+      .seg-btn { min-height: 36px; padding: 0 10px; font-size: 12px; }
+      #searchBtn { min-height: 36px; padding: 0 14px; font-size: 13px; flex-shrink: 0; }
+    }
+
+    /* ─────────────────────────────
        Responsive — Desktop
     ───────────────────────────── */
     @media (min-width: 680px) {
@@ -895,6 +917,18 @@
       }
 
       #results { padding: 24px 20px 64px; }
+
+      .cd-panel {
+        max-width: 620px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%) translateY(100%);
+        border-radius: 20px;
+        bottom: 20px;
+      }
+      .cd-panel.open {
+        transform: translateX(-50%) translateY(0);
+      }
     }
     /* ─────────────────────────────
        Course Detail Panel
