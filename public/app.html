@@ -775,13 +775,12 @@
     ───────────────────────────── */
     .compact-bar {
       position: sticky;
-      top: 46px; /* sits just below tab strip */
+      top: 42px; /* sits just below tab strip */
       z-index: 9;
       background: var(--bg);
       border-bottom: 1px solid var(--border);
       overflow: hidden;
       max-height: 0;
-      transition: max-height 0.22s ease;
     }
 
     .compact-bar.visible { max-height: 48px; }
@@ -964,6 +963,7 @@
       }
 
       #results { padding: 24px 20px 64px; }
+      .plan-round-banner { margin-left: 20px; margin-right: 20px; }
 
       .cd-panel {
         max-width: 620px;
@@ -1436,7 +1436,7 @@
       background-position: center;
       border-radius: var(--radius-lg);
       padding: 20px;
-      margin: 0 0 16px;
+      margin: 0 16px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1595,6 +1595,7 @@
       }
 
       .tab-strip { display: none; }
+      .compact-bar { display: none; }
 
       #results {
         display: grid;
