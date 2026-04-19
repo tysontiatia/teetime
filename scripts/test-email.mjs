@@ -33,7 +33,7 @@ const html = `<!DOCTYPE html>
 const res = await fetch('https://api.resend.com/emails', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer re_RgXzwT2Y_C4K7BwZJsDGmeJ2kMkgQASvC',
+    'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
