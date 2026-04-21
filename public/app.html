@@ -1484,6 +1484,115 @@
     .plan-round-cta:hover { background: var(--brand-light); }
 
     /* ─────────────────────────────
+       Plan a Round — pill wrap, tray, modal
+    ───────────────────────────── */
+    .pill-wrap {
+      position: relative;
+      display: flex;
+    }
+    .pill-wrap .time-pill {
+      flex: 1;
+      border-radius: 8px 0 0 8px !important;
+    }
+    .pill-add {
+      width: 28px;
+      flex-shrink: 0;
+      background: var(--bg-subtle);
+      border: 1px solid #d1e8d3;
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      color: var(--brand);
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, color 0.12s;
+      padding: 0;
+    }
+    .pill-add:hover { background: var(--brand); color: #fff; }
+    .pill-add.added {
+      background: var(--brand);
+      color: #fff;
+      font-size: 13px;
+    }
+
+    .round-tray {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--brand-bg);
+      color: #fff;
+      border-radius: 32px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+      z-index: 200;
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+      white-space: nowrap;
+    }
+    .round-tray.visible { transform: translateX(-50%) translateY(0); }
+    .round-tray-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+    .round-tray-share {
+      background: #fff;
+      color: var(--brand-bg);
+      border: none;
+      border-radius: 20px;
+      padding: 7px 16px;
+      font-size: 0.83rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .round-tray-share:hover { background: var(--brand-light); }
+    .round-tray-clear {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.6);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 2px 4px;
+      line-height: 1;
+    }
+    .round-tray-clear:hover { color: #fff; }
+
+    .round-modal-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .round-modal-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 0.83rem;
+    }
+    .round-modal-item-info { flex: 1; }
+    .round-modal-item-course { font-weight: 600; color: var(--fg); }
+    .round-modal-item-meta { color: var(--fg-muted); margin-top: 1px; }
+    .round-modal-item-remove {
+      background: none; border: none;
+      color: var(--fg-subtle); cursor: pointer;
+      font-size: 1rem; padding: 2px 4px;
+    }
+    .round-modal-item-remove:hover { color: var(--red); }
+
+    /* ─────────────────────────────
        Header Nav
     ───────────────────────────── */
     .header-nav {
@@ -1896,6 +2005,33 @@
   </div>
 </div>
 
+<!-- ── Round tray ──────────────────────────────────────────────────────── -->
+<div class="round-tray" id="roundTray">
+  <span class="round-tray-label" id="roundTrayLabel">0 times selected</span>
+  <button class="round-tray-share" onclick="openRoundModal()">Share Round →</button>
+  <button class="round-tray-clear" onclick="clearRoundDraft()" title="Clear">&#x2715;</button>
+</div>
+
+<!-- ── Create round modal ─────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="roundModal">
+  <div class="modal-box" style="position:relative;max-width:420px">
+    <button class="modal-close" id="roundModalClose">&#x2715;</button>
+    <div class="modal-title">Share Round</div>
+    <div class="modal-sub">Share a live link so your group can vote on times.</div>
+
+    <div class="round-modal-list" id="roundModalList"></div>
+
+    <div class="auth-field" style="margin-bottom:16px">
+      <label for="roundTitleInput">Round name <span style="color:var(--fg-subtle);font-weight:400">(optional)</span></label>
+      <input type="text" id="roundTitleInput" placeholder="e.g. Saturday round" maxlength="60"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:0.9rem;font-family:var(--font);color:var(--fg);background:var(--bg);box-sizing:border-box;" />
+    </div>
+
+    <button class="auth-submit" id="roundCreateBtn" onclick="createRound()">Create &amp; Copy Link</button>
+    <div id="roundCreateError" class="auth-error"></div>
+  </div>
+</div>
+
 <!-- ── Notification prefs modal ───────────────────────────────────────── -->
 <div class="modal-backdrop" id="notifModal">
   <div class="modal-box" style="position:relative">
@@ -1904,7 +2040,14 @@
     <div class="modal-sub">We'll notify you as soon as matching tee times are released.</div>
     <div class="auth-error" id="notifError"></div>
 
-    <div class="auth-field">
+    <!-- Mode toggle -->
+    <div class="seg-buttons" id="notifModeToggle" style="margin-bottom:16px;">
+      <button class="seg-btn active" data-mode="specific">Specific date</button>
+      <button class="seg-btn" data-mode="upcoming">Any upcoming</button>
+    </div>
+
+    <!-- Specific date picker -->
+    <div class="auth-field" id="notifDateSection">
       <label>Date you want to play</label>
       <div class="date-display-wrap" style="position:relative">
         <span id="notifDateDisplay" class="notif-date-display"></span>
@@ -1918,6 +2061,16 @@
           <div class="cal-grid" id="notifCalGrid"></div>
         </div>
       </div>
+    </div>
+
+    <!-- Any upcoming: look-ahead window -->
+    <div class="auth-field" id="notifLookAheadSection" style="display:none">
+      <label>Alert window</label>
+      <select id="notifLookAhead">
+        <option value="7">Next 7 days</option>
+        <option value="14" selected>Next 14 days</option>
+        <option value="30">Next 30 days</option>
+      </select>
     </div>
 
     <div class="auth-field">
@@ -2211,10 +2364,18 @@
 
     const existing = notifPrefs.find(p => p.course_id === courseId);
 
+    // Mode: specific date or any upcoming (target_date is null)
+    const isUpcoming = existing ? !existing.target_date : false;
+    document.querySelectorAll('#notifModeToggle .seg-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === (isUpcoming ? 'upcoming' : 'specific'));
+    });
+    document.getElementById('notifDateSection').style.display = isUpcoming ? 'none' : '';
+    document.getElementById('notifLookAheadSection').style.display = isUpcoming ? '' : 'none';
+    document.getElementById('notifLookAhead').value = String(existing?.look_ahead_days || 14);
+
     // Target date — default to current search date
     const defaultDate = document.getElementById('dateInput').value || todayStr;
     document.getElementById('notifTargetDate').value = existing?.target_date || defaultDate;
-    // Set min to today
     document.getElementById('notifTargetDate').min = todayStr;
     updateNotifDateDisplay();
     notifCalViewDate = new Date((existing?.target_date || defaultDate) + 'T00:00:00');
@@ -2249,12 +2410,20 @@
 
   async function saveNotifPref() {
     const errEl = document.getElementById('notifError');
-    const targetDate = document.getElementById('notifTargetDate').value;
-    if (!targetDate) {
-      errEl.textContent = 'Please select a date.'; errEl.classList.add('shown'); return;
-    }
-    if (targetDate < todayStr) {
-      errEl.textContent = 'Date must be today or later.'; errEl.classList.add('shown'); return;
+    const isUpcoming = document.querySelector('#notifModeToggle .seg-btn.active')?.dataset.mode === 'upcoming';
+    let targetDate = null;
+    let look_ahead_days = null;
+
+    if (isUpcoming) {
+      look_ahead_days = parseInt(document.getElementById('notifLookAhead').value) || 14;
+    } else {
+      targetDate = document.getElementById('notifTargetDate').value || null;
+      if (!targetDate) {
+        errEl.textContent = 'Please select a date.'; errEl.classList.add('shown'); return;
+      }
+      if (targetDate < todayStr) {
+        errEl.textContent = 'Date must be today or later.'; errEl.classList.add('shown'); return;
+      }
     }
     errEl.classList.remove('shown');
     const earliest = document.getElementById('notifEarliest').value;
@@ -2269,13 +2438,18 @@
     let error;
     if (existing) {
       ({ error } = await sb.from('notification_preferences')
-        .update({ target_date: targetDate, players, earliest_time: earliest, latest_time: latest, min_spots: players })
+        .update({
+          target_date: targetDate,
+          look_ahead_days,
+          players, earliest_time: earliest, latest_time: latest, min_spots: players
+        })
         .eq('id', existing.id));
     } else {
       ({ error } = await sb.from('notification_preferences').insert({
         user_id: authUser.id, course_id: currentNotifCourseId,
-        target_date: targetDate, players, earliest_time: earliest, latest_time: latest,
-        min_spots: players, days_of_week: [], active: true,
+        target_date: targetDate, look_ahead_days,
+        players, earliest_time: earliest, latest_time: latest,
+        min_spots: players, active: true,
       }));
     }
 
@@ -2284,15 +2458,18 @@
 
     await loadNotifPrefs();
     const savedCourseId = currentNotifCourseId;
-    const savedDate = targetDate;
     closeNotifModal();
     document.querySelectorAll(`.bell-btn[data-course="${CSS.escape(savedCourseId)}"]`)
       .forEach(b => b.classList.add('active'));
 
     // Show confirmation toast
-    const dateLabel = new Date(savedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const email = authUser?.email || 'your email';
-    showToast(`Alert saved! We'll email ${email} when tee times open for ${dateLabel}.`);
+    if (isUpcoming) {
+      showToast(`Alert saved! We'll email ${email} when new times open at this course in the next ${look_ahead_days} days.`);
+    } else {
+      const dateLabel = new Date(targetDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      showToast(`Alert saved! We'll email ${email} when tee times open for ${dateLabel}.`);
+    }
   }
 
   async function deleteNotifPref() {
@@ -2315,6 +2492,17 @@
   });
   document.getElementById('notifSaveBtn').addEventListener('click', saveNotifPref);
   document.getElementById('notifDeleteBtn').addEventListener('click', deleteNotifPref);
+
+  // Mode toggle
+  document.querySelectorAll('#notifModeToggle .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#notifModeToggle .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const isUpcoming = btn.dataset.mode === 'upcoming';
+      document.getElementById('notifDateSection').style.display = isUpcoming ? 'none' : '';
+      document.getElementById('notifLookAheadSection').style.display = isUpcoming ? '' : 'none';
+    });
+  });
 
   // Populate time selects with 30-min increments in 12h format
   (function populateTimeSelects() {
@@ -2496,7 +2684,7 @@
       for (const pref of notifPrefs) {
         const dateStr = pref.target_date
           ? new Date(pref.target_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-          : 'Any day';
+          : `Next ${pref.look_ahead_days || 14} days`;
         const item = document.createElement('div');
         item.className = 'alert-item';
         item.innerHTML = `
@@ -2886,11 +3074,138 @@
     });
   })();
 
-  // ── Plan a Round placeholder ──
-  function openPlanRound() {
-    console.log('Plan a Round clicked — feature coming soon');
-    showToast('Plan a Round coming soon!');
+  // ── Plan a Round ─────────────────────────────────────────────────────
+  let roundDraft = [];
+
+  function addToRoundDraft(item) {
+    if (!roundDraft.some(x => x.key === item.key)) {
+      roundDraft.push(item);
+      updateRoundTray();
+    }
   }
+
+  function removeFromRoundDraft(key) {
+    roundDraft = roundDraft.filter(x => x.key !== key);
+    updateRoundTray();
+  }
+
+  function clearRoundDraft() {
+    roundDraft = [];
+    updateRoundTray();
+    // reset any added buttons
+    document.querySelectorAll('.pill-add.added').forEach(btn => {
+      btn.className = 'pill-add';
+      btn.textContent = '+';
+      btn.title = 'Add to round';
+    });
+  }
+
+  function updateRoundTray() {
+    const tray = document.getElementById('roundTray');
+    const label = document.getElementById('roundTrayLabel');
+    const n = roundDraft.length;
+    label.textContent = `${n} time${n !== 1 ? 's' : ''} selected`;
+    tray.classList.toggle('visible', n > 0);
+  }
+
+  function openPlanRound() {
+    if (roundDraft.length === 0) {
+      showToast('Tap the + on any tee time to add it to your round.');
+      return;
+    }
+    openRoundModal();
+  }
+
+  function openRoundModal() {
+    const list = document.getElementById('roundModalList');
+    list.innerHTML = '';
+    roundDraft.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'round-modal-item';
+      row.innerHTML = `
+        <div class="round-modal-item-info">
+          <div class="round-modal-item-course">${item.courseName}</div>
+          <div class="round-modal-item-meta">${formatDateLabel(item.date)} · ${item.timeDisplay}${item.price ? ' · ' + item.price : ''} · ${item.holes}h · ${item.players}p</div>
+        </div>
+        <button class="round-modal-item-remove" title="Remove">&#x2715;</button>
+      `;
+      row.querySelector('.round-modal-item-remove').addEventListener('click', () => {
+        removeFromRoundDraft(item.key);
+        // sync add button state
+        document.querySelectorAll('.pill-add.added').forEach(btn => {
+          if (btn.closest('.pill-wrap') && btn.title === 'Remove from round') {
+            // re-check based on current draft
+          }
+        });
+        openRoundModal(); // re-render
+      });
+      list.appendChild(row);
+    });
+    document.getElementById('roundCreateError').textContent = '';
+    document.getElementById('roundCreateBtn').textContent = 'Create & Copy Link';
+    document.getElementById('roundModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeRoundModal() {
+    document.getElementById('roundModal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  async function createRound() {
+    if (roundDraft.length === 0) return;
+    const btn = document.getElementById('roundCreateBtn');
+    const errEl = document.getElementById('roundCreateError');
+    errEl.textContent = '';
+    btn.textContent = 'Creating…';
+    btn.disabled = true;
+
+    const title = document.getElementById('roundTitleInput').value.trim() || 'Golf Round';
+    const organizer_id = authUser ? authUser.id : null;
+
+    try {
+      const { data: round, error: rErr } = await sb
+        .from('rounds')
+        .insert({ title, organizer_id })
+        .select('id')
+        .single();
+      if (rErr) throw rErr;
+
+      const options = roundDraft.map(item => ({
+        round_id:     round.id,
+        course_name:  item.courseName,
+        date:         item.date,
+        time_display: item.timeDisplay,
+        holes:        parseInt(item.holes, 10),
+        players:      parseInt(item.players, 10),
+        price:        item.price || null,
+        booking_url:  item.bookingUrl || null,
+      }));
+      const { error: oErr } = await sb.from('round_options').insert(options);
+      if (oErr) throw oErr;
+
+      const link = `${location.origin}/round.html?id=${round.id}`;
+      await navigator.clipboard.writeText(link);
+      closeRoundModal();
+      showToast('Link copied! Share it with your group.');
+      posthog.capture('round_created', { option_count: options.length });
+    } catch (e) {
+      errEl.textContent = 'Something went wrong. Please try again.';
+      btn.textContent = 'Create & Copy Link';
+      btn.disabled = false;
+    }
+  }
+
+  function formatDateLabel(dateStr) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  document.getElementById('roundModalClose').addEventListener('click', closeRoundModal);
+  document.getElementById('roundModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('roundModal')) closeRoundModal();
+  });
 
   // ── Course search filter ──
   document.getElementById('courseSearch').addEventListener('input', e => {
@@ -3061,7 +3376,7 @@
   }
 
   // ── DOM builders ──
-  function buildTimePill(t, bookingUrl, courseName) {
+  function buildTimePill(t, bookingUrl, courseName, date, holes, players) {
     const a = document.createElement('a');
     a.href = bookingUrl;
     a.target = '_blank';
@@ -3091,7 +3406,34 @@
     if (t.spots != null && t.spots <= 2) a.appendChild(spotsEl);
     a.appendChild(timeEl);
     if (t.price) a.appendChild(priceEl);
-    return a;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'pill-wrap';
+    wrap.appendChild(a);
+
+    const addBtn = document.createElement('button');
+    const draftKey = `${courseName}|${date}|${t.display}`;
+    const alreadyAdded = roundDraft.some(x => x.key === draftKey);
+    addBtn.className = 'pill-add' + (alreadyAdded ? ' added' : '');
+    addBtn.title = alreadyAdded ? 'Remove from round' : 'Add to round';
+    addBtn.textContent = alreadyAdded ? '✓' : '+';
+    addBtn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (roundDraft.some(x => x.key === draftKey)) {
+        removeFromRoundDraft(draftKey);
+        addBtn.className = 'pill-add';
+        addBtn.textContent = '+';
+        addBtn.title = 'Add to round';
+      } else {
+        addToRoundDraft({ key: draftKey, courseName, date, timeDisplay: t.display, holes, players, price: t.price || null, bookingUrl });
+        addBtn.className = 'pill-add added';
+        addBtn.textContent = '✓';
+        addBtn.title = 'Remove from round';
+      }
+    });
+    wrap.appendChild(addBtn);
+    return wrap;
   }
 
   function buildCourseCard(course, times, error, isUnavailable, distanceMi, date, holes, players) {
@@ -3235,7 +3577,7 @@
       row.className = 'times-row';
       const displayTimes = times.slice(0, 8);
       const remaining = times.length - 8;
-      for (const t of displayTimes) row.appendChild(buildTimePill(t, bookingUrl, course.name));
+      for (const t of displayTimes) row.appendChild(buildTimePill(t, bookingUrl, course.name, date, holes, players));
       if (remaining > 0) {
         const morePill = document.createElement('div');
         morePill.className = 'time-pill';

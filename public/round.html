@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Golf Round — Tee-Time.io</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <style>
+    :root {
+      --brand:         #2D7A3A;
+      --brand-dark:    #3A9047;
+      --brand-darker:  #1A2E1A;
+      --brand-bg:      #1A2E1A;
+      --brand-light:   #EDF7ED;
+      --fg:            #111410;
+      --fg-muted:      #637063;
+      --fg-subtle:     #8a9a8a;
+      --bg:            #ffffff;
+      --bg-subtle:     #F2F5F2;
+      --border:        rgba(26,46,26,0.1);
+      --border-strong: rgba(26,46,26,0.2);
+      --red:           #dc2626;
+      --radius-sm:     8px;
+      --radius:        12px;
+      --radius-lg:     16px;
+      --font:          'DM Sans', system-ui, sans-serif;
+      --font-display:  'DM Serif Display', Georgia, serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-subtle);
+      color: var(--fg);
+      min-height: 100dvh;
+    }
+
+    .page-header {
+      background: var(--brand-bg);
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .page-header a {
+      color: rgba(255,255,255,0.7);
+      text-decoration: none;
+      font-size: 0.82rem;
+    }
+    .page-header a:hover { color: #fff; }
+    .page-logo {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .container {
+      max-width: 540px;
+      margin: 0 auto;
+      padding: 24px 16px 80px;
+    }
+
+    .round-title {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 400;
+      color: var(--fg);
+      margin-bottom: 4px;
+    }
+    .round-meta {
+      font-size: 0.82rem;
+      color: var(--fg-muted);
+      margin-bottom: 24px;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--fg-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    .option-card {
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .option-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .option-course {
+      font-weight: 600;
+      font-size: 0.97rem;
+      color: var(--fg);
+      line-height: 1.3;
+    }
+    .option-details {
+      font-size: 0.82rem;
+      color: var(--fg-muted);
+      margin-top: 2px;
+    }
+    .option-book {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--brand);
+      text-decoration: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding: 5px 10px;
+      border: 1px solid var(--brand);
+      border-radius: 6px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .option-book:hover { background: var(--brand); color: #fff; }
+
+    .option-ins {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 24px;
+      margin-bottom: 10px;
+    }
+    .in-chip {
+      background: var(--brand-light);
+      color: var(--brand);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+    .no-rsvps {
+      font-size: 0.8rem;
+      color: var(--fg-subtle);
+      font-style: italic;
+    }
+
+    .vote-row {
+      display: flex;
+      gap: 8px;
+    }
+    .vote-btn {
+      flex: 1;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border-strong);
+      background: var(--bg);
+      font-family: var(--font);
+      font-size: 0.83rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--fg-muted);
+    }
+    .vote-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .vote-btn.selected-in {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    .vote-btn.selected-out {
+      background: var(--fg-subtle);
+      border-color: var(--fg-subtle);
+      color: #fff;
+    }
+
+    .rsvp-section {
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      padding: 20px;
+      margin-top: 8px;
+    }
+    .rsvp-section h2 {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 400;
+      margin-bottom: 6px;
+    }
+    .rsvp-section p {
+      font-size: 0.83rem;
+      color: var(--fg-muted);
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+    .rsvp-name-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .rsvp-name-input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      color: var(--fg);
+      background: var(--bg);
+    }
+    .rsvp-name-input:focus { outline: none; border-color: var(--brand); }
+
+    .rsvp-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .rsvp-option-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .rsvp-option-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--fg);
+      flex: 1;
+      min-width: 140px;
+    }
+    .rsvp-option-label span {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 400;
+      color: var(--fg-muted);
+      margin-top: 1px;
+    }
+    .rsvp-vote-pair {
+      display: flex;
+      gap: 6px;
+    }
+    .rsvp-vote-pair .vote-btn { flex: none; padding: 7px 14px; }
+
+    .rsvp-submit {
+      width: 100%;
+      padding: 12px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .rsvp-submit:hover { background: var(--brand-dark); }
+    .rsvp-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .rsvp-error {
+      font-size: 0.82rem;
+      color: var(--red);
+      margin-top: 10px;
+      min-height: 18px;
+    }
+    .rsvp-success {
+      font-size: 0.85rem;
+      color: var(--brand);
+      margin-top: 10px;
+      font-weight: 500;
+    }
+
+    .loading { text-align: center; padding: 60px 20px; color: var(--fg-muted); font-size: 0.9rem; }
+    .error-state { text-align: center; padding: 60px 20px; }
+    .error-state h2 { font-family: var(--font-display); font-size: 1.3rem; margin-bottom: 8px; }
+    .error-state p { color: var(--fg-muted); font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <a class="page-logo" href="/app.html">Tee-Time.io</a>
+  <span style="color:rgba(255,255,255,0.3);font-size:0.8rem">/</span>
+  <a href="/app.html">Search tee times</a>
+</header>
+
+<div class="container" id="app">
+  <div class="loading">Loading round…</div>
+</div>
+
+<script>
+  const SUPABASE_URL  = 'https://nmwlebcvezybfwertlzs.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  const app = document.getElementById('app');
+  const params = new URLSearchParams(location.search);
+  const roundId = params.get('id');
+
+  // votes[optionId] = 'in' | 'out' | null
+  const votes = {};
+  let options = [];
+
+  function fmtDate(str) {
+    if (!str) return '';
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  function fmtCreated(str) {
+    if (!str) return '';
+    return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function renderInsFor(optionId, rsvps) {
+    const ins = rsvps.filter(r => r.option_id === optionId && r.status === 'in');
+    const el = document.getElementById(`ins-${optionId}`);
+    if (!el) return;
+    if (ins.length === 0) {
+      el.innerHTML = '<span class="no-rsvps">No one in yet</span>';
+    } else {
+      el.innerHTML = ins.map(r => `<span class="in-chip">${r.participant_name}</span>`).join('');
+    }
+  }
+
+  async function loadRound() {
+    if (!roundId) {
+      app.innerHTML = `<div class="error-state"><h2>Round not found</h2><p>This link doesn't look right.</p></div>`;
+      return;
+    }
+
+    const [{ data: round, error: rErr }, { data: opts, error: oErr }, { data: rsvps, error: vErr }] = await Promise.all([
+      sb.from('rounds').select('*').eq('id', roundId).single(),
+      sb.from('round_options').select('*').eq('round_id', roundId).order('created_at'),
+      sb.from('round_rsvps').select('*').eq('round_id', roundId),
+    ]);
+
+    if (rErr || !round) {
+      app.innerHTML = `<div class="error-state"><h2>Round not found</h2><p>This round may have expired or the link is incorrect.</p></div>`;
+      return;
+    }
+
+    options = opts || [];
+    renderPage(round, options, rsvps || []);
+  }
+
+  function renderPage(round, opts, rsvps) {
+    let html = `
+      <div class="round-title">${escHtml(round.title)}</div>
+      <div class="round-meta">Created ${fmtCreated(round.created_at)} · ${opts.length} option${opts.length !== 1 ? 's' : ''}</div>
+      <div class="section-label">Proposed Times</div>
+    `;
+
+    opts.forEach(opt => {
+      const ins = rsvps.filter(r => r.option_id === opt.id && r.status === 'in');
+      const insChips = ins.length
+        ? ins.map(r => `<span class="in-chip">${escHtml(r.participant_name)}</span>`).join('')
+        : '<span class="no-rsvps">No one in yet</span>';
+
+      html += `
+        <div class="option-card" id="card-${opt.id}">
+          <div class="option-header">
+            <div>
+              <div class="option-course">${escHtml(opt.course_name)}</div>
+              <div class="option-details">${fmtDate(opt.date)} · ${escHtml(opt.time_display)} · ${opt.holes}h · ${opt.players}p${opt.price ? ' · ' + escHtml(opt.price) : ''}</div>
+            </div>
+            ${opt.booking_url ? `<a class="option-book" href="${escHtml(opt.booking_url)}" target="_blank" rel="noopener">Book →</a>` : ''}
+          </div>
+          <div class="option-ins" id="ins-${opt.id}">${insChips}</div>
+        </div>
+      `;
+    });
+
+    html += `
+      <div class="rsvp-section" id="rsvpSection">
+        <h2>Are you in?</h2>
+        <p>Enter your name and mark which times work for you.</p>
+        <div class="rsvp-name-row">
+          <input class="rsvp-name-input" id="rsvpName" type="text" placeholder="Your name" maxlength="50" autocomplete="nickname" />
+        </div>
+        <div class="rsvp-options" id="rsvpOptions">
+    `;
+
+    opts.forEach(opt => {
+      html += `
+        <div class="rsvp-option-row" id="rsvp-row-${opt.id}">
+          <div class="rsvp-option-label">
+            ${escHtml(opt.course_name)}
+            <span>${fmtDate(opt.date)} · ${escHtml(opt.time_display)}</span>
+          </div>
+          <div class="rsvp-vote-pair">
+            <button class="vote-btn" data-option="${opt.id}" data-status="in" onclick="toggleVote('${opt.id}','in',this)">I'm in</button>
+            <button class="vote-btn" data-option="${opt.id}" data-status="out" onclick="toggleVote('${opt.id}','out',this)">Can't make it</button>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+        <button class="rsvp-submit" id="rsvpSubmit" onclick="submitRsvp()">Submit RSVP</button>
+        <div class="rsvp-error" id="rsvpError"></div>
+      </div>
+    `;
+
+    app.innerHTML = html;
+  }
+
+  function toggleVote(optionId, status, btn) {
+    const pair = btn.closest('.rsvp-vote-pair');
+    pair.querySelectorAll('.vote-btn').forEach(b => {
+      b.className = 'vote-btn';
+    });
+    if (votes[optionId] === status) {
+      delete votes[optionId];
+    } else {
+      votes[optionId] = status;
+      btn.className = `vote-btn selected-${status}`;
+    }
+  }
+
+  async function submitRsvp() {
+    const name = document.getElementById('rsvpName').value.trim();
+    const errEl = document.getElementById('rsvpError');
+    const submitBtn = document.getElementById('rsvpSubmit');
+    errEl.textContent = '';
+
+    if (!name) { errEl.textContent = 'Please enter your name.'; return; }
+    if (Object.keys(votes).length === 0) { errEl.textContent = 'Please vote on at least one time.'; return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+
+    const rows = Object.entries(votes).map(([option_id, status]) => ({
+      round_id: roundId,
+      option_id,
+      participant_name: name,
+      status,
+    }));
+
+    const { error } = await sb.from('round_rsvps').insert(rows);
+    if (error) {
+      errEl.textContent = 'Something went wrong. Please try again.';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit RSVP';
+      return;
+    }
+
+    // Refresh RSVP chips
+    const { data: fresh } = await sb.from('round_rsvps').select('*').eq('round_id', roundId);
+    if (fresh) options.forEach(opt => renderInsFor(opt.id, fresh));
+
+    document.getElementById('rsvpSection').innerHTML = `
+      <h2>You're in!</h2>
+      <p style="color:var(--fg-muted);font-size:0.88rem;margin-top:6px">Thanks ${escHtml(name)}, your response has been saved. Share this page with anyone else who's joining.</p>
+    `;
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadRound();
+</script>
+</body>
+</html>
