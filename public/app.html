@@ -65,6 +65,7 @@
       color: var(--fg);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
     /* ─────────────────────────────
@@ -128,7 +129,7 @@
     }
 
     /* ─────────────────────────────
-       Search Panel
+       Search Panel & Unified Bar
     ───────────────────────────── */
     .search-panel {
       background: var(--bg);
@@ -136,65 +137,96 @@
       padding: 10px 16px 12px;
     }
 
-    .search-inner {
-      max-width: 960px;
+    /* ── Unified search bar ── */
+    .sbu {
+      max-width: 1216px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
 
-    .search-date-row {
+    /* Location row */
+    .sbu-location {
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-
-    .date-nav {
-      font-family: var(--font);
-      background: var(--bg);
       border: 1.5px solid var(--border-strong);
       border-radius: var(--radius-sm);
-      width: 44px;
-      height: 44px;
-      font-size: 1.1rem;
-      color: var(--fg-muted);
-      cursor: pointer;
+      padding: 0 12px;
+      background: var(--bg);
+    }
+    .sbu-location:focus-within {
+      border-color: var(--brand);
+    }
+    .sbu-location input {
+      flex: 1;
+      font-family: var(--font);
+      font-size: 0.88rem;
+      color: var(--fg);
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 10px 0;
+    }
+    .sbu-location input::placeholder { color: var(--fg-subtle); }
+    .sbu-icon { color: var(--fg-muted); flex-shrink: 0; }
+
+    /* Filters row */
+    .sbu-filters {
       display: flex;
       align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: border-color 0.12s, color 0.12s;
-      user-select: none;
+      gap: 6px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .sbu-filters::-webkit-scrollbar { display: none; }
 
-    .date-nav:hover {
-      border-color: var(--brand);
-      color: var(--brand-dark);
-    }
-
-    .date-display-wrap {
-      position: relative;
-      flex: 1;
-      min-width: 0;
-    }
-
-    #dateDisplay {
-      display: block;
-      font-family: var(--font);
-      font-size: 0.92rem;
-      font-weight: 600;
-      color: var(--fg);
-      padding: 9px 12px;
+    /* Each filter cell */
+    .sbu-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      height: 42px;
       border: 1.5px solid var(--border-strong);
       border-radius: var(--radius-sm);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
       background: var(--bg);
-      text-align: center;
-      pointer-events: none;
-      user-select: none;
+      transition: border-color 0.12s;
       white-space: nowrap;
+      user-select: none;
     }
+    .sbu-cell:hover { border-color: var(--brand); }
+    .sbu-cell.open  { border-color: var(--brand); }
 
+    .sbu-cell-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .sbu-cell-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--fg-muted);
+      line-height: 1;
+    }
+    .sbu-cell-val {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--fg);
+      line-height: 1.2;
+    }
+    .sbu-chevron { color: var(--fg-subtle); flex-shrink: 0; }
+
+    /* Date cell extras */
+    .sbu-date-cell { position: relative; }
     #dateInput {
       position: absolute;
       inset: 0;
@@ -203,14 +235,25 @@
       width: 100%;
       height: 100%;
     }
-
-    /* Hide native date input on desktop — use custom calendar */
     @media (min-width: 600px) {
       #dateInput { display: none; }
-      #dateDisplay { pointer-events: auto; cursor: pointer; }
+      .sbu-date-cell { cursor: pointer; }
     }
 
-    /* ─── Calendar dropdown ─── */
+    /* Date nav arrows */
+    .sbu-date-nav {
+      background: none;
+      border: none;
+      color: var(--fg-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+      transition: color 0.1s;
+    }
+    .sbu-date-nav:hover { color: var(--brand); }
+
+    /* Calendar dropdown */
     .cal-dropdown {
       position: absolute;
       top: calc(100% + 6px);
@@ -226,14 +269,11 @@
       display: none;
     }
     .cal-dropdown.open { display: block; }
-
     .cal-header {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 10px;
     }
-    .cal-header-title {
-      font-family: var(--font); font-size: 0.9rem; font-weight: 600; color: var(--fg);
-    }
+    .cal-header-title { font-family: var(--font); font-size: 0.9rem; font-weight: 600; color: var(--fg); }
     .cal-nav {
       background: none; border: 1px solid var(--border); border-radius: 6px;
       width: 30px; height: 30px; font-size: 1rem; cursor: pointer;
@@ -241,15 +281,8 @@
       color: var(--fg-muted); transition: border-color 0.12s;
     }
     .cal-nav:hover { border-color: var(--brand); color: var(--brand); }
-
-    .cal-grid {
-      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
-      text-align: center;
-    }
-    .cal-dow {
-      font-size: 0.68rem; font-weight: 600; color: var(--fg-subtle);
-      padding: 4px 0; text-transform: uppercase;
-    }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+    .cal-dow { font-size: 0.68rem; font-weight: 600; color: var(--fg-subtle); padding: 4px 0; text-transform: uppercase; }
     .cal-day {
       font-family: var(--font); font-size: 0.82rem;
       width: 36px; height: 36px; margin: 0 auto;
@@ -264,35 +297,23 @@
     .cal-day.outside { color: var(--fg-subtle); opacity: 0.4; }
     .cal-day.disabled { opacity: 0.25; pointer-events: none; }
 
-    .search-filters-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: nowrap;
-    }
-
-    .seg-group {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .seg-label {
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--fg-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
+    /* Popovers */
+    .sbu-popover {
       display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 200;
+      background: var(--bg);
+      border: 1.5px solid var(--border-strong);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      padding: 12px;
+      white-space: nowrap;
     }
+    .sbu-popover.open { display: block; }
 
-    .seg-buttons {
-      display: flex;
-      gap: 5px;
-      flex-wrap: nowrap;
-    }
-
+    .seg-buttons { display: flex; gap: 5px; flex-wrap: nowrap; }
     .seg-btn {
       font-family: var(--font);
       font-size: 13px;
@@ -301,23 +322,17 @@
       background: var(--bg);
       border: 1.5px solid var(--border-strong);
       border-radius: var(--radius-sm);
-      padding: 0 11px;
-      min-height: 38px;
+      padding: 0 14px;
+      min-height: 36px;
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.12s;
       line-height: 1;
     }
-
     .seg-btn:hover { border-color: var(--brand-dark); color: var(--brand-dark); }
+    .seg-btn.active { background: var(--brand-bg); border-color: var(--brand-bg); color: #fff; font-weight: 600; }
 
-    .seg-btn.active {
-      background: var(--brand-bg);
-      border-color: var(--brand-bg);
-      color: #fff;
-      font-weight: 600;
-    }
-
+    /* Search button */
     #searchBtn {
       font-family: var(--font);
       font-size: 0.88rem;
@@ -325,16 +340,14 @@
       color: #fff;
       background: var(--brand-dark);
       border: none;
-      padding: 0 20px;
-      height: 38px;
+      padding: 0 22px;
+      height: 42px;
       border-radius: var(--radius-sm);
       cursor: pointer;
       white-space: nowrap;
-      transition: background 0.15s, transform 0.1s;
-      align-self: flex-end;
       flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
     }
-
     #searchBtn:hover  { background: #3A9047; transform: translateY(-1px); }
     #searchBtn:active { transform: scale(0.97); }
     #searchBtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
@@ -344,7 +357,7 @@
     ───────────────────────────── */
     .tab-strip {
       background: var(--bg);
-      border-bottom: 2px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
       overflow-x: auto;
       overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
@@ -353,14 +366,17 @@
       position: sticky;
       top: 0;
       z-index: 10;
+      width: 100%;
     }
 
     .tab-strip::-webkit-scrollbar { display: none; }
 
     .tab-strip-inner {
       display: flex;
-      padding: 0 8px;
+      padding: 0 16px;
       min-width: max-content;
+      max-width: 1280px;
+      margin: 0 auto;
     }
 
     .tab-btn {
@@ -371,8 +387,8 @@
       background: none;
       border: none;
       border-bottom: 2.5px solid transparent;
-      margin-bottom: -2px;
-      padding: 13px 14px 11px;
+      margin-bottom: -1.5px;
+      padding: 13px 16px 11px;
       cursor: pointer;
       white-space: nowrap;
       transition: color 0.12s, border-color 0.12s;
@@ -431,9 +447,12 @@
     }
 
     .results-meta {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding-top: 4px;
       margin-bottom: 20px;
     }
 
@@ -633,6 +652,9 @@
       color: var(--fg-subtle);
       padding: 0 16px 14px;
       font-style: italic;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
     .course-error {
@@ -640,6 +662,9 @@
       color: var(--red);
       opacity: 0.7;
       padding: 0 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
     .notify-cta {
@@ -853,128 +878,159 @@
     .compact-refresh:active { transform: scale(0.96); }
     .compact-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* ─────────────────────────────
-       Responsive — Mobile
-    ───────────────────────────── */
+    /* Mobile: location first, search button full-width */
     @media (max-width: 679px) {
-      .search-inner {
+      .search-panel { padding: 10px 12px 12px; overflow: hidden; }
+
+      .sbu {
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
+        max-width: 100%;
+      }
+      .sbu-location {
+        order: -1;
+        flex: 1 1 100%;
+        width: 100%;
+      }
+      .sbu-sep-loc { display: none; }
+
+      .sbu-filters {
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
         gap: 6px;
+        overflow: visible;
       }
 
-      .search-date-row {
-        gap: 6px;
-      }
-
-      .date-nav {
-        width: 32px;
-        height: 34px;
-        font-size: 0.95rem;
-      }
-
-      #dateDisplay {
-        font-size: 0.82rem;
-        padding: 6px 8px;
-      }
-
-      .search-filters-row {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        gap: 5px;
-        padding-bottom: 2px;
-        justify-content: flex-start;
-        align-items: center;
-      }
-      .search-filters-row::-webkit-scrollbar { display: none; }
-
-      .seg-group {
-        flex-direction: row;
-        gap: 3px;
-        align-items: center;
-        flex-shrink: 0;
-      }
-
-      .seg-buttons {
-        flex-wrap: nowrap;
-        gap: 3px;
-      }
-
-      .seg-label { display: none; }
-
-      .seg-btn {
-        min-height: 34px;
-        height: 34px;
+      .sbu-cell {
+        height: 44px;
         padding: 0 10px;
-        font-size: 12px;
-        flex-shrink: 0;
+        flex: 1 1 0;
+        min-width: 0;
+        justify-content: center;
+        overflow: hidden;
+      }
+      /* Date cell gets more room; icon hidden to save space */
+      .sbu-date-cell {
+        flex: 1.7 1 0;
+      }
+      .sbu-date-cell .sbu-icon { display: none; }
+      .sbu-cell-label { font-size: 0.55rem; }
+      .sbu-cell-val   { font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      .sbu-date-nav { display: none; }
+
+      .sbu-popover {
+        position: fixed;
+        top: auto;
+        left: 12px;
+        right: 12px;
+        bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+        width: auto;
+        border-radius: 14px;
+        padding: 16px;
+        z-index: 500;
+        box-shadow: 0 -4px 32px rgba(0,0,0,0.15);
+      }
+      .sbu-popover .seg-buttons {
+        justify-content: center;
+        gap: 8px;
+      }
+      .sbu-popover .seg-btn {
+        flex: 1;
+        min-height: 44px;
+        font-size: 15px;
       }
 
       #searchBtn {
-        min-height: 34px;
-        height: 34px;
-        padding: 0 14px;
-        font-size: 12px;
-        flex-shrink: 0;
+        order: 99;
+        flex: 1 1 100%;
+        width: 100%;
+        height: 44px;
+        font-size: 15px;
+        border-radius: var(--radius-sm);
       }
     }
 
-    /* ─────────────────────────────
-       Responsive — Desktop
-    ───────────────────────────── */
+    /* Desktop: single pill bar */
     @media (min-width: 680px) {
       header { padding: 18px 48px 22px; }
       .brand-name    { font-size: 1.5rem; }
       .brand-tagline { display: block; }
-      .seg-label     { display: block; }
 
-      .search-panel { padding: 14px 20px; }
+      .search-panel { padding: 14px 32px; }
 
-      /* Single centered row on desktop */
-      .search-inner {
+      .sbu {
         flex-direction: row;
-        align-items: flex-end;
-        justify-content: center;
-        gap: 20px;
+        align-items: center;
+        gap: 0;
+        border: 1.5px solid var(--border-strong);
+        border-radius: 12px;
+        background: var(--bg);
+        overflow: visible;
       }
 
-      .search-date-row {
-        flex: 0 0 auto;
-        width: 260px;
+      .sbu-location {
+        flex: 1;
+        border: none;
+        border-radius: 0;
+        padding: 0 14px;
+        min-width: 180px;
+      }
+      .sbu-location:focus-within { border: none; }
+
+      .sbu-sep-loc {
+        width: 1px;
+        height: 24px;
+        background: var(--border);
+        flex-shrink: 0;
+        display: block;
       }
 
-      .date-nav { width: 36px; height: 38px; font-size: 1rem; }
-      #dateDisplay { padding: 8px 10px; font-size: 0.88rem; }
-
-      .search-filters-row {
-        flex: 0 0 auto;
-        justify-content: flex-start;
-        gap: 12px;
+      .sbu-filters {
+        gap: 0;
+        overflow: visible;
+        flex-shrink: 0;
       }
 
-      .seg-group { gap: 5px; }
-      .seg-btn { padding: 0 13px; }
+      .sbu-cell {
+        border: none;
+        border-radius: 0;
+        height: 52px;
+        padding: 0 16px;
+        border-left: 1px solid var(--border);
+      }
+      .sbu-cell:hover { background: var(--bg-subtle); border-color: var(--border); }
+      .sbu-cell.open  { background: var(--bg-subtle); border-color: var(--border); }
+
+      #searchBtn {
+        height: 50px;
+        width: auto;
+        border-radius: 0 10px 10px 0;
+        padding: 0 28px;
+        border-left: 1px solid rgba(255,255,255,0.2);
+        font-size: 0.92rem;
+      }
 
       .tab-strip-inner {
-        justify-content: center;
-        min-width: unset;
+        padding: 0 32px;
       }
 
-      #results { padding: 24px 20px 64px; }
-      .plan-round-banner { margin-left: 20px; margin-right: 20px; }
+      #results { padding: 28px 0 64px; }
+      .plan-round-banner { margin-left: 0; margin-right: 0; }
 
       .cd-panel {
-        max-width: 620px;
-        left: 50%;
-        right: auto;
-        transform: translateX(-50%) translateY(100%);
+        left: 0;
+        right: 0;
+        width: min(620px, calc(100% - 40px));
+        margin: 0 auto;
         border-radius: 20px;
         bottom: 20px;
+        transform: translateY(calc(100% + 20px));
       }
       .cd-panel.open {
-        transform: translateX(-50%) translateY(0);
+        transform: translateY(0);
       }
     }
     /* ─────────────────────────────
@@ -1385,7 +1441,7 @@
        Toast
     ───────────────────────────── */
     .toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+      position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%) translateY(80px);
       z-index: 500;
       background: #1A2E1A; color: #fff;
       font-family: var(--font); font-size: 0.88rem; font-weight: 500;
@@ -1404,10 +1460,18 @@
     /* ─────────────────────────────
        Search Bar
     ───────────────────────────── */
-    .search-bar {
+    .search-row {
       max-width: 960px;
       margin: 0 auto;
-      padding: 0 0 4px;
+    }
+
+    .search-bar {
+      padding: 0 0 6px;
+    }
+
+    @media (min-width: 600px) {
+      .search-bar input { max-width: 320px; }
+      .search-inner { gap: 14px; }
     }
 
     .search-bar input {
@@ -1490,10 +1554,14 @@
       position: relative;
       display: flex;
     }
-    .pill-wrap .time-pill {
-      flex: 1;
+    /* Default: pill takes full width and full border-radius */
+    .pill-wrap .time-pill { flex: 1; }
+
+    /* Planning mode: clip right side to make room for + button */
+    .planning-mode .pill-wrap .time-pill {
       border-radius: 8px 0 0 8px !important;
     }
+
     .pill-add {
       width: 28px;
       flex-shrink: 0;
@@ -1506,12 +1574,13 @@
       font-weight: 400;
       line-height: 1;
       cursor: pointer;
-      display: flex;
+      display: none; /* hidden until planning mode */
       align-items: center;
       justify-content: center;
       transition: background 0.12s, color 0.12s;
       padding: 0;
     }
+    .planning-mode .pill-add { display: flex; }
     .pill-add:hover { background: var(--brand); color: #fff; }
     .pill-add.added {
       background: var(--brand);
@@ -1519,9 +1588,88 @@
       font-size: 13px;
     }
 
+    /* Planning mode instruction strip */
+    .plan-mode-bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: var(--brand-bg);
+      color: #fff;
+      padding: 10px 16px;
+      font-size: 0.83rem;
+    }
+    .plan-mode-bar.visible { display: flex; }
+    .plan-mode-bar-text { flex: 1; opacity: 0.9; }
+    .plan-mode-bar-exit {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .plan-mode-bar-exit:hover { background: rgba(255,255,255,0.25); }
+
+    /* Plan button in header */
+    .plan-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.85);
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .plan-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+    .plan-btn.active {
+      background: #fff;
+      color: var(--brand-bg);
+      border-color: #fff;
+    }
+    .plan-btn-count {
+      background: var(--brand-dark);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .plan-btn.active .plan-btn-count { display: flex; }
+
+    /* Auth button value prop on desktop */
+    .auth-btn-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+    .auth-btn-sub {
+      display: none;
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.45);
+      white-space: nowrap;
+    }
+    @media (min-width: 600px) {
+      .auth-btn-sub { display: block; }
+    }
+
     .round-tray {
       position: fixed;
-      bottom: 24px;
+      bottom: calc(24px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%) translateY(80px);
       background: var(--brand-bg);
@@ -1623,66 +1771,11 @@
        Main Layout + Sidebar
     ───────────────────────────── */
     .main-layout {
-      display: flex;
       min-height: calc(100vh - 200px);
     }
 
-    .desktop-sidebar {
-      display: none;
-    }
-
     .main-content {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .sidebar-nav {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      padding: 16px 12px;
-    }
-
-    .sidebar-link {
-      font-family: var(--font);
-      font-size: 0.84rem;
-      font-weight: 500;
-      color: var(--fg-muted);
-      background: none;
-      border: none;
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      text-align: left;
-      white-space: nowrap;
-      transition: background 0.12s, color 0.12s;
-    }
-
-    .sidebar-link:hover { background: var(--bg-subtle); color: var(--fg); }
-
-    .sidebar-link.active {
-      background: var(--brand-light);
-      color: var(--brand);
-      font-weight: 600;
-    }
-
-    .sidebar-stats {
-      padding: 16px;
-      border-top: 1px solid var(--border);
-      margin: 8px 12px 0;
-    }
-
-    .sidebar-stat {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      padding: 4px 0;
-    }
-
-    .sidebar-stat-val {
-      font-weight: 600;
-      color: var(--fg);
+      width: 100%;
     }
 
     /* ─────────────────────────────
@@ -1690,21 +1783,13 @@
     ───────────────────────────── */
     @media (min-width: 960px) {
       .header-nav { display: flex; }
-
-      .desktop-sidebar {
-        display: block;
-        width: 220px;
-        flex-shrink: 0;
-        border-right: 1px solid var(--border);
-        background: var(--bg);
-        position: sticky;
-        top: 0;
-        height: 100vh;
-        overflow-y: auto;
-      }
-
-      .tab-strip { display: none; }
       .compact-bar { display: none; }
+
+      .main-content {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 32px;
+      }
 
       #results {
         display: grid;
@@ -1738,34 +1823,175 @@
       .times-row {
         grid-template-columns: repeat(4, 1fr);
       }
+    }
 
-      .search-bar {
-        max-width: unset;
-        padding: 10px 20px 0;
+    @media (min-width: 1400px) {
+      #results {
+        grid-template-columns: repeat(3, 1fr);
       }
-
-      .sidebar-link {
-        padding: 7px 12px 7px 14px;
-        border-radius: var(--radius-sm);
-        font-size: 13px;
-        color: var(--fg-muted);
-        cursor: pointer;
-        margin-bottom: 1px;
-        transition: background 0.1s, color 0.1s;
-        border-left: 3px solid transparent;
-      }
-      .sidebar-link:hover:not(.active) {
-        background: var(--bg-muted);
-        color: var(--fg);
-      }
-      .sidebar-link.active {
-        background: var(--brand-light);
-        color: var(--brand-dark);
-        font-weight: 600;
-        border-left: 3px solid var(--brand);
-        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      .area-group {
+        grid-template-columns: repeat(3, 1fr);
       }
     }
+
+    /* ── Location chip & radius buttons ── */
+    .location-chip {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 4px 0 0;
+    }
+    .location-chip.visible { display: flex; }
+    .location-chip-label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--brand);
+    }
+    .radius-btns { display: flex; gap: 4px; }
+    .radius-btn {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      font-family: var(--font);
+      color: var(--fg-muted);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .radius-btn:hover { border-color: var(--brand); color: var(--brand); }
+    .radius-btn.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    .location-chip-clear {
+      background: none;
+      border: none;
+      font-size: 0.78rem;
+      color: var(--fg-subtle);
+      cursor: pointer;
+      padding: 2px 4px;
+      font-family: var(--font);
+    }
+    .location-chip-clear:hover { color: var(--red); }
+
+  /* ─────────────────────────────
+     Soft gate (unauthenticated)
+  ───────────────────────────── */
+  .results-gated {
+    filter: blur(6px);
+    pointer-events: none;
+    user-select: none;
+    transition: filter 0.3s ease;
+  }
+
+  .results-gate {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 99;
+    background: var(--bg);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(26,46,26,0.06);
+    padding: 28px 24px;
+    text-align: center;
+    width: min(340px, calc(100vw - 48px));
+    display: none;
+  }
+  .results-gate.visible { display: block; }
+
+  .results-gate-icon {
+    width: 48px; height: 48px;
+    background: var(--brand-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+  }
+
+  .results-gate-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    color: var(--fg);
+    margin-bottom: 6px;
+    line-height: 1.25;
+  }
+
+  .results-gate-sub {
+    font-size: 0.84rem;
+    color: var(--fg-muted);
+    line-height: 1.55;
+    margin-bottom: 20px;
+  }
+
+  .results-gate .oauth-btn {
+    margin-bottom: 10px;
+  }
+
+  .results-gate-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 4px 0 12px;
+  }
+  .results-gate-divider::before, .results-gate-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .results-gate-divider span { font-size: 0.75rem; color: var(--fg-subtle); }
+
+  .results-gate-signin {
+    font-size: 0.82rem;
+    color: var(--fg-muted);
+    margin-top: 12px;
+  }
+  .results-gate-signin a {
+    color: var(--brand-dark);
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .results-gate-signin a:hover { text-decoration: underline; }
+
+  /* Notify CTA — prominent button style */
+  .notify-cta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    font-family: var(--font);
+    font-size: 0.84rem;
+    font-weight: 500;
+    font-style: normal;
+    color: var(--brand-dark);
+    background: var(--brand-light);
+    border: 1.5px solid rgba(45,122,58,0.2);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background 0.12s, border-color 0.12s;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .notify-cta-btn:hover {
+    background: #d4eed5;
+    border-color: rgba(45,122,58,0.35);
+  }
+
+  /* Mobile touch target boosts */
+  @media (max-width: 679px) {
+    .star-btn, .bell-btn {
+      width: 40px;
+      height: 40px;
+      font-size: 16px;
+    }
+    .results-gate {
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+  }
 
   </style>
 </head>
@@ -1794,20 +2020,37 @@
       <button class="header-nav-link" data-nav="myrounds">My rounds</button>
     </nav>
     <div class="header-spacer"></div>
-    <button class="auth-btn" id="authBtn">Sign in</button>
+    <button class="plan-btn" id="planBtn" onclick="togglePlanMode()">
+      <svg id="planBtnIcon" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span id="planBtnLabel">Plan</span>
+      <span class="plan-btn-count" id="planBtnCount">0</span>
+    </button>
+    <div class="auth-btn-wrap">
+      <button class="auth-btn" id="authBtn">Sign in</button>
+      <span class="auth-btn-sub">save courses &amp; get alerts</span>
+    </div>
   </div>
 </header>
 
 <div class="search-panel">
-  <div class="search-bar">
-    <input type="text" id="courseSearch" placeholder="Search courses..." autocomplete="off" />
-  </div>
-  <div class="search-inner">
+  <div class="sbu">
 
-    <div class="search-date-row">
-      <button class="date-nav" id="datePrev" aria-label="Previous day">&#8249;</button>
-      <div class="date-display-wrap">
-        <span id="dateDisplay"></span>
+    <!-- Filters -->
+    <div class="sbu-filters">
+
+      <!-- Date -->
+      <div class="sbu-cell sbu-date-cell" id="sbuDateCell">
+        <button class="sbu-date-nav" id="datePrev" aria-label="Previous day">&#8249;</button>
+        <svg class="sbu-icon" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M2 7h12" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M5 1v2M11 1v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="sbu-cell-content">
+          <span class="sbu-cell-label">Date</span>
+          <span class="sbu-cell-val" id="dateDisplay"></span>
+        </div>
+        <button class="sbu-date-nav" id="dateNext" aria-label="Next day">&#8250;</button>
         <input type="date" id="dateInput" />
         <div class="cal-dropdown" id="calDropdown">
           <div class="cal-header">
@@ -1818,42 +2061,109 @@
           <div class="cal-grid" id="calGrid"></div>
         </div>
       </div>
-      <button class="date-nav" id="dateNext" aria-label="Next day">&#8250;</button>
+
+      <!-- Players -->
+      <div class="sbu-cell" id="sbuPlayersCell">
+        <svg class="sbu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="5" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M3 14c0-2.761 2.239-4 5-4s5 1.239 5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="sbu-cell-content">
+          <span class="sbu-cell-label">Players</span>
+          <span class="sbu-cell-val" id="sbuPlayersVal">2</span>
+        </div>
+        <svg class="sbu-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="sbu-popover" id="sbuPlayersPopover">
+          <div class="seg-buttons" id="playersGroup">
+            <button class="seg-btn" data-value="1">1</button>
+            <button class="seg-btn active" data-value="2">2</button>
+            <button class="seg-btn" data-value="3">3</button>
+            <button class="seg-btn" data-value="4">4</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Holes -->
+      <div class="sbu-cell" id="sbuHolesCell">
+        <svg class="sbu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="13" r="1.5" fill="currentColor"/>
+          <line x1="8" y1="11.5" x2="8" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M8 3l5 2.5-5 2.5V3z" fill="currentColor"/>
+        </svg>
+        <div class="sbu-cell-content">
+          <span class="sbu-cell-label">Holes</span>
+          <span class="sbu-cell-val" id="sbuHolesVal">18</span>
+        </div>
+        <svg class="sbu-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="sbu-popover" id="sbuHolesPopover">
+          <div class="seg-buttons" id="holesGroup">
+            <button class="seg-btn" data-value="9">9</button>
+            <button class="seg-btn active" data-value="18">18</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time -->
+      <div class="sbu-cell" id="sbuTimeCell">
+        <svg class="sbu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="sbu-cell-content">
+          <span class="sbu-cell-label">Time</span>
+          <span class="sbu-cell-val" id="sbuTimeVal">Any</span>
+        </div>
+        <svg class="sbu-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="sbu-popover" id="sbuTimePopover">
+          <div class="seg-buttons" id="timeOfDayGroup">
+            <button class="seg-btn active" data-value="any">Any</button>
+            <button class="seg-btn" data-value="morning">AM</button>
+            <button class="seg-btn" data-value="afternoon">PM</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- .sbu-filters -->
+
+    <!-- Separator (desktop only) -->
+    <div class="sbu-sep-loc"></div>
+
+    <!-- Location search -->
+    <div class="sbu-location">
+      <svg class="sbu-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <input type="text" id="courseSearch" placeholder="City, course name, or zip..." autocomplete="off" />
     </div>
 
-    <div class="search-filters-row">
+    <button id="searchBtn">Search</button>
 
-      <div class="seg-group">
-        <span class="seg-label">Players</span>
-        <div class="seg-buttons" id="playersGroup">
-          <button class="seg-btn" data-value="1">1</button>
-          <button class="seg-btn active" data-value="2">2</button>
-          <button class="seg-btn" data-value="3">3</button>
-          <button class="seg-btn" data-value="4">4</button>
-        </div>
-      </div>
+  </div><!-- .sbu -->
 
-      <div class="seg-group">
-        <span class="seg-label">Holes</span>
-        <div class="seg-buttons" id="holesGroup">
-          <button class="seg-btn" data-value="9">9</button>
-          <button class="seg-btn active" data-value="18">18</button>
-        </div>
-      </div>
-
-      <div class="seg-group">
-        <span class="seg-label">Time</span>
-        <div class="seg-buttons" id="timeOfDayGroup">
-          <button class="seg-btn active" data-value="any">Any</button>
-          <button class="seg-btn" data-value="morning">AM</button>
-          <button class="seg-btn" data-value="afternoon">PM</button>
-        </div>
-      </div>
-
-      <button id="searchBtn">Refresh</button>
+  <!-- Location chip (shown when city searched) -->
+  <div class="location-chip" id="locationChip">
+    <span class="location-chip-label" id="locationChipLabel"></span>
+    <div class="radius-btns">
+      <button class="radius-btn" data-radius="25">25 mi</button>
+      <button class="radius-btn active" data-radius="50">50 mi</button>
+      <button class="radius-btn" data-radius="75">75 mi</button>
+      <button class="radius-btn" data-radius="100">100 mi</button>
     </div>
-
+    <button class="location-chip-clear" onclick="clearLocationSearch()">× Clear</button>
   </div>
+</div>
+
+<!-- Planning mode instruction strip -->
+<div class="plan-mode-bar" id="planModeBar">
+  <span class="plan-mode-bar-text">Tap <strong>+</strong> on any tee time to add it to your round</span>
+  <button class="plan-mode-bar-exit" onclick="togglePlanMode()">Done</button>
 </div>
 
 <input type="hidden" id="playersInput" value="2" />
@@ -1861,10 +2171,6 @@
 <input type="hidden" id="timeOfDayInput" value="any" />
 
 <div class="main-layout">
-<aside class="desktop-sidebar" id="desktopSidebar">
-  <nav class="sidebar-nav" id="sidebarNav"></nav>
-  <div class="sidebar-stats" id="sidebarStats"></div>
-</aside>
 <div class="main-content">
 
 <div class="tab-strip">
@@ -1879,7 +2185,7 @@
     <span class="compact-dot">&#8226;</span>
     <span class="compact-params" id="compactParams"></span>
     <div class="compact-spacer"></div>
-    <button class="compact-refresh" id="compactRefresh">&#8635; Refresh</button>
+    <button class="compact-refresh" id="compactRefresh">&#8635; Search</button>
   </div>
 </div>
 
@@ -1890,13 +2196,6 @@
   </div>
 </div>
 
-<div class="plan-round-banner" id="planRoundBanner" onclick="openPlanRound()">
-  <div>
-    <div class="plan-round-title">Plan a Round</div>
-    <div class="plan-round-sub">Rally the group — share availability</div>
-  </div>
-  <button class="plan-round-cta">Start →</button>
-</div>
 
 <div class="cd-overlay" id="cdOverlay"></div>
 <div class="cd-panel" id="cdPanel">
@@ -2101,6 +2400,32 @@
   </div>
 </div>
 
+<!-- ── Results soft gate ──────────────────────────────────────────────── -->
+<div class="results-gate" id="resultsGate">
+  <div class="results-gate-icon">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="11" width="18" height="11" rx="2" stroke="#2D7A3A" stroke-width="1.8"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#2D7A3A" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="results-gate-title">See available tee times</div>
+  <div class="results-gate-sub">Sign in to view real-time tee times and get notified when your ideal slot opens up.</div>
+  <button class="oauth-btn" id="gateGoogleBtn">
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.705 17.64 9.2z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+      <path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z"/>
+      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+    </svg>
+    Continue with Google
+  </button>
+  <div class="results-gate-divider"><span>or</span></div>
+  <button class="auth-submit" id="gateSignupBtn">Create free account</button>
+  <div class="results-gate-signin">
+    Already have an account? <a id="gateSigninLink">Sign in</a>
+  </div>
+</div>
+
 <script>
   // ── PostHog custom events ──────────────────────────────────────────────
   // search_performed        { date, players, holes, region }
@@ -2136,18 +2461,8 @@
   async function initAuth() {
     const { data: { session } } = await sb.auth.getSession();
 
-    // Allow page to render during an OAuth callback (code/token in URL)
-    const isOAuthCallback = window.location.hash.includes('access_token') ||
-                            window.location.search.includes('code=');
-
-    if (!session && !isOAuthCallback) {
-      window.location.replace('https://tee-time.io');
-      return;
-    }
-
     if (session?.user) {
       await onSignedIn(session.user);
-      // Identify authed user in PostHog
       posthog.identify(session.user.email, { email: session.user.email });
     }
     document.body.style.visibility = '';
@@ -2156,18 +2471,35 @@
       if (session?.user) {
         await onSignedIn(session.user);
         document.body.style.visibility = '';
+        removeResultsGate();
       } else {
-        // Signed out — send back to landing
-        window.location.replace('https://tee-time.io');
+        authUser = null;
+        savedCourses = new Set();
+        notifPrefs = [];
+        renderAuthButton();
+        applyResultsGate();
       }
     });
   }
 
   async function onSignedIn(user) {
     authUser = user;
+    // Ensure profile row exists (handles cases where the signup trigger failed)
+    await sb.from('profiles').upsert(
+      { id: user.id, display_name: user.user_metadata?.full_name || null },
+      { onConflict: 'id', ignoreDuplicates: true }
+    );
     await Promise.all([loadSavedCourses(), loadNotifPrefs()]);
     renderAuthButton();
     closeAuthModal();
+    removeResultsGate();
+
+    // Fulfill deferred notification intent (e.g. tapped notify → auth → open modal)
+    if (pendingNotifCourseId) {
+      const courseId = pendingNotifCourseId;
+      pendingNotifCourseId = null;
+      setTimeout(() => openNotifModal(courseId), 400);
+    }
 
     // Merge any pre-auth localStorage stars into Supabase, then clear local
     const localFavs = JSON.parse(localStorage.getItem('tt_favorites') || '[]');
@@ -2193,6 +2525,7 @@
   function renderAuthButton() {
     const btn = document.getElementById('authBtn');
     if (!btn) return;
+    const sub = document.querySelector('.auth-btn-sub');
     if (authUser) {
       const name = authUser.user_metadata?.full_name || authUser.email || '';
       const avatarUrl = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture;
@@ -2204,12 +2537,42 @@
       }
       btn.title       = name;
       btn.onclick     = openAccountPanel;
+      if (sub) sub.style.display = 'none';
     } else {
       btn.className   = 'auth-btn';
       btn.textContent = 'Sign in';
       btn.onclick     = () => openAuthModal('signin');
+      if (sub) sub.style.display = '';
     }
   }
+
+  // ── Soft gate ──────────────────────────────────────────────────────────
+  let pendingNotifCourseId = null;
+
+  function applyResultsGate() {
+    if (authUser) return;
+    document.getElementById('results').classList.add('results-gated');
+    document.getElementById('resultsGate').classList.add('visible');
+  }
+
+  function removeResultsGate() {
+    document.getElementById('results').classList.remove('results-gated');
+    document.getElementById('resultsGate').classList.remove('visible');
+  }
+
+  function openNotifOrAuth(courseId) {
+    if (authUser) {
+      openNotifModal(courseId);
+    } else {
+      pendingNotifCourseId = courseId;
+      openAuthModal('signup');
+    }
+  }
+
+  // Gate card button wiring
+  document.getElementById('gateGoogleBtn').addEventListener('click', handleGoogleAuth);
+  document.getElementById('gateSignupBtn').addEventListener('click', () => openAuthModal('signup'));
+  document.getElementById('gateSigninLink').addEventListener('click', () => openAuthModal('signin'));
 
   // ── Auth modal ─────────────────────────────────────────────────────────
   function openAuthModal(mode = 'signin') {
@@ -2337,13 +2700,17 @@
   async function insertSavedCourse(courseId) {
     const { error } = await sb.from('saved_courses')
       .insert({ user_id: authUser.id, course_id: courseId });
-    if (!error) savedCourses.add(courseId);
+    if (error) { showToast('Could not save course. Please try again.'); return false; }
+    savedCourses.add(courseId);
+    return true;
   }
 
   async function deleteSavedCourse(courseId) {
     const { error } = await sb.from('saved_courses').delete()
       .eq('user_id', authUser.id).eq('course_id', courseId);
-    if (!error) savedCourses.delete(courseId);
+    if (error) { showToast('Could not remove course. Please try again.'); return false; }
+    savedCourses.delete(courseId);
+    return true;
   }
 
   // ── Notification prefs ─────────────────────────────────────────────────
@@ -2736,18 +3103,7 @@
   let userLocation = null; // { lat, lng }
 
   // ── Tabs ──
-  const REGION_TABS = [
-    { id: 'nearby',   label: '📍 Near Me' },
-    { id: 'saved',    label: '★ Saved' },
-    { id: 'all',      label: 'All' },
-    { id: 'slc',      label: 'Salt Lake Valley', areas: ['SALT LAKE CITY AREA', 'TOOELE AND WEST'] },
-    { id: 'davis',    label: 'Davis & Weber',     areas: ['DAVIS AND WEBER COUNTY'] },
-    { id: 'utah',     label: 'Utah County',       areas: ['UTAH COUNTY AND SOUTH'] },
-    { id: 'stgeorge', label: 'St. George',        areas: ['ST. GEORGE AND SOUTHWEST', 'CEDAR CITY AND SOUTHWEST', 'CENTRAL AND SOUTHWEST UTAH'] },
-    { id: 'parkcity', label: 'Park City & Heber', areas: ['PARK CITY AND EAST', 'HEBER VALLEY AND EAST'] },
-    { id: 'cache',    label: 'Cache Valley',      areas: ['LOGAN, CACHE VALLEY, NORTH'] },
-    { id: 'eastern',  label: 'Eastern Utah',      areas: ['UINTA BASIN AND EAST'] },
-  ];
+  const STATE_NAMES = { UT: 'Utah', CO: 'Colorado', AZ: 'Arizona', NV: 'Nevada', ID: 'Idaho', WY: 'Wyoming', MT: 'Montana', NM: 'New Mexico' };
 
   const AREA_LABELS = {
     'SALT LAKE CITY AREA':           'Salt Lake City',
@@ -2762,6 +3118,18 @@
     'PARK CITY AND EAST':            'Park City',
     'UINTA BASIN AND EAST':          'Eastern Utah',
   };
+
+  let TABS = []; // built dynamically after courses load
+  let activeRegion = null; // region filter within a state tab
+
+  function buildTabs() {
+    const states = [...new Set(courses.map(c => c.state).filter(Boolean))].sort();
+    TABS = [
+      { id: 'nearby',   label: '📍 Near Me' },
+      { id: 'saved',    label: '★ Saved' },
+      ...states.map(s => ({ id: `state_${s.toLowerCase()}`, label: STATE_NAMES[s] || s, state: s })),
+    ];
+  }
 
   // ── Favorites ──
   let favorites = new Set(JSON.parse(localStorage.getItem('tt_favorites') || '[]'));
@@ -2809,26 +3177,30 @@
 
   // ── Tab helpers ──
   function getCoursesForTab(tabId) {
-    if (tabId === 'nearby') return courses;
+    if (tabId === 'nearby' || tabId === 'location') return courses;
     if (tabId === 'saved') {
       const ids = authUser ? savedCourses : favorites;
       return courses.filter(c => ids.has(c.name));
     }
-    if (tabId === 'all')    return courses;
-    const tab = REGION_TABS.find(t => t.id === tabId);
-    if (!tab?.areas) return courses;
-    return courses.filter(c => tab.areas.includes(c.area));
+    if (tabId.startsWith('state_')) {
+      const state = tabId.replace('state_', '').toUpperCase();
+      let result = courses.filter(c => c.state === state);
+      if (activeRegion) result = result.filter(c => c.area === activeRegion);
+      return result;
+    }
+    return courses;
   }
 
   function buildTabStrip() {
+    buildTabs();
     const strip = document.getElementById('tabStrip');
     strip.innerHTML = '';
-    REGION_TABS.forEach(tab => {
+    TABS.forEach(tab => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (tab.id === activeTab ? ' active' : '');
       btn.dataset.tab = tab.id;
       btn.textContent = tab.label;
-      btn.addEventListener('click', () => switchTab(tab.id));
+      btn.addEventListener('click', () => { activeRegion = null; switchTab(tab.id); });
       strip.appendChild(btn);
     });
     buildSidebarNav();
@@ -2838,13 +3210,45 @@
     const nav = document.getElementById('sidebarNav');
     if (!nav) return;
     nav.innerHTML = '';
-    REGION_TABS.forEach(tab => {
+
+    // Near Me and Saved
+    TABS.filter(t => t.id === 'nearby' || t.id === 'saved').forEach(tab => {
       const link = document.createElement('button');
-      link.className = 'sidebar-link' + (tab.id === activeTab ? ' active' : '');
+      link.className = 'sidebar-link' + (tab.id === activeTab && !activeRegion ? ' active' : '');
       link.dataset.tab = tab.id;
       link.textContent = tab.label;
-      link.addEventListener('click', () => switchTab(tab.id));
+      link.addEventListener('click', () => { activeRegion = null; switchTab(tab.id); });
       nav.appendChild(link);
+    });
+
+    // Location search entry (if active)
+    if (locationSearch) {
+      const locLink = document.createElement('button');
+      locLink.className = 'sidebar-link' + (activeTab === 'location' ? ' active' : '');
+      locLink.textContent = `📍 Near ${locationSearch.label}`;
+      locLink.addEventListener('click', () => { activeRegion = null; switchTab('location'); });
+      nav.appendChild(locLink);
+    }
+
+    // State sections with region sub-links
+    TABS.filter(t => t.state).forEach(tab => {
+      const header = document.createElement('button');
+      const isStateActive = activeTab === tab.id && !activeRegion;
+      header.className = 'sidebar-state-header' + (isStateActive ? ' sidebar-link active' : '');
+      header.textContent = tab.label;
+      header.addEventListener('click', () => { activeRegion = null; switchTab(tab.id); });
+      nav.appendChild(header);
+
+      const stateCourses = courses.filter(c => c.state === tab.state);
+      const areas = [...new Set(stateCourses.map(c => c.area).filter(Boolean))].sort();
+      areas.forEach(area => {
+        const regionLink = document.createElement('button');
+        const isActive = activeTab === tab.id && activeRegion === area;
+        regionLink.className = 'sidebar-link sidebar-region-link' + (isActive ? ' active' : '');
+        regionLink.textContent = AREA_LABELS[area] || area;
+        regionLink.addEventListener('click', () => { activeRegion = area; switchTab(tab.id); });
+        nav.appendChild(regionLink);
+      });
     });
   }
 
@@ -2855,9 +3259,7 @@
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
     });
-    document.querySelectorAll('.sidebar-link').forEach(link => {
-      link.classList.toggle('active', link.dataset.tab === tabId);
-    });
+    buildSidebarNav();
     posthog.capture('region_tab_switched', {
       from_tab: fromTab,
       to_tab: tabId,
@@ -2904,6 +3306,7 @@
     updateDateDisplay();
     scheduleSearch();
   });
+  window.addEventListener('resize', updateDateDisplay, { passive: true });
 
   // ── Desktop calendar dropdown ──
   const calDropdown = document.getElementById('calDropdown');
@@ -2991,9 +3394,12 @@
     const val = document.getElementById('dateInput').value;
     if (!val) return;
     const d = new Date(val + 'T00:00:00');
-    document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-    });
+    const mobile = window.innerWidth < 680;
+    document.getElementById('dateDisplay').textContent = d.toLocaleDateString('en-US',
+      mobile
+        ? { weekday: 'short', month: 'short', day: 'numeric' }
+        : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
+    );
     updateCompactBar();
   }
 
@@ -3032,8 +3438,38 @@
     }, 400);
   }
 
+  // ── Popover management ──
+  const SBU_POPOVERS = [
+    { cellId: 'sbuPlayersCell', popoverId: 'sbuPlayersPopover' },
+    { cellId: 'sbuHolesCell',   popoverId: 'sbuHolesPopover' },
+    { cellId: 'sbuTimeCell',    popoverId: 'sbuTimePopover' },
+  ];
+
+  function closeAllPopovers() {
+    SBU_POPOVERS.forEach(({ cellId, popoverId }) => {
+      document.getElementById(cellId)?.classList.remove('open');
+      document.getElementById(popoverId)?.classList.remove('open');
+    });
+  }
+
+  SBU_POPOVERS.forEach(({ cellId, popoverId }) => {
+    const cell = document.getElementById(cellId);
+    const pop  = document.getElementById(popoverId);
+    if (!cell || !pop) return;
+    cell.addEventListener('click', e => {
+      if (e.target.closest('.sbu-popover')) return;
+      const isOpen = pop.classList.contains('open');
+      closeAllPopovers();
+      if (!isOpen) { cell.classList.add('open'); pop.classList.add('open'); }
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.sbu-cell')) closeAllPopovers();
+  });
+
   // ── Segmented controls ──
-  function initSegment(groupId, inputId) {
+  function initSegment(groupId, inputId, displayId, closePopoverId) {
     const group = document.getElementById(groupId);
     const input = document.getElementById(inputId);
     group.querySelectorAll('.seg-btn').forEach(btn => {
@@ -3041,6 +3477,16 @@
         group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         input.value = btn.dataset.value;
+        if (displayId) {
+          const el = document.getElementById(displayId);
+          if (el) el.textContent = btn.dataset.value;
+        }
+        if (closePopoverId) {
+          document.getElementById(closePopoverId)?.classList.remove('open');
+          const cell = document.querySelector(`[id$="Cell"]:has(#${closePopoverId})`);
+          cell?.classList.remove('open');
+          closeAllPopovers();
+        }
         updateCompactBar();
         courseCache.clear();
         if (activeTab === 'nearby' && !userLocation) {
@@ -3052,19 +3498,22 @@
     });
   }
 
-  initSegment('playersGroup', 'playersInput');
-  initSegment('holesGroup',   'holesInput');
+  initSegment('playersGroup', 'playersInput', 'sbuPlayersVal', 'sbuPlayersPopover');
+  initSegment('holesGroup',   'holesInput',   'sbuHolesVal',   'sbuHolesPopover');
 
   // Time-of-day uses client-side filtering only (no cache clear needed)
   (function initTimeOfDay() {
     const group = document.getElementById('timeOfDayGroup');
     const input = document.getElementById('timeOfDayInput');
+    const labels = { any: 'Any', morning: 'AM', afternoon: 'PM' };
     group.querySelectorAll('.seg-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         input.value = btn.dataset.value;
-        // Re-render from cache without re-fetching
+        const display = document.getElementById('sbuTimeVal');
+        if (display) display.textContent = labels[btn.dataset.value] || btn.dataset.value;
+        closeAllPopovers();
         const tabCourses = getCoursesForTab(activeTab);
         const date = document.getElementById('dateInput').value;
         const players = document.getElementById('playersInput').value;
@@ -3077,7 +3526,36 @@
   // ── Plan a Round ─────────────────────────────────────────────────────
   let roundDraft = [];
 
+  let planningMode = false;
+
+  function togglePlanMode() {
+    if (planningMode) {
+      exitPlanMode();
+    } else {
+      enterPlanMode();
+    }
+  }
+
+  function enterPlanMode() {
+    planningMode = true;
+    document.body.classList.add('planning-mode');
+    document.getElementById('planModeBar').classList.add('visible');
+    document.getElementById('planBtn').classList.add('active');
+    document.getElementById('planBtnIcon').style.display = 'none';
+    document.getElementById('planBtnLabel').textContent = 'Planning';
+  }
+
+  function exitPlanMode() {
+    planningMode = false;
+    document.body.classList.remove('planning-mode');
+    document.getElementById('planModeBar').classList.remove('visible');
+    document.getElementById('planBtn').classList.remove('active');
+    document.getElementById('planBtnIcon').style.display = '';
+    document.getElementById('planBtnLabel').textContent = 'Plan';
+  }
+
   function addToRoundDraft(item) {
+    if (!planningMode) enterPlanMode();
     if (!roundDraft.some(x => x.key === item.key)) {
       roundDraft.push(item);
       updateRoundTray();
@@ -3092,7 +3570,7 @@
   function clearRoundDraft() {
     roundDraft = [];
     updateRoundTray();
-    // reset any added buttons
+    exitPlanMode();
     document.querySelectorAll('.pill-add.added').forEach(btn => {
       btn.className = 'pill-add';
       btn.textContent = '+';
@@ -3103,18 +3581,14 @@
   function updateRoundTray() {
     const tray = document.getElementById('roundTray');
     const label = document.getElementById('roundTrayLabel');
+    const countEl = document.getElementById('planBtnCount');
     const n = roundDraft.length;
     label.textContent = `${n} time${n !== 1 ? 's' : ''} selected`;
     tray.classList.toggle('visible', n > 0);
+    if (countEl) countEl.textContent = n;
   }
 
-  function openPlanRound() {
-    if (roundDraft.length === 0) {
-      showToast('Tap the + on any tee time to add it to your round.');
-      return;
-    }
-    openRoundModal();
-  }
+  function openPlanRound() { togglePlanMode(); }
 
   function openRoundModal() {
     const list = document.getElementById('roundModalList');
@@ -3169,28 +3643,51 @@
         .insert({ title, organizer_id })
         .select('id')
         .single();
-      if (rErr) throw rErr;
+      if (rErr) throw new Error('DB: ' + rErr.message);
 
       const options = roundDraft.map(item => ({
         round_id:     round.id,
         course_name:  item.courseName,
         date:         item.date,
         time_display: item.timeDisplay,
-        holes:        parseInt(item.holes, 10),
-        players:      parseInt(item.players, 10),
+        holes:        parseInt(item.holes, 10) || 18,
+        players:      parseInt(item.players, 10) || 4,
         price:        item.price || null,
         booking_url:  item.bookingUrl || null,
       }));
       const { error: oErr } = await sb.from('round_options').insert(options);
-      if (oErr) throw oErr;
+      if (oErr) throw new Error('DB options: ' + oErr.message);
 
       const link = `${location.origin}/round.html?id=${round.id}`;
-      await navigator.clipboard.writeText(link);
-      closeRoundModal();
-      showToast('Link copied! Share it with your group.');
+
+      // Clipboard can fail after an await — handle gracefully
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(link);
+        copied = true;
+      } catch (_) {}
+
       posthog.capture('round_created', { option_count: options.length });
+      roundDraft = [];
+      exitPlanMode();
+      updateRoundTray();
+
+      if (copied) {
+        closeRoundModal();
+        showToast('Link copied! Share it with your group.');
+      } else {
+        // Show the link in the modal so they can copy manually
+        btn.style.display = 'none';
+        errEl.style.color = 'var(--fg-muted)';
+        errEl.innerHTML = `Round created! Copy this link:<br><br>
+          <input id="roundLinkInput" value="${link}" readonly
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:0.8rem;font-family:monospace;color:var(--fg);background:var(--bg-subtle);cursor:pointer;"
+            onclick="this.select()" />`;
+        setTimeout(() => document.getElementById('roundLinkInput')?.select(), 50);
+      }
     } catch (e) {
-      errEl.textContent = 'Something went wrong. Please try again.';
+      errEl.style.color = 'var(--red)';
+      errEl.textContent = 'Something went wrong: ' + e.message;
       btn.textContent = 'Create & Copy Link';
       btn.disabled = false;
     }
@@ -3207,13 +3704,96 @@
     if (e.target === document.getElementById('roundModal')) closeRoundModal();
   });
 
-  // ── Course search filter ──
-  document.getElementById('courseSearch').addEventListener('input', e => {
-    const q = e.target.value.toLowerCase().trim();
-    document.querySelectorAll('.course-card').forEach(card => {
-      const name = (card.dataset.courseName || '').toLowerCase();
-      card.style.display = name.includes(q) ? '' : 'none';
+  // ── Location search ──────────────────────────────────────────────────────
+  let locationSearch = null; // { lat, lng, label }
+  let searchRadius   = 50;   // miles
+
+  async function geocodeCity(query) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
+      const data = await res.json();
+      if (!data.length) return null;
+      const r = data[0];
+      const city  = r.address?.city || r.address?.town || r.address?.village || r.address?.county || query;
+      const state = r.address?.state_code || '';
+      return { lat: parseFloat(r.lat), lng: parseFloat(r.lon), label: state ? `${city}, ${state}` : city };
+    } catch { return null; }
+  }
+
+  function setLocationSearch(loc) {
+    locationSearch = loc;
+    document.getElementById('locationChipLabel').textContent = `📍 Near ${loc.label}`;
+    document.getElementById('locationChip').classList.add('visible');
+    updateRadiusBtns();
+    activeRegion = null;
+    switchTab('location');
+  }
+
+  function clearLocationSearch() {
+    locationSearch = null;
+    document.getElementById('locationChip').classList.remove('visible');
+    document.getElementById('courseSearch').value = '';
+    if (activeTab === 'location') switchTab('nearby');
+    else buildSidebarNav();
+  }
+
+  function updateRadiusBtns() {
+    document.querySelectorAll('.radius-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.radius) === searchRadius);
     });
+  }
+
+  document.querySelectorAll('.radius-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      searchRadius = parseInt(btn.dataset.radius);
+      updateRadiusBtns();
+      if (activeTab === 'location') runSearch();
+    });
+  });
+
+  // ── Course / city search ──────────────────────────────────────────────────
+  let locationDebounce;
+  document.getElementById('courseSearch').addEventListener('input', e => {
+    const q = e.target.value.trim();
+
+    if (!q) {
+      clearLocationSearch();
+      document.querySelectorAll('.course-card').forEach(c => c.style.display = '');
+      return;
+    }
+
+    // Course name match — filter visible cards immediately
+    const matchesCourse = courses.some(c => c.name.toLowerCase().includes(q.toLowerCase()));
+    if (matchesCourse) {
+      document.querySelectorAll('.course-card').forEach(card => {
+        const name = (card.dataset.courseName || '').toLowerCase();
+        card.style.display = name.includes(q.toLowerCase()) ? '' : 'none';
+      });
+      return;
+    }
+
+    // No course match — treat as location query (debounced)
+    document.querySelectorAll('.course-card').forEach(c => c.style.display = '');
+    clearTimeout(locationDebounce);
+    locationDebounce = setTimeout(async () => {
+      const result = await geocodeCity(q);
+      if (result && document.getElementById('courseSearch').value.trim() === q) {
+        setLocationSearch(result);
+      }
+    }, 600);
+  });
+
+  document.getElementById('courseSearch').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const q = e.target.value.trim();
+      if (!q) return;
+      clearTimeout(locationDebounce);
+      geocodeCity(q).then(result => {
+        if (result) setLocationSearch(result);
+        else showToast('Location not found. Try a city name or zip code.');
+      });
+    }
   });
 
   // ── Load courses ──
@@ -3222,7 +3802,44 @@
     .then(data => {
       courses = data;
       buildTabStrip();
-      switchTab('nearby'); // auto-start with Near Me
+
+      // Deep-link from landing page: pre-fill form and auto-search
+      const urlP = new URLSearchParams(window.location.search);
+      const deepDate = urlP.get('date');
+      if (deepDate) {
+        document.getElementById('dateInput').value = deepDate;
+        updateDateDisplay();
+
+        const deepPlayers = urlP.get('players');
+        if (deepPlayers && ['1','2','3','4'].includes(deepPlayers)) {
+          document.getElementById('playersInput').value = deepPlayers;
+          document.getElementById('sbuPlayersVal').textContent = deepPlayers;
+          document.querySelectorAll('#playersGroup .seg-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.value === deepPlayers));
+        }
+
+        const deepHoles = urlP.get('holes');
+        if (deepHoles && ['9','18'].includes(deepHoles)) {
+          document.getElementById('holesInput').value = deepHoles;
+          document.getElementById('sbuHolesVal').textContent = deepHoles;
+          document.querySelectorAll('#holesGroup .seg-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.value === deepHoles));
+        }
+
+        const deepTime = urlP.get('time');
+        if (deepTime && ['any','morning','afternoon'].includes(deepTime)) {
+          document.getElementById('timeOfDayInput').value = deepTime;
+          const labels = { any: 'Any', morning: 'AM', afternoon: 'PM' };
+          document.getElementById('sbuTimeVal').textContent = labels[deepTime];
+          document.querySelectorAll('#timeOfDayGroup .seg-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.value === deepTime));
+        }
+
+        switchTab('all');
+        runSearch();
+      } else {
+        switchTab('nearby'); // auto-start with Near Me
+      }
     })
     .catch(() => {
       document.getElementById('results').innerHTML =
@@ -3230,6 +3847,19 @@
     });
 
   // ── Helpers ──
+  function parseHour24(rawTime) {
+    const ampm = rawTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (ampm) {
+      let h = parseInt(ampm[1], 10);
+      const period = ampm[3].toUpperCase();
+      if (period === 'PM' && h !== 12) h += 12;
+      if (period === 'AM' && h === 12) h = 0;
+      return h;
+    }
+    const h24 = rawTime.match(/^(\d{1,2}):/);
+    return h24 ? parseInt(h24[1], 10) : null;
+  }
+
   function formatTime12h(timeStr) {
     const match = timeStr.match(/(\d{1,2}):(\d{2})/);
     if (!match) return timeStr;
@@ -3550,12 +4180,11 @@
         };
         msg.textContent = messages[error] || `Error: ${error}`;
       }
-      if (authUser && (error === 'timeout' || error === 'upstream_error' || error === 'booking_closed')) {
-        const cta = document.createElement('a');
-        cta.className = 'notify-cta';
-        cta.textContent = '🔔 Get notified when times open up';
-        cta.addEventListener('click', e => { e.preventDefault(); openNotifModal(course.name); });
-        msg.appendChild(document.createElement('br'));
+      if (error === 'timeout' || error === 'upstream_error' || error === 'booking_closed') {
+        const cta = document.createElement('button');
+        cta.className = 'notify-cta-btn';
+        cta.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1a5.5 5.5 0 0 1 5.5 5.5c0 2.5.5 3.5 1 4.5H1.5c.5-1 1-2 1-4.5A5.5 5.5 0 0 1 8 1zM6 13h4a2 2 0 0 1-4 0z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg> Notify me when times open';
+        cta.addEventListener('click', e => { e.preventDefault(); openNotifOrAuth(course.name); });
         msg.appendChild(cta);
       }
       card.appendChild(msg);
@@ -3563,14 +4192,12 @@
       const msg = document.createElement('div');
       msg.className = 'no-times';
       msg.textContent = 'No available tee times for this search.';
-      if (authUser) {
-        const cta = document.createElement('a');
-        cta.className = 'notify-cta';
-        cta.textContent = '🔔 Get notified when times open up';
-        cta.addEventListener('click', e => { e.preventDefault(); openNotifModal(course.name); });
-        msg.appendChild(document.createElement('br'));
-        msg.appendChild(cta);
-      }
+      const cta = document.createElement('button');
+      cta.className = 'notify-cta-btn';
+      cta.style.marginTop = '8px';
+      cta.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1a5.5 5.5 0 0 1 5.5 5.5c0 2.5.5 3.5 1 4.5H1.5c.5-1 1-2 1-4.5A5.5 5.5 0 0 1 8 1zM6 13h4a2 2 0 0 1-4 0z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg> Notify me when times open';
+      cta.addEventListener('click', e => { e.preventDefault(); openNotifOrAuth(course.name); });
+      msg.appendChild(cta);
       card.appendChild(msg);
     } else {
       const row = document.createElement('div');
@@ -3683,7 +4310,7 @@
     progressWrap.classList.remove('active');
     progressFill.style.width = '0%';
     btn.disabled = false;
-    btn.textContent = 'Refresh';
+    btn.textContent = 'Search';
 
     renderFromCache(tabCourses, date, holes, players);
   }
@@ -3703,47 +4330,48 @@
 
   function processAndRender(apiResults, players, holes) {
     const date = document.getElementById('dateInput').value;
-    const processed = apiResults.map(r => {
+    let processed = apiResults.map(r => {
       if (r.error) return { ...r, times: [] };
       let times = normalizeTimes(r.course, r.data, holes);
       times = times.filter(t => t.spots == null || t.spots >= parseInt(players, 10));
       times = times.filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
       // Time-of-day filter
       const tod = document.getElementById('timeOfDayInput').value;
-      if (tod === 'morning') {
+      if (tod === 'morning' || tod === 'afternoon') {
         times = times.filter(t => {
-          const m = t.rawTime.match(/^(\d{1,2}):/);
-          return m ? parseInt(m[1], 10) < 12 : true;
-        });
-      } else if (tod === 'afternoon') {
-        times = times.filter(t => {
-          const m = t.rawTime.match(/^(\d{1,2}):/);
-          return m ? parseInt(m[1], 10) >= 12 : true;
+          const h24 = parseHour24(t.rawTime);
+          if (h24 === null) return true;
+          return tod === 'morning' ? h24 < 12 : h24 >= 12;
         });
       }
       if (date === todayStr) {
         const now = new Date();
         const nowMinutes = now.getHours() * 60 + now.getMinutes();
         times = times.filter(t => {
-          const m = t.rawTime.match(/^(\d{1,2}):(\d{2})/);
-          if (!m) return true;
-          return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) > nowMinutes;
+          const h = parseHour24(t.rawTime);
+          const minMatch = t.rawTime.match(/\d{1,2}:(\d{2})/);
+          if (h === null || !minMatch) return true;
+          return h * 60 + parseInt(minMatch[1], 10) > nowMinutes;
         });
       }
       return { ...r, times };
     });
 
-    // Compute distances when user location is available
-    if (userLocation) {
+    // Compute distances and sort/filter based on active location source
+    if (activeTab === 'location' && locationSearch) {
+      for (const r of processed) {
+        if (r.course.lat != null && r.course.lng != null) {
+          r.distanceMi = haversine(locationSearch.lat, locationSearch.lng, r.course.lat, r.course.lng);
+        }
+      }
+      processed = processed.filter(r => r.distanceMi == null || r.distanceMi <= searchRadius);
+      processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
+    } else if (userLocation) {
       for (const r of processed) {
         if (r.course.lat != null && r.course.lng != null) {
           r.distanceMi = haversine(userLocation.lat, userLocation.lng, r.course.lat, r.course.lng);
         }
       }
-    }
-
-    // Sort by distance when user location is available
-    if (userLocation) {
       processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
     }
 
@@ -3751,6 +4379,19 @@
     const unavailable = processed.filter(r => r.error || r.times.length === 0);
 
     posthog.capture('results_returned', { count: available.length, search_date: date, players });
+
+    // Apply or remove soft gate based on auth state and result availability
+    if (!authUser && available.length > 0) {
+      applyResultsGate();
+    } else {
+      removeResultsGate();
+    }
+
+    // One-time hint about the bell alert feature
+    if (available.length > 0 && !localStorage.getItem('tt_bell_hint_shown')) {
+      localStorage.setItem('tt_bell_hint_shown', '1');
+      setTimeout(() => showToast('Tip: tap 🔔 on any course to get notified when your ideal time opens up.'), 2200);
+    }
 
     const resultsEl = document.getElementById('results');
     resultsEl.innerHTML = '';
@@ -3761,7 +4402,7 @@
     resultsEl.appendChild(meta);
 
     if (available.length > 0) {
-      if (activeTab === 'all') {
+      if (activeTab.startsWith('state_') && !activeRegion) {
         const grouped = groupByArea(available);
         for (const [area, items] of Object.entries(grouped)) {
           const group = document.createElement('div');
@@ -3786,8 +4427,16 @@
           <circle cx="20" cy="20" r="18" stroke="#6b7280" stroke-width="2"/>
           <path d="M13 20h14" stroke="#6b7280" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <p>No tee times found. Try a different date or adjust your filters.</p>
+        <p>No tee times found for this date. Try adjusting your filters or a nearby date.</p>
       `;
+      if (!authUser) {
+        const signInCta = document.createElement('button');
+        signInCta.className = 'notify-cta-btn';
+        signInCta.style.cssText = 'margin: 14px auto 0; max-width: 280px; display: flex;';
+        signInCta.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1a5.5 5.5 0 0 1 5.5 5.5c0 2.5.5 3.5 1 4.5H1.5c.5-1 1-2 1-4.5A5.5 5.5 0 0 1 8 1zM6 13h4a2 2 0 0 1-4 0z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg> Sign in to get notified when times open';
+        signInCta.addEventListener('click', () => openAuthModal('signup'));
+        empty.appendChild(signInCta);
+      }
       resultsEl.appendChild(empty);
     }
 
@@ -3953,7 +4602,7 @@
     // Times
     timesEl.innerHTML = '';
     if (times && times.length > 0) {
-      for (const t of times) timesEl.appendChild(buildTimePill(t, bookingUrl, course.name));
+      for (const t of times) timesEl.appendChild(buildTimePill(t, bookingUrl, course.name, date, holes, players));
       timesSection.style.display = '';
     } else {
       timesSection.style.display = 'none';
@@ -3998,13 +4647,22 @@
       times = normalizeTimes(course, cached.data, holes)
         .filter(t => t.spots == null || t.spots >= parseInt(players, 10))
         .filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
+      const tod = document.getElementById('timeOfDayInput').value;
+      if (tod === 'morning' || tod === 'afternoon') {
+        times = times.filter(t => {
+          const h24 = parseHour24(t.rawTime);
+          if (h24 === null) return true;
+          return tod === 'morning' ? h24 < 12 : h24 >= 12;
+        });
+      }
       if (date === todayStr) {
         const now = new Date();
         const nowMinutes = now.getHours() * 60 + now.getMinutes();
         times = times.filter(t => {
-          const m = t.rawTime.match(/^(\d{1,2}):(\d{2})/);
-          if (!m) return true;
-          return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) > nowMinutes;
+          const h = parseHour24(t.rawTime);
+          const minMatch = t.rawTime.match(/\d{1,2}:(\d{2})/);
+          if (h === null || !minMatch) return true;
+          return h * 60 + parseInt(minMatch[1], 10) > nowMinutes;
         });
       }
     }
