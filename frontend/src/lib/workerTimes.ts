@@ -2,21 +2,12 @@ import type { TeeTime } from '../types';
 import type { CourseRecord } from './courseRecord';
 import { getWorkerBaseUrl } from './env';
 import { normalizeTimesWorker } from './normalizeTimes';
+import { rawTeeTimeToIsoUtc } from './teeTimeInstant';
 
 function parsePrice(s: string | null): number | undefined {
   if (!s) return undefined;
   const n = parseInt(s.replace(/[^0-9]/g, ''), 10);
   return Number.isFinite(n) ? n : undefined;
-}
-
-/** Local date + "HH:MM" → ISO (browser-local wall clock). */
-function toIso(dateYmd: string, hhmm: string): string {
-  const [y, mo, d] = dateYmd.split('-').map(Number);
-  const [hh, mm] = hhmm.split(':').map(Number);
-  if (!y || !mo || !d || Number.isNaN(hh) || Number.isNaN(mm)) return new Date().toISOString();
-  const dt = new Date(y, mo - 1, d, hh, mm, 0, 0);
-  if (Number.isNaN(dt.getTime())) return new Date().toISOString();
-  return dt.toISOString();
 }
 
 function rowsToTeeTimes(
@@ -31,7 +22,7 @@ function rowsToTeeTimes(
     const h = (row.holes === 9 ? 9 : 18) as 9 | 18;
     if (h !== holesFilter) continue;
     if (!row.rawTime) continue;
-    const iso = toIso(dateYmd, row.rawTime);
+    const iso = rawTeeTimeToIsoUtc(dateYmd, row.rawTime);
     out.push({
       id: `${courseSlug}-${dateYmd}-${i++}-${row.rawTime}`,
       courseId: courseSlug,

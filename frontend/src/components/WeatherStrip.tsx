@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { WeatherPoint } from '../types';
-import { formatTime12h } from '../lib/time';
+import { formatTime12h, hourInUtah } from '../lib/time';
 import { fetchHourlyWeather, pickNearestHour } from '../lib/weather';
 
 type Props = {
@@ -64,7 +64,7 @@ export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact }: P
     if (!points) return [];
     // keep it simple: daytime hours for golf
     return points.filter((p) => {
-      const h = new Date(p.timeIso).getHours();
+      const h = hourInUtah(p.timeIso);
       return h >= 6 && h <= 20;
     });
   }, [points]);
@@ -100,8 +100,7 @@ export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact }: P
       <div className="weather-scroll">
         <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 8 }}>
           {slice.slice(0, 18).map((p) => {
-            const isOn =
-              highlight != null && new Date(p.timeIso).getHours() === new Date(highlight.timeIso).getHours();
+            const isOn = highlight != null && hourInUtah(p.timeIso) === hourInUtah(highlight.timeIso);
             return (
               <div
                 key={p.timeIso}

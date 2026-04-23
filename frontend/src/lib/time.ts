@@ -1,4 +1,5 @@
 import type { TimeOfDayPreset } from '../types';
+import { UTAH_TEE_TIMEZONE } from './teeTimeInstant';
 
 export function toYmd(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -11,9 +12,25 @@ export function formatDateShort(ymd: string) {
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+/** Format a tee-time instant in America/Denver (matches Utah booking sites). */
 export function formatTime12h(iso: string) {
   const dt = new Date(iso);
-  return dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return dt.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: UTAH_TEE_TIMEZONE,
+  });
+}
+
+/** Hour 0–23 in America/Denver for an instant (weather + tee alignment). */
+export function hourInUtah(iso: string): number {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: UTAH_TEE_TIMEZONE,
+      hour: 'numeric',
+      hour12: false,
+    }).formatToParts(new Date(iso)).find((p) => p.type === 'hour')?.value ?? NaN
+  );
 }
 
 export function minutesSince(ts: number | null) {
@@ -23,7 +40,14 @@ export function minutesSince(ts: number | null) {
 
 export function matchesPreset(startsAtIso: string, preset: TimeOfDayPreset) {
   if (preset === 'any') return true;
-  const h = new Date(startsAtIso).getHours();
+  const h = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: UTAH_TEE_TIMEZONE,
+      hour: 'numeric',
+      hour12: false,
+    }).formatToParts(new Date(startsAtIso)).find((p) => p.type === 'hour')?.value ?? NaN
+  );
+  if (!Number.isFinite(h)) return false;
   if (preset === 'morning') return h < 12;
   if (preset === 'afternoon') return h >= 12 && h < 16;
   return h >= 16;
