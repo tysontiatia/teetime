@@ -30,13 +30,10 @@ export function MapView({
   courses,
   timesByCourseId,
   onSelectCourse,
-  selectedHoles = 18,
 }: {
   courses: Course[];
   timesByCourseId: Map<string, TeeTime[]>;
   onSelectCourse: (courseId: string) => void;
-  /** When 18 is selected, 9-hole-only slots (e.g. Chrono twilight) show a hint. */
-  selectedHoles?: 9 | 18;
 }) {
   const first = courses.find((c) => typeof c.lat === 'number' && typeof c.lng === 'number');
   const center: [number, number] = first ? [first.lat as number, first.lng as number] : [40.7608, -111.891];
@@ -76,7 +73,6 @@ export function MapView({
                           }}
                         >
                           {formatTime12h(t.startsAt)}
-                          {t.holes !== selectedHoles ? ' ·9' : ''}
                         </span>
                       ))}
                       {times.length > top.length ? <span style={{ fontSize: 12, color: '#666' }}>+{times.length - top.length} more</span> : null}

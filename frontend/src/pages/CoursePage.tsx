@@ -249,9 +249,6 @@ export function CoursePage() {
                     }}
                   >
                     <div style={{ fontWeight: 950, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
-                    {t.holes !== holes ? (
-                      <div style={{ fontSize: 10, fontWeight: 900, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.06em' }}>9 holes</div>
-                    ) : null}
                     <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
                     {typeof t.spots === 'number' && (
                       <div style={{ fontSize: 11, color: '#b45309', fontWeight: 900 }}>
