@@ -338,6 +338,7 @@ export function FinderPage() {
             <MapView
               courses={availableCourses}
               timesByCourseId={timesByCourse}
+              selectedHoles={params.holes}
               onSelectCourse={(id) => {
                 nav(`/course/${id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`);
               }}
@@ -469,6 +470,19 @@ export function FinderPage() {
                             }}
                           >
                             <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
+                            {t.holes !== params.holes ? (
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 900,
+                                  color: '#b45309',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.08em',
+                                }}
+                              >
+                                9 holes
+                              </div>
+                            ) : null}
                             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
                           </button>
                         );

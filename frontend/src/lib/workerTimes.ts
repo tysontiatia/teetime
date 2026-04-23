@@ -36,6 +36,20 @@ function rowsToTeeTimes(
   return out;
 }
 
+/** Chrono SLC often publishes twilight / back-nine as 9-hole-only; merge those when the user asked for 18. */
+function mergeChronoSlcNineOnlySlots(primary: TeeTime[], nineHoleTimes: TeeTime[]): TeeTime[] {
+  const seen = new Set(primary.map((t) => t.startsAt));
+  const merged = [...primary];
+  for (const t of nineHoleTimes) {
+    if (!seen.has(t.startsAt)) {
+      seen.add(t.startsAt);
+      merged.push(t);
+    }
+  }
+  merged.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  return merged;
+}
+
 export async function fetchTeeTimesForCourse(
   course: CourseRecord,
   courseSlug: string,
@@ -57,15 +71,40 @@ export async function fetchTeeTimesForCourse(
       break;
     }
     case 'chronogolf_slc': {
-      if (!course.club_id || !course.course_id || !course.affiliation_type_id) return [];
-      url = new URL(`${base}/chronogolf-slc`);
-      url.searchParams.set('club_id', course.club_id);
-      url.searchParams.set('course_id', course.course_id);
-      url.searchParams.set('affiliation_type_id', course.affiliation_type_id);
-      url.searchParams.set('nb_holes', String(holes));
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('players', String(players));
-      break;
+      const { club_id, course_id, affiliation_type_id } = course;
+      if (!club_id || !course_id || !affiliation_type_id) return [];
+      const buildUrl = (nb: 9 | 18) => {
+        const u = new URL(`${base}/chronogolf-slc`);
+        u.searchParams.set('club_id', club_id);
+        u.searchParams.set('course_id', course_id);
+        u.searchParams.set('affiliation_type_id', affiliation_type_id);
+        u.searchParams.set('nb_holes', String(nb));
+        u.searchParams.set('date', dateYmd);
+        u.searchParams.set('players', String(players));
+        return u;
+      };
+      const load = async (nb: 9 | 18) => {
+        const res = await fetch(buildUrl(nb).toString(), { method: 'GET' });
+        if (!res.ok) return null;
+        try {
+          return (await res.json()) as unknown;
+        } catch {
+          return null;
+        }
+      };
+      const primaryData = await load(holes);
+      if (!primaryData) return [];
+      const primaryRows = normalizeTimesWorker(course, primaryData, String(holes));
+      let times = rowsToTeeTimes(courseSlug, dateYmd, primaryRows, holes);
+      if (holes === 18) {
+        const nineData = await load(9);
+        if (nineData) {
+          const nineRows = normalizeTimesWorker(course, nineData, '9');
+          const nineTimes = rowsToTeeTimes(courseSlug, dateYmd, nineRows, 9);
+          times = mergeChronoSlcNineOnlySlots(times, nineTimes);
+        }
+      }
+      return times;
     }
     case 'membersports': {
       if (!course.golf_club_id || !course.golf_course_id) return [];
