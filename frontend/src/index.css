@@ -123,9 +123,144 @@ button, input, select{ font: inherit; }
   animation: skeleton-shimmer-move 1.15s ease-in-out infinite;
 }
 
+/* App shell header — safe areas + tap targets on phones */
+.app-header{
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.app-header-inner{
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+}
+.app-header-menu-btn{
+  display: none;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-header-menu-btn svg{
+  display: block;
+}
+.app-header-mobile-trailing{
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+.app-header-avatar-chip{
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  pointer-events: none;
+}
+.app-header-avatar-chip img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.app-header-nav-desktop{
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.app-header-drawer-backdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  background: rgba(0,0,0,0.01);
+  opacity: 0;
+  transition: opacity 0.22s ease, background-color 0.22s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-header-drawer-backdrop--open{
+  background: rgba(0,0,0,0.45);
+  opacity: 1;
+}
+.app-header-drawer{
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(320px, 100vw - 48px);
+  height: 100%;
+  min-height: 100%;
+  background: #1a2e1a;
+  border-left: 1px solid rgba(255,255,255,0.1);
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: -8px 0 32px rgba(0,0,0,0.25);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.app-header-drawer-backdrop--open .app-header-drawer{
+  transform: translateX(0);
+}
+@media (prefers-reduced-motion: reduce){
+  .app-header-drawer-backdrop{
+    transition: none;
+  }
+  .app-header-drawer{
+    transition: none;
+  }
+  .app-header-drawer-backdrop--open .app-header-drawer{
+    transform: translateX(0);
+  }
+  .app-header-drawer-backdrop:not(.app-header-drawer-backdrop--open) .app-header-drawer{
+    transform: translateX(100%);
+  }
+}
+.app-header-drawer a,
+.app-header-drawer button{
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Mobile-first helpers */
 @media (max-width: 720px){
   .container{ width: calc(100% - 20px); }
+
+  .app-header-inner{
+    padding: 10px 0;
+    gap: 10px;
+  }
+  .app-header-brand-sub{
+    display: none;
+  }
+  .app-header-menu-btn{
+    display: inline-flex;
+  }
+  .app-header-mobile-trailing{
+    display: flex;
+  }
+  .app-header-nav-desktop{
+    display: none;
+  }
 
   /* Make common grids stack naturally */
   .grid-cards{
