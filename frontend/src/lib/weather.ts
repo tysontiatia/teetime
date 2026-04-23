@@ -72,6 +72,77 @@ export async function fetchHourlyWeather(params: {
   }
 }
 
+/** Single-day snapshot near Salt Lake (one request for the whole finder). */
+export type WasatchDayOutlook = {
+  highF: number;
+  lowF: number;
+  maxWindMph: number;
+  maxPrecipProb: number;
+};
+
+const OUTLOOK_TTL_MS = WEATHER_TTL_MS;
+const outlookCache = new Map<string, { fetchedAt: number; data: WasatchDayOutlook }>();
+const outlookInflight = new Map<string, Promise<WasatchDayOutlook>>();
+
+const WASATCH_LAT = 40.7608;
+const WASATCH_LNG = -111.891;
+
+async function fetchWasatchDayOutlookUncached(dateYmd: string): Promise<WasatchDayOutlook> {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(WASATCH_LAT));
+  url.searchParams.set('longitude', String(WASATCH_LNG));
+  url.searchParams.set('timezone', 'America/Denver');
+  url.searchParams.set('start_date', dateYmd);
+  url.searchParams.set('end_date', dateYmd);
+  url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,wind_speed_10m_max,precipitation_probability_max');
+  url.searchParams.set('temperature_unit', 'fahrenheit');
+  url.searchParams.set('wind_speed_unit', 'mph');
+
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error('outlook_fetch_failed');
+  const data = (await res.json()) as {
+    daily?: {
+      temperature_2m_max?: number[];
+      temperature_2m_min?: number[];
+      wind_speed_10m_max?: number[];
+      precipitation_probability_max?: number[];
+    };
+  };
+  const hi = data.daily?.temperature_2m_max?.[0];
+  const lo = data.daily?.temperature_2m_min?.[0];
+  const wind = data.daily?.wind_speed_10m_max?.[0];
+  const pop = data.daily?.precipitation_probability_max?.[0];
+  if (typeof hi !== 'number' || typeof lo !== 'number') throw new Error('outlook_parse_failed');
+  return {
+    highF: hi,
+    lowF: lo,
+    maxWindMph: typeof wind === 'number' ? wind : 0,
+    maxPrecipProb: typeof pop === 'number' ? pop : 0,
+  };
+}
+
+export async function fetchWasatchDayOutlook(dateYmd: string): Promise<WasatchDayOutlook> {
+  const hit = outlookCache.get(dateYmd);
+  if (hit && Date.now() - hit.fetchedAt < OUTLOOK_TTL_MS) {
+    return hit.data;
+  }
+
+  let req = outlookInflight.get(dateYmd);
+  if (!req) {
+    req = fetchWasatchDayOutlookUncached(dateYmd).then((data) => {
+      outlookCache.set(dateYmd, { fetchedAt: Date.now(), data });
+      return data;
+    });
+    outlookInflight.set(dateYmd, req);
+  }
+
+  try {
+    return await req;
+  } finally {
+    outlookInflight.delete(dateYmd);
+  }
+}
+
 export function pickNearestHour(points: WeatherPoint[], startsAtIso: string) {
   const target = new Date(startsAtIso).getTime();
   let best: WeatherPoint | null = null;

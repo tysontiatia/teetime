@@ -14,8 +14,8 @@ import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
-import { WeatherStrip } from '../components/WeatherStrip';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
+import { FinderDayOutlook } from '../components/FinderDayOutlook';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -314,6 +314,8 @@ export function FinderPage() {
               </button>
             </div>
           )}
+
+          <FinderDayOutlook dateYmd={params.date} />
         </div>
 
         <div style={{ marginTop: 10, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -360,7 +362,6 @@ export function FinderPage() {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
               const isLockedDifferent = plan.courseId != null && plan.courseId !== course.id;
-              const nearestWeatherTime = top[0]?.startsAt ?? null;
 
               return (
                 <div
@@ -407,18 +408,6 @@ export function FinderPage() {
                             </span>
                           )}
                           {typeof course.distanceMi === 'number' && <span>{course.distanceMi.toFixed(1)} mi</span>}
-                          {course.lat != null && course.lng != null && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <WeatherStrip
-                                lat={course.lat}
-                                lng={course.lng}
-                                dateYmd={params.date}
-                                highlightTimeIso={nearestWeatherTime}
-                                compact
-                                compactTheme="subtle"
-                              />
-                            </span>
-                          )}
                         </div>
                       </div>
 
