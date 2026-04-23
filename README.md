@@ -25,7 +25,7 @@ Live at **[tee-time.io](https://tee-time.io)**
 
 | Layer | Tech |
 |---|---|
-| Frontend | Single-file HTML/CSS/JS (`public/app.html`) |
+| Frontend | React + Vite in `frontend/`, served at **`/app/`**; `public/app.html` redirects legacy links |
 | Landing page | `public/index.html` |
 | Auth | Supabase (Google OAuth + email/password) |
 | Database | Supabase PostgreSQL (profiles, saved courses, notification prefs, notification log) |
@@ -113,10 +113,13 @@ When a course shows "No available tee times" or "Booking not yet open for this d
 |---|---|---|---|
 | `foreup` | ForeUp public API | 37 | Requires `schedule_id`, optional `booking_class_id` |
 | `chronogolf_slc` | Chronogolf club-specific API (`/marketplace/clubs/{id}/teetimes`) | 17 | Requires `club_id`, `course_id`, `affiliation_type_id`. All former `chronogolf` courses were migrated to this endpoint — the marketplace search endpoint (`/v2/teetimes`) returns "closed" for these clubs. |
+| `chronogolf` | Chronogolf marketplace v2 (`/v2/teetimes`) | 0 in UT | Still supported in worker + React for other regions where the club endpoint is not used. |
 | `membersports` | MemberSports POST API | 10 | Requires `golf_club_id`, `golf_course_id` |
-| `foreup_login` | ForeUp (login-gated) | 1 | Shows "Sign in to view times →" link |
-| `golfpay` | — | 1 | No API support, booking link only |
-| `tenfore` | — | 1 | No API support, booking link only |
+| `foreup_login` | ForeUp (login-gated) | 1 | No worker proxy yet; React shows booking-site + roadmap copy until a JWT-aware path exists. |
+| `golfpay` | — | 1 | No API support yet; booking link in UI + catalog. |
+| `tenfore` | — | 1 | No API support yet; booking link in UI + catalog. |
+
+The React app’s `frontend/src/lib/platformRegistry.ts` classifies platforms for UX (`live_inventory` vs `booking_link_only` vs `auth_gated_planned`); expand that file when you add a worker route.
 
 The Cloudflare Worker proxies requests to each platform's API and returns results with CORS headers. Sessions for ForeUp and Chronogolf are cached in-memory for 30 minutes.
 
@@ -179,7 +182,8 @@ Events tracked:
 tee-time/
 ├── public/
 │   ├── index.html            ← Landing page (early access form + auth modal)
-│   ├── app.html              ← Main app (single file, all UI + auth + data fetching)
+│   ├── app.html              ← Redirect to `/app/` (legacy `/app.html` URLs)
+│   ├── _redirects            ← Cloudflare Pages SPA rules for `/app/*`
 │   ├── auth/
 │   │   └── callback.html     ← OAuth redirect handler
 │   ├── courses.json          ← Master list of 67 courses (source of truth)
@@ -189,6 +193,7 @@ tee-time/
 ├── worker/
 │   ├── index.js              ← Cloudflare Worker (CORS proxy + cron notification handler)
 │   └── wrangler.toml         ← Worker config (cron trigger, env vars, secrets)
+├── frontend/                 ← React SPA (build → merged into `deploy/app/`)
 ├── courses.json              ← Copy of public/courses.json (keep in sync)
 ├── scripts/
 │   ├── fetch-place-data.mjs  ← Fetch Google Places photos/ratings for all courses
@@ -196,7 +201,8 @@ tee-time/
 │   ├── add-course-fields.mjs ← Add fields to courses
 │   ├── geocode.mjs           ← Geocode courses via Google Maps
 │   ├── geocode-patch.mjs     ← Patch geocoding for specific courses
-│   └── geocode-manual.mjs    ← Manual geocoding
+│   ├── geocode-manual.mjs    ← Manual geocoding
+│   └── build-pages.sh        ← `npm ci` + Vite build + assemble `deploy/` for Pages
 └── supabase/
     ├── config.toml
     └── migrations/
@@ -218,9 +224,14 @@ Worker URL: `https://utah-tee-times.tysontiatia.workers.dev`
 
 ### Frontend (Cloudflare Pages)
 
+The live bundle is **`public/`** (marketing, auth callback, static JSON) plus the **Vite build** copied to **`app/`** (React SPA at `https://tee-time.io/app/`). SPA fallbacks are listed in `public/_redirects` per route (not `/app/*`, so `/app/assets/*` is not rewritten to HTML). When you add new top-level client routes under `/app/`, add a matching line there. Assemble and deploy:
+
 ```bash
-npx wrangler pages deploy public --project-name utah-tee-times
+bash scripts/build-pages.sh
+npx wrangler pages deploy deploy --project-name utah-tee-times
 ```
+
+Optional Vite overrides at build time (defaults match production Supabase + worker): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WORKER_URL`. Local dev loads `courses.json` via Vite proxy to `tee-time.io`.
 
 Production URL: `https://tee-time.io` (custom domain on Cloudflare Pages)
 

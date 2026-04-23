@@ -913,7 +913,7 @@
 
   <script>
     const VALID_CODES = ['golf2026', 'teetime', 'earlybird', 'utahgolf'];
-    const APP_URL = 'https://tee-time.io/app.html';
+    const APP_URL = 'https://tee-time.io/app/';
 
     const codeInput      = document.getElementById('codeInput');
     const verifyBtn      = document.getElementById('verifyBtn');
@@ -1003,7 +1003,7 @@
 
     // If user already has a session, send them straight to the app
     sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.replace('/app.html');
+      if (session) window.location.replace('/app/');
     });
 
     // Auth modal state
@@ -1103,7 +1103,7 @@
         return;
       }
 
-      window.location.replace('/app.html');
+      window.location.replace('/app/');
     });
 
     // Allow Enter key in password field

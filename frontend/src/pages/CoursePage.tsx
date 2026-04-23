@@ -1,0 +1,237 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import type { SortBy, TeeTime, TimeOfDayPreset } from '../types';
+import { formatDateShort, formatTime12h, matchesPreset, toYmd } from '../lib/time';
+import { usePlan } from '../state/PlanContext';
+import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { fetchTeeTimesForCourse } from '../lib/workerTimes';
+import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
+import { WeatherStrip } from '../components/WeatherStrip';
+import { NotificationModal } from '../components/NotificationModal';
+
+function clampPlayers(n: number): 1 | 2 | 3 | 4 {
+  if (n <= 1) return 1;
+  if (n === 2) return 2;
+  if (n === 3) return 3;
+  return 4;
+}
+
+function clampHoles(n: number): 9 | 18 {
+  return n === 9 ? 9 : 18;
+}
+
+export function CoursePage() {
+  const { courseId } = useParams();
+  const [sp] = useSearchParams();
+  const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
+
+  const date = sp.get('date') || toYmd(new Date());
+  const players = clampPlayers(Number(sp.get('players') || 2));
+  const holes = clampHoles(Number(sp.get('holes') || 18));
+  const tod = ((sp.get('tod') as TimeOfDayPreset) || 'any') satisfies TimeOfDayPreset;
+  const sort = ((sp.get('sort') as SortBy) || 'soonest') satisfies SortBy;
+
+  const course = useMemo(() => courses.find((c) => c.id === courseId) ?? null, [courses, courseId]);
+  const record = courseId ? recordsBySlug.get(courseId) : undefined;
+
+  const { plan, setCourse, addOption, clear } = usePlan();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [highlightTime, setHighlightTime] = useState<string | null>(null);
+  const [rawTimes, setRawTimes] = useState<TeeTime[]>([]);
+  const [loadingTimes, setLoadingTimes] = useState(false);
+
+  useEffect(() => {
+    if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
+      setRawTimes([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingTimes(true);
+    void (async () => {
+      try {
+        const list = await fetchTeeTimesForCourse(record, courseId, date, holes, players);
+        if (!cancelled) setRawTimes(list);
+      } catch {
+        if (!cancelled) setRawTimes([]);
+      } finally {
+        if (!cancelled) setLoadingTimes(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, record, date, holes, players]);
+
+  const times = useMemo(() => {
+    const list = rawTimes
+      .filter((t) => matchesPreset(t.startsAt, tod))
+      .filter((t) => t.spots == null || t.spots >= players)
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+
+    if (sort === 'price') {
+      list.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    }
+    return list;
+  }, [rawTimes, tod, players, sort]);
+
+  if (catalogLoading && !course) {
+    return (
+      <div className="container">
+        <div style={{ padding: 18, color: 'var(--muted)' }}>Loading course…</div>
+      </div>
+    );
+  }
+
+  if (!course || !courseId) {
+    return (
+      <div className="container">
+        <div style={{ padding: 18, background: 'rgba(255,255,255,0.8)', border: '1px solid var(--border)', borderRadius: 16 }}>
+          <div style={{ fontWeight: 900 }}>Course not found</div>
+          <Link className="btn" to="/" style={{ marginTop: 10 }}>
+            Back to finder
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const lockedDifferent = plan.courseId != null && plan.courseId !== course.id && plan.options.length > 0;
+  const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
+  const unsupported = !record || cap !== 'live_inventory';
+
+  return (
+    <div className="container">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0 }}>
+          <Link to="/" className="pill">
+            ← Back to results
+          </Link>
+          <h2 style={{ margin: '12px 0 4px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
+            {course.name} <span style={{ color: 'var(--muted)', fontWeight: 700 }}>({course.city})</span>
+          </h2>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            {typeof course.rating === 'number' && <span className="pill">★ {course.rating.toFixed(1)}</span>}
+            {typeof course.distanceMi === 'number' && <span className="pill">{course.distanceMi.toFixed(1)} mi</span>}
+            <span className="pill">{formatDateShort(date)}</span>
+            <span className="pill">
+              {players} player{players === 1 ? '' : 's'} · {holes} holes
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={lockedDifferent}
+            onClick={() => setCourse(course.id, date)}
+            title={lockedDifferent ? 'Plan is locked to another course' : 'Plan this course'}
+          >
+            Plan this course
+          </button>
+          <button className="btn" type="button" onClick={() => setNotifOpen(true)} title="Notifications">
+            🔔 Alerts
+          </button>
+          {plan.options.length > 0 && (
+            <button className="btn" type="button" onClick={clear}>
+              Clear plan
+            </button>
+          )}
+          {course.bookingUrl && (
+            <a className="btn btn-ghost" href={course.bookingUrl} target="_blank" rel="noreferrer">
+              Open booking site →
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="split-two" style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14 }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', background: 'rgba(255,255,255,0.85)' }}>
+          {course.photoUrl ? (
+            <img src={course.photoUrl} alt="" style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }} />
+          ) : null}
+          <div style={{ padding: 14 }}>
+            <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={date} highlightTimeIso={highlightTime} />
+
+            <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
+            <div style={{ color: 'var(--muted)', marginTop: 4 }}>
+              Add 3–8 candidates to your plan. Your buddies vote. You book externally once there’s consensus.
+            </div>
+
+            {unsupported ? (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                <strong style={{ color: 'var(--ink)' }}>{platformDisplayName(record?.platform)}</strong>
+                {' — '}
+                {capabilityHint(cap)}.{' '}
+                {course.bookingUrl ? (
+                  <a href={course.bookingUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--green-2)', fontWeight: 700 }}>
+                    Open booking site →
+                  </a>
+                ) : null}
+              </div>
+            ) : loadingTimes ? (
+              <div style={{ marginTop: 12, color: 'var(--muted)' }}>Loading tee times…</div>
+            ) : (
+              <div className="times-grid" style={{ marginTop: 12 }}>
+                {times.slice(0, 18).map((t) => (
+                  <button
+                    key={t.id}
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      setHighlightTime(t.startsAt);
+                      const res = addOption(course, t, players);
+                      if (!res.ok && res.reason === 'course_locked') {
+                        // eslint-disable-next-line no-alert
+                        const ok = window.confirm('Your plan is locked to another course. Start a new plan for this course?');
+                        if (!ok) return;
+                        clear();
+                        setCourse(course.id, date);
+                        addOption(course, t, players);
+                      }
+                    }}
+                    style={{
+                      padding: 12,
+                      borderRadius: 14,
+                      background: '#fff',
+                      borderColor: 'rgba(45,122,58,0.22)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 2,
+                    }}
+                  >
+                    <div style={{ fontWeight: 950, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
+                    {typeof t.spots === 'number' && (
+                      <div style={{ fontSize: 11, color: '#b45309', fontWeight: 900 }}>
+                        {t.spots} spot{t.spots === 1 ? '' : 's'}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!unsupported && !loadingTimes && times.length === 0 && (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                No matching times for this filter set (or the course has not released times yet).
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Planning rules (v1)</div>
+          <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
+            <li>First time you add locks the plan to this course.</li>
+            <li>If you try to add from another course, we ask to start a new plan.</li>
+            <li>Sharing is a link — not a screenshot.</li>
+          </ul>
+        </div>
+      </div>
+
+      <NotificationModal open={notifOpen} onClose={() => setNotifOpen(false)} course={course} defaultDate={date} />
+    </div>
+  );
+}

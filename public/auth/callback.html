@@ -13,7 +13,7 @@
 <body>
   <p>Signing in…</p>
   <script>
-    // TODO: replace with your real project URL and anon key (same values as app.html)
+    // Anon key is safe in the browser (RLS enforced). Keep in sync with the app client.
     const SUPABASE_URL  = 'https://nmwlebcvezybfwertlzs.supabase.co';
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
 
@@ -22,7 +22,7 @@
     });
 
     sb.auth.getSession().then(() => {
-      window.location.replace('/app.html');
+      window.location.replace('/app/');
     });
   </script>
 </body>

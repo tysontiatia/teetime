@@ -439,6 +439,8 @@ function formatTime12h(timeStr) {
 }
 
 // ── Fetch tee times for a course (reuses existing API logic) ─────────
+// Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports.
+// Add handlers here + GET routes in fetch() when onboarding new vendors (GolfPay, TenFore, etc.).
 async function fetchTimesForCourse(course, date, holes, players) {
   const params = new URLSearchParams({ date });
   let handler;
