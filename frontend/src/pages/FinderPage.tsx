@@ -204,9 +204,14 @@ export function FinderPage() {
             borderRadius: 18,
             padding: 12,
             boxShadow: '0 6px 22px rgba(26,46,26,0.06)',
+            minWidth: 0,
+            maxWidth: '100%',
           }}
         >
-          <div className="search-grid" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 0.6fr 0.9fr auto', gap: 10 }}>
+          <div
+            className="search-grid"
+            style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 0.6fr 0.9fr auto', gap: 10, minWidth: 0 }}
+          >
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Location or course
@@ -218,7 +223,7 @@ export function FinderPage() {
                 onChange={(e) => setParam('q', e.target.value)}
               />
             </div>
-            <div>
+            <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Date
               </label>
@@ -250,7 +255,7 @@ export function FinderPage() {
           </div>
 
           {/* Control row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap', minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {timeChip('any', 'Any')}
               {timeChip('morning', 'Morning')}
@@ -294,7 +299,12 @@ export function FinderPage() {
                 </button>
               </div>
               <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sort</span>
-              <select className="input" style={{ width: 170 }} value={params.sortBy} onChange={(e) => setParam('sort', e.target.value as SortBy)}>
+              <select
+                className="input"
+                style={{ width: 'min(170px, 100%)', minWidth: 0, maxWidth: '100%' }}
+                value={params.sortBy}
+                onChange={(e) => setParam('sort', e.target.value as SortBy)}
+              >
                 <option value="distance">Distance</option>
                 <option value="soonest">Soonest</option>
                 <option value="price">Price</option>
