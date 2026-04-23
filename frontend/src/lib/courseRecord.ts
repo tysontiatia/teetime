@@ -41,6 +41,7 @@ export function recordToCourse(record: CourseRecord, distanceMi?: number): Cours
     lng: record.lng,
     photoUrl: record.photo_url,
     rating: record.rating,
+    reviewCount: record.review_count,
     distanceMi,
     bookingUrl: record.booking_url,
     platform: record.platform,

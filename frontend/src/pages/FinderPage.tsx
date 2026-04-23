@@ -15,6 +15,7 @@ import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
 import { WeatherStrip } from '../components/WeatherStrip';
+import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -81,6 +82,11 @@ export function FinderPage() {
     lastUpdatedAt ?? 0,
     catalogLoading
   );
+
+  const showFinderSkeleton =
+    view === 'list' &&
+    !catalogError &&
+    (catalogLoading || (loadingTimes && rawTimesByCourse.size === 0 && fetchPool.length > 0));
 
   const timesByCourse = useMemo(() => {
     const map = new Map<string, TeeTime[]>();
@@ -346,7 +352,11 @@ export function FinderPage() {
               gap: 14,
             }}
           >
-            {availableCourses.map((course) => {
+            {showFinderSkeleton
+              ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
+              : null}
+            {!showFinderSkeleton &&
+              availableCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
               const isLockedDifferent = plan.courseId != null && plan.courseId !== course.id;
@@ -380,6 +390,7 @@ export function FinderPage() {
                         {typeof course.rating === 'number' && (
                           <span className="pill" style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', borderColor: 'rgba(255,255,255,0.18)' }}>
                             ★ {course.rating.toFixed(1)}
+                            {typeof course.reviewCount === 'number' ? ` · ${course.reviewCount.toLocaleString()}` : ''}
                           </span>
                         )}
                         {typeof course.distanceMi === 'number' && (

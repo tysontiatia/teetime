@@ -12,6 +12,8 @@ export type Course = {
   lng?: number;
   photoUrl?: string;
   rating?: number;
+  /** From Google Places metadata in catalog when present. */
+  reviewCount?: number;
   distanceMi?: number;
   bookingUrl?: string;
   /** Source platform from catalog (foreup, chronogolf_slc, membersports, …). */

@@ -8,6 +8,7 @@ import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { NotificationModal } from '../components/NotificationModal';
+import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -110,7 +111,12 @@ export function CoursePage() {
             {course.name} <span style={{ color: 'var(--muted)', fontWeight: 700 }}>({course.city})</span>
           </h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            {typeof course.rating === 'number' && <span className="pill">★ {course.rating.toFixed(1)}</span>}
+            {typeof course.rating === 'number' && (
+              <span className="pill">
+                ★ {course.rating.toFixed(1)}
+                {typeof course.reviewCount === 'number' ? ` · ${course.reviewCount.toLocaleString()} reviews` : ''}
+              </span>
+            )}
             {typeof course.distanceMi === 'number' && <span className="pill">{course.distanceMi.toFixed(1)} mi</span>}
             <span className="pill">{formatDateShort(date)}</span>
             <span className="pill">
@@ -151,6 +157,47 @@ export function CoursePage() {
             <img src={course.photoUrl} alt="" style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }} />
           ) : null}
           <div style={{ padding: 14 }}>
+            <div
+              style={{
+                marginBottom: 14,
+                padding: 12,
+                borderRadius: 14,
+                border: '1px solid var(--border)',
+                background: 'rgba(248,250,248,0.95)',
+              }}
+            >
+              <div style={{ fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Google reviews</div>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>
+                Star ratings and review counts in the catalog come from Google Places. Full review text stays on Google — we open Maps so we do not need your Maps API key in the browser.
+              </p>
+              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                {typeof course.rating === 'number' ? (
+                  <span className="pill" style={{ fontWeight: 800 }}>
+                    ★ {course.rating.toFixed(1)}
+                    {typeof course.reviewCount === 'number' ? ` · ${course.reviewCount.toLocaleString()} reviews` : ''}
+                  </span>
+                ) : typeof course.reviewCount === 'number' ? (
+                  <span className="pill" style={{ fontWeight: 800 }}>
+                    {course.reviewCount.toLocaleString()} reviews
+                  </span>
+                ) : (
+                  <span className="pill" style={{ fontWeight: 700, color: 'var(--muted)' }}>
+                    No rating in catalog
+                  </span>
+                )}
+                <a
+                  className="btn btn-primary"
+                  href={googleMapsPlaceUrl(course)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ padding: '8px 14px', fontSize: 13 }}
+                >
+                  Read reviews on Google Maps →
+                </a>
+              </div>
+              {record?.address ? <div style={{ marginTop: 10, fontSize: 13, color: 'var(--muted)' }}>{record.address}</div> : null}
+            </div>
+
             <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={date} highlightTimeIso={highlightTime} />
 
             <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
