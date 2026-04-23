@@ -41,16 +41,29 @@ export function useTimesByCourseMap(
 
     let cancelled = false;
     setLoading(true);
-    void (async () => {
-      const next = await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6);
-      if (!cancelled) {
-        setMap(next);
-        setLoading(false);
-      }
-    })();
 
+    const runFetch = () => {
+      void (async () => {
+        const next = await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6);
+        if (!cancelled) {
+          setMap(next);
+          setLoading(false);
+        }
+      })();
+    };
+
+    // Let the shell paint before we open many worker connections (major win vs old single-file cold start perception).
+    if (typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(() => !cancelled && runFetch(), { timeout: 1800 });
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(id);
+      };
+    }
+    const t = window.setTimeout(() => !cancelled && runFetch(), 150);
     return () => {
       cancelled = true;
+      window.clearTimeout(t);
     };
   }, [slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug]);
 

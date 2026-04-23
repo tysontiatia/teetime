@@ -1,12 +1,14 @@
 import type { WeatherPoint } from '../types';
 
-// Minimal weather adapter using Open-Meteo (no API key).
-// We only need: temp, wind, precip prob (hourly) for a date.
-export async function fetchHourlyWeather(params: {
-  lat: number;
-  lng: number;
-  dateYmd: string; // YYYY-MM-DD
-}): Promise<WeatherPoint[]> {
+const WEATHER_TTL_MS = 12 * 60 * 1000;
+const weatherCache = new Map<string, { fetchedAt: number; points: WeatherPoint[] }>();
+const weatherInflight = new Map<string, Promise<WeatherPoint[]>>();
+
+function weatherCacheKey(lat: number, lng: number, dateYmd: string): string {
+  return `${lat.toFixed(4)},${lng.toFixed(4)},${dateYmd}`;
+}
+
+async function fetchHourlyWeatherUncached(params: { lat: number; lng: number; dateYmd: string }): Promise<WeatherPoint[]> {
   const { lat, lng, dateYmd } = params;
 
   const url = new URL('https://api.open-meteo.com/v1/forecast');
@@ -38,6 +40,36 @@ export async function fetchHourlyWeather(params: {
     });
   }
   return points.filter((p) => Number.isFinite(p.tempF) && Number.isFinite(p.windMph));
+}
+
+// Minimal weather adapter using Open-Meteo (no API key).
+// We only need: temp, wind, precip prob (hourly) for a date.
+// Cached + in-flight dedupe so the finder grid does not N× the same network work.
+export async function fetchHourlyWeather(params: {
+  lat: number;
+  lng: number;
+  dateYmd: string; // YYYY-MM-DD
+}): Promise<WeatherPoint[]> {
+  const key = weatherCacheKey(params.lat, params.lng, params.dateYmd);
+  const hit = weatherCache.get(key);
+  if (hit && Date.now() - hit.fetchedAt < WEATHER_TTL_MS) {
+    return hit.points;
+  }
+
+  let req = weatherInflight.get(key);
+  if (!req) {
+    req = fetchHourlyWeatherUncached(params).then((points) => {
+      weatherCache.set(key, { fetchedAt: Date.now(), points });
+      return points;
+    });
+    weatherInflight.set(key, req);
+  }
+
+  try {
+    return await req;
+  } finally {
+    weatherInflight.delete(key);
+  }
 }
 
 export function pickNearestHour(points: WeatherPoint[], startsAtIso: string) {

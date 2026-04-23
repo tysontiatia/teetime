@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
@@ -12,7 +12,7 @@ import {
 import { usePlan } from '../state/PlanContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
-import { MapView } from '../components/MapView';
+const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
 import { WeatherStrip } from '../components/WeatherStrip';
 
@@ -322,13 +322,21 @@ export function FinderPage() {
         </div>
 
         {view === 'map' ? (
-          <MapView
-            courses={availableCourses}
-            timesByCourseId={timesByCourse}
-            onSelectCourse={(id) => {
-              nav(`/course/${id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`);
-            }}
-          />
+          <Suspense
+            fallback={
+              <div className="map-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+                Loading map…
+              </div>
+            }
+          >
+            <MapView
+              courses={availableCourses}
+              timesByCourseId={timesByCourse}
+              onSelectCourse={(id) => {
+                nav(`/course/${id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`);
+              }}
+            />
+          </Suspense>
         ) : (
           <div
             className="grid-cards"

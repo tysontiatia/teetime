@@ -17,25 +17,43 @@ export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact }: P
 
   useEffect(() => {
     let cancelled = false;
-    async function run() {
-      if (lat == null || lng == null) return;
-      setStatus('loading');
-      try {
-        const data = await fetchHourlyWeather({ lat, lng, dateYmd });
-        if (cancelled) return;
-        setPoints(data);
-        setStatus('idle');
-      } catch {
-        if (cancelled) return;
-        setPoints(null);
-        setStatus('error');
-      }
+    const run = () => {
+      void (async () => {
+        if (lat == null || lng == null) return;
+        setStatus('loading');
+        try {
+          const data = await fetchHourlyWeather({ lat, lng, dateYmd });
+          if (cancelled) return;
+          setPoints(data);
+          setStatus('idle');
+        } catch {
+          if (cancelled) return;
+          setPoints(null);
+          setStatus('error');
+        }
+      })();
+    };
+
+    // Finder cards mount many strips — defer so tee-time fetches and first paint win.
+    if (compact && typeof requestIdleCallback !== 'undefined') {
+      const id = requestIdleCallback(() => !cancelled && run(), { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        cancelIdleCallback(id);
+      };
+    }
+    if (compact) {
+      const t = window.setTimeout(() => !cancelled && run(), 400);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(t);
+      };
     }
     run();
     return () => {
       cancelled = true;
     };
-  }, [dateYmd, lat, lng]);
+  }, [compact, dateYmd, lat, lng]);
 
   const highlight = useMemo(() => {
     if (!points || !highlightTimeIso) return null;
