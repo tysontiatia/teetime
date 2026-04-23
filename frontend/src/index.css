@@ -85,6 +85,8 @@ button, input, select{ font: inherit; }
 
 .input{
   width:100%;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.85);
@@ -92,6 +94,19 @@ button, input, select{ font: inherit; }
   outline: none;
 }
 .input:focus{ border-color: rgba(45,122,58,0.45); box-shadow: 0 0 0 3px rgba(45,122,58,0.12); }
+
+/* Native date/time controls have a wide intrinsic min-width; keep them inside grids/cards */
+.input[type="date"],
+.input[type="datetime-local"],
+.input[type="time"]{
+  display: block;
+  box-sizing: border-box;
+}
+
+/* Finder search row: grid items default to min-width:auto and refuse to shrink */
+.search-grid > *{
+  min-width: 0;
+}
 
 .map-shell{
   height: clamp(320px, 52vh, 520px);
