@@ -9,9 +9,11 @@ type Props = {
   dateYmd: string;
   highlightTimeIso?: string | null;
   compact?: boolean;
+  /** `onDark` = white text on photo overlay; `subtle` = one-line meta on white card (finder). */
+  compactTheme?: 'onDark' | 'subtle';
 };
 
-export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact }: Props) {
+export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact, compactTheme = 'onDark' }: Props) {
   const [points, setPoints] = useState<WeatherPoint[] | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
 
@@ -72,11 +74,16 @@ export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact }: P
   if (lat == null || lng == null) return null;
 
   if (compact) {
-    if (status === 'loading') return <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)' }}>Loading weather…</span>;
-    if (status === 'error' || !highlight) return <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>Weather —</span>;
+    const subtle = compactTheme === 'subtle';
+    const loadColor = subtle ? 'var(--subtle)' : 'rgba(255,255,255,0.9)';
+    const errColor = subtle ? 'var(--subtle)' : 'rgba(255,255,255,0.85)';
+    const okColor = subtle ? 'var(--muted)' : 'rgba(255,255,255,0.92)';
+    if (status === 'loading') return <span style={{ fontSize: 12, color: loadColor }}>…</span>;
+    if (status === 'error' || !highlight) return <span style={{ fontSize: 12, color: errColor }}>—</span>;
     return (
-      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)' }}>
-        {Math.round(highlight.tempF)}° · {Math.round(highlight.windMph)} mph · {Math.round(highlight.precipProb)}%
+      <span style={{ fontSize: 12, color: okColor }}>
+        {Math.round(highlight.tempF)}° · {Math.round(highlight.windMph)} mph
+        {!subtle ? ` · ${Math.round(highlight.precipProb)}%` : null}
       </span>
     );
   }

@@ -323,7 +323,7 @@ export function FinderPage() {
               : `${availableCourses.length} courses with times matching filters`}
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Tip: instead of screenshots, add a few candidate times and share a plan.
+            Tap a time on a card to add it to your plan, then share the plan link.
           </div>
         </div>
 
@@ -374,34 +374,8 @@ export function FinderPage() {
                   }}
                 >
                   {course.photoUrl ? (
-                    <div style={{ position: 'relative' }}>
-                      <img src={course.photoUrl} alt="" style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          bottom: 10,
-                          left: 10,
-                          display: 'flex',
-                          gap: 8,
-                          alignItems: 'center',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        {typeof course.rating === 'number' && (
-                          <span className="pill" style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', borderColor: 'rgba(255,255,255,0.18)' }}>
-                            ★ {course.rating.toFixed(1)}
-                            {typeof course.reviewCount === 'number' ? ` · ${course.reviewCount.toLocaleString()}` : ''}
-                          </span>
-                        )}
-                        {typeof course.distanceMi === 'number' && (
-                          <span className="pill" style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', borderColor: 'rgba(255,255,255,0.18)' }}>
-                            {course.distanceMi.toFixed(1)} mi
-                          </span>
-                        )}
-                        <span className="pill" style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', borderColor: 'rgba(255,255,255,0.18)' }}>
-                          <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={params.date} highlightTimeIso={nearestWeatherTime} compact />
-                        </span>
-                      </div>
+                    <div style={{ lineHeight: 0 }}>
+                      <img src={course.photoUrl} alt="" style={{ width: '100%', height: 132, objectFit: 'cover', display: 'block' }} />
                     </div>
                   ) : null}
 
@@ -411,7 +385,41 @@ export function FinderPage() {
                         <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: '-0.02em' }}>
                           {course.name} <span style={{ color: 'var(--muted)', fontWeight: 700 }}>({course.city})</span>
                         </div>
-                        <div style={{ color: 'var(--muted)', fontSize: 13 }}>{times.length} time{times.length === 1 ? '' : 's'}</div>
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 12,
+                            color: 'var(--muted)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            columnGap: 10,
+                            rowGap: 4,
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: 'var(--ink)' }}>
+                            {times.length} tee time{times.length === 1 ? '' : 's'}
+                          </span>
+                          {typeof course.rating === 'number' && (
+                            <span>
+                              ★ {course.rating.toFixed(1)}
+                              {typeof course.reviewCount === 'number' ? ` (${course.reviewCount.toLocaleString()})` : ''}
+                            </span>
+                          )}
+                          {typeof course.distanceMi === 'number' && <span>{course.distanceMi.toFixed(1)} mi</span>}
+                          {course.lat != null && course.lng != null && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <WeatherStrip
+                                lat={course.lat}
+                                lng={course.lng}
+                                dateYmd={params.date}
+                                highlightTimeIso={nearestWeatherTime}
+                                compact
+                                compactTheme="subtle"
+                              />
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -497,7 +505,7 @@ export function FinderPage() {
                       )}
                     </div>
 
-                    <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ marginTop: 10 }}>
                       <Link
                         to={`/course/${course.id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
                         className="btn btn-ghost"
@@ -505,7 +513,6 @@ export function FinderPage() {
                       >
                         Course details →
                       </Link>
-                      <span style={{ fontSize: 12, color: 'var(--subtle)' }}>Click a time to add to plan</span>
                     </div>
                   </div>
                 </div>

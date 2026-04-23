@@ -24,24 +24,13 @@ export function CourseCardSkeleton() {
         boxShadow: '0 6px 18px rgba(0,0,0,0.05)',
       }}
     >
-      <div style={{ position: 'relative', height: 150, background: 'linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.09) 100%)' }}>
-        <div style={{ position: 'absolute', top: 10, left: 10 }}>
-          <Shimmer style={{ width: 56, height: 22, borderRadius: 999 }} />
-        </div>
-        <div style={{ position: 'absolute', top: 10, right: 10 }}>
-          <Shimmer style={{ width: 28, height: 28, borderRadius: 999 }} />
-        </div>
-        <div style={{ position: 'absolute', bottom: 10, left: 10, right: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Shimmer style={{ width: '72%', height: 18, borderRadius: 8 }} />
-          <Shimmer style={{ width: '42%', height: 14, borderRadius: 8 }} />
-        </div>
-      </div>
+      <div style={{ height: 132, background: 'linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.08) 100%)' }} />
 
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <Shimmer style={{ width: '88%', height: 18 }} />
-            <Shimmer style={{ width: 120, height: 14 }} />
+            <Shimmer style={{ width: '95%', height: 12 }} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Shimmer style={{ width: 40, height: 36, borderRadius: 12 }} />
