@@ -86,7 +86,7 @@ export function FinderPage() {
   const showFinderSkeleton =
     view === 'list' &&
     !catalogError &&
-    (catalogLoading || (loadingTimes && rawTimesByCourse.size === 0 && fetchPool.length > 0));
+    (catalogLoading || (loadingTimes && fetchPool.length > 0));
 
   const timesByCourse = useMemo(() => {
     const map = new Map<string, TeeTime[]>();

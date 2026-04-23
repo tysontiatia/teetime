@@ -21,9 +21,13 @@ export function useTimesByCourseMap(
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (catalogLoading) return;
+    if (catalogLoading) {
+      setLoading(false);
+      return;
+    }
     if (workerCourses.length === 0) {
       setMap(new Map());
+      setLoading(false);
       return;
     }
 
@@ -36,6 +40,7 @@ export function useTimesByCourseMap(
 
     if (entries.length === 0) {
       setMap(new Map());
+      setLoading(false);
       return;
     }
 
