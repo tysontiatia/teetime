@@ -1878,6 +1878,64 @@
     }
     .location-chip-clear:hover { color: var(--red); }
 
+    /* ── Control row (presets / sort / freshness) ── */
+    .control-row {
+      max-width: 960px;
+      margin: 6px auto 0;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .preset-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .preset-chip {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-strong);
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font);
+      color: var(--fg-muted);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+    .preset-chip:hover { border-color: rgba(45,122,58,0.35); color: var(--brand); }
+    .preset-chip.active { background: var(--brand-light); border-color: rgba(45,122,58,0.25); color: var(--brand-dark); }
+
+    .control-spacer { flex: 1; }
+    .control-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .control-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--fg-subtle);
+      white-space: nowrap;
+    }
+    .sort-select {
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--fg);
+      background: var(--bg);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      outline: none;
+      cursor: pointer;
+      min-height: 40px;
+    }
+    .sort-select:focus { border-color: rgba(45,122,58,0.6); }
+    .freshness {
+      font-size: 0.8rem;
+      color: var(--fg-subtle);
+      white-space: nowrap;
+    }
+
   /* ─────────────────────────────
      Soft gate (unauthenticated)
   ───────────────────────────── */
@@ -2157,6 +2215,27 @@
       <button class="radius-btn" data-radius="100">100 mi</button>
     </div>
     <button class="location-chip-clear" onclick="clearLocationSearch()">× Clear</button>
+  </div>
+</div>
+
+<!-- Quick controls: time presets + sort + last refresh -->
+<div class="control-row" id="controlRow">
+  <div class="preset-chips" id="timePresetChips" aria-label="Time presets">
+    <button class="preset-chip active" data-value="any" type="button">Any</button>
+    <button class="preset-chip" data-value="morning" type="button">Morning</button>
+    <button class="preset-chip" data-value="afternoon" type="button">Afternoon</button>
+    <button class="preset-chip" data-value="evening" type="button">Evening</button>
+  </div>
+  <div class="control-spacer"></div>
+  <div class="control-meta">
+    <span class="control-label">Sort</span>
+    <select class="sort-select" id="sortSelect">
+      <option value="distance" selected>Distance</option>
+      <option value="soonest">Soonest</option>
+      <option value="price">Price</option>
+      <option value="rating">Rating</option>
+    </select>
+    <span class="freshness" id="freshnessLabel">—</span>
   </div>
 </div>
 
@@ -3505,7 +3584,7 @@
   (function initTimeOfDay() {
     const group = document.getElementById('timeOfDayGroup');
     const input = document.getElementById('timeOfDayInput');
-    const labels = { any: 'Any', morning: 'AM', afternoon: 'PM' };
+    const labels = { any: 'Any', morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
     group.querySelectorAll('.seg-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
@@ -3523,8 +3602,79 @@
     });
   })();
 
+  // Quick preset chips (FairwayFinder-style)
+  (function initTimePresetChips() {
+    const chips = document.getElementById('timePresetChips');
+    if (!chips) return;
+    chips.querySelectorAll('.preset-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        chips.querySelectorAll('.preset-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const val = btn.dataset.value;
+        const input = document.getElementById('timeOfDayInput');
+        input.value = val;
+        const display = document.getElementById('sbuTimeVal');
+        if (display) display.textContent = ({ any: 'Any', morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' }[val] || val);
+
+        // Sync segmented buttons (AM/PM/Any) as best-effort
+        const group = document.getElementById('timeOfDayGroup');
+        if (group) {
+          group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+          // Map presets to existing group buttons: any/morning/afternoon; evening falls back to afternoon on group
+          const map = { any: 'any', morning: 'morning', afternoon: 'afternoon', evening: 'afternoon' };
+          const target = group.querySelector(`.seg-btn[data-value="${map[val]}"]`);
+          if (target) target.classList.add('active');
+        }
+
+        const tabCourses = getCoursesForTab(activeTab);
+        const date = document.getElementById('dateInput').value;
+        const players = document.getElementById('playersInput').value;
+        const holes = document.getElementById('holesInput').value;
+        if (date) renderFromCache(tabCourses, date, holes, players);
+      });
+    });
+  })();
+
+  // Sort select + freshness indicator
+  let sortBy = 'distance';
+  let lastSearchAt = null;
+
+  function formatFreshness(ts) {
+    if (!ts) return '—';
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s < 10) return 'Updated just now';
+    if (s < 60) return `Updated ${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `Updated ${m}m ago`;
+    const h = Math.floor(m / 60);
+    return `Updated ${h}h ago`;
+  }
+
+  function updateFreshnessLabel() {
+    const el = document.getElementById('freshnessLabel');
+    if (!el) return;
+    el.textContent = formatFreshness(lastSearchAt);
+  }
+  setInterval(updateFreshnessLabel, 15000);
+
+  (function initSortSelect() {
+    const sel = document.getElementById('sortSelect');
+    if (!sel) return;
+    sel.addEventListener('change', () => {
+      sortBy = sel.value || 'distance';
+      const tabCourses = getCoursesForTab(activeTab);
+      const date = document.getElementById('dateInput').value;
+      const players = document.getElementById('playersInput').value;
+      const holes = document.getElementById('holesInput').value;
+      if (date) renderFromCache(tabCourses, date, holes, players);
+    });
+  })();
+
   // ── Plan a Round ─────────────────────────────────────────────────────
   let roundDraft = [];
+  let plannedCourseName = null;
+  let plannedDate = null;
 
   let planningMode = false;
 
@@ -3543,6 +3693,10 @@
     document.getElementById('planBtn').classList.add('active');
     document.getElementById('planBtnIcon').style.display = 'none';
     document.getElementById('planBtnLabel').textContent = 'Planning';
+    // Reveal course-level CTA on existing cards
+    document.querySelectorAll('.course-card .course-header-top .badge').forEach(b => {
+      if (b.textContent === 'Plan this course') b.style.display = '';
+    });
   }
 
   function exitPlanMode() {
@@ -3552,10 +3706,27 @@
     document.getElementById('planBtn').classList.remove('active');
     document.getElementById('planBtnIcon').style.display = '';
     document.getElementById('planBtnLabel').textContent = 'Plan';
+    document.querySelectorAll('.course-card .course-header-top .badge').forEach(b => {
+      if (b.textContent === 'Plan this course') b.style.display = 'none';
+    });
   }
 
   function addToRoundDraft(item) {
     if (!planningMode) enterPlanMode();
+    // Course-first planning: first selection anchors the plan to a course.
+    if (!plannedCourseName) {
+      plannedCourseName = item.courseName;
+      plannedDate = item.date;
+      showToast(`Planning ${plannedCourseName}`);
+    } else if (item.courseName !== plannedCourseName) {
+      const ok = window.confirm(`You're planning ${plannedCourseName}. Start a new plan for ${item.courseName}?`);
+      if (!ok) return;
+      clearRoundDraft();
+      plannedCourseName = item.courseName;
+      plannedDate = item.date;
+      enterPlanMode();
+      showToast(`Planning ${plannedCourseName}`);
+    }
     if (!roundDraft.some(x => x.key === item.key)) {
       roundDraft.push(item);
       updateRoundTray();
@@ -3569,6 +3740,8 @@
 
   function clearRoundDraft() {
     roundDraft = [];
+    plannedCourseName = null;
+    plannedDate = null;
     updateRoundTray();
     exitPlanMode();
     document.querySelectorAll('.pill-add.added').forEach(btn => {
@@ -3583,7 +3756,11 @@
     const label = document.getElementById('roundTrayLabel');
     const countEl = document.getElementById('planBtnCount');
     const n = roundDraft.length;
-    label.textContent = `${n} time${n !== 1 ? 's' : ''} selected`;
+    if (plannedCourseName && plannedDate) {
+      label.textContent = `${plannedCourseName} · ${formatDateLabel(plannedDate)} · ${n} option${n !== 1 ? 's' : ''}`;
+    } else {
+      label.textContent = `${n} time${n !== 1 ? 's' : ''} selected`;
+    }
     tray.classList.toggle('visible', n > 0);
     if (countEl) countEl.textContent = n;
   }
@@ -3634,7 +3811,8 @@
     btn.textContent = 'Creating…';
     btn.disabled = true;
 
-    const title = document.getElementById('roundTitleInput').value.trim() || 'Golf Round';
+    const defaultTitle = plannedCourseName ? `${plannedCourseName} round` : 'Golf Round';
+    const title = document.getElementById('roundTitleInput').value.trim() || defaultTitle;
     const organizer_id = authUser ? authUser.id : null;
 
     try {
@@ -4152,12 +4330,43 @@
     const headerTop = document.createElement('div');
     headerTop.className = 'course-header-top';
     headerTop.appendChild(nameEl);
+
+    // Course-first planning CTA (revealed while planning)
+    const planCourseBtn = document.createElement('button');
+    planCourseBtn.className = 'badge';
+    planCourseBtn.style.cssText = 'display:none;background: rgba(45,122,58,0.10); border: 1px solid rgba(45,122,58,0.22); color: var(--brand-dark); cursor: pointer; text-transform: none; font-size: 11px; padding: 5px 10px;';
+    planCourseBtn.textContent = 'Plan this course';
+    planCourseBtn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!planningMode) enterPlanMode();
+      if (plannedCourseName && plannedCourseName !== course.name) {
+        const ok = window.confirm(`Switch plan from ${plannedCourseName} to ${course.name}? This clears your current options.`);
+        if (!ok) return;
+        clearRoundDraft();
+        enterPlanMode();
+      }
+      plannedCourseName = course.name;
+      plannedDate = date;
+      updateRoundTray();
+      showToast(`Planning ${course.name} — tap + on times`);
+    });
     headerTop.appendChild(bellBtn);
     headerTop.appendChild(starBtn);
+    if (!isUnavailable) headerTop.insertBefore(planCourseBtn, bellBtn);
 
     header.appendChild(headerTop);
     header.appendChild(summary);
     card.appendChild(header);
+
+    // Reveal CTA when planning mode is active
+    if (!isUnavailable) {
+      const showBtn = () => { if (planningMode) planCourseBtn.style.display = ''; };
+      const hideBtn = () => { planCourseBtn.style.display = 'none'; };
+      card.addEventListener('mouseenter', showBtn);
+      card.addEventListener('mouseleave', hideBtn);
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) showBtn();
+    }
 
     if (error) {
       const msg = document.createElement('div');
@@ -4337,11 +4546,13 @@
       times = times.filter(t => t.holes == null || t.holes === 0 || parseInt(t.holes, 10) === parseInt(holes, 10));
       // Time-of-day filter
       const tod = document.getElementById('timeOfDayInput').value;
-      if (tod === 'morning' || tod === 'afternoon') {
+      if (tod === 'morning' || tod === 'afternoon' || tod === 'evening') {
         times = times.filter(t => {
           const h24 = parseHour24(t.rawTime);
           if (h24 === null) return true;
-          return tod === 'morning' ? h24 < 12 : h24 >= 12;
+          if (tod === 'morning') return h24 < 12;
+          if (tod === 'afternoon') return h24 >= 12 && h24 < 16;
+          return h24 >= 16;
         });
       }
       if (date === todayStr) {
@@ -4365,18 +4576,58 @@
         }
       }
       processed = processed.filter(r => r.distanceMi == null || r.distanceMi <= searchRadius);
-      processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
     } else if (userLocation) {
       for (const r of processed) {
         if (r.course.lat != null && r.course.lng != null) {
           r.distanceMi = haversine(userLocation.lat, userLocation.lng, r.course.lat, r.course.lng);
         }
       }
-      processed.sort((a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity));
     }
 
     const available   = processed.filter(r => !r.error && r.times.length > 0);
     const unavailable = processed.filter(r => r.error || r.times.length === 0);
+
+    function minPrice(times) {
+      const prices = times.map(t => parsePrice(t.price)).filter(p => p != null);
+      if (!prices.length) return Infinity;
+      return Math.min(...prices);
+    }
+
+    function soonestTime(times) {
+      const toMin = (t) => {
+        const s = (t.rawTime || '').trim();
+        if (s && s.includes(':')) {
+          const [hh, mm] = s.split(':').map(Number);
+          if (!Number.isNaN(hh) && !Number.isNaN(mm)) return hh * 60 + mm;
+        }
+        const d = (t.display || '').trim();
+        const m = d.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (!m) return Infinity;
+        let h = parseInt(m[1], 10);
+        const mi = parseInt(m[2], 10);
+        const ap = m[3].toUpperCase();
+        if (ap === 'PM' && h !== 12) h += 12;
+        if (ap === 'AM' && h === 12) h = 0;
+        return h * 60 + mi;
+      };
+      return Math.min(...times.map(toMin));
+    }
+
+    function ratingVal(course) {
+      return course.rating == null ? -Infinity : course.rating;
+    }
+
+    const distanceSorter = (a, b) => (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity);
+    if (sortBy === 'soonest') {
+      available.sort((a, b) => soonestTime(a.times) - soonestTime(b.times));
+    } else if (sortBy === 'price') {
+      available.sort((a, b) => minPrice(a.times) - minPrice(b.times));
+    } else if (sortBy === 'rating') {
+      available.sort((a, b) => ratingVal(b.course) - ratingVal(a.course));
+    } else {
+      available.sort(distanceSorter);
+    }
+    unavailable.sort(distanceSorter);
 
     posthog.capture('results_returned', { count: available.length, search_date: date, players });
 
@@ -4400,6 +4651,9 @@
     meta.className = 'results-meta';
     meta.textContent = `${available.length} course${available.length !== 1 ? 's' : ''} with available times`;
     resultsEl.appendChild(meta);
+
+    lastSearchAt = Date.now();
+    updateFreshnessLabel();
 
     if (available.length > 0) {
       if (activeTab.startsWith('state_') && !activeRegion) {
