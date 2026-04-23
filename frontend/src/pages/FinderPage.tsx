@@ -212,7 +212,7 @@ export function FinderPage() {
             className="search-grid"
             style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 0.6fr 0.9fr auto', gap: 10, minWidth: 0 }}
           >
-            <div>
+            <div className="search-grid-field">
               <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Location or course
               </label>
@@ -223,13 +223,13 @@ export function FinderPage() {
                 onChange={(e) => setParam('q', e.target.value)}
               />
             </div>
-            <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+            <div className="search-grid-field search-grid-field--date">
               <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Date
               </label>
               <input className="input" type="date" value={params.date} onChange={(e) => setParam('date', e.target.value)} />
             </div>
-            <div>
+            <div className="search-grid-field">
               <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Players
               </label>
@@ -240,7 +240,7 @@ export function FinderPage() {
                 <option value="4">4</option>
               </select>
             </div>
-            <div>
+            <div className="search-grid-field">
               <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Holes
               </label>

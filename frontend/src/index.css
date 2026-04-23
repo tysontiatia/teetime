@@ -116,6 +116,34 @@ button, input, select{ font: inherit; }
   min-width: 0;
 }
 
+/* Finder date column: stretch like siblings; WebKit tucks calendar icon inside the box */
+.search-grid-field{
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.search-grid-field--date{
+  overflow: hidden;
+  border-radius: 12px;
+}
+.search-grid-field--date .input[type="date"]{
+  position: relative;
+  padding-inline-end: 2.35rem;
+}
+.search-grid-field--date .input[type="date"]::-webkit-datetime-edit-fields-wrapper{
+  max-width: 100%;
+  padding: 0;
+}
+.search-grid-field--date .input[type="date"]::-webkit-calendar-picker-indicator{
+  position: absolute;
+  inset-inline-end: 10px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
 .map-shell{
   height: clamp(320px, 52vh, 520px);
   border-radius: 18px;
