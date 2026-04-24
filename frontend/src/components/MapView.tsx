@@ -1,5 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useEffect, useMemo } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import type { Course, TeeTime } from '../types';
 import { formatTime12h } from '../lib/time';
@@ -13,16 +14,47 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-function FitBounds({ courses }: { courses: Course[] }) {
+/** Zoom level when centering on the user's location (regional “around me” view). */
+const USER_AREA_ZOOM = 11;
+
+function MapAutoView({
+  courses,
+  userLocation,
+}: {
+  courses: Course[];
+  userLocation: { lat: number; lng: number } | null;
+}) {
   const map = useMap();
-  const pts = courses
-    .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number')
-    .map((c) => [c.lat as number, c.lng as number] as [number, number]);
-  if (pts.length >= 2) {
-    map.fitBounds(pts, { padding: [30, 30] });
-  } else if (pts.length === 1) {
-    map.setView(pts[0], 12);
-  }
+  const courseBoundsKey = useMemo(
+    () =>
+      courses
+        .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number')
+        .map((c) => c.id)
+        .sort()
+        .join('|'),
+    [courses],
+  );
+
+  useEffect(
+    () => {
+      if (userLocation) {
+        map.setView([userLocation.lat, userLocation.lng], USER_AREA_ZOOM, { animate: false });
+        return;
+      }
+      const pts = courses
+        .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number')
+        .map((c) => [c.lat as number, c.lng as number] as [number, number]);
+      if (pts.length >= 2) {
+        map.fitBounds(pts, { padding: [30, 30], animate: false });
+      } else if (pts.length === 1) {
+        map.setView(pts[0], 12, { animate: false });
+      }
+    },
+    // courseBoundsKey tracks which courses have coords; omit `courses` to avoid refit every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `courses` matches courseBoundsKey from the same render
+    [map, userLocation, courseBoundsKey],
+  );
+
   return null;
 }
 
@@ -30,22 +62,28 @@ export function MapView({
   courses,
   timesByCourseId,
   onSelectCourse,
+  userLocation = null,
 }: {
   courses: Course[];
   timesByCourseId: Map<string, TeeTime[]>;
   onSelectCourse: (courseId: string) => void;
+  userLocation?: { lat: number; lng: number } | null;
 }) {
   const first = courses.find((c) => typeof c.lat === 'number' && typeof c.lng === 'number');
-  const center: [number, number] = first ? [first.lat as number, first.lng as number] : [40.7608, -111.891];
+  const center: [number, number] = userLocation
+    ? [userLocation.lat, userLocation.lng]
+    : first
+      ? [first.lat as number, first.lng as number]
+      : [40.7608, -111.891];
 
   return (
     <div className="map-shell">
-      <MapContainer center={center} zoom={11} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={center} zoom={USER_AREA_ZOOM} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <FitBounds courses={courses} />
+        <MapAutoView courses={courses} userLocation={userLocation} />
         {courses
           .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number')
           .map((c) => {

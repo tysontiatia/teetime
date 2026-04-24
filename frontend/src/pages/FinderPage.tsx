@@ -60,7 +60,7 @@ export function FinderPage() {
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const { user, loading: authLoading } = useAuth();
 
-  const { courses, recordsBySlug, loading: catalogLoading, error: catalogError } = useCourseCatalog();
+  const { courses, recordsBySlug, loading: catalogLoading, error: catalogError, userLocation } = useCourseCatalog();
 
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
@@ -401,6 +401,7 @@ export function FinderPage() {
             <MapView
               courses={availableCourses}
               timesByCourseId={timesByCourse}
+              userLocation={userLocation}
               onSelectCourse={(id) => {
                 nav(`/course/${id}?${courseDetailQueryString(params)}`);
               }}
