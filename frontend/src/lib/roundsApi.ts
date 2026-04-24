@@ -87,6 +87,12 @@ export async function publishRoundFromPlan(params: {
 
     if (rErr) {
       if (rErr.code === '23505') continue;
+      if (rErr.code === 'PGRST204') {
+        return {
+          error:
+            'Supabase is missing newer round columns (e.g. share_slug). Run the SQL migrations in supabase/migrations on this project — at least 20260423130000_rounds_slug_and_votes.sql and 20260423180000_round_voters_and_realtime.sql — then retry.',
+        };
+      }
       return { error: rErr.message };
     }
     if (!roundRow?.id || !roundRow.share_slug) {
@@ -112,6 +118,12 @@ export async function publishRoundFromPlan(params: {
     const { error: oErr } = await supabase.from('round_options').insert(optRows);
     if (oErr) {
       await supabase.from('rounds').delete().eq('id', roundRow.id);
+      if (oErr.code === 'PGRST204') {
+        return {
+          error:
+            'Supabase is missing newer round_options columns (e.g. starts_at). Apply supabase/migrations/20260423130000_rounds_slug_and_votes.sql on this project, then retry.',
+        };
+      }
       return { error: oErr.message };
     }
 
