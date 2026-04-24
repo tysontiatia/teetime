@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
+import { matchesPreset, minutesSince, toYmd, formatTime12h, formatDateShort } from '../lib/time';
 import { sortCourses } from '../lib/sort';
 import {
   capabilityHint,
@@ -154,6 +154,14 @@ export function FinderPage() {
       names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' · ');
     return { label, nCourses: ids.length, nTimes: plan.options.length };
   }, [coursesById, plan.options]);
+
+  /** Shown when Plan was clicked but no tee times are in the shortlist yet. */
+  const planningFocus = useMemo(() => {
+    if (plan.options.length > 0 || !plan.courseId) return null;
+    const courseId = plan.courseId;
+    const name = coursesById.get(courseId)?.name ?? courseId;
+    return { courseId, name, dateLabel: formatDateShort(plan.date) };
+  }, [coursesById, plan.courseId, plan.date, plan.options.length]);
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(sp);
@@ -325,16 +333,37 @@ export function FinderPage() {
             </div>
           </div>
 
-          {planningSummary && (
+          {(planningSummary || planningFocus) && (
             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                Planning: <strong style={{ color: 'var(--green-2)' }}>{planningSummary.label}</strong>
-                <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
-                  {' '}
-                  · {planningSummary.nCourses} course{planningSummary.nCourses === 1 ? '' : 's'}, {planningSummary.nTimes} time
-                  {planningSummary.nTimes === 1 ? '' : 's'}
+              {planningSummary ? (
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  Planning: <strong style={{ color: 'var(--green-2)' }}>{planningSummary.label}</strong>
+                  <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
+                    {' '}
+                    · {planningSummary.nCourses} course{planningSummary.nCourses === 1 ? '' : 's'}, {planningSummary.nTimes} time
+                    {planningSummary.nTimes === 1 ? '' : 's'}
+                  </span>
                 </span>
-              </span>
+              ) : planningFocus ? (
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  Building shortlist for <strong style={{ color: 'var(--green-2)' }}>{planningFocus.name}</strong>
+                  <span style={{ color: 'var(--muted)', fontWeight: 600 }}> · {planningFocus.dateLabel}</span>
+                  {' — '}
+                  tap tee times on the cards (or{' '}
+                  <Link
+                    to={`/course/${planningFocus.courseId}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
+                    style={{ color: 'var(--green-2)', fontWeight: 800 }}
+                  >
+                    open full list
+                  </Link>
+                  ).
+                </span>
+              ) : null}
+              {plan.options.length > 0 ? (
+                <Link to="/plan" className="btn btn-ghost" style={{ padding: '6px 12px' }}>
+                  Review plan →
+                </Link>
+              ) : null}
               <button className="btn btn-ghost" type="button" onClick={clear}>
                 Clear plan
               </button>
@@ -388,6 +417,8 @@ export function FinderPage() {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
               const hasOptionsHere = plan.options.some((o) => o.courseId === course.id);
+              const isPlanAnchorHere = plan.courseId === course.id && plan.date === params.date;
+              const planChipActive = hasOptionsHere || isPlanAnchorHere;
 
               return (
                 <div
@@ -448,11 +479,11 @@ export function FinderPage() {
                           style={{
                             padding: '8px 10px',
                             borderRadius: 12,
-                            background: hasOptionsHere ? 'var(--green-soft)' : 'rgba(255,255,255,0.8)',
-                            color: hasOptionsHere ? 'var(--green-2)' : 'var(--muted)',
-                            borderColor: hasOptionsHere ? 'rgba(45,122,58,0.28)' : 'var(--border)',
+                            background: planChipActive ? 'var(--green-soft)' : 'rgba(255,255,255,0.8)',
+                            color: planChipActive ? 'var(--green-2)' : 'var(--muted)',
+                            borderColor: planChipActive ? 'rgba(45,122,58,0.28)' : 'var(--border)',
                           }}
-                          title="Use this course’s date on the plan page"
+                          title="Anchor the plan to this course and date, then tap times to add them"
                         >
                           Plan
                         </button>
