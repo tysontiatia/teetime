@@ -1,6 +1,8 @@
 # Short vote links (site root) → SPA under /app/…/
 # Without a trailing slash on /app/… deep links, Pages can 308 → /app/ and drop the path.
 /round/:slug      /app/round/:slug/     302
+# Copied links use `/round/slug/`; `:slug` alone does not match a trailing slash on the source path.
+/round/:slug/     /app/round/:slug/     302
 
 # React SPA at /app/ — do NOT use /app/* here: would break /app/assets/*.js
 /app              /app/                 302

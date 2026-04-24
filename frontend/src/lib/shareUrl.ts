@@ -1,4 +1,4 @@
-/** In dev, Vite serves under `BASE_URL`. In production, `/round/slug/` hits `_redirects` then the SPA (trailing slash avoids Pages 308 → `/app/`). */
+/** In dev, Vite serves under `BASE_URL`. In production, `/round/slug` or `/round/slug/` is 302’d by `_redirects` to `/app/round/slug/` (trailing slash on the SPA path avoids Pages 308 → `/app/`). */
 function roundPathForEnv(slug: string): string {
   const s = slug.trim().toLowerCase();
   const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '');
