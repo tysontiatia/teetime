@@ -21,12 +21,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy deploy --project-name utah-tee-times
-      # Use the same action as Pages so the API token is passed the way Wrangler expects.
-      # Token must include Workers Scripts (Edit) + Workers KV Storage (if used), not Pages-only.
+      # Same action as Pages. Deploy from repo root with --config (avoids workingDirectory edge cases).
+      # Token must include Workers Scripts → Edit, not Pages-only.
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: worker
-          command: deploy
+          command: deploy --config worker/wrangler.toml

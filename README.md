@@ -221,7 +221,7 @@ tee-time/
 
 ### Worker
 
-CI deploys the Worker with **`cloudflare/wrangler-action`** from the `worker/` directory (`command: deploy`), same API token pattern as Pages.
+CI deploys the Worker with **`cloudflare/wrangler-action`** using `deploy --config worker/wrangler.toml` from the repo root (same API token pattern as Pages).
 
 ```bash
 cd worker && npx wrangler deploy
