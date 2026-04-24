@@ -169,6 +169,9 @@ export function RoundPage() {
   const countsByOption = useMemo(() => aggregateVotes(votes), [votes]);
   const myVotes = useMemo(() => voteForVoter(votes, voterKey), [votes, voterKey]);
   const nameByKey = useMemo(() => votersByKey(voters), [voters]);
+  const hasGuestSavedName = !!nameByKey.get(voterKey)?.trim();
+  /** Guests must save a display name once before voting (signed-in users use their account name only). */
+  const guestVoteLocked = !user?.id && !hasGuestSavedName;
 
   const sortedOptions = useMemo(() => {
     return [...options].sort((a, b) => {
@@ -192,6 +195,13 @@ export function RoundPage() {
   const onVote = async (optionId: string, status: 'in' | 'maybe' | 'out') => {
     if (!roundId) return;
     if (!(await ensureSignedInDisplay())) return;
+    if (!user?.id) {
+      const vr = await fetchVotersForRound(roundId);
+      if (!votersByKey(vr).get(voterKey)?.trim()) {
+        setErr('Save your name before voting.');
+        return;
+      }
+    }
     setVoteBusy(optionId + status);
     const res = await upsertVote({ roundId, optionId, voterKey, status });
     setVoteBusy(null);
@@ -205,6 +215,13 @@ export function RoundPage() {
   const onCantMakeRound = async () => {
     if (!roundId || options.length === 0) return;
     if (!(await ensureSignedInDisplay())) return;
+    if (!user?.id) {
+      const vr = await fetchVotersForRound(roundId);
+      if (!votersByKey(vr).get(voterKey)?.trim()) {
+        setErr('Save your name first.');
+        return;
+      }
+    }
     setVoteBusy('CANT');
     for (const o of options) {
       const res = await upsertVote({ roundId, optionId: o.id, voterKey, status: 'out' });
@@ -222,7 +239,7 @@ export function RoundPage() {
     if (!roundId) return;
     setNameBusy(true);
     setNameMsg(null);
-    const res = await upsertVoterName({ roundId, voterKey, displayName: nameInput, userId: user?.id ?? undefined });
+    const res = await upsertVoterName({ roundId, voterKey, displayName: nameInput });
     setNameBusy(false);
     if (!res.ok) {
       setNameMsg(res.message);
@@ -320,15 +337,15 @@ export function RoundPage() {
               <>
                 <strong style={{ color: 'var(--ink)' }}>{hostPublicName}</strong> shared these tee times
                 {user?.id ? (
-                  <> — you’re signed in, so we use your account name below (change it if your group calls you something else).</>
+                  <> — you’re signed in; we use your Google account name for your votes.</>
                 ) : (
-                  <> — add your name, then vote.</>
+                  <> — add your name and save it, then you can vote.</>
                 )}
               </>
             ) : user?.id ? (
-              <>You’re signed in — we use your account name below for votes (edit if needed), then pick a time.</>
+              <>You’re signed in — we use your Google account name for your votes. Pick a time.</>
             ) : (
-              <>Add your name so the group knows who voted, then pick a time.</>
+              <>Add your name and save it so the group knows who voted — then you can vote.</>
             )}
           </p>
         </div>
@@ -431,33 +448,35 @@ export function RoundPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-          <div style={{ padding: 16, ...panelStyle(), background: '#fff' }}>
-            <div style={{ fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Your name</div>
-            <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
-              {user?.id
-                ? 'Filled from your Google account by default. Update and save if your group uses a nickname — still linked to your account for Shared rounds.'
-                : 'Shown next to your votes so friends recognize you.'}
-            </p>
-            <input
-              className="input"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="First name or nickname"
-              maxLength={60}
-            />
-            <button
-              className="btn btn-primary"
-              type="button"
-              disabled={nameBusy || !nameInput.trim()}
-              onClick={() => void onSaveName()}
-              style={{ width: '100%', marginTop: 10, padding: 12, borderRadius: 12 }}
-            >
-              {nameBusy ? 'Saving…' : 'Save name'}
-            </button>
-            {nameMsg ? (
-              <p style={{ marginTop: 8, fontSize: 13, color: nameMsg === 'Saved' ? 'var(--green-2)' : '#9a3412' }}>{nameMsg}</p>
-            ) : null}
-          </div>
+          {!user?.id ? (
+            <div style={{ padding: 16, ...panelStyle(), background: '#fff' }}>
+              <div style={{ fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Your name</div>
+              <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
+                Required before you vote — shown next to your picks so friends recognize you.
+              </p>
+              <input
+                className="input"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="First name or nickname"
+                maxLength={60}
+                required
+                aria-required
+              />
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={nameBusy || !nameInput.trim()}
+                onClick={() => void onSaveName()}
+                style={{ width: '100%', marginTop: 10, padding: 12, borderRadius: 12 }}
+              >
+                {nameBusy ? 'Saving…' : 'Save name'}
+              </button>
+              {nameMsg ? (
+                <p style={{ marginTop: 8, fontSize: 13, color: nameMsg === 'Saved' ? 'var(--green-2)' : '#9a3412' }}>{nameMsg}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div
             style={{
@@ -482,6 +501,12 @@ export function RoundPage() {
 
             {err ? (
               <p style={{ color: '#9a3412', fontSize: 13, marginBottom: 10 }}>{err}</p>
+            ) : null}
+
+            {guestVoteLocked ? (
+              <p style={{ color: '#92400e', fontSize: 13, marginBottom: 10, lineHeight: 1.45 }}>
+                Save your name above before you can vote on times.
+              </p>
             ) : null}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -562,7 +587,7 @@ export function RoundPage() {
                       <button
                         className="btn"
                         type="button"
-                        disabled={!!voteBusy}
+                        disabled={!!voteBusy || guestVoteLocked}
                         onClick={() => void onVote(o.id, 'in')}
                         style={{
                           padding: '6px 12px',
@@ -579,7 +604,7 @@ export function RoundPage() {
                       <button
                         className="btn"
                         type="button"
-                        disabled={!!voteBusy}
+                        disabled={!!voteBusy || guestVoteLocked}
                         onClick={() => void onVote(o.id, 'maybe')}
                         style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: mine === 'maybe' ? 800 : 600 }}
                       >
@@ -588,7 +613,7 @@ export function RoundPage() {
                       <button
                         className="btn"
                         type="button"
-                        disabled={!!voteBusy}
+                        disabled={!!voteBusy || guestVoteLocked}
                         onClick={() => void onVote(o.id, 'out')}
                         style={{
                           padding: '6px 12px',
@@ -611,7 +636,7 @@ export function RoundPage() {
             <button
               type="button"
               className="btn"
-              disabled={voteBusy === 'CANT' || options.length === 0}
+              disabled={voteBusy === 'CANT' || options.length === 0 || guestVoteLocked}
               onClick={() => void onCantMakeRound()}
               style={{
                 width: '100%',
