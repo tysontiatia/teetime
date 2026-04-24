@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { formatDateShort, formatTime12h, matchesPreset, toYmd } from '../lib/time';
-import { usePlan } from '../state/PlanContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
@@ -42,9 +41,7 @@ export function CoursePage() {
   const course = useMemo(() => courses.find((c) => c.id === courseId) ?? null, [courses, courseId]);
   const record = courseId ? recordsBySlug.get(courseId) : undefined;
 
-  const { plan, setCourse, addOption, clear } = usePlan();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [highlightTime, setHighlightTime] = useState<string | null>(null);
   const [rawTimes, setRawTimes] = useState<TeeTime[]>([]);
   const [loadingTimes, setLoadingTimes] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
@@ -107,9 +104,6 @@ export function CoursePage() {
 
   const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
   const unsupported = !record || cap !== 'live_inventory';
-
-  const lockedCourseId = plan.options[0]?.courseId;
-  const foreignLock = Boolean(lockedCourseId && lockedCourseId !== course.id);
 
   const onShareTimes = async () => {
     if (unsupported || times.length === 0) return;
@@ -177,35 +171,9 @@ export function CoursePage() {
               {shareBusy ? 'Creating…' : `Share times (${times.length})`}
             </button>
           ) : null}
-          <button
-            className="btn"
-            type="button"
-            onClick={() => {
-              if (foreignLock) {
-                // eslint-disable-next-line no-alert
-                const ok = window.confirm('Clear your current vote list and use this course instead?');
-                if (!ok) return;
-                clear();
-              }
-              setCourse(course.id, date);
-            }}
-            title="Anchor this course when building a list by hand"
-          >
-            Use this course
-          </button>
           <button className="btn" type="button" onClick={() => setNotifOpen(true)} title="Notifications">
             🔔 Alerts
           </button>
-          {plan.options.length > 0 && lockedCourseId === course.id ? (
-            <Link className="btn btn-ghost" to="/plan">
-              Create vote link →
-            </Link>
-          ) : null}
-          {plan.options.length > 0 && (
-            <button className="btn" type="button" onClick={clear}>
-              Clear list
-            </button>
-          )}
           {course.bookingUrl && (
             <a className="btn btn-ghost" href={course.bookingUrl} target="_blank" rel="noreferrer">
               Open booking site →
@@ -267,17 +235,12 @@ export function CoursePage() {
               {record?.address ? <div style={{ marginTop: 10, fontSize: 13, color: 'var(--muted)' }}>{record.address}</div> : null}
             </div>
 
-            <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={date} highlightTimeIso={highlightTime} />
+            <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={date} />
 
             <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
             <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-              <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses every slot below that matches your filters. The link is copied for you — paste it in your group chat. Or tap times to build a custom list and use <strong>Group vote</strong> in the nav.
+              <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses every slot below that matches your filters. The link is copied for you — paste it in your group chat.
             </div>
-            {foreignLock ? (
-              <p style={{ marginTop: 10, fontSize: 13, color: '#9a3412' }}>
-                You already have times picked for another course. Clear the list or switch with <strong>Use this course</strong>.
-              </p>
-            ) : null}
 
             {unsupported ? (
               <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', color: 'var(--muted)' }}>
@@ -295,35 +258,17 @@ export function CoursePage() {
             ) : (
               <div className="times-grid" style={{ marginTop: 12 }}>
                 {times.slice(0, 18).map((t) => (
-                  <button
+                  <div
                     key={t.id}
-                    className="btn"
-                    type="button"
-                    disabled={foreignLock}
-                    onClick={() => {
-                      setHighlightTime(t.startsAt);
-                      const r = addOption(course, t, players);
-                      if (!r.ok && r.reason === 'different_course') {
-                        // eslint-disable-next-line no-alert
-                        const ok = window.confirm(
-                          'Your vote list is for another course. Clear it and add this time instead?',
-                        );
-                        if (!ok) return;
-                        clear();
-                        setCourse(course.id, date);
-                        addOption(course, t, players);
-                      }
-                    }}
                     style={{
                       padding: 12,
                       borderRadius: 14,
                       background: '#fff',
-                      borderColor: 'rgba(45,122,58,0.22)',
+                      border: '1px solid rgba(45,122,58,0.22)',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       gap: 2,
-                      opacity: foreignLock ? 0.45 : 1,
                     }}
                   >
                     <div style={{ fontWeight: 950, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
@@ -333,7 +278,7 @@ export function CoursePage() {
                         {t.spots} spot{t.spots === 1 ? '' : 's'}
                       </div>
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -352,9 +297,7 @@ export function CoursePage() {
             <li>
               <strong>Share times</strong> — one click; every filtered tee time goes into the vote link.
             </li>
-            <li>
-              <strong>Custom list</strong> — tap individual times, then <strong>Group vote</strong> in the header to trim or publish.
-            </li>
+            <li>Check the weather strip above for conditions that day.</li>
             <li>Everyone opens the same link to vote; you book when the group agrees.</li>
           </ul>
         </div>

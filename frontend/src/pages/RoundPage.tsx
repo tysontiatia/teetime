@@ -568,8 +568,8 @@ export function RoundPage() {
             <code style={{ fontSize: 10 }}>round_voters</code>.
           </p>
 
-          <Link to="/plan" className="btn btn-ghost" style={{ width: '100%', textAlign: 'center', fontSize: 13 }}>
-            Build a custom list →
+          <Link to="/" className="btn btn-ghost" style={{ width: '100%', textAlign: 'center', fontSize: 13 }}>
+            Share another round →
           </Link>
         </div>
       </div>

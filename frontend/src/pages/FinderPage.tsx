@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { matchesPreset, minutesSince, toYmd, formatTime12h, formatDateShort } from '../lib/time';
+import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
 import { sortCourses } from '../lib/sort';
 import {
   capabilityHint,
@@ -9,7 +9,6 @@ import {
   getPlatformCapability,
   platformDisplayName,
 } from '../lib/platformRegistry';
-import { usePlan } from '../state/PlanContext';
 import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsApi';
@@ -57,7 +56,6 @@ export function FinderPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [view, setView] = useState<'list' | 'map'>('list');
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
-  const { plan, setCourse, addOption, clear } = usePlan();
   const { user } = useAuth();
 
   const { courses, recordsBySlug, loading: catalogLoading, error: catalogError } = useCourseCatalog();
@@ -152,13 +150,6 @@ export function FinderPage() {
     if (m === 0) return 'Updated just now';
     return `Updated ${m}m ago`;
   }, [lastUpdatedAt]);
-
-  const planningSummary = useMemo(() => {
-    if (plan.options.length === 0) return null;
-    const lockedId = plan.options[0]!.courseId;
-    const name = coursesById.get(lockedId)?.name ?? lockedId;
-    return { courseId: lockedId, name, nTimes: plan.options.length, dateLabel: formatDateShort(plan.date) };
-  }, [coursesById, plan.date, plan.options]);
 
   const shareCourseRound = useCallback(
     async (course: Course, courseTimes: TeeTime[]) => {
@@ -368,24 +359,6 @@ export function FinderPage() {
             </div>
           </div>
 
-          {planningSummary && (
-            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                <strong style={{ color: 'var(--green-2)' }}>{planningSummary.name}</strong>
-                <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
-                  {' '}
-                  · {planningSummary.dateLabel} · {planningSummary.nTimes} time{planningSummary.nTimes === 1 ? '' : 's'} for the group vote
-                </span>
-              </span>
-              <Link to="/plan" className="btn btn-ghost" style={{ padding: '6px 12px' }}>
-                Create vote link →
-              </Link>
-              <button className="btn btn-ghost" type="button" onClick={clear}>
-                Clear
-              </button>
-            </div>
-          )}
-
           <FinderDayOutlook dateYmd={params.date} />
         </div>
 
@@ -432,8 +405,6 @@ export function FinderPage() {
               availableCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
-              const lockedCourseId = plan.options[0]?.courseId;
-              const lockedElsewhere = Boolean(lockedCourseId && lockedCourseId !== course.id);
 
               return (
                 <div
@@ -522,40 +493,22 @@ export function FinderPage() {
 
                     <div className="times-grid" style={{ marginTop: 10 }}>
                       {top.map((t) => (
-                          <button
-                            key={t.id}
-                            className="btn"
-                            type="button"
-                            onClick={() => {
-                              const r = addOption(course, t, params.players);
-                              if (!r.ok && r.reason === 'different_course') {
-                                // eslint-disable-next-line no-alert
-                                const ok = window.confirm(
-                                  'Your vote list is for another course. Clear it and add this time instead?',
-                                );
-                                if (!ok) return;
-                                clear();
-                                setCourse(course.id, params.date);
-                                addOption(course, t, params.players);
-                              }
-                            }}
-                            disabled={lockedElsewhere}
-                            title={lockedElsewhere ? 'Clear your list or finish the other course first' : 'Add to group vote list'}
-                            style={{
-                              padding: '10px 10px',
-                              borderRadius: 12,
-                              background: '#fff',
-                              borderColor: 'rgba(45,122,58,0.22)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 2,
-                              alignItems: 'center',
-                              opacity: lockedElsewhere ? 0.45 : 1,
-                            }}
-                          >
-                            <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
-                          </button>
+                        <div
+                          key={t.id}
+                          style={{
+                            padding: '10px 10px',
+                            borderRadius: 12,
+                            background: '#fff',
+                            border: '1px solid rgba(45,122,58,0.22)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2,
+                            alignItems: 'center',
+                          }}
+                        >
+                          <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
+                        </div>
                       ))}
                       {times.length > top.length && (
                         <Link
@@ -741,7 +694,7 @@ export function FinderPage() {
         <div style={{ marginTop: 26, padding: 16, border: '1px solid var(--border)', borderRadius: 16, background: 'rgba(255,255,255,0.7)' }}>
           <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>How the group vote works</div>
           <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-            Tap <strong style={{ color: 'var(--ink)' }}>Share</strong> on a course card to create a link with <strong>every tee time</strong> that matches your date and filters on that course — copy and paste into chat. Or add times by hand and use <strong>Group vote</strong> in the nav.
+            Tap <strong style={{ color: 'var(--ink)' }}>Share</strong> on a course card to create a link with <strong>every tee time</strong> that matches your date and filters on that course — link is copied for your group chat. The <strong>Group vote</strong> page explains the flow.
           </p>
         </div>
       </div>

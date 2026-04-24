@@ -117,7 +117,7 @@ export function SharePage() {
             {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
           </button>
           <Link to="/plan" className="btn btn-primary">
-            Group vote →
+            How sharing works →
           </Link>
         </div>
       </div>
@@ -192,7 +192,7 @@ export function SharePage() {
       <div style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.7)' }}>
         <div style={{ fontWeight: 900 }}>Prefer a real group vote?</div>
         <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-          This page is a frozen snapshot. For a single link where everyone votes and names stick, use <strong style={{ color: 'var(--ink)' }}>Create group vote link</strong> on the Group vote screen — it opens <code style={{ fontSize: 13 }}>/round/…</code>.
+          This page is a frozen snapshot. For a live vote link everyone can use, go to the tee times finder and use <strong style={{ color: 'var(--ink)' }}>Share</strong> on a course — that opens <code style={{ fontSize: 13 }}>/round/…</code> with saved votes.
         </p>
       </div>
     </div>
