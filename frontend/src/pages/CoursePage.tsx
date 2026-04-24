@@ -28,7 +28,7 @@ export function CoursePage() {
   const nav = useNavigate();
   const { courseId } = useParams();
   const [sp] = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
@@ -107,6 +107,11 @@ export function CoursePage() {
 
   const onShareTimes = async () => {
     if (unsupported || times.length === 0) return;
+    const uid = user?.id;
+    if (!uid) {
+      setShareErr('Sign in with Google in the header to create a share link.');
+      return;
+    }
     setShareBusy(true);
     setShareErr(null);
     const planPayload = planFromCourseVisibleTimes(course, date, times, players);
@@ -118,7 +123,7 @@ export function CoursePage() {
     const res = await publishRoundFromPlan({
       plan: planPayload,
       coursesById,
-      organizerId: user?.id ?? null,
+      organizerId: uid,
       hostPublicName: host,
     });
     setShareBusy(false);
@@ -164,9 +169,15 @@ export function CoursePage() {
             <button
               className="btn btn-primary"
               type="button"
-              disabled={shareBusy}
+              disabled={shareBusy || authLoading || !user}
               onClick={() => void onShareTimes()}
-              title={`Creates a vote page with all ${times.length} times below (after filters) and copies the link`}
+              title={
+                authLoading
+                  ? 'Checking account…'
+                  : !user
+                    ? 'Sign in with Google in the header to create a share link'
+                    : `Creates a vote page with all ${times.length} times below (after filters) and copies the link`
+              }
             >
               {shareBusy ? 'Creating…' : `Share times (${times.length})`}
             </button>
@@ -239,7 +250,15 @@ export function CoursePage() {
 
             <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
             <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-              <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses every slot below that matches your filters. The link is copied for you — paste it in your group chat.
+              {user ? (
+                <>
+                  <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses every slot below that matches your filters. The link is copied for you — paste it in your group chat.
+                </>
+              ) : (
+                <>
+                  <strong style={{ color: 'var(--ink)' }}>Share times</strong> (after you sign in) uses every slot below that matches your filters. The link is copied for you — paste it in your group chat.
+                </>
+              )}
             </div>
 
             {unsupported ? (
@@ -295,7 +314,7 @@ export function CoursePage() {
           <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Shared rounds</div>
           <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
             <li>
-              <strong>Share times</strong> — one click; every filtered tee time goes into the vote link.
+              <strong>Share times</strong> — {user ? 'one click' : 'sign in, then one click'}; every filtered tee time goes into the vote link.
             </li>
             <li>Check the weather strip above for conditions that day.</li>
             <li>Everyone opens the same link to vote; you book when the group agrees.</li>

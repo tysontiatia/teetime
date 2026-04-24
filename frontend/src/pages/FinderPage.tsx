@@ -56,7 +56,7 @@ export function FinderPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [view, setView] = useState<'list' | 'map'>('list');
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const { courses, recordsBySlug, loading: catalogLoading, error: catalogError } = useCourseCatalog();
 
@@ -154,6 +154,11 @@ export function FinderPage() {
   const shareCourseRound = useCallback(
     async (course: Course, courseTimes: TeeTime[]) => {
       if (courseTimes.length === 0) return;
+      const uid = user?.id;
+      if (!uid) {
+        setShareFinderErr('Sign in with Google in the header to create a share link.');
+        return;
+      }
       setShareBusyCourseId(course.id);
       setShareFinderErr(null);
       const planPayload = planFromCourseVisibleTimes(course, params.date, courseTimes, params.players);
@@ -165,7 +170,7 @@ export function FinderPage() {
       const res = await publishRoundFromPlan({
         plan: planPayload,
         coursesById,
-        organizerId: user?.id ?? null,
+        organizerId: uid,
         hostPublicName: host,
       });
       setShareBusyCourseId(null);
@@ -180,7 +185,7 @@ export function FinderPage() {
       }
       nav(`/round/${res.slug}`);
     },
-    [coursesById, nav, params.date, params.players, user],
+    [coursesById, nav, params.date, params.players, user?.id],
   );
 
   const setParam = (key: string, value: string) => {
@@ -369,7 +374,15 @@ export function FinderPage() {
               : `${availableCourses.length} courses with times matching filters`}
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Use <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a card for a vote link (all matching times), or open course details to refine filters.
+            {user ? (
+              <>
+                Use <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a card for a vote link (all matching times), or open course details to refine filters.
+              </>
+            ) : (
+              <>
+                Sign in, then use <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a card for a vote link (all matching times), or open course details to refine filters.
+              </>
+            )}
           </div>
         </div>
 
@@ -524,9 +537,15 @@ export function FinderPage() {
                       <button
                         className="btn btn-primary"
                         type="button"
-                        disabled={times.length === 0 || shareBusyCourseId === course.id}
+                        disabled={times.length === 0 || shareBusyCourseId === course.id || authLoading || !user}
                         onClick={() => void shareCourseRound(course, times)}
-                        title={`Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`}
+                        title={
+                          authLoading
+                            ? 'Checking account…'
+                            : !user
+                              ? 'Sign in with Google in the header to create a share link'
+                              : `Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`
+                        }
                         style={{
                           padding: '10px 16px',
                           borderRadius: 12,
@@ -703,7 +722,15 @@ export function FinderPage() {
         <div style={{ marginTop: 26, padding: 16, border: '1px solid var(--border)', borderRadius: 16, background: 'rgba(255,255,255,0.7)' }}>
           <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>How shared rounds work</div>
           <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-            Tap <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a course card to create a link with <strong>every tee time</strong> that matches your filters — the link is copied for chat. Open <strong>Shared rounds</strong> in the nav (signed in) to see links you created.
+            {user ? (
+              <>
+                Tap <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a course card to create a link with <strong>every tee time</strong> that matches your filters — the link is copied for chat. Open <strong>Shared rounds</strong> in the nav to see links you created.
+              </>
+            ) : (
+              <>
+                Sign in, then tap <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a course card to create a link with <strong>every tee time</strong> that matches your filters — the link is copied for chat. Open <strong>Shared rounds</strong> in the nav to see links you created.
+              </>
+            )}
           </p>
         </div>
       </div>

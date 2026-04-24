@@ -54,14 +54,14 @@ export function PlanPage() {
           Your vote links
         </h2>
         <p style={{ color: 'var(--muted)', maxWidth: 640, lineHeight: 1.55 }}>
-          When you use <strong style={{ color: 'var(--ink)' }}>Share</strong> on the finder or <strong style={{ color: 'var(--ink)' }}>Share times</strong> on a course (signed in), your rounds appear here. Anyone with the link can vote — no account needed on their side.
+          When you use <strong style={{ color: 'var(--ink)' }}>Share</strong> on the finder or <strong style={{ color: 'var(--ink)' }}>Share times</strong> on a course, your rounds appear here. Anyone with the link can vote — no account needed on their side.
         </p>
 
         {authLoading ? (
           <p style={{ marginTop: 14, color: 'var(--muted)' }}>Loading account…</p>
         ) : !user ? (
           <p style={{ marginTop: 14, color: 'var(--muted)' }}>
-            <strong style={{ color: 'var(--ink)' }}>Sign in</strong> with Google in the header to save rounds to this list. You can still share without signing in, but links will not be stored here.
+            <strong style={{ color: 'var(--ink)' }}>Sign in</strong> with Google in the header to create share links and see them listed here.
           </p>
         ) : loading ? (
           <p style={{ marginTop: 14, color: 'var(--muted)' }}>Loading your rounds…</p>

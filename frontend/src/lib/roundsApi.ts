@@ -79,11 +79,11 @@ export function planFromCourseVisibleTimes(
   };
 }
 
-/** Publish all plan options (may span multiple courses). */
+/** Publish all plan options (may span multiple courses). Requires a signed-in user (RLS + organizer_id). */
 export async function publishRoundFromPlan(params: {
   plan: Plan;
   coursesById: Map<string, Course>;
-  organizerId: string | null;
+  organizerId: string;
   /** Shown on the round page (“Alex shared this vote”). Optional. */
   hostPublicName?: string | null;
 }): Promise<{ slug: string; roundId: string } | { error: string }> {
