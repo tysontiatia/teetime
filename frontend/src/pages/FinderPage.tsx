@@ -20,6 +20,7 @@ import { NotificationModal } from '../components/NotificationModal';
 import { SignInToShareModal } from '../components/SignInToShareModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
+import { courseDetailQueryString } from '../lib/finderUrl';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -401,7 +402,7 @@ export function FinderPage() {
               courses={availableCourses}
               timesByCourseId={timesByCourse}
               onSelectCourse={(id) => {
-                nav(`/course/${id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`);
+                nav(`/course/${id}?${courseDetailQueryString(params)}`);
               }}
             />
           </Suspense>
@@ -496,7 +497,7 @@ export function FinderPage() {
                       ))}
                       {times.length > top.length && (
                         <Link
-                          to={`/course/${course.id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
+                          to={`/course/${course.id}?${courseDetailQueryString(params)}`}
                           className="btn"
                           style={{
                             padding: '10px 10px',
@@ -531,7 +532,7 @@ export function FinderPage() {
                       }}
                     >
                       <Link
-                        to={`/course/${course.id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
+                        to={`/course/${course.id}?${courseDetailQueryString(params)}`}
                         className="btn btn-ghost"
                         style={{ padding: '8px 10px', color: 'var(--muted)' }}
                       >
@@ -642,7 +643,7 @@ export function FinderPage() {
                             ) : null}
                             <Link
                               className="btn"
-                              to={`/course/${course.id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
+                              to={`/course/${course.id}?${courseDetailQueryString(params)}`}
                               style={{ padding: '8px 12px' }}
                             >
                               Details
@@ -705,7 +706,7 @@ export function FinderPage() {
                           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{course.city}</div>
                           <Link
                             className="btn btn-ghost"
-                            to={`/course/${course.id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
+                            to={`/course/${course.id}?${courseDetailQueryString(params)}`}
                             style={{ marginTop: 10, padding: '8px 10px' }}
                           >
                             Open course →

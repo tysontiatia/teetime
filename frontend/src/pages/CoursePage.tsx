@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { SortBy, TeeTime, TimeOfDayPreset } from '../types';
+import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { formatDateShort, formatTime12h, matchesPreset, toYmd } from '../lib/time';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
@@ -12,6 +12,7 @@ import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 import { useAuth } from '../state/AuthContext';
 import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsApi';
 import { copyTextToClipboard } from '../lib/clipboard';
+import { courseDetailQueryString } from '../lib/finderUrl';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
@@ -38,6 +39,18 @@ export function CoursePage() {
   const holes = clampHoles(Number(sp.get('holes') || 18));
   const tod = ((sp.get('tod') as TimeOfDayPreset) || 'any') satisfies TimeOfDayPreset;
   const sort = ((sp.get('sort') as SortBy) || 'soonest') satisfies SortBy;
+
+  const finderBackSearch = useMemo(() => {
+    const finderParams: SearchParams = {
+      date,
+      players,
+      holes,
+      timeOfDay: tod,
+      sortBy: sort,
+      locationQuery: sp.get('q') || '',
+    };
+    return courseDetailQueryString(finderParams);
+  }, [date, players, holes, tod, sort, sp]);
 
   const course = useMemo(() => courses.find((c) => c.id === courseId) ?? null, [courses, courseId]);
   const record = courseId ? recordsBySlug.get(courseId) : undefined;
@@ -97,7 +110,7 @@ export function CoursePage() {
       <div className="container">
         <div style={{ padding: 18, background: 'rgba(255,255,255,0.8)', border: '1px solid var(--border)', borderRadius: 16 }}>
           <div style={{ fontWeight: 900 }}>Course not found</div>
-          <Link className="btn" to="/" style={{ marginTop: 10 }}>
+          <Link className="btn" to={`/?${finderBackSearch}`} style={{ marginTop: 10 }}>
             Back to finder
           </Link>
         </div>
@@ -146,7 +159,7 @@ export function CoursePage() {
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
-          <Link to="/" className="pill">
+          <Link to={`/?${finderBackSearch}`} className="pill">
             ← Back to results
           </Link>
           <h2 style={{ margin: '12px 0 4px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
