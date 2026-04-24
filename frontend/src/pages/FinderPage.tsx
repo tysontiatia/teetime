@@ -188,7 +188,7 @@ export function FinderPage() {
       }
       nav(`/round/${res.slug}`);
     },
-    [coursesById, nav, params.date, params.players, user?.id],
+    [coursesById, nav, params.date, params.players, user],
   );
 
   const setParam = (key: string, value: string) => {

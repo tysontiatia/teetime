@@ -3,3 +3,9 @@
 .env*.local
 node_modules/
 deploy/
+
+# OS / editor noise (keep repo status clean)
+.DS_Store
+Thumbs.db
+*.log
+.idea/

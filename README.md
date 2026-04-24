@@ -211,7 +211,7 @@ tee-time/
 │   ├── geocode.mjs           ← Geocode courses via Google Maps
 │   ├── geocode-patch.mjs     ← Patch geocoding for specific courses
 │   ├── geocode-manual.mjs    ← Manual geocoding
-│   └── build-pages.sh        ← `npm ci` + Vite build + assemble `deploy/` for Pages
+│   └── build-pages.sh        ← `npm ci` + ESLint + Vite build + assemble `deploy/` for Pages
 └── supabase/
     ├── config.toml
     └── migrations/

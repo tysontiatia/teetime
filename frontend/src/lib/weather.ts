@@ -23,12 +23,19 @@ async function fetchHourlyWeatherUncached(params: { lat: number; lng: number; da
 
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error('weather_fetch_failed');
-  const data = (await res.json()) as any;
+  const data = (await res.json()) as {
+    hourly?: {
+      time?: string[];
+      temperature_2m?: number[];
+      wind_speed_10m?: number[];
+      precipitation_probability?: number[];
+    };
+  };
 
-  const time: string[] = data?.hourly?.time ?? [];
-  const temp: number[] = data?.hourly?.temperature_2m ?? [];
-  const wind: number[] = data?.hourly?.wind_speed_10m ?? [];
-  const pop: number[] = data?.hourly?.precipitation_probability ?? [];
+  const time: string[] = data.hourly?.time ?? [];
+  const temp: number[] = data.hourly?.temperature_2m ?? [];
+  const wind: number[] = data.hourly?.wind_speed_10m ?? [];
+  const pop: number[] = data.hourly?.precipitation_probability ?? [];
 
   const points: WeatherPoint[] = [];
   for (let i = 0; i < time.length; i++) {

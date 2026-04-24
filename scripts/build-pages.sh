@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/frontend"
 npm ci
+npm run lint
 npm run build
 cd "$ROOT"
 rm -rf deploy
