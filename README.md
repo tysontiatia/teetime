@@ -219,6 +219,18 @@ tee-time/
 
 ## Deploy
 
+### GitHub CLI
+
+Install (macOS): `brew install gh`, or from the repo root: `brew bundle install` (see `Brewfile`). Then authenticate once: `gh auth login`.
+
+Re-run the latest failed deploy without pushing a commit:
+
+```bash
+gh run rerun --failed
+```
+
+List recent deploy runs: `gh run list --workflow deploy.yml -L 10`
+
 ### Worker
 
 CI deploys the Worker with **`cloudflare/wrangler-action`** using `deploy --config worker/wrangler.toml` from the repo root (same API token pattern as Pages).
