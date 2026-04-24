@@ -162,7 +162,7 @@ export function SharePage() {
       <div style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.7)' }}>
         <div style={{ fontWeight: 900 }}>Next step</div>
         <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-          When we add data plumbing, this becomes a persisted “Round” with stored votes and a short public link — no long hash in the URL.
+          For stored votes and a short link, use <strong style={{ color: 'var(--ink)' }}>Publish live round</strong> on the plan page — it opens <code style={{ fontSize: 13 }}>/round/…</code> backed by Supabase.
         </p>
       </div>
     </div>

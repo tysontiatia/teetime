@@ -6,6 +6,7 @@ import { FinderPage } from './pages/FinderPage';
 import { CoursePage } from './pages/CoursePage';
 import { PlanPage } from './pages/PlanPage';
 import { SharePage } from './pages/SharePage';
+import { RoundPage } from './pages/RoundPage';
 import { toYmd } from './lib/time';
 import { PlanProvider } from './state/PlanContext';
 import { AuthProvider } from './state/AuthContext';
@@ -23,6 +24,7 @@ function RoutedApp() {
           <Route path="/course/:courseId" element={<CoursePage />} />
           <Route path="/plan" element={<PlanPage />} />
           <Route path="/share" element={<SharePage />} />
+          <Route path="/round/:slug" element={<RoundPage />} />
         </Route>
       </Routes>
       <PlanTray coursesById={coursesById} />
