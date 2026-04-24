@@ -22,6 +22,10 @@ function newPlan(date: string): Plan {
   };
 }
 
+function uniqueCourseIds(options: PlanOption[]): Set<string> {
+  return new Set(options.map((o) => o.courseId));
+}
+
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'plan/reset':
@@ -29,14 +33,12 @@ function reducer(state: State, action: Action): State {
     case 'plan/clear':
       return { plan: newPlan(state.plan.date) };
     case 'plan/setCourse': {
-      // if changing courses, clear options
-      const shouldClear = state.plan.courseId != null && state.plan.courseId !== action.courseId;
       return {
         plan: {
           ...state.plan,
           courseId: action.courseId,
           date: action.date,
-          options: shouldClear ? [] : state.plan.options,
+          options: state.plan.options,
         },
       };
     }
@@ -53,28 +55,32 @@ function reducer(state: State, action: Action): State {
         bookingUrl: course.bookingUrl,
       };
 
-      // Course-first lock
-      const courseId = state.plan.courseId ?? course.id;
-      if (courseId !== course.id) return state;
-
       const dup = state.plan.options.some(
-        (o) => o.courseId === option.courseId && o.startsAt === option.startsAt && o.players === option.players
+        (o) => o.courseId === option.courseId && o.startsAt === option.startsAt && o.players === option.players,
       );
       if (dup) return state;
+
+      const nextOptions = [...state.plan.options, option].sort(
+        (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+      );
+      const u = uniqueCourseIds(nextOptions);
+      const courseId = u.size === 1 ? [...u][0]! : null;
 
       return {
         plan: {
           ...state.plan,
           courseId,
           date: state.plan.date,
-          options: [...state.plan.options, option].sort(
-            (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
-          ),
+          options: nextOptions,
         },
       };
     }
-    case 'plan/removeOption':
-      return { plan: { ...state.plan, options: state.plan.options.filter((o) => o.id !== action.optionId) } };
+    case 'plan/removeOption': {
+      const nextOptions = state.plan.options.filter((o) => o.id !== action.optionId);
+      const u = uniqueCourseIds(nextOptions);
+      const courseId = u.size === 1 ? [...u][0]! : null;
+      return { plan: { ...state.plan, options: nextOptions, courseId } };
+    }
     default:
       return state;
   }
@@ -83,7 +89,7 @@ function reducer(state: State, action: Action): State {
 type PlanApi = {
   plan: Plan;
   setCourse: (courseId: string, date: string) => void;
-  addOption: (course: Course, teeTime: TeeTime, players: 1 | 2 | 3 | 4) => { ok: true } | { ok: false; reason: string };
+  addOption: (course: Course, teeTime: TeeTime, players: 1 | 2 | 3 | 4) => void;
   removeOption: (optionId: string) => void;
   clear: () => void;
 };
@@ -104,12 +110,7 @@ export function PlanProvider({ children, initialDate }: { children: React.ReactN
       plan: state.plan,
       setCourse: (courseId, date) => dispatch({ type: 'plan/setCourse', courseId, date }),
       addOption: (course, teeTime, players) => {
-        const locked = state.plan.courseId;
-        if (locked && locked !== course.id) {
-          return { ok: false, reason: 'course_locked' };
-        }
         dispatch({ type: 'plan/addOption', course, teeTime, players });
-        return { ok: true };
       },
       removeOption: (optionId) => dispatch({ type: 'plan/removeOption', optionId }),
       clear: () => dispatch({ type: 'plan/clear' }),
@@ -124,4 +125,3 @@ export function usePlan() {
   if (!ctx) throw new Error('usePlan must be used within PlanProvider');
   return ctx;
 }
-

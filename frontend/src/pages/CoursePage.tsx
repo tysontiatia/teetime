@@ -96,7 +96,6 @@ export function CoursePage() {
     );
   }
 
-  const lockedDifferent = plan.courseId != null && plan.courseId !== course.id && plan.options.length > 0;
   const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
   const unsupported = !record || cap !== 'live_inventory';
 
@@ -126,13 +125,7 @@ export function CoursePage() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={lockedDifferent}
-            onClick={() => setCourse(course.id, date)}
-            title={lockedDifferent ? 'Plan is locked to another course' : 'Plan this course'}
-          >
+          <button className="btn btn-primary" type="button" onClick={() => setCourse(course.id, date)} title="Set plan date to this search">
             Plan this course
           </button>
           <button className="btn" type="button" onClick={() => setNotifOpen(true)} title="Notifications">
@@ -227,15 +220,7 @@ export function CoursePage() {
                     type="button"
                     onClick={() => {
                       setHighlightTime(t.startsAt);
-                      const res = addOption(course, t, players);
-                      if (!res.ok && res.reason === 'course_locked') {
-                        // eslint-disable-next-line no-alert
-                        const ok = window.confirm('Your plan is locked to another course. Start a new plan for this course?');
-                        if (!ok) return;
-                        clear();
-                        setCourse(course.id, date);
-                        addOption(course, t, players);
-                      }
+                      addOption(course, t, players);
                     }}
                     style={{
                       padding: 12,
@@ -269,10 +254,10 @@ export function CoursePage() {
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Planning rules (v1)</div>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Planning rules</div>
           <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
-            <li>First time you add locks the plan to this course.</li>
-            <li>If you try to add from another course, we ask to start a new plan.</li>
+            <li>Add tee times from this page or the finder; the plan can mix multiple courses.</li>
+            <li>Review on the plan page, copy a snapshot link, or publish a live round for stored votes.</li>
             <li>Sharing is a link — not a screenshot.</li>
           </ul>
         </div>

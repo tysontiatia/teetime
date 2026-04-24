@@ -146,6 +146,15 @@ export function FinderPage() {
     return `Updated ${m}m ago`;
   }, [lastUpdatedAt]);
 
+  const planningSummary = useMemo(() => {
+    if (plan.options.length === 0) return null;
+    const ids = [...new Set(plan.options.map((o) => o.courseId))];
+    const names = ids.map((id) => coursesById.get(id)?.name ?? id);
+    const label =
+      names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' · ');
+    return { label, nCourses: ids.length, nTimes: plan.options.length };
+  }, [coursesById, plan.options]);
+
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(sp);
     next.set(key, value);
@@ -316,10 +325,15 @@ export function FinderPage() {
             </div>
           </div>
 
-          {plan.options.length > 0 && (
+          {planningSummary && (
             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                Planning: <strong style={{ color: 'var(--green-2)' }}>{plan.courseId ? coursesById.get(plan.courseId)?.name : '—'}</strong>
+                Planning: <strong style={{ color: 'var(--green-2)' }}>{planningSummary.label}</strong>
+                <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
+                  {' '}
+                  · {planningSummary.nCourses} course{planningSummary.nCourses === 1 ? '' : 's'}, {planningSummary.nTimes} time
+                  {planningSummary.nTimes === 1 ? '' : 's'}
+                </span>
               </span>
               <button className="btn btn-ghost" type="button" onClick={clear}>
                 Clear plan
@@ -373,7 +387,7 @@ export function FinderPage() {
               availableCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
-              const isLockedDifferent = plan.courseId != null && plan.courseId !== course.id;
+              const hasOptionsHere = plan.options.some((o) => o.courseId === course.id);
 
               return (
                 <div
@@ -434,12 +448,11 @@ export function FinderPage() {
                           style={{
                             padding: '8px 10px',
                             borderRadius: 12,
-                            background: plan.courseId === course.id ? 'var(--green-soft)' : 'rgba(255,255,255,0.8)',
-                            color: plan.courseId === course.id ? 'var(--green-2)' : 'var(--muted)',
-                            borderColor: plan.courseId === course.id ? 'rgba(45,122,58,0.28)' : 'var(--border)',
+                            background: hasOptionsHere ? 'var(--green-soft)' : 'rgba(255,255,255,0.8)',
+                            color: hasOptionsHere ? 'var(--green-2)' : 'var(--muted)',
+                            borderColor: hasOptionsHere ? 'rgba(45,122,58,0.28)' : 'var(--border)',
                           }}
-                          disabled={plan.courseId != null && plan.courseId !== course.id && plan.options.length > 0}
-                          title={isLockedDifferent ? 'Plan is locked to a different course' : 'Plan this course'}
+                          title="Use this course’s date on the plan page"
                         >
                           Plan
                         </button>
@@ -447,25 +460,12 @@ export function FinderPage() {
                     </div>
 
                     <div className="times-grid" style={{ marginTop: 10 }}>
-                      {top.map((t) => {
-                        const canAdd = plan.courseId == null || plan.courseId === course.id;
-                        return (
+                      {top.map((t) => (
                           <button
                             key={t.id}
                             className="btn"
                             type="button"
-                            onClick={() => {
-                              const res = addOption(course, t, params.players);
-                              if (!res.ok && res.reason === 'course_locked') {
-                                // eslint-disable-next-line no-alert
-                                const ok = window.confirm('Your plan is locked to another course. Start a new plan for this course?');
-                                if (!ok) return;
-                                clear();
-                                setCourse(course.id, params.date);
-                                addOption(course, t, params.players);
-                              }
-                            }}
-                            disabled={!canAdd}
+                            onClick={() => addOption(course, t, params.players)}
                             style={{
                               padding: '10px 10px',
                               borderRadius: 12,
@@ -480,8 +480,7 @@ export function FinderPage() {
                             <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
                             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
                           </button>
-                        );
-                      })}
+                      ))}
                       {times.length > top.length && (
                         <Link
                           to={`/course/${course.id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
@@ -664,10 +663,9 @@ export function FinderPage() {
         ) : null}
 
         <div style={{ marginTop: 26, padding: 16, border: '1px solid var(--border)', borderRadius: 16, background: 'rgba(255,255,255,0.7)' }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Why course-first planning?</div>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Why shortlist-first planning?</div>
           <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-            When groups plan golf, they usually agree on the <strong>course</strong> first, then argue about times. This UX mirrors your screenshot habit:
-            lock a course, collect a few candidate times, and share a link for a quick “in / out / maybe.”
+            Browse by course, tap times to build a shortlist (one course or several), then share a link or publish a live round so the group can vote with names — no screenshot chains.
           </p>
         </div>
       </div>

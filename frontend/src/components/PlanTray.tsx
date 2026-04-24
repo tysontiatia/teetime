@@ -9,20 +9,25 @@ export function PlanTray({ coursesById }: { coursesById: Map<string, Course> }) 
   const { plan, clear } = usePlan();
 
   const summary = useMemo(() => {
-    if (!plan.courseId) return null;
-    const course = coursesById.get(plan.courseId);
-    const n = plan.options.length;
+    if (plan.options.length === 0) return null;
+    const ids = [...new Set(plan.options.map((o) => o.courseId))];
+    const names = ids.map((id) => coursesById.get(id)?.name ?? id);
+    const label =
+      names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' · ');
+    const sorted = [...plan.options].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    const first = sorted[0]!;
+    const last = sorted[sorted.length - 1]!;
     return {
-      courseName: course ? `${course.name} (${course.city})` : plan.courseId,
+      label,
       dateLabel: formatDateShort(plan.date),
-      n,
+      nCourses: ids.length,
+      nTimes: plan.options.length,
+      first,
+      last,
     };
-  }, [coursesById, plan.courseId, plan.date, plan.options.length]);
+  }, [coursesById, plan.date, plan.options]);
 
-  if (!summary || summary.n === 0) return null;
-
-  const first = plan.options[0];
-  const last = plan.options[plan.options.length - 1];
+  if (!summary) return null;
 
   return (
     <div
@@ -46,15 +51,17 @@ export function PlanTray({ coursesById }: { coursesById: Map<string, Course> }) 
     >
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {summary.courseName}
+          {summary.label}
         </div>
         <div style={{ fontSize: 12, opacity: 0.72, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <span>{summary.dateLabel}</span>
           <span aria-hidden>·</span>
-          <span>{summary.n} option{summary.n === 1 ? '' : 's'}</span>
+          <span>
+            {summary.nCourses} course{summary.nCourses === 1 ? '' : 's'}, {summary.nTimes} time{summary.nTimes === 1 ? '' : 's'}
+          </span>
           <span aria-hidden>·</span>
           <span>
-            {formatTime12h(first.startsAt)}–{formatTime12h(last.startsAt)}
+            {formatTime12h(summary.first.startsAt)}–{formatTime12h(summary.last.startsAt)}
           </span>
         </div>
       </div>
@@ -76,4 +83,3 @@ export function PlanTray({ coursesById }: { coursesById: Map<string, Course> }) 
     </div>
   );
 }
-

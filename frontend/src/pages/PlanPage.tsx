@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { formatDateShort, formatTime12h } from '../lib/time';
+import type { PlanOption } from '../types';
 import { usePlan } from '../state/PlanContext';
 import { useAuth } from '../state/AuthContext';
 import { copyTextToClipboard } from '../lib/clipboard';
@@ -12,26 +13,56 @@ function bestOptionScore(yes: number, maybe: number, no: number) {
   return yes * 3 + maybe * 1 - no * 2;
 }
 
+function groupPlanOptions(options: PlanOption[], coursesById: Map<string, { name: string; city: string }>) {
+  const order: string[] = [];
+  const by = new Map<string, PlanOption[]>();
+  for (const o of options) {
+    if (!by.has(o.courseId)) {
+      by.set(o.courseId, []);
+      order.push(o.courseId);
+    }
+    by.get(o.courseId)!.push(o);
+  }
+  return order.map((cid) => ({
+    courseId: cid,
+    label: (() => {
+      const c = coursesById.get(cid);
+      return c ? `${c.name} (${c.city})` : cid;
+    })(),
+    rows: by.get(cid)!,
+  }));
+}
+
 export function PlanPage() {
   const nav = useNavigate();
   const { user } = useAuth();
   const { plan, removeOption, clear } = usePlan();
   const { courses } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
-  const course = plan.courseId ? coursesById.get(plan.courseId) ?? null : null;
 
   const [votes, setVotes] = useState<Record<string, { yes: number; maybe: number; no: number }>>({});
   const [copyHint, setCopyHint] = useState<'idle' | 'ok' | 'fail'>('idle');
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishErr, setPublishErr] = useState<string | null>(null);
 
+  const courseIds = useMemo(() => [...new Set(plan.options.map((o) => o.courseId))], [plan.options]);
+
+  const planSubtitle = useMemo(() => {
+    if (courseIds.length === 0) return '';
+    const names = courseIds.map((id) => coursesById.get(id)?.name ?? id);
+    if (names.length <= 2) return names.join(' · ');
+    return `${names.slice(0, 2).join(' · ')} +${names.length - 2} courses`;
+  }, [courseIds, coursesById]);
+
   const shareEncoded = useMemo(() => {
     const payload = {
-      v: 1 as const,
+      v: 2 as const,
       snapshotAt: new Date().toISOString(),
-      courseId: plan.courseId,
+      courseIds,
+      courseId: courseIds.length === 1 ? courseIds[0] : null,
       date: plan.date,
       options: plan.options.map((o) => ({
+        courseId: o.courseId,
         startsAt: o.startsAt,
         holes: o.holes,
         players: o.players,
@@ -39,7 +70,7 @@ export function PlanPage() {
       })),
     };
     return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  }, [plan.courseId, plan.date, plan.options]);
+  }, [courseIds, plan.date, plan.options]);
 
   const shareTo = `/share#${shareEncoded}`;
   const shareAbsolute = useMemo(() => absoluteShareUrl(shareEncoded), [shareEncoded]);
@@ -60,6 +91,18 @@ export function PlanPage() {
     return [...optionRows].sort((a, b) => b.score - a.score)[0];
   }, [optionRows]);
 
+  const sections = useMemo(() => groupPlanOptions(plan.options, coursesById), [plan.options, coursesById]);
+
+  const bookingPairs = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of plan.options) {
+      const c = coursesById.get(o.courseId);
+      const url = o.bookingUrl ?? c?.bookingUrl;
+      if (url) m.set(o.courseId, url);
+    }
+    return [...m.entries()];
+  }, [plan.options, coursesById]);
+
   const onCopyShareLink = async () => {
     const ok = await copyTextToClipboard(shareAbsolute);
     setCopyHint(ok ? 'ok' : 'fail');
@@ -67,12 +110,11 @@ export function PlanPage() {
   };
 
   const onPublishLiveRound = async () => {
-    if (!course) return;
     setPublishBusy(true);
     setPublishErr(null);
     const res = await publishRoundFromPlan({
       plan,
-      course,
+      coursesById,
       organizerId: user?.id ?? null,
     });
     setPublishBusy(false);
@@ -83,16 +125,16 @@ export function PlanPage() {
     nav(`/round/${res.slug}`);
   };
 
-  if (!course || plan.options.length === 0) {
+  if (plan.options.length === 0) {
     return (
       <div className="container">
         <div style={{ padding: 18, borderRadius: 18, border: '1px solid var(--border)', background: 'rgba(255,255,255,0.8)' }}>
           <div className="pill">No active plan</div>
           <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
-            Start by adding a few candidate times
+            Build a shortlist of courses & times
           </h2>
           <p style={{ color: 'var(--muted)' }}>
-            In v1, plans are <strong>course-first</strong>. Pick one course, add 3–8 candidate tee times, then share a link for your group to vote. Your plan is saved on this device until you clear it.
+            Add tee times from <strong>one or more courses</strong> on the finder or course pages, then publish a <strong>live round</strong> link so your group can add their names and vote. Your shortlist is saved on this device until you clear it.
           </p>
           <Link to="/" className="btn btn-primary" style={{ marginTop: 14 }}>
             Go to finder →
@@ -102,25 +144,27 @@ export function PlanPage() {
     );
   }
 
+  const addMoreHref = courseIds.length === 1 ? `/course/${courseIds[0]}` : '/';
+
   return (
     <div className="container">
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
           <div className="pill">Plan</div>
           <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
-            {course.name} <span style={{ color: 'var(--muted)', fontWeight: 700 }}>({course.city})</span>
+            {planSubtitle}
           </h2>
           <div style={{ color: 'var(--muted)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="pill">{formatDateShort(plan.date)}</span>
             <span className="pill">
-              {plan.options.length} option{plan.options.length === 1 ? '' : 's'}
+              {courseIds.length} course{courseIds.length === 1 ? '' : 's'} · {plan.options.length} time{plan.options.length === 1 ? '' : 's'}
             </span>
             {best ? (
               <span
                 className="pill"
                 style={{ background: 'var(--green-soft)', color: 'var(--green-2)', borderColor: 'rgba(45,122,58,0.22)' }}
               >
-                Best match highlighted
+                Best match highlighted (rehearsal)
               </span>
             ) : null}
           </div>
@@ -132,7 +176,7 @@ export function PlanPage() {
             type="button"
             disabled={publishBusy}
             onClick={() => void onPublishLiveRound()}
-            title="Saved votes on the server — share this link with your group"
+            title="Creates a short link with saved votes and names"
           >
             {publishBusy ? 'Publishing…' : 'Publish live round'}
           </button>
@@ -150,7 +194,7 @@ export function PlanPage() {
 
       {publishErr ? (
         <p style={{ marginTop: 10, color: '#9a3412', fontSize: 14 }}>
-          Could not publish: {publishErr} (Run the latest Supabase migration if tables are missing.)
+          Could not publish: {publishErr} (Run the latest Supabase migrations if tables are missing.)
         </p>
       ) : null}
 
@@ -167,107 +211,119 @@ export function PlanPage() {
           maxWidth: 900,
         }}
       >
-        <strong style={{ color: 'var(--ink)' }}>Publish live round</strong> creates a short link where votes are stored (one per browser per time).{' '}
-        <strong style={{ color: 'var(--ink)' }}>Snapshot</strong> is the older hash link — good for a frozen copy in group chat. Availability can change; re-check before booking.
+        <strong style={{ color: 'var(--ink)' }}>Publish live round</strong> gives everyone one link: add a name, vote on each time, updates live.{' '}
+        <strong style={{ color: 'var(--ink)' }}>Snapshot</strong> is a frozen hash link for the group chat. Availability can change — re-check before booking.
       </p>
 
       <div className="plan-split" style={{ marginTop: 14 }}>
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.85)', overflow: 'hidden' }}>
           <div style={{ padding: 14, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ fontWeight: 900 }}>Candidate times</div>
-            <Link className="btn btn-ghost" to={`/course/${course.id}`}>
+            <Link className="btn btn-ghost" to={addMoreHref}>
               Add more →
             </Link>
           </div>
 
-          <div style={{ padding: 14, display: 'grid', gap: 10 }}>
-            {optionRows.map(({ option, votes: v, score }) => {
-              const isBest = best?.option.id === option.id;
-              return (
-                <div
-                  key={option.id}
-                  style={{
-                    border: '1px solid rgba(26,46,26,0.12)',
-                    borderRadius: 16,
-                    padding: 12,
-                    background: isBest ? 'rgba(233,245,234,0.85)' : '#fff',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    gap: 10,
-                    alignItems: 'center',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 950, letterSpacing: '-0.02em' }}>
-                      {formatTime12h(option.startsAt)}{' '}
-                      <span style={{ color: 'var(--muted)', fontWeight: 800 }}>
-                        · {option.players}p · {option.holes}h{typeof option.price === 'number' ? ` · $${option.price}` : ''}
-                      </span>
-                      {isBest ? (
-                        <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 950, color: 'var(--green-2)' }}>Best</span>
-                      ) : null}
-                    </div>
-                    <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => setVotes((prev) => ({ ...prev, [option.id]: { ...v, yes: v.yes + 1 } }))}
+          <div style={{ padding: 14, display: 'grid', gap: 18 }}>
+            {sections.map((sec) => (
+              <div key={sec.courseId}>
+                <div style={{ fontSize: 12, fontWeight: 950, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{sec.label}</div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {sec.rows.map((option) => {
+                    const row = optionRows.find((r) => r.option.id === option.id);
+                    if (!row) return null;
+                    const { votes: v, score } = row;
+                    const isBest = best?.option.id === option.id;
+                    return (
+                      <div
+                        key={option.id}
                         style={{
-                          padding: '8px 10px',
-                          borderRadius: 999,
-                          background: 'rgba(45,122,58,0.10)',
-                          borderColor: 'rgba(45,122,58,0.18)',
-                          color: 'var(--green-2)',
+                          border: '1px solid rgba(26,46,26,0.12)',
+                          borderRadius: 16,
+                          padding: 12,
+                          background: isBest ? 'rgba(233,245,234,0.85)' : '#fff',
+                          display: 'grid',
+                          gridTemplateColumns: '1fr auto',
+                          gap: 10,
+                          alignItems: 'center',
                         }}
                       >
-                        In ({v.yes})
-                      </button>
-                      <button className="btn" type="button" onClick={() => setVotes((prev) => ({ ...prev, [option.id]: { ...v, maybe: v.maybe + 1 } }))} style={{ padding: '8px 10px', borderRadius: 999 }}>
-                        If needed ({v.maybe})
-                      </button>
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => setVotes((prev) => ({ ...prev, [option.id]: { ...v, no: v.no + 1 } }))}
-                        style={{
-                          padding: '8px 10px',
-                          borderRadius: 999,
-                          background: 'rgba(234,88,12,0.10)',
-                          borderColor: 'rgba(234,88,12,0.18)',
-                          color: '#9a3412',
-                        }}
-                      >
-                        Out ({v.no})
-                      </button>
-                      <span style={{ marginLeft: 2, fontSize: 12, color: 'var(--muted)' }}>score: {score}</span>
-                    </div>
-                  </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 950, letterSpacing: '-0.02em' }}>
+                            {formatTime12h(option.startsAt)}{' '}
+                            <span style={{ color: 'var(--muted)', fontWeight: 800 }}>
+                              · {option.players}p · {option.holes}h{typeof option.price === 'number' ? ` · $${option.price}` : ''}
+                            </span>
+                            {isBest ? (
+                              <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 950, color: 'var(--green-2)' }}>Best</span>
+                            ) : null}
+                          </div>
+                          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => setVotes((prev) => ({ ...prev, [option.id]: { ...v, yes: v.yes + 1 } }))}
+                              style={{
+                                padding: '8px 10px',
+                                borderRadius: 999,
+                                background: 'rgba(45,122,58,0.10)',
+                                borderColor: 'rgba(45,122,58,0.18)',
+                                color: 'var(--green-2)',
+                              }}
+                            >
+                              In ({v.yes})
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => setVotes((prev) => ({ ...prev, [option.id]: { ...v, maybe: v.maybe + 1 } }))}
+                              style={{ padding: '8px 10px', borderRadius: 999 }}
+                            >
+                              If needed ({v.maybe})
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => setVotes((prev) => ({ ...prev, [option.id]: { ...v, no: v.no + 1 } }))}
+                              style={{
+                                padding: '8px 10px',
+                                borderRadius: 999,
+                                background: 'rgba(234,88,12,0.10)',
+                                borderColor: 'rgba(234,88,12,0.18)',
+                                color: '#9a3412',
+                              }}
+                            >
+                              Out ({v.no})
+                            </button>
+                            <span style={{ marginLeft: 2, fontSize: 12, color: 'var(--muted)' }}>score: {score}</span>
+                          </div>
+                        </div>
 
-                  <button className="btn btn-ghost" type="button" onClick={() => removeOption(option.id)} style={{ color: 'var(--muted)' }}>
-                    Remove
-                  </button>
+                        <button className="btn btn-ghost" type="button" onClick={() => removeOption(option.id)} style={{ color: 'var(--muted)' }}>
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-          <div style={{ fontWeight: 900 }}>Commit flow (future)</div>
-          <p style={{ color: 'var(--muted)', marginTop: 8 }}>
-            In production, this page becomes the “decision engine”:
-          </p>
-          <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
-            <li>auto-highlight best time</li>
-            <li>nudge “booker” once consensus forms</li>
-            <li>fallback if times disappear</li>
-          </ul>
-
-          {course.bookingUrl ? (
-            <a className="btn btn-primary" href={course.bookingUrl} target="_blank" rel="noreferrer" style={{ marginTop: 14, width: '100%' }}>
-              Open booking site →
-            </a>
-          ) : null}
+          <div style={{ fontWeight: 900 }}>Booking</div>
+          <p style={{ color: 'var(--muted)', marginTop: 8 }}>Open the right site once your group picks a course and time.</p>
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+            {bookingPairs.map(([cid, url]) => {
+              const c = coursesById.get(cid);
+              return (
+                <a key={cid} className="btn btn-primary" href={url} target="_blank" rel="noreferrer" style={{ width: '100%' }}>
+                  {c?.name ?? 'Course'} →
+                </a>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

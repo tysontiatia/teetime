@@ -1,6 +1,6 @@
 import type { Course, Plan } from '../types';
 import { supabase } from './supabase';
-import { formatTime12h } from './time';
+import { formatDateShort, formatTime12h } from './time';
 
 const SLUG_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -37,32 +37,49 @@ export type DbRoundVote = {
   updated_at: string;
 };
 
+export type DbRoundVoter = {
+  round_id: string;
+  voter_key: string;
+  display_name: string;
+  created_at: string;
+  updated_at: string;
+};
+
 function randomSlug(length = 11): string {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   return [...bytes].map((b) => SLUG_CHARS[b % 36]).join('');
 }
 
+/** Publish all plan options (may span multiple courses). */
 export async function publishRoundFromPlan(params: {
   plan: Plan;
-  course: Course;
+  coursesById: Map<string, Course>;
   organizerId: string | null;
 }): Promise<{ slug: string; roundId: string } | { error: string }> {
-  const { plan, course, organizerId } = params;
-  if (!plan.courseId || plan.options.length === 0) {
-    return { error: 'Plan needs a course and at least one time.' };
+  const { plan, coursesById, organizerId } = params;
+  if (plan.options.length === 0) {
+    return { error: 'Add at least one tee time from the finder or a course page.' };
   }
+
+  const courseIds = [...new Set(plan.options.map((o) => o.courseId))];
+  const names = courseIds.map((id) => coursesById.get(id)?.name ?? id);
+  const title =
+    courseIds.length > 2
+      ? `${names.slice(0, 2).join(' · ')} +${courseIds.length - 2} — ${formatDateShort(plan.date)}`
+      : courseIds.length === 2
+        ? `${names.join(' · ')} — ${formatDateShort(plan.date)}`
+        : `${names[0] ?? 'Round'} — ${formatDateShort(plan.date)}`;
 
   for (let attempt = 0; attempt < 10; attempt++) {
     const slug = randomSlug(11);
-    const title = `${course.name} (${course.city})`;
     const { data: roundRow, error: rErr } = await supabase
       .from('rounds')
       .insert({
         share_slug: slug,
         organizer_id: organizerId,
         title,
-        course_id: course.id,
+        course_id: courseIds.length === 1 ? courseIds[0] : null,
         play_date: plan.date,
       })
       .select('id, share_slug')
@@ -76,18 +93,21 @@ export async function publishRoundFromPlan(params: {
       return { error: 'Could not create round.' };
     }
 
-    const optRows = plan.options.map((o) => ({
-      round_id: roundRow.id,
-      course_name: course.catalogName,
-      course_id: course.id,
-      date: plan.date,
-      time_display: formatTime12h(o.startsAt),
-      starts_at: o.startsAt,
-      holes: o.holes,
-      players: o.players,
-      price: typeof o.price === 'number' ? String(o.price) : null,
-      booking_url: o.bookingUrl ?? course.bookingUrl ?? null,
-    }));
+    const optRows = plan.options.map((o) => {
+      const c = coursesById.get(o.courseId);
+      return {
+        round_id: roundRow.id,
+        course_name: c?.catalogName ?? c?.name ?? o.courseId,
+        course_id: o.courseId,
+        date: plan.date,
+        time_display: formatTime12h(o.startsAt),
+        starts_at: o.startsAt,
+        holes: o.holes,
+        players: o.players,
+        price: typeof o.price === 'number' ? String(o.price) : null,
+        booking_url: o.bookingUrl ?? c?.bookingUrl ?? null,
+      };
+    });
 
     const { error: oErr } = await supabase.from('round_options').insert(optRows);
     if (oErr) {
@@ -125,6 +145,12 @@ export async function fetchVotesForRound(roundId: string): Promise<DbRoundVote[]
   return data as DbRoundVote[];
 }
 
+export async function fetchVotersForRound(roundId: string): Promise<DbRoundVoter[]> {
+  const { data, error } = await supabase.from('round_voters').select('*').eq('round_id', roundId);
+  if (error || !data) return [];
+  return data as DbRoundVoter[];
+}
+
 export async function upsertVote(params: {
   roundId: string;
   optionId: string;
@@ -140,6 +166,25 @@ export async function upsertVote(params: {
       status,
     },
     { onConflict: 'option_id,voter_key' },
+  );
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
+export async function upsertVoterName(params: {
+  roundId: string;
+  voterKey: string;
+  displayName: string;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const name = params.displayName.trim().slice(0, 60);
+  if (!name) return { ok: false, message: 'Enter a name.' };
+  const { error } = await supabase.from('round_voters').upsert(
+    {
+      round_id: params.roundId,
+      voter_key: params.voterKey,
+      display_name: name,
+    },
+    { onConflict: 'round_id,voter_key' },
   );
   if (error) return { ok: false, message: error.message };
   return { ok: true };
@@ -161,6 +206,14 @@ export function voteForVoter(votes: DbRoundVote[], voterKey: string): Map<string
   const m = new Map<string, 'in' | 'maybe' | 'out'>();
   for (const v of votes) {
     if (v.voter_key === voterKey) m.set(v.option_id, v.status);
+  }
+  return m;
+}
+
+export function votersByKey(voters: DbRoundVoter[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const v of voters) {
+    m.set(v.voter_key, v.display_name);
   }
   return m;
 }
