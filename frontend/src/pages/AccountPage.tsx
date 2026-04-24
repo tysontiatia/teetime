@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useAuth } from '../state/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -73,7 +73,7 @@ export function AccountPage() {
     }
   };
 
-  const labelStyle: React.CSSProperties = {
+  const labelStyle: CSSProperties = {
     display: 'block',
     fontSize: 12,
     fontWeight: 900,
@@ -83,7 +83,7 @@ export function AccountPage() {
     marginBottom: 6,
   };
 
-  const channelBtnStyle = (active: boolean): React.CSSProperties => ({
+  const channelBtnStyle = (active: boolean): CSSProperties => ({
     flex: 1,
     padding: '10px 8px',
     borderRadius: 10,

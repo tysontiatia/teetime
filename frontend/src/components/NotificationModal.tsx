@@ -75,18 +75,19 @@ export function NotificationModal({
     };
 
     const [{ error }, { data: profile }] = await Promise.all([
-      supabase.from(‘notification_preferences’).insert(row),
-      supabase.from(‘profiles’).select(‘notify_via’).eq(‘id’, user.id).single(),
+      supabase.from('notification_preferences').insert(row),
+      supabase.from('profiles').select('notify_via').eq('id', user.id).single(),
     ]);
     setSaving(false);
 
     if (error) {
-      setMessage({ type: ‘err’, text: error.message });
+      setMessage({ type: 'err', text: error.message });
       return;
     }
-    const via = profile?.notify_via ?? ‘email’;
-    const channelLabel = via === ‘both’ ? ‘email and SMS’ : via === ‘sms’ ? ‘SMS’ : ‘email’;
-    setMessage({ type: ‘ok’, text: `Alert saved. You’ll get a${via === ‘email’ ? ‘n’ : ‘’} ${channelLabel} when times match.` });
+    const via = (profile?.notify_via ?? 'email') as string;
+    const channelLabel = via === 'both' ? 'email and SMS' : via === 'sms' ? 'SMS' : 'email';
+    const article = via === 'email' ? 'an' : 'a';
+    setMessage({ type: 'ok', text: 'Alert saved. You will get ' + article + ' ' + channelLabel + ' when times match.' });
     setTimeout(() => onClose(), 900);
   };
 
