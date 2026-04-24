@@ -52,18 +52,16 @@ function randomSlug(length = 11): string {
   return [...bytes].map((b) => SLUG_CHARS[b % 36]).join('');
 }
 
-/** Default number of tee rows included when using “Share times” from the course page. */
-export const SHARE_TIMES_SLOT_COUNT = 6;
-
-/** Build a one-course plan from the first N visible tee times (course page “Share times”). */
+/** Build a one-course plan from tee times (defaults to every slot in `teeTimes`). Pass `maxSlots` to cap. */
 export function planFromCourseVisibleTimes(
   course: Course,
   dateYmd: string,
   teeTimes: TeeTime[],
   players: 1 | 2 | 3 | 4,
-  maxSlots: number = SHARE_TIMES_SLOT_COUNT,
+  maxSlots?: number,
 ): Plan {
-  const slice = teeTimes.slice(0, Math.max(0, maxSlots));
+  const cap = maxSlots === undefined ? teeTimes.length : Math.min(teeTimes.length, Math.max(0, maxSlots));
+  const slice = teeTimes.slice(0, cap);
   return {
     id: crypto.randomUUID(),
     courseId: course.id,

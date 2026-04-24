@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatTime12h, formatDateShort } from '../lib/time';
@@ -10,7 +10,11 @@ import {
   platformDisplayName,
 } from '../lib/platformRegistry';
 import { usePlan } from '../state/PlanContext';
+import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsApi';
+import { copyTextToClipboard } from '../lib/clipboard';
+import { absoluteRoundUrl } from '../lib/shareUrl';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
@@ -54,6 +58,7 @@ export function FinderPage() {
   const [view, setView] = useState<'list' | 'map'>('list');
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const { plan, setCourse, addOption, clear } = usePlan();
+  const { user } = useAuth();
 
   const { courses, recordsBySlug, loading: catalogLoading, error: catalogError } = useCourseCatalog();
 
@@ -138,6 +143,8 @@ export function FinderPage() {
 
   const [showBookingOnly, setShowBookingOnly] = useState(true);
   const [showLiveNoMatch, setShowLiveNoMatch] = useState(false);
+  const [shareBusyCourseId, setShareBusyCourseId] = useState<string | null>(null);
+  const [shareFinderErr, setShareFinderErr] = useState<string | null>(null);
 
   const updatedLabel = useMemo(() => {
     const m = minutesSince(lastUpdatedAt);
@@ -152,6 +159,38 @@ export function FinderPage() {
     const name = coursesById.get(lockedId)?.name ?? lockedId;
     return { courseId: lockedId, name, nTimes: plan.options.length, dateLabel: formatDateShort(plan.date) };
   }, [coursesById, plan.date, plan.options]);
+
+  const shareCourseRound = useCallback(
+    async (course: Course, courseTimes: TeeTime[]) => {
+      if (courseTimes.length === 0) return;
+      setShareBusyCourseId(course.id);
+      setShareFinderErr(null);
+      const planPayload = planFromCourseVisibleTimes(course, params.date, courseTimes, params.players);
+      const host =
+        (user?.user_metadata?.full_name as string | undefined) ||
+        (user?.user_metadata?.name as string | undefined) ||
+        user?.email?.split('@')[0] ||
+        null;
+      const res = await publishRoundFromPlan({
+        plan: planPayload,
+        coursesById,
+        organizerId: user?.id ?? null,
+        hostPublicName: host,
+      });
+      setShareBusyCourseId(null);
+      if ('error' in res) {
+        setShareFinderErr(res.error);
+        return;
+      }
+      const url = absoluteRoundUrl(res.slug);
+      const copied = await copyTextToClipboard(url);
+      if (!copied) {
+        setShareFinderErr('Vote page created — copy the link from the address bar on the next screen.');
+      }
+      nav(`/round/${res.slug}`);
+    },
+    [coursesById, nav, params.date, params.players, user],
+  );
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(sp);
@@ -200,6 +239,12 @@ export function FinderPage() {
         {catalogError ? (
           <div style={{ padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d' }}>
             <strong>Could not load courses.</strong> {catalogError}
+          </div>
+        ) : null}
+
+        {shareFinderErr ? (
+          <div style={{ marginTop: 10, padding: 12, borderRadius: 12, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d', fontSize: 14 }}>
+            {shareFinderErr}
           </div>
         ) : null}
 
@@ -351,7 +396,7 @@ export function FinderPage() {
               : `${availableCourses.length} courses with times matching filters`}
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Open a course to pick times (one course per vote list), then create a group vote link.
+            Use <strong style={{ color: 'var(--ink)' }}>Share</strong> on a card for an instant vote link (all matching times on that course), or open course details to refine filters.
           </div>
         </div>
 
@@ -387,10 +432,8 @@ export function FinderPage() {
               availableCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
-              const hasOptionsHere = plan.options.some((o) => o.courseId === course.id);
               const lockedCourseId = plan.options[0]?.courseId;
               const lockedElsewhere = Boolean(lockedCourseId && lockedCourseId !== course.id);
-              const courseQs = `date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`;
 
               return (
                 <div
@@ -445,24 +488,34 @@ export function FinderPage() {
                           🔔
                         </button>
                         <button
-                          className="btn"
+                          className="btn btn-primary"
                           type="button"
-                          onClick={() => {
-                            if (!lockedElsewhere || lockedCourseId === course.id) {
-                              setCourse(course.id, params.date);
-                            }
-                            nav(`/course/${course.id}?${courseQs}`);
-                          }}
+                          disabled={times.length === 0 || shareBusyCourseId === course.id}
+                          onClick={() => void shareCourseRound(course, times)}
+                          title={`Create a group vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`}
                           style={{
-                            padding: '8px 10px',
+                            padding: '8px 12px',
                             borderRadius: 12,
-                            background: hasOptionsHere ? 'var(--green-soft)' : 'rgba(255,255,255,0.8)',
-                            color: hasOptionsHere ? 'var(--green-2)' : 'var(--muted)',
-                            borderColor: hasOptionsHere ? 'rgba(45,122,58,0.28)' : 'var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            fontWeight: 800,
+                            fontSize: 13,
                           }}
-                          title="Open this course to pick tee times for the group vote"
+                          aria-label={`Share vote link for ${course.name}`}
                         >
-                          Pick times →
+                          {shareBusyCourseId === course.id ? (
+                            '…'
+                          ) : (
+                            <>
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                                <polyline points="16 6 12 2 8 6" />
+                                <line x1="12" y1="2" x2="12" y2="15" />
+                              </svg>
+                              Share
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -688,7 +741,7 @@ export function FinderPage() {
         <div style={{ marginTop: 26, padding: 16, border: '1px solid var(--border)', borderRadius: 16, background: 'rgba(255,255,255,0.7)' }}>
           <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>How the group vote works</div>
           <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-            Pick one course, add a few tee times, then create a single link everyone opens to vote — same flow as dropping a link in the group chat, without juggling screenshots.
+            Tap <strong style={{ color: 'var(--ink)' }}>Share</strong> on a course card to create a link with <strong>every tee time</strong> that matches your date and filters on that course — copy and paste into chat. Or add times by hand and use <strong>Group vote</strong> in the nav.
           </p>
         </div>
       </div>

@@ -10,7 +10,7 @@ import { WeatherStrip } from '../components/WeatherStrip';
 import { NotificationModal } from '../components/NotificationModal';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 import { useAuth } from '../state/AuthContext';
-import { publishRoundFromPlan, planFromCourseVisibleTimes, SHARE_TIMES_SLOT_COUNT } from '../lib/roundsApi';
+import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsApi';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 
@@ -111,13 +111,11 @@ export function CoursePage() {
   const lockedCourseId = plan.options[0]?.courseId;
   const foreignLock = Boolean(lockedCourseId && lockedCourseId !== course.id);
 
-  const shareSlotCount = Math.min(SHARE_TIMES_SLOT_COUNT, times.length);
-
   const onShareTimes = async () => {
     if (unsupported || times.length === 0) return;
     setShareBusy(true);
     setShareErr(null);
-    const planPayload = planFromCourseVisibleTimes(course, date, times, players, SHARE_TIMES_SLOT_COUNT);
+    const planPayload = planFromCourseVisibleTimes(course, date, times, players);
     const host =
       (user?.user_metadata?.full_name as string | undefined) ||
       (user?.user_metadata?.name as string | undefined) ||
@@ -174,9 +172,9 @@ export function CoursePage() {
               type="button"
               disabled={shareBusy}
               onClick={() => void onShareTimes()}
-              title={`Creates a vote page with the first ${shareSlotCount} times shown below and copies the link`}
+              title={`Creates a vote page with all ${times.length} times below (after filters) and copies the link`}
             >
-              {shareBusy ? 'Creating…' : `Share times (${shareSlotCount})`}
+              {shareBusy ? 'Creating…' : `Share times (${times.length})`}
             </button>
           ) : null}
           <button
@@ -273,7 +271,7 @@ export function CoursePage() {
 
             <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
             <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-              <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses the first {SHARE_TIMES_SLOT_COUNT} slots below (after your filters). The link is copied for you — paste it in your group chat. Or tap times to build a custom list and use <strong>Group vote</strong> in the nav.
+              <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses every slot below that matches your filters. The link is copied for you — paste it in your group chat. Or tap times to build a custom list and use <strong>Group vote</strong> in the nav.
             </div>
             {foreignLock ? (
               <p style={{ marginTop: 10, fontSize: 13, color: '#9a3412' }}>
@@ -352,7 +350,7 @@ export function CoursePage() {
           <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Group vote</div>
           <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
             <li>
-              <strong>Share times</strong> — one click from live tee times (first {SHARE_TIMES_SLOT_COUNT} shown).
+              <strong>Share times</strong> — one click; every filtered tee time goes into the vote link.
             </li>
             <li>
               <strong>Custom list</strong> — tap individual times, then <strong>Group vote</strong> in the header to trim or publish.
