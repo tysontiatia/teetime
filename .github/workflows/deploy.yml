@@ -21,8 +21,21 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy deploy --project-name utah-tee-times
-      # Same action as Pages. Deploy from repo root with --config (avoids workingDirectory edge cases).
-      # Token must include Workers Scripts → Edit, not Pages-only.
+      # Preflight: Pages-only API tokens return 403 here — Workers deploy will fail the same way.
+      - name: Verify Cloudflare token can manage Workers
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/cf_workers.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/workers/scripts")
+          echo "GET .../workers/scripts -> HTTP $code"
+          head -c 800 /tmp/cf_workers.json || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::API token cannot list Workers scripts (HTTP $code). Create a token with Account → Workers Scripts → Edit (and keep Pages → Edit if you use one token for both)."
+            exit 1
+          fi
+      # Same action as Pages. Deploy from repo root with --config.
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
