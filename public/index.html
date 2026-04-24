@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Search Utah golf tee times across ForeUp, Chronogolf, and MemberSports in one place. List and map, optional alerts, and share links for your group — you book on the course site." />
+  <meta name="theme-color" content="#1a2e1a" />
   <title>tee-time.io — Every Utah Tee Time, One Search</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -23,39 +25,43 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --app-header:   #1A2E1A;
-      --app-green:    #2D7A3A;
-      --app-chip-bg:  #EDF7ED;
-      --app-bg:       #F2F5F2;
-      --bg:           #F4F6F4;
+      --app-header:   #1a2e1a;
+      --app-green:    #2d7a3a;
+      --app-chip-bg:  #e9f5ea;
+      --app-bg:       #f4f6f4;
+      --bg:           #f4f6f4;
       --ink:          #111410;
       --ink-soft:     #637063;
-      --green:        #1A2E1A;
-      --green-mid:    #2D7A3A;
-      --green-light:  #3A9047;
-      --border:       rgba(26,46,26,0.1);
-      --card:         #FFFFFF;
-      --radius:       12px;
+      --green:        #1a2e1a;
+      --green-mid:    #2d7a3a;
+      --green-light:  #3a9047;
+      --border:       rgba(26,46,26,0.12);
+      --card:         #ffffff;
+      --radius:       14px;
     }
 
-    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
     body {
       background: var(--bg);
       color: var(--ink);
-      font-family: 'DM Sans', sans-serif;
-      font-weight: 300;
+      font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'DM Sans', sans-serif;
+      font-weight: 400;
       line-height: 1.6;
       min-height: 100vh;
       overflow-x: clip;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* NAV */
     nav {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 18px 48px;
-      background: rgba(26,46,26,0.97);
-      backdrop-filter: blur(12px);
+      padding: calc(14px + env(safe-area-inset-top, 0px)) 48px 14px;
+      padding-left: max(48px, env(safe-area-inset-left, 0px));
+      padding-right: max(48px, env(safe-area-inset-right, 0px));
+      background: rgba(26,46,26,0.96);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .flag-icon {
@@ -74,22 +80,43 @@
     }
     .nav-cta {
       background: var(--app-green); color: #fff; border: none;
-      padding: 9px 20px; border-radius: 8px;
-      font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
+      padding: 9px 18px; border-radius: 12px;
+      font-size: 0.85rem; font-weight: 600;
       cursor: pointer; text-decoration: none;
       transition: background 0.2s, transform 0.15s;
     }
     .nav-cta:hover { background: var(--green-light); transform: translateY(-1px); }
+    .nav-open-app {
+      font-size: 0.85rem; font-weight: 600;
+      color: rgba(255,255,255,0.72); text-decoration: none;
+      padding: 8px 12px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .nav-open-app:hover { color: #fff; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.22); }
+    .nav-cta:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(157,224,162,0.45); }
+    .nav-open-app:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.35); }
+    .hero-cta-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(45,122,58,0.35); }
     .nav-signin {
       font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
       color: rgba(255,255,255,0.7); text-decoration: none;
       transition: color 0.15s;
     }
     .nav-signin:hover { color: #fff; }
-    .nav-actions { display: flex; align-items: center; gap: 20px; }
+    .nav-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
 
     /* HERO */
     .hero { padding: 150px 48px 80px; max-width: 960px; margin: 0 auto; }
+    .hero-cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; opacity: 0; animation: fadeUp 0.6s 0.48s ease forwards; }
+    .hero-cta-secondary {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 11px 20px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--card); color: var(--ink-soft);
+      font-size: 0.9rem; font-weight: 600; text-decoration: none;
+      transition: transform 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .hero-cta-secondary:hover { transform: translateY(-1px); border-color: rgba(45,122,58,0.28); color: var(--app-green); }
 
     .hero-badge {
       display: inline-flex; align-items: center; gap: 8px;
@@ -166,7 +193,7 @@
     /* ACCESS FORM */
     .access-section { max-width: 960px; margin: 0 auto; padding: 0 48px 120px; }
     .access-card {
-      background: var(--app-header); border-radius: 20px; padding: 60px;
+      background: var(--app-header); border-radius: 18px; padding: 60px;
       color: #fff; position: relative; overflow: hidden;
       display: grid; grid-template-columns: 1fr 1.4fr; gap: 60px; align-items: start;
     }
@@ -213,7 +240,7 @@
     .code-verified::before { content: '\2713'; font-weight: 700; }
 
     .submit-btn {
-      background: var(--app-green); color: #fff; border: none; border-radius: 8px;
+      background: var(--app-green); color: #fff; border: none; border-radius: 12px;
       padding: 13px 26px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500;
       cursor: pointer; transition: background 0.2s, transform 0.15s;
       align-self: flex-start; margin-top: 4px; display: flex; align-items: center; gap: 8px;
@@ -243,7 +270,7 @@
     /* ── Before / After Component ── */
     .ba-wrap { margin-bottom: 64px; opacity: 0; animation: fadeUp 0.7s 0.55s ease forwards; }
     .ba-before { border-radius: 12px; box-shadow: 0 6px 28px rgba(0,0,0,0.1); background: #f2f2f2; }
-    .ba-tab-sticky { position: sticky; top: 72px; z-index: 50; border-radius: 12px 12px 0 0; overflow: hidden; }
+    .ba-tab-sticky { position: sticky; top: 84px; z-index: 50; border-radius: 12px 12px 0 0; overflow: hidden; }
     .ba-panels { overflow: hidden; border-radius: 0 0 12px 12px; }
     .ba-tab-strip { display: flex; background: #f2f2f2; border-bottom: 1px solid #ddd; padding: 0 14px; }
     .ba-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 15px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500; color: #777; cursor: pointer; margin-bottom: -1px; transition: color 0.15s; }
@@ -417,8 +444,8 @@
     .modal-toggle a:hover { text-decoration: underline; }
     .oauth-btn {
       width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
-      border: 1.5px solid var(--border); border-radius: 10px;
-      background: #fff; color: var(--ink); font-family: 'DM Sans', sans-serif;
+      border: 1.5px solid var(--border); border-radius: 12px;
+      background: #fff; color: var(--ink);
       font-size: 0.9rem; font-weight: 500; padding: 11px 18px; cursor: pointer;
       transition: background 0.15s, border-color 0.15s;
     }
@@ -431,14 +458,14 @@
     .auth-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
     .auth-field label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
     .auth-field input {
-      border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px;
+      border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 14px;
       font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--ink);
       outline: none; transition: border-color 0.15s;
     }
     .auth-field input:focus { border-color: var(--app-green); }
     .auth-submit {
       width: 100%; background: var(--app-green); color: #fff; border: none;
-      border-radius: 10px; padding: 12px; font-family: 'DM Sans', sans-serif;
+      border-radius: 12px; padding: 12px;
       font-size: 0.92rem; font-weight: 500; cursor: pointer; margin-top: 4px;
       transition: background 0.15s;
     }
@@ -450,7 +477,11 @@
     .nav-signin { background: none; border: none; cursor: pointer; }
 
     @media (max-width: 680px) {
-      nav { padding: 16px 20px; }
+      nav {
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 12px;
+        padding-left: max(20px, env(safe-area-inset-left, 0px));
+        padding-right: max(20px, env(safe-area-inset-right, 0px));
+      }
       .hero { padding: 110px 20px 60px; }
       .section, .access-section { padding-left: 20px; padding-right: 20px; }
       .steps { grid-template-columns: 1fr; }
@@ -478,20 +509,28 @@
       <span class="logo-badge">Utah</span>
     </a>
     <div class="nav-actions">
-      <a href="#access" class="nav-cta">Get Early Access</a>
+      <a href="/app/" class="nav-open-app">Open app</a>
+      <a href="#access" class="nav-cta">Get early access</a>
     </div>
   </nav>
 
   <section class="hero">
-    <div class="hero-badge">Early Access &middot; tee-time.io</div>
-    <p class="hero-setup">Every golf course uses its own booking platform. To find a tee time, you visit each one — re-entering your date, players, and holes every single time.</p>
+    <div class="hero-badge">Utah live catalog · List &amp; map</div>
+    <p class="hero-setup">Every course runs its own booking site. Today you bounce between tabs and re-type date, players, and holes &mdash; over and over.</p>
     <h1>Every tee time.<br><em>One search.</em></h1>
-    <p class="hero-sub">Tee-Time is the first universal search for Utah tee times &mdash; one set of filters, every course, every platform, every open slot.</p>
+    <p class="hero-sub">
+      Tee-Time searches Utah&rsquo;s live inventory in one place. See <strong>list or map</strong>, every course (even when a day has no slots), then open the <strong>real booking page</strong> &mdash; we never check out for you.
+      Sign in for <strong>alerts</strong> when times open up and <strong>share links</strong> so your group can vote on a round.
+    </p>
+    <div class="hero-cta-row">
+      <a href="#access" class="nav-cta" style="display:inline-flex">Get early access</a>
+      <a href="/app/" class="hero-cta-secondary">Already invited? Open the app</a>
+    </div>
     <div class="platforms">
-      <span class="platforms-label">Searches across</span>
+      <span class="platforms-label">Live feeds from</span>
       <span class="platform-chip">ForeUp</span>
       <span class="platform-chip">Chronogolf</span>
-      <span class="platform-chip">Member Sports</span>
+      <span class="platform-chip">MemberSports</span>
     </div>
 
     <!-- Compare Component -->
@@ -691,7 +730,7 @@
           </div>
           <span class="tt-name">Tee-Time</span>
           <span class="tt-ub">Utah</span>
-          <span class="tt-tl">Every tee time. One search.</span>
+          <span class="tt-tl">List · map · alerts</span>
         </div>
         <div class="tt-ctrl">
           <div class="tt-dn">
@@ -765,31 +804,31 @@
   <!-- STATS -->
   <div class="section">
     <div class="stats reveal">
-      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Courses searched at once</div></div>
-      <div class="stat"><div class="stat-num">1</div><div class="stat-label">Every Utah course, one place</div></div>
-      <div class="stat"><div class="stat-num">&lt;5s</div><div class="stat-label">Find a time in seconds, not tabs</div></div>
+      <div class="stat"><div class="stat-num">67</div><div class="stat-label">Live-inventory courses in one catalog</div></div>
+      <div class="stat"><div class="stat-num">1</div><div class="stat-label">Same filters for list, map &amp; sort</div></div>
+      <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Checkout happens on the course &mdash; never inside Tee-Time</div></div>
     </div>
   </div>
 
   <!-- HOW IT WORKS -->
   <section class="section reveal">
     <p class="section-label">How it works</p>
-    <h2 class="section-title">Find your window.<br>Book and go play.</h2>
+    <h2 class="section-title">Find your window.<br>Book on the course site.</h2>
     <div class="steps">
       <div class="step">
         <div class="step-num">01</div>
-        <h3>Tell us when you want to play</h3>
-        <p>Pick your date, how many players, and 9 or 18 holes. No account, no setup.</p>
+        <h3>Set your search once</h3>
+        <p>Date, players, holes, time of day &mdash; and optional location text. Browse as a guest; sign in to save favourites, tee-time alerts, and group vote links.</p>
       </div>
       <div class="step">
         <div class="step-num">02</div>
-        <h3>We search every course at once</h3>
-        <p>Not just the partnered ones. Every Utah course, searched simultaneously, sorted by distance from you.</p>
+        <h3>Every live course, one grid</h3>
+        <p>We pull open slots from ForeUp, Chronogolf, and MemberSports together. Courses stay visible even when a day is empty &mdash; so you can set an alert instead of guessing if we missed you.</p>
       </div>
       <div class="step">
         <div class="step-num">03</div>
-        <h3>Tap a time, go play</h3>
-        <p>Click any result and you're straight to the booking page. No middleman, no markup, no extra tabs.</p>
+        <h3>Open the real tee sheet &amp; share with your group</h3>
+        <p>Pick a time and you land on the course&rsquo;s own booking flow. Use Share to spin up a vote page for your buddies; we don&rsquo;t add fees or stand in the middle.</p>
       </div>
     </div>
   </section>
@@ -800,7 +839,7 @@
       <div class="access-copy">
         <p class="access-label">Early Access</p>
         <h2>Got a code?<br>Stop hunting tee times.</h2>
-        <p class="sub">Enter your code and email below. We'll ask two quick questions to help us build the right product.</p>
+        <p class="sub">Enter your code below. Two quick questions help us tune the product &mdash; then you&rsquo;ll create an account and land in the same app you saw here.</p>
       </div>
 
       <div>
@@ -866,7 +905,7 @@
     <div class="modal-box">
       <button class="modal-close" id="authModalClose" aria-label="Close">&times;</button>
       <h2 class="modal-title" id="authTitle">Welcome back</h2>
-      <p class="modal-sub" id="authSub">Sign in to search tee times &amp; save favourites.</p>
+      <p class="modal-sub" id="authSub">Sign in for the finder, saved courses, tee-time alerts, and share links.</p>
 
       <button class="oauth-btn" id="googleBtn">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -990,7 +1029,6 @@
     function hideStatus() { statusMsg.className = 'status'; statusMsg.textContent = ''; }
 
     function trackEvent(name, props) {
-      console.log('[tee-time.io]', name, props);
       if (window.posthog) window.posthog.capture(name, props);
     }
 
