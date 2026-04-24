@@ -1,8 +1,49 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
+import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { supabase } from '../lib/supabase';
 
 type NotifyVia = 'email' | 'sms' | 'both';
+
+type NotificationPreferenceRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  days_of_week: number[];
+  earliest_time: string;
+  latest_time: string;
+  min_spots: number;
+  active: boolean;
+  created_at: string;
+  target_date: string | null;
+  players: number;
+  look_ahead_days: number | null;
+};
+
+const DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+function formatHm(t: string): string {
+  const s = t?.slice(0, 5) || '—';
+  return s.length === 5 ? s : t?.slice(0, 8) || '—';
+}
+
+function summarizePref(p: NotificationPreferenceRow): string {
+  if (p.target_date) {
+    const d = new Date(p.target_date + 'T12:00:00');
+    const label = Number.isNaN(d.getTime())
+      ? p.target_date
+      : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    return `Specific date · ${label}`;
+  }
+  const days = (p.days_of_week ?? [])
+    .slice()
+    .sort((a, b) => a - b)
+    .map((i) => DOW_SHORT[i] ?? `?`)
+    .join(', ');
+  const horizon = p.look_ahead_days != null ? `${p.look_ahead_days}d ahead` : 'open-ended';
+  return `Weekly · ${days || '—'} · ${horizon}`;
+}
 
 function formatPhoneDisplay(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 10);
@@ -20,27 +61,71 @@ function toE164(raw: string): string | null {
 
 export function AccountPage() {
   const { user } = useAuth();
+  const { courses } = useCourseCatalog();
   const [phone, setPhone] = useState('');
   const [notifyVia, setNotifyVia] = useState<NotifyVia>('email');
   const [loading, setLoading] = useState(true);
+  const [prefs, setPrefs] = useState<NotificationPreferenceRow[]>([]);
+  const [prefsBusyId, setPrefsBusyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  const loadPrefs = useCallback(async (uid: string) => {
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .select(
+        'id, user_id, course_id, days_of_week, earliest_time, latest_time, min_spots, active, created_at, target_date, players, look_ahead_days',
+      )
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false });
+    if (!error && data) setPrefs(data as NotificationPreferenceRow[]);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from('profiles')
-      .select('phone, notify_via')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setPhone(data.phone ? formatPhoneDisplay(data.phone.replace(/^\+1/, '')) : '');
-          setNotifyVia((data.notify_via as NotifyVia) || 'email');
-        }
-        setLoading(false);
-      });
-  }, [user]);
+    let cancelled = false;
+    (async () => {
+      const { data: prof } = await supabase.from('profiles').select('phone, notify_via').eq('id', user.id).single();
+      if (cancelled) return;
+      if (prof) {
+        setPhone(prof.phone ? formatPhoneDisplay(prof.phone.replace(/^\+1/, '')) : '');
+        setNotifyVia((prof.notify_via as NotifyVia) || 'email');
+      }
+      await loadPrefs(user.id);
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loadPrefs]);
+
+  const courseNameByCatalog = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of courses) m.set(c.catalogName, c.name);
+    return m;
+  }, [courses]);
+
+  const setPrefActive = async (id: string, active: boolean) => {
+    setPrefsBusyId(id);
+    const { error } = await supabase.from('notification_preferences').update({ active }).eq('id', id);
+    setPrefsBusyId(null);
+    if (error) {
+      setMessage({ type: 'err', text: error.message });
+      return;
+    }
+    setPrefs((prev) => prev.map((p) => (p.id === id ? { ...p, active } : p)));
+  };
+
+  const removePref = async (id: string) => {
+    setPrefsBusyId(id);
+    const { error } = await supabase.from('notification_preferences').delete().eq('id', id);
+    setPrefsBusyId(null);
+    if (error) {
+      setMessage({ type: 'err', text: error.message });
+      return;
+    }
+    setPrefs((prev) => prev.filter((p) => p.id !== id));
+  };
 
   if (!user) {
     return (
@@ -70,6 +155,7 @@ export function AccountPage() {
       setMessage({ type: 'err', text: error.message });
     } else {
       setMessage({ type: 'ok', text: 'Saved.' });
+      if (user) void loadPrefs(user.id);
     }
   };
 
@@ -96,14 +182,14 @@ export function AccountPage() {
   });
 
   return (
-    <div className="container" style={{ maxWidth: 480, paddingTop: 24 }}>
+    <div className="container" style={{ maxWidth: 560, paddingTop: 24 }}>
       <h1 style={{ fontSize: 20, fontWeight: 950, marginBottom: 4 }}>Account</h1>
       <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>{user.email}</p>
 
       {loading ? (
         <p style={{ color: 'var(--muted)', fontSize: 14 }}>Loading…</p>
       ) : (
-        <div style={{ display: 'grid', gap: 20 }}>
+        <div style={{ display: 'grid', gap: 24 }}>
           <div>
             <label style={labelStyle}>Phone number</label>
             <input
@@ -158,6 +244,80 @@ export function AccountPage() {
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 950, marginBottom: 4 }}>Tee time alerts</h2>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.45 }}>
+              Active alerts you set from the finder (🔔). We scan about every 15 minutes when times match your filters.
+            </p>
+            {prefs.length === 0 ? (
+              <p style={{ fontSize: 14, color: 'var(--muted)' }}>
+                No alerts yet.{' '}
+                <Link to="/" style={{ fontWeight: 800, color: 'var(--green-2)' }}>
+                  Open the finder
+                </Link>{' '}
+                and use “Get notified” on a course.
+              </p>
+            ) : (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>
+                {prefs.map((p) => {
+                  const title = courseNameByCatalog.get(p.course_id) ?? p.course_id;
+                  const busy = prefsBusyId === p.id;
+                  return (
+                    <li
+                      key={p.id}
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: 12,
+                        padding: 12,
+                        background: p.active ? '#fff' : 'rgba(0,0,0,0.03)',
+                        opacity: p.active ? 1 : 0.92,
+                      }}
+                    >
+                      <div style={{ fontWeight: 850, fontSize: 15, marginBottom: 4 }}>{title}</div>
+                      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>{summarizePref(p)}</div>
+                      <div style={{ fontSize: 12, color: 'var(--subtle)' }}>
+                        {formatHm(p.earliest_time)}–{formatHm(p.latest_time)} · {p.players} player{p.players !== 1 ? 's' : ''} · min
+                        spots {p.min_spots}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                        {p.active ? (
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={busy}
+                            onClick={() => void setPrefActive(p.id, false)}
+                            style={{ padding: '6px 12px', fontSize: 13 }}
+                          >
+                            {busy ? '…' : 'Pause'}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={busy}
+                            onClick={() => void setPrefActive(p.id, true)}
+                            style={{ padding: '6px 12px', fontSize: 13 }}
+                          >
+                            {busy ? '…' : 'Resume'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={busy}
+                          onClick={() => void removePref(p.id)}
+                          style={{ padding: '6px 12px', fontSize: 13, color: '#7f1d1d', borderColor: 'rgba(180,60,60,0.35)' }}
+                        >
+                          {busy ? '…' : 'Remove'}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
       )}
     </div>
