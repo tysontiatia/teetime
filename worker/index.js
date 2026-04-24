@@ -489,6 +489,47 @@ function buildBookingUrlWorker(course, date, holes, players) {
   return base;
 }
 
+// ── Send SMS via Twilio ──────────────────────────────────────────────
+async function sendSms(env, toPhone, body) {
+  const creds = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
+  const form = new URLSearchParams();
+  form.set('To', toPhone);
+  form.set('From', env.TWILIO_FROM_NUMBER);
+  form.set('Body', body);
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${creds}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: form.toString(),
+    },
+  );
+  return res.ok;
+}
+
+function normalizePhone(phone) {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (phone.startsWith('+')) return phone;
+  return null;
+}
+
+// ── Build SMS alert ──────────────────────────────────────────────────
+function buildAlertSms(course, times, date, players) {
+  const dateFormatted = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+  const top = times.slice(0, 5).map(t => formatTime12h(t.rawTime)).join(', ');
+  const more = times.length > 5 ? ` +${times.length - 5} more` : '';
+  const bookingUrl = buildBookingUrlWorker(course, date, '18', players);
+  return `⛳ ${times.length} tee time${times.length !== 1 ? 's' : ''} at ${course.name} on ${dateFormatted}\n${top}${more}\nBook: ${bookingUrl}`;
+}
+
 // ── Send email via Resend ────────────────────────────────────────────
 async function sendEmail(env, to, subject, html) {
   const res = await fetch('https://api.resend.com/emails', {
@@ -577,18 +618,18 @@ function sbHeaders(env, json = false) {
   return h;
 }
 
-/** One-time per calendar date (specific-date alerts). */
-function wasSpecificAlreadySent(pref, evalDate, logs) {
+/** One-time per calendar date + channel (specific-date alerts). */
+function wasAlreadySent(pref, evalDate, channel, logs) {
   return logs.some(
-    (l) => l.user_id === pref.user_id && l.course_id === pref.course_id && l.target_date === evalDate,
+    (l) => l.user_id === pref.user_id && l.course_id === pref.course_id && l.target_date === evalDate && l.channel === channel,
   );
 }
 
-/** Weekly / open-ended: same course+date can email again after 24h (see notification_log migration). */
-function wasOpenInCooldown(pref, evalDate, logs) {
+/** Weekly / open-ended: same course+date+channel can re-notify after 24h. */
+function wasInCooldown(pref, evalDate, channel, logs) {
   const threshold = Date.now() - 24 * 3600 * 1000;
   return logs.some((l) => {
-    if (l.user_id !== pref.user_id || l.course_id !== pref.course_id || l.target_date !== evalDate) return false;
+    if (l.user_id !== pref.user_id || l.course_id !== pref.course_id || l.target_date !== evalDate || l.channel !== channel) return false;
     const ts = new Date(l.sent_at).getTime();
     return Number.isFinite(ts) && ts > threshold;
   });
@@ -642,7 +683,7 @@ async function handleScheduled(env) {
 
   const userIds = [...new Set(work.map((w) => w.pref.user_id))];
   const logRes = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/notification_log?user_id=in.(${userIds.join(',')})&channel=eq.email&sent_at=gte.${logSinceStr}&select=user_id,course_id,target_date,sent_at&order=sent_at.desc`,
+    `${env.SUPABASE_URL}/rest/v1/notification_log?user_id=in.(${userIds.join(',')})&sent_at=gte.${logSinceStr}&select=user_id,course_id,target_date,channel,sent_at&order=sent_at.desc`,
     { headers: sbHeaders(env) },
   );
   const logs = logRes.ok ? await logRes.json() : [];
@@ -678,9 +719,6 @@ async function handleScheduled(env) {
 
     for (const item of group.items) {
       const { pref, type, evalDate } = item;
-      if (type === 'specific') {
-        if (wasSpecificAlreadySent(pref, evalDate, logs)) continue;
-      } else if (wasOpenInCooldown(pref, evalDate, logs)) continue;
 
       const earliest = pref.earliest_time?.slice(0, 5) || '00:00';
       const latest = pref.latest_time?.slice(0, 5) || '23:59';
@@ -694,34 +732,56 @@ async function handleScheduled(env) {
 
       if (!matching.length) continue;
 
-      const userRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${pref.user_id}`, {
-        headers: sbHeaders(env),
-      });
+      const [userRes, profileRes] = await Promise.all([
+        fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${pref.user_id}`, { headers: sbHeaders(env) }),
+        fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${pref.user_id}&select=phone,notify_via`, { headers: sbHeaders(env) }),
+      ]);
       if (!userRes.ok) continue;
       const user = await userRes.json();
-      if (!user.email) continue;
+      const profiles = profileRes.ok ? await profileRes.json() : [];
+      const profile = profiles[0] || {};
 
-      const subject = `⛳ ${matching.length} tee time${matching.length !== 1 ? 's' : ''} at ${course.name}`;
-      const html = buildAlertEmail(course, matching, evalDate, pref.players || 1);
-      const sent = await sendEmail(env, user.email, subject, html);
+      const notifyVia = profile.notify_via || 'email';
+      const wantEmail = notifyVia === 'email' || notifyVia === 'both';
+      const wantSms = (notifyVia === 'sms' || notifyVia === 'both') && profile.phone;
+      const phoneE164 = wantSms ? normalizePhone(profile.phone) : null;
+      const playersStr = String(pref.players || 1);
 
-      if (sent) {
-        await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
-          method: 'POST',
-          headers: sbHeaders(env, true),
-          body: JSON.stringify({
-            user_id: pref.user_id,
-            course_id: pref.course_id,
-            target_date: evalDate,
-            channel: 'email',
-            times_found: matching.length,
-          }),
-        });
-        appendSyntheticLog(logs, {
-          user_id: pref.user_id,
-          course_id: pref.course_id,
-          target_date: evalDate,
-        });
+      if (wantEmail && user.email) {
+        const alreadyBlocked = type === 'specific'
+          ? wasAlreadySent(pref, evalDate, 'email', logs)
+          : wasInCooldown(pref, evalDate, 'email', logs);
+        if (!alreadyBlocked) {
+          const subject = `⛳ ${matching.length} tee time${matching.length !== 1 ? 's' : ''} at ${course.name}`;
+          const html = buildAlertEmail(course, matching, evalDate, pref.players || 1);
+          const sent = await sendEmail(env, user.email, subject, html);
+          if (sent) {
+            await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
+              method: 'POST',
+              headers: sbHeaders(env, true),
+              body: JSON.stringify({ user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'email', times_found: matching.length }),
+            });
+            appendSyntheticLog(logs, { user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'email' });
+          }
+        }
+      }
+
+      if (wantSms && phoneE164) {
+        const alreadyBlocked = type === 'specific'
+          ? wasAlreadySent(pref, evalDate, 'sms', logs)
+          : wasInCooldown(pref, evalDate, 'sms', logs);
+        if (!alreadyBlocked) {
+          const body = buildAlertSms(course, matching, evalDate, playersStr);
+          const sent = await sendSms(env, phoneE164, body);
+          if (sent) {
+            await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
+              method: 'POST',
+              headers: sbHeaders(env, true),
+              body: JSON.stringify({ user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms', times_found: matching.length }),
+            });
+            appendSyntheticLog(logs, { user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms' });
+          }
+        }
       }
     }
   }

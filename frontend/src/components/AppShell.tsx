@@ -328,6 +328,11 @@ export function AppShell() {
             <NavLink to="/plan" style={navLinkStyle}>
               Shared rounds
             </NavLink>
+            {user && (
+              <NavLink to="/account" style={navLinkStyle}>
+                Account
+              </NavLink>
+            )}
             {authDesktop}
           </nav>
 
@@ -378,6 +383,11 @@ export function AppShell() {
             <NavLink to="/plan" style={navLinkStyleDrawer} onClick={() => setMenuOpen(false)}>
               Shared rounds
             </NavLink>
+            {user && (
+              <NavLink to="/account" style={navLinkStyleDrawer} onClick={() => setMenuOpen(false)}>
+                Account
+              </NavLink>
+            )}
 
             <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               {authDrawer}

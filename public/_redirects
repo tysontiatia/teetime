@@ -12,6 +12,7 @@
 /app/share               /app/share/                302
 /app/round/:slug         /app/round/:slug/          302
 /app/course/:courseId    /app/course/:courseId/     302
+/app/account             /app/account/              302
 
 # 200 rewrites must target /app/ (directory index), not /app/index.html — the latter
 # gets an extra 308 → /app/ and the rewrite can resolve to the wrong HTML.
@@ -19,3 +20,4 @@
 /app/share/              /app/                     200
 /app/round/*/            /app/                     200
 /app/course/*/           /app/                     200
+/app/account/            /app/                     200

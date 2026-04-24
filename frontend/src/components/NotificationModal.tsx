@@ -74,14 +74,19 @@ export function NotificationModal({
       look_ahead_days: mode === 'weekly' ? 14 : null,
     };
 
-    const { error } = await supabase.from('notification_preferences').insert(row);
+    const [{ error }, { data: profile }] = await Promise.all([
+      supabase.from(‘notification_preferences’).insert(row),
+      supabase.from(‘profiles’).select(‘notify_via’).eq(‘id’, user.id).single(),
+    ]);
     setSaving(false);
 
     if (error) {
-      setMessage({ type: 'err', text: error.message });
+      setMessage({ type: ‘err’, text: error.message });
       return;
     }
-    setMessage({ type: 'ok', text: 'Alert saved. You’ll get an email when times match.' });
+    const via = profile?.notify_via ?? ‘email’;
+    const channelLabel = via === ‘both’ ? ‘email and SMS’ : via === ‘sms’ ? ‘SMS’ : ‘email’;
+    setMessage({ type: ‘ok’, text: `Alert saved. You’ll get a${via === ‘email’ ? ‘n’ : ‘’} ${channelLabel} when times match.` });
     setTimeout(() => onClose(), 900);
   };
 

@@ -5,6 +5,7 @@ import { CoursePage } from './pages/CoursePage';
 import { PlanPage } from './pages/PlanPage';
 import { SharePage } from './pages/SharePage';
 import { RoundPage } from './pages/RoundPage';
+import { AccountPage } from './pages/AccountPage';
 import { AuthProvider } from './state/AuthContext';
 import { CourseCatalogProvider } from './state/CourseCatalogContext';
 
@@ -17,6 +18,7 @@ function RoutedApp() {
         <Route path="/plan" element={<PlanPage />} />
         <Route path="/share" element={<SharePage />} />
         <Route path="/round/:slug" element={<RoundPage />} />
+        <Route path="/account" element={<AccountPage />} />
       </Route>
     </Routes>
   );
