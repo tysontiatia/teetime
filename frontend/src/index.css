@@ -130,6 +130,12 @@ button, input, select{ font: inherit; }
   max-width: 100%;
 }
 
+.plan-split{
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 14px;
+}
+
 .map-shell{
   height: clamp(320px, 52vh, 520px);
   border-radius: 18px;
@@ -329,6 +335,10 @@ button, input, select{ font: inherit; }
   }
 
   .search-grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .plan-split{
     grid-template-columns: 1fr !important;
   }
 

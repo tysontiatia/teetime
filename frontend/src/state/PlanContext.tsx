@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useMemo, useReducer } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import type { Course, Plan, PlanOption, TeeTime } from '../types';
+import { loadPlanFromStorage, savePlanToStorage } from '../lib/planStorage';
 
 type State = {
   plan: Plan;
@@ -90,7 +91,13 @@ type PlanApi = {
 const PlanContext = createContext<PlanApi | null>(null);
 
 export function PlanProvider({ children, initialDate }: { children: React.ReactNode; initialDate: string }) {
-  const [state, dispatch] = useReducer(reducer, { plan: newPlan(initialDate) });
+  const [state, dispatch] = useReducer(reducer, undefined, () => ({
+    plan: loadPlanFromStorage(initialDate),
+  }));
+
+  useEffect(() => {
+    savePlanToStorage(state.plan);
+  }, [state.plan]);
 
   const api = useMemo<PlanApi>(() => {
     return {
