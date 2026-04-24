@@ -518,6 +518,8 @@ export function RoundPage() {
                 const timeLabel = tIso ? formatTime12h(tIso) : o.time_display;
                 const inVoters = votersInForOption(votes, o.id, nameByKey);
                 const busy = (s: string) => voteBusy === o.id + s;
+                const playersNeeded = typeof o.players === 'number' && o.players > 0 ? o.players : null;
+                const quorumMet = playersNeeded != null && inVoters.length >= playersNeeded;
 
                 return (
                   <div
@@ -583,6 +585,24 @@ export function RoundPage() {
                         ))
                       )}
                     </div>
+                    {quorumMet ? (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: '10px 12px',
+                          borderRadius: 12,
+                          border: '1px solid rgba(45,122,58,0.28)',
+                          background: 'rgba(233,245,234,0.95)',
+                          fontSize: 13,
+                          lineHeight: 1.45,
+                          color: 'var(--green-2)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {inVoters.length} of {playersNeeded} in — enough to fill this tee time. Have{' '}
+                        <strong style={{ color: 'var(--ink)' }}>one person book</strong> on the course site (especially if it’s prepaid), then everyone else joins that booking.
+                      </div>
+                    ) : null}
                     <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button
                         className="btn"
