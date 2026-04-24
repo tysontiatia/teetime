@@ -221,9 +221,13 @@ tee-time/
 
 ### Worker
 
+CI deploys the Worker with **`cloudflare/wrangler-action`** from the `worker/` directory (`command: deploy`), same API token pattern as Pages.
+
 ```bash
 cd worker && npx wrangler deploy
 ```
+
+GitHub **`CLOUDFLARE_API_TOKEN`** must allow **Workers Scripts → Edit** (and usually **Account → Workers Scripts → Read**). A **Pages-only** token will deploy the site but fail the Worker step.
 
 Worker URL: `https://utah-tee-times.tysontiatia.workers.dev`
 
