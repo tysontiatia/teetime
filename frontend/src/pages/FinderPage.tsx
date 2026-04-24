@@ -60,7 +60,14 @@ export function FinderPage() {
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const { user, loading: authLoading } = useAuth();
 
-  const { courses, recordsBySlug, loading: catalogLoading, error: catalogError, userLocation } = useCourseCatalog();
+  const {
+    courses,
+    recordsBySlug,
+    loading: catalogLoading,
+    error: catalogError,
+    userLocation,
+    refresh: refreshCatalog,
+  } = useCourseCatalog();
 
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
@@ -239,6 +246,11 @@ export function FinderPage() {
         {catalogError ? (
           <div style={{ padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d' }}>
             <strong>Could not load courses.</strong> {catalogError}
+            <div style={{ marginTop: 12 }}>
+              <button type="button" className="btn btn-primary" onClick={() => void refreshCatalog()}>
+                Try again
+              </button>
+            </div>
           </div>
         ) : null}
 

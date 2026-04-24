@@ -197,6 +197,8 @@ tee-time/
 │   ├── index.html            ← Landing page (early access form + auth modal)
 │   ├── app.html              ← Redirect to `/app/` (legacy `/app.html` URLs)
 │   ├── _redirects            ← Cloudflare Pages SPA rules for `/app/*`
+│   ├── _headers              ← Security headers (Pages)
+│   ├── robots.txt            ← Crawler policy
 │   ├── auth/
 │   │   └── callback.html     ← OAuth redirect handler
 │   ├── courses.json          ← Master list of 67 courses (source of truth)
@@ -264,6 +266,10 @@ npx wrangler pages deploy deploy --project-name utah-tee-times
 Optional Vite overrides at build time (defaults match production Supabase + worker): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WORKER_URL`. Local dev loads `courses.json` via Vite proxy to `tee-time.io`.
 
 Production URL: `https://tee-time.io` (custom domain on Cloudflare Pages)
+
+### Customer trial checklist
+
+Before inviting testers, confirm manually: finder (list + map), course detail, plan/share/round, sign-in, and account (alerts / phone if enabled). **Supabase → Auth → URL configuration** must include `https://tee-time.io/auth/callback.html` (and Google’s redirect to Supabase, per above). **GitHub Actions** should show both **Pages** and **Worker** deploy steps green (token needs Workers Scripts edit, not Pages-only). Worker secrets (`SUPABASE_SERVICE_KEY`, `RESEND_API_KEY`, Twilio vars if using SMS/Verify) must be set in Wrangler. Optional build overrides: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_WORKER_URL` (defaults in `frontend/src/lib/env.ts` match the current production project). Cloudflare serves baseline security headers from `public/_headers`; `public/robots.txt` allows indexing.
 
 ### Supabase migrations
 

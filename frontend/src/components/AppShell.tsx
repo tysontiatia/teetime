@@ -82,6 +82,25 @@ export function AppShell() {
   }, [location.pathname]);
 
   useEffect(() => {
+    const p = location.pathname.replace(/\/$/, '') || '/';
+    if (p === '/' || p === '') {
+      document.title = 'Tee-Time — Search';
+    } else if (p === '/plan') {
+      document.title = 'Tee-Time — Plan';
+    } else if (p === '/share') {
+      document.title = 'Tee-Time — Share';
+    } else if (p === '/account') {
+      document.title = 'Tee-Time — Account';
+    } else if (p.startsWith('/round/')) {
+      document.title = 'Tee-Time — Vote';
+    } else if (p.startsWith('/course/')) {
+      document.title = 'Tee-Time — Course';
+    } else {
+      document.title = 'Tee-Time';
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (!isMobile) {
       setDrawerMounted(false);
       setDrawerEntered(false);
