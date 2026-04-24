@@ -669,11 +669,6 @@ export function RoundPage() {
             </div>
           ) : null}
 
-          <details style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--ink)' }}>Live updates</summary>
-            <p style={{ margin: '8px 0 0' }}>Votes from others can show up here automatically while you keep this page open.</p>
-          </details>
-
           <Link to="/" className="btn btn-ghost" style={{ textAlign: 'center', fontSize: 14 }}>
             Share another round →
           </Link>
