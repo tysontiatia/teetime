@@ -13,7 +13,7 @@ Live at **[tee-time.io](https://tee-time.io)**
 - **Near Me** tab sorts results by distance using browser geolocation
 - Links directly to the course's booking page — nothing is booked automatically
 - Saves favourite courses and syncs them across devices (requires account)
-- **Notification alerts** — users set a target date for a course and get an email via Resend when tee times open up
+- **Notification alerts** — email via Resend when tee times match a **specific date** or a **weekly window** (open-ended, next *N* days)
 - Google profile avatar shown in header for OAuth users
 - Course cards show Google Places photos, ratings, and review counts
 - Custom desktop calendar date picker (replaces native date input on screens ≥600px)
@@ -63,18 +63,20 @@ saved_courses               -- user's starred courses
   id, user_id, course_id, created_at
 
 notification_preferences    -- per-course alert config
-  id, user_id, course_id,
-  target_date,              -- the date the user wants to play
-  players,                  -- number of players (1-4)
-  days_of_week,             -- legacy, unused
-  earliest_time, latest_time,  -- time window filter (HH:MM, 24h)
+  id, user_id, course_id,   -- course_id matches courses.json `name` (same as app `catalogName`)
+  target_date,              -- set for “specific date”; null for weekly / open-ended
+  look_ahead_days,           -- when target_date is null: scan each matching weekday for N days ahead
+  players,                  -- number of players (1–4); also used for vendor APIs that need it
+  days_of_week,             -- int[] (0=Sun … 6=Sat); used when target_date is null
+  earliest_time, latest_time,  -- time window filter (HH:MM)
   min_spots,                -- minimum available spots
   active,                   -- toggle on/off
   created_at
 
-notification_log            -- prevents duplicate emails
-  id, user_id, course_id, target_date, channel, times_found, sent_at
-  UNIQUE(user_id, course_id, target_date, channel)
+notification_log            -- dedupe + cooldown (see migration 20260420000000)
+  id, user_id, course_id, target_date (nullable), channel, times_found, sent_at
+  -- specific-date: at most one meaningful send per (user, course, calendar date)
+  -- weekly: same triple can send again after 24h (worker checks sent_at)
 ```
 
 All tables have RLS enabled — users can only read/write their own rows.
@@ -83,18 +85,20 @@ All tables have RLS enabled — users can only read/write their own rows.
 
 ## Notification system
 
-Users can set an alert on any course for a specific date. The system emails them when matching tee times are found.
+Signed-in users set an alert from the 🔔 modal: **specific date** (one play day) or **weekly** (a weekday + time window, scanning `look_ahead_days` ahead, default 14). When the Worker cron finds matching inventory, it emails via **Resend** and writes **`notification_log`**.
 
 ### Flow
 
-1. User taps the 🔔 bell icon on a course card → notification modal opens
-2. User picks a target date, player count, and time window → saves to `notification_preferences`
-3. Toast confirmation: *"Alert saved! We'll email you@example.com when tee times open for Sat, Jun 14."*
-4. Cron trigger runs every 15 min (6 AM–11 PM UTC): `*/15 6-23 * * *`
-5. Worker fetches active prefs with `target_date` within 14 days
-6. For each course+date combo, fetches tee times via the same API proxy handlers
-7. Filters by user's time window and player count
-8. If matches found and not already notified → sends email via Resend, logs to `notification_log`
+1. User taps 🔔 on a course card → modal opens (`NotificationModal`)
+2. User chooses **Specific date** or **Weekly**, time window, players → row in `notification_preferences`
+3. Cron on the **Worker** runs every **15 min** (6 AM–11 PM UTC): `*/15 6-23 * * *` in `worker/wrangler.toml`
+4. Worker loads prefs: **`target_date` set and ≥ today** (within 14 days), **or** **`target_date` null** with **`look_ahead_days` set** (weekly / open-ended)
+5. For weekly prefs, each run evaluates calendar dates in the lookahead window whose weekday is in `days_of_week`
+6. Work is grouped by **`course_id` + calendar date** so tee times are fetched once per group (18 holes; `players` = max needed in that group for APIs that require it)
+7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
+8. If there are matches: skip if **specific** and a log row already exists for that user+course+date; skip if **weekly** and a log row for that triple exists with **`sent_at` within 24h**; otherwise send email and **insert `notification_log`** (always with the **calendar `target_date`** evaluated, even for weekly prefs)
+
+**Deploy:** changing `worker/index.js` requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker.
 
 ### Empty state CTAs
 
@@ -207,7 +211,8 @@ tee-time/
     ├── config.toml
     └── migrations/
         ├── 20260416212118_initial_schema.sql
-        └── 20260416220000_notification_alerts.sql
+        ├── 20260416220000_notification_alerts.sql
+        └── 20260420000000_notification_open_ended.sql
 ```
 
 ---
@@ -261,7 +266,7 @@ Supabase → Auth → URL Configuration → add `https://tee-time.io/auth/callba
 
 - **Mobile close**: Course detail panel has an X close button (`.cd-close`) at top-right for mobile users
 - **Calendar**: Custom dropdown calendar for desktop (hides native `<input type="date">`). Matching calendar in notification modal.
-- **Time pickers**: Notification modal uses `<select>` dropdowns with 30-min increments in 12-hour format (5:00 AM – 9:30 PM)
+- **Notification modal**: Time-of-day window is a `<select>` (any / morning / afternoon / evening), not per-minute pickers
 - **Toast notifications**: Slide-up toasts for save/delete confirmations (auto-dismiss after 4.5s)
 - **Avatar**: Google OAuth users see their profile photo in the header; fallback to first initial
 - **Favourites**: Star button on course cards, stored in localStorage + synced to Supabase `saved_courses` for logged-in users
