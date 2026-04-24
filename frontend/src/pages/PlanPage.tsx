@@ -50,7 +50,15 @@ export function PlanPage() {
     <div className="container">
       <div style={{ padding: 18, borderRadius: 18, border: '1px solid var(--border)', background: 'rgba(255,255,255,0.8)' }}>
         <div className="pill">Shared rounds</div>
-        <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
+        <h2
+          style={{
+            margin: '12px 0 6px',
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(22px, 6vw, 34px)',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.1,
+          }}
+        >
           Your vote links
         </h2>
         <p style={{ color: 'var(--muted)', maxWidth: 640, lineHeight: 1.55 }}>
@@ -78,24 +86,24 @@ export function PlanPage() {
               if (!slug) return null;
               const title = r.title?.trim() || 'Golf round';
               const dateLabel = r.play_date ? formatDateShort(r.play_date) : '—';
+              const voteUrl = absoluteRoundUrl(slug);
               return (
                 <li
                   key={r.id}
                   style={{
                     display: 'flex',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    gap: 12,
                     padding: 14,
                     borderRadius: 14,
                     border: '1px solid var(--border)',
                     background: '#fff',
                   }}
                 >
-                  <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>{title}</div>
+                      <div style={{ fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.25 }}>{title}</div>
                       <span
                         className="pill"
                         style={{
@@ -108,17 +116,54 @@ export function PlanPage() {
                         {r.organizer_id === user.id ? 'You hosted' : 'You joined'}
                       </span>
                     </div>
-                    <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-                      Play {dateLabel}
-                      <span aria-hidden> · </span>
-                      <span style={{ fontSize: 12, wordBreak: 'break-all' }}>{absoluteRoundUrl(slug)}</span>
+                    <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6 }}>Play {dateLabel}</div>
+                    <div
+                      title={voteUrl}
+                      style={{
+                        marginTop: 6,
+                        fontSize: 11,
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        color: 'var(--subtle)',
+                        lineHeight: 1.45,
+                        overflowWrap: 'anywhere',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {voteUrl}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Link className="btn btn-primary" to={`/round/${slug}`} style={{ padding: '8px 14px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                      alignItems: 'stretch',
+                    }}
+                  >
+                    <Link
+                      className="btn btn-primary"
+                      to={`/round/${slug}`}
+                      style={{
+                        padding: '10px 14px',
+                        flex: '1 1 140px',
+                        textAlign: 'center',
+                        justifyContent: 'center',
+                        display: 'inline-flex',
+                      }}
+                    >
                       Open vote
                     </Link>
-                    <button className="btn" type="button" onClick={() => void onCopy(slug, r.id)} style={{ padding: '8px 14px' }}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => void onCopy(slug, r.id)}
+                      style={{
+                        padding: '10px 14px',
+                        flex: '1 1 140px',
+                        textAlign: 'center',
+                      }}
+                    >
                       {copyId === r.id ? 'Copied' : 'Copy link'}
                     </button>
                   </div>
