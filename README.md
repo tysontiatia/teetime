@@ -85,7 +85,7 @@ All tables have RLS enabled — users can only read/write their own rows.
 
 ## Notification system
 
-Signed-in users set an alert from the 🔔 modal: **specific date** (one play day) or **weekly** (a weekday + time window, scanning `look_ahead_days` ahead, default 14). When the Worker cron finds matching inventory, it emails via **Resend** and writes **`notification_log`**.
+Signed-in users set an alert from the 🔔 modal: **specific date** (one play day) or **weekly** (a weekday + time window, scanning `look_ahead_days` ahead, default 14). When the Worker cron finds matching inventory, it sends **email** (Resend) and/or **SMS** (Twilio) from the user’s profile **`notify_via`** / **`phone`**, and writes **`notification_log`** per channel.
 
 ### Flow
 
@@ -96,7 +96,7 @@ Signed-in users set an alert from the 🔔 modal: **specific date** (one play da
 5. For weekly prefs, each run evaluates calendar dates in the lookahead window whose weekday is in `days_of_week`
 6. Work is grouped by **`course_id` + calendar date** so tee times are fetched once per group (18 holes; `players` = max needed in that group for APIs that require it)
 7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
-8. If there are matches: skip if **specific** and a log row already exists for that user+course+date; skip if **weekly** and a log row for that triple exists with **`sent_at` within 24h**; otherwise send email and **insert `notification_log`** (always with the **calendar `target_date`** evaluated, even for weekly prefs)
+8. If there are matches: skip if **specific** and a log row already exists for that user+course+date **and channel**; skip if **weekly** and a log row for that triple exists with **`sent_at` within 24h**; otherwise send on each enabled channel (email / SMS) and **insert `notification_log`** (always with the **calendar `target_date`** evaluated, even for weekly prefs)
 
 **Deploy:** changing `worker/index.js` requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker.
 
@@ -108,6 +108,11 @@ When a course shows "No available tee times" or "Booking not yet open for this d
 
 - `SUPABASE_SERVICE_KEY` — Supabase service role key (bypasses RLS)
 - `RESEND_API_KEY` — Resend API key for sending emails
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — Twilio REST API for SMS (`TWILIO_FROM_NUMBER` must be E.164, e.g. `+18015551234`, and a number or messaging service your account is allowed to send from). If any of these are missing, SMS alerts are skipped (email still works).
+
+**SMS / Twilio checklist:** US A2P 10DLC or a **verified toll-free** sender is usually required for production traffic to US mobiles; check the Twilio console for registration status and error codes. After deploy, use **Workers → utah-tee-times → Logs** (or `wrangler tail`) when testing—failed sends log Twilio’s HTTP status and response body.
+
+Account UI: **`/app/account`** — phone + **Alert channel** (`email` / `sms` / `both`).
 
 ---
 

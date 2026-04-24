@@ -489,8 +489,17 @@ function buildBookingUrlWorker(course, date, holes, players) {
   return base;
 }
 
+function twilioConfigured(env) {
+  return Boolean(
+    env.TWILIO_ACCOUNT_SID &&
+      env.TWILIO_AUTH_TOKEN &&
+      env.TWILIO_FROM_NUMBER,
+  );
+}
+
 // ── Send SMS via Twilio ──────────────────────────────────────────────
 async function sendSms(env, toPhone, body) {
+  if (!twilioConfigured(env)) return false;
   const creds = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
   const form = new URLSearchParams();
   form.set('To', toPhone);
@@ -507,6 +516,12 @@ async function sendSms(env, toPhone, body) {
       body: form.toString(),
     },
   );
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error(
+      `[notifications] Twilio SMS failed HTTP ${res.status}: ${detail.slice(0, 800)}`,
+    );
+  }
   return res.ok;
 }
 
@@ -688,6 +703,7 @@ async function handleScheduled(env) {
   );
   const logs = logRes.ok ? await logRes.json() : [];
 
+  let warnedTwilioMissing = false;
   const groups = {};
   for (const item of work) {
     const k = `${item.pref.course_id}||${item.evalDate}`;
@@ -767,19 +783,28 @@ async function handleScheduled(env) {
       }
 
       if (wantSms && phoneE164) {
-        const alreadyBlocked = type === 'specific'
-          ? wasAlreadySent(pref, evalDate, 'sms', logs)
-          : wasInCooldown(pref, evalDate, 'sms', logs);
-        if (!alreadyBlocked) {
-          const body = buildAlertSms(course, matching, evalDate, playersStr);
-          const sent = await sendSms(env, phoneE164, body);
-          if (sent) {
-            await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
-              method: 'POST',
-              headers: sbHeaders(env, true),
-              body: JSON.stringify({ user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms', times_found: matching.length }),
-            });
-            appendSyntheticLog(logs, { user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms' });
+        if (!twilioConfigured(env)) {
+          if (!warnedTwilioMissing) {
+            console.warn(
+              '[notifications] Twilio secrets incomplete (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER); SMS skipped',
+            );
+            warnedTwilioMissing = true;
+          }
+        } else {
+          const alreadyBlocked = type === 'specific'
+            ? wasAlreadySent(pref, evalDate, 'sms', logs)
+            : wasInCooldown(pref, evalDate, 'sms', logs);
+          if (!alreadyBlocked) {
+            const body = buildAlertSms(course, matching, evalDate, playersStr);
+            const sent = await sendSms(env, phoneE164, body);
+            if (sent) {
+              await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
+                method: 'POST',
+                headers: sbHeaders(env, true),
+                body: JSON.stringify({ user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms', times_found: matching.length }),
+              });
+              appendSyntheticLog(logs, { user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms' });
+            }
           }
         }
       }
