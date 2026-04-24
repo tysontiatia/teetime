@@ -369,7 +369,7 @@ export function FinderPage() {
               : `${availableCourses.length} courses with times matching filters`}
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Use <strong style={{ color: 'var(--ink)' }}>Share</strong> on a card for an instant vote link (all matching times on that course), or open course details to refine filters.
+            Use <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a card for a vote link (all matching times), or open course details to refine filters.
           </div>
         </div>
 
@@ -454,41 +454,9 @@ export function FinderPage() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button className="btn" type="button" onClick={() => setNotifCourseId(course.id)} style={{ padding: '8px 10px' }} title="Alerts">
-                          🔔
-                        </button>
-                        <button
-                          className="btn btn-primary"
-                          type="button"
-                          disabled={times.length === 0 || shareBusyCourseId === course.id}
-                          onClick={() => void shareCourseRound(course, times)}
-                          title={`Create a group vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`}
-                          style={{
-                            padding: '8px 12px',
-                            borderRadius: 12,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            fontWeight: 800,
-                            fontSize: 13,
-                          }}
-                          aria-label={`Share vote link for ${course.name}`}
-                        >
-                          {shareBusyCourseId === course.id ? (
-                            '…'
-                          ) : (
-                            <>
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                                <polyline points="16 6 12 2 8 6" />
-                                <line x1="12" y1="2" x2="12" y2="15" />
-                              </svg>
-                              Share
-                            </>
-                          )}
-                        </button>
-                      </div>
+                      <button className="btn" type="button" onClick={() => setNotifCourseId(course.id)} style={{ padding: '8px 10px' }} title="Alerts">
+                        🔔
+                      </button>
                     </div>
 
                     <div className="times-grid" style={{ marginTop: 10 }}>
@@ -534,7 +502,18 @@ export function FinderPage() {
                       )}
                     </div>
 
-                    <div style={{ marginTop: 10 }}>
+                    <div
+                      style={{
+                        marginTop: 12,
+                        paddingTop: 12,
+                        borderTop: '1px solid var(--border)',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                      }}
+                    >
                       <Link
                         to={`/course/${course.id}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
                         className="btn btn-ghost"
@@ -542,6 +521,36 @@ export function FinderPage() {
                       >
                         Course details →
                       </Link>
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        disabled={times.length === 0 || shareBusyCourseId === course.id}
+                        onClick={() => void shareCourseRound(course, times)}
+                        title={`Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`}
+                        style={{
+                          padding: '10px 16px',
+                          borderRadius: 12,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          fontWeight: 800,
+                          fontSize: 14,
+                        }}
+                        aria-label={`Share vote link for ${course.name}`}
+                      >
+                        {shareBusyCourseId === course.id ? (
+                          '…'
+                        ) : (
+                          <>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                              <polyline points="16 6 12 2 8 6" />
+                              <line x1="12" y1="2" x2="12" y2="15" />
+                            </svg>
+                            Share
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -692,9 +701,9 @@ export function FinderPage() {
         ) : null}
 
         <div style={{ marginTop: 26, padding: 16, border: '1px solid var(--border)', borderRadius: 16, background: 'rgba(255,255,255,0.7)' }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>How the group vote works</div>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>How shared rounds work</div>
           <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-            Tap <strong style={{ color: 'var(--ink)' }}>Share</strong> on a course card to create a link with <strong>every tee time</strong> that matches your date and filters on that course — link is copied for your group chat. The <strong>Group vote</strong> page explains the flow.
+            Tap <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a course card to create a link with <strong>every tee time</strong> that matches your filters — the link is copied for chat. Open <strong>Shared rounds</strong> in the nav (signed in) to see links you created.
           </p>
         </div>
       </div>

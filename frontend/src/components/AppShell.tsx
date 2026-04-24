@@ -326,7 +326,7 @@ export function AppShell() {
               Tee times
             </NavLink>
             <NavLink to="/plan" style={navLinkStyle}>
-              Group vote
+              Shared rounds
             </NavLink>
             {authDesktop}
           </nav>
@@ -376,7 +376,7 @@ export function AppShell() {
               Tee times
             </NavLink>
             <NavLink to="/plan" style={navLinkStyleDrawer} onClick={() => setMenuOpen(false)}>
-              Group vote
+              Shared rounds
             </NavLink>
 
             <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.1)' }}>

@@ -1,3 +1,6 @@
+# Short vote links at site root → SPA (private windows / SMS often omit /app/).
+/round/:slug      /app/round/:slug      302
+
 # React SPA at /app/ — do NOT use /app/* here: Cloudflare applies redirects even
 # when a static file exists, which would break /app/assets/*.js (see Pages redirects docs).
 /app              /app/                 302

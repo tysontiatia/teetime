@@ -175,6 +175,19 @@ export async function fetchRoundBySlug(slug: string): Promise<DbRound | null> {
   return data as DbRound;
 }
 
+/** Rounds you created (for Shared rounds page). */
+export async function fetchRoundsForOrganizer(organizerId: string): Promise<DbRound[]> {
+  const { data, error } = await supabase
+    .from('rounds')
+    .select('id, share_slug, title, play_date, created_at, host_public_name')
+    .eq('organizer_id', organizerId)
+    .not('share_slug', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error || !data) return [];
+  return data as DbRound[];
+}
+
 export async function fetchRoundOptions(roundId: string): Promise<DbRoundOption[]> {
   const { data, error } = await supabase
     .from('round_options')

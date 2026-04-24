@@ -235,7 +235,7 @@ export function RoundPage() {
     return (
       <div className="container" style={{ padding: '24px 12px' }}>
         <div style={{ ...screen, padding: 22 }}>
-          <div className="pill">Group vote</div>
+          <div className="pill">Shared round</div>
           <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 24 }}>Could not open link</h2>
           <p style={{ color: 'var(--muted)' }}>{err}</p>
           <Link to="/" className="btn btn-primary" style={{ marginTop: 14 }}>

@@ -292,7 +292,7 @@ export function CoursePage() {
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Group vote</div>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Shared rounds</div>
           <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
             <li>
               <strong>Share times</strong> — one click; every filtered tee time goes into the vote link.
