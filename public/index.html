@@ -9,6 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -97,7 +98,6 @@
     .nav-open-app:hover { color: #fff; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.22); }
     .nav-cta:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(157,224,162,0.45); }
     .nav-open-app:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.35); }
-    .hero-cta-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(45,122,58,0.35); }
     .nav-signin {
       font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
       color: rgba(255,255,255,0.7); text-decoration: none;
@@ -106,63 +106,175 @@
     .nav-signin:hover { color: #fff; }
     .nav-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
 
-    /* HERO */
-    .hero { padding: 150px 48px 80px; max-width: 960px; margin: 0 auto; }
-    .hero-cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; opacity: 0; animation: fadeUp 0.6s 0.48s ease forwards; }
-    .hero-cta-secondary {
-      display: inline-flex; align-items: center; justify-content: center;
-      padding: 11px 20px; border-radius: 12px;
-      border: 1px solid var(--border); background: var(--card); color: var(--ink-soft);
-      font-size: 0.9rem; font-weight: 600; text-decoration: none;
-      transition: transform 0.15s, border-color 0.15s, color 0.15s;
+    /* HERO — full-bleed image + search */
+    .hero-visual {
+      position: relative;
+      min-height: min(92vh, 900px);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 24px 56px;
+      padding-top: calc(88px + env(safe-area-inset-top, 0px));
+      color: #fff;
+      text-align: center;
     }
-    .hero-cta-secondary:hover { transform: translateY(-1px); border-color: rgba(45,122,58,0.28); color: var(--app-green); }
-
+    .hero-visual-bg {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(180deg, rgba(17,20,16,0.45) 0%, rgba(26,46,26,0.55) 38%, rgba(17,24,18,0.82) 100%),
+        url('https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?auto=format&fit=crop&w=2400&q=80') center / cover no-repeat;
+      z-index: 0;
+    }
+    .hero-visual-inner {
+      position: relative;
+      z-index: 1;
+      width: min(720px, 100%);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 8px;
-      background: var(--app-chip-bg); color: var(--app-green);
-      font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 6px 14px; border-radius: 99px; margin-bottom: 28px;
-      opacity: 0; animation: fadeUp 0.6s 0.1s ease forwards;
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.22);
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 6px 14px; border-radius: 99px; margin-bottom: 20px;
+      backdrop-filter: blur(8px);
+      opacity: 0; animation: fadeUp 0.55s 0.08s ease forwards;
     }
     .hero-badge::before {
       content: ''; width: 6px; height: 6px;
-      background: var(--app-green); border-radius: 50%;
+      background: #9de0a2; border-radius: 50%;
       animation: pulse 2s infinite;
     }
     @keyframes pulse {
       0%,100% { opacity:1; transform:scale(1); }
       50%      { opacity:0.4; transform:scale(0.75); }
     }
-
-    .hero-setup {
-      font-size: 1.15rem; color: var(--ink-soft); max-width: 520px;
-      margin-bottom: 18px; opacity: 0; animation: fadeUp 0.6s 0.15s ease forwards;
-      line-height: 1.5;
-    }
-
-    h1 {
+    .hero-visual-title {
       font-family: 'DM Serif Display', serif;
-      font-size: clamp(2.8rem, 6vw, 4.6rem);
-      line-height: 1.06; letter-spacing: -0.025em; color: var(--ink);
-      margin-bottom: 22px; opacity: 0; animation: fadeUp 0.6s 0.28s ease forwards;
+      font-size: clamp(2.5rem, 7vw, 3.75rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      font-weight: 400;
+      margin: 0 0 10px;
+      text-shadow: 0 2px 28px rgba(0,0,0,0.35);
+      opacity: 0; animation: fadeUp 0.55s 0.14s ease forwards;
     }
-    h1 em { font-style: italic; color: var(--app-green); }
+    .hero-visual-kicker {
+      font-size: clamp(1rem, 2.4vw, 1.15rem);
+      color: rgba(255,255,255,0.88);
+      margin: 0 0 26px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      opacity: 0; animation: fadeUp 0.55s 0.2s ease forwards;
+    }
+    .hero-search {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+      text-align: left;
+      background: rgba(255,255,255,0.97);
+      border-radius: 16px;
+      padding: 14px 14px 14px 16px;
+      box-shadow: 0 16px 50px rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.5);
+      opacity: 0; animation: fadeUp 0.55s 0.26s ease forwards;
+    }
+    .hero-search-field label {
+      display: block;
+      font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 5px;
+    }
+    .hero-search-field input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 0.95rem;
+      color: var(--ink);
+      background: #fafbf9;
+      outline: none;
+      min-width: 0;
+    }
+    .hero-search-field input:focus {
+      border-color: rgba(45,122,58,0.45);
+      box-shadow: 0 0 0 3px rgba(45,122,58,0.12);
+    }
+    .hero-search-submit {
+      border: none;
+      border-radius: 12px;
+      background: var(--app-green);
+      color: #fff;
+      font-size: 0.92rem;
+      font-weight: 700;
+      padding: 12px 20px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.12s;
+    }
+    .hero-search-submit:hover { background: var(--green-light); transform: translateY(-1px); }
+    .hero-search-submit:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(45,122,58,0.45); }
+    .hero-visual-note {
+      margin: 12px 0 0;
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.72);
+      line-height: 1.45;
+      opacity: 0; animation: fadeUp 0.55s 0.32s ease forwards;
+    }
+    .hero-cta-row {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;
+      margin-top: 22px;
+      opacity: 0; animation: fadeUp 0.55s 0.36s ease forwards;
+    }
+    .hero-cta-row .nav-cta { box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .hero-cta-secondary {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 11px 20px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.12);
+      color: #fff;
+      font-size: 0.9rem; font-weight: 600; text-decoration: none;
+      backdrop-filter: blur(6px);
+      transition: transform 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .hero-cta-secondary:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.5);
+      color: #fff;
+    }
+    .hero-visual .hero-cta-secondary:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.45);
+    }
 
-    .hero-sub {
-      font-size: 1rem; color: var(--ink-soft); max-width: 500px;
-      margin-bottom: 40px; opacity: 0; animation: fadeUp 0.6s 0.4s ease forwards;
+    .lead-after-hero {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 24px 8px;
+      text-align: center;
     }
+    .lead-after-hero p {
+      font-size: 1.02rem;
+      color: var(--ink-soft);
+      line-height: 1.65;
+      margin: 0 0 14px;
+    }
+    .lead-after-hero p:last-child { margin-bottom: 0; }
 
     .platforms {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      opacity: 0; animation: fadeUp 0.6s 0.44s ease forwards; margin-bottom: 48px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; flex-wrap: wrap;
+      margin-top: 22px;
+      opacity: 0; animation: fadeUp 0.55s 0.4s ease forwards;
     }
-    .platforms-label { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
-    .platform-chip {
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--ink-soft); font-size: 0.78rem; font-weight: 500;
-      padding: 4px 12px; border-radius: 99px;
+    .hero-visual .platforms-label { color: rgba(255,255,255,0.65); }
+    .hero-visual .platform-chip {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.22);
+      color: rgba(255,255,255,0.92);
     }
 
     /* STATS */
@@ -482,7 +594,9 @@
         padding-left: max(20px, env(safe-area-inset-left, 0px));
         padding-right: max(20px, env(safe-area-inset-right, 0px));
       }
-      .hero { padding: 110px 20px 60px; }
+      .hero-visual { padding-left: 18px; padding-right: 18px; padding-bottom: 44px; min-height: min(88vh, 820px); }
+      .hero-search { grid-template-columns: 1fr; }
+      .hero-search-submit { width: 100%; }
       .section, .access-section { padding-left: 20px; padding-right: 20px; }
       .steps { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: 1fr; }
@@ -514,25 +628,43 @@
     </div>
   </nav>
 
-  <section class="hero">
-    <div class="hero-badge">Utah live catalog · List &amp; map</div>
-    <p class="hero-setup">Every course runs its own booking site. Today you bounce between tabs and re-type date, players, and holes &mdash; over and over.</p>
-    <h1>Every tee time.<br><em>One search.</em></h1>
-    <p class="hero-sub">
-      Tee-Time searches Utah&rsquo;s live inventory in one place. See <strong>list or map</strong>, every course (even when a day has no slots), then open the <strong>real booking page</strong> &mdash; we never check out for you.
-      Sign in for <strong>alerts</strong> when times open up and <strong>share links</strong> so your group can vote on a round.
-    </p>
-    <div class="hero-cta-row">
-      <a href="#access" class="nav-cta" style="display:inline-flex">Get early access</a>
-      <a href="/app/" class="hero-cta-secondary">Already invited? Open the app</a>
+  <section class="hero-visual" aria-label="Search Utah tee times">
+    <div class="hero-visual-bg" aria-hidden="true"></div>
+    <div class="hero-visual-inner">
+      <div class="hero-badge">Utah · Live catalog · List &amp; map</div>
+      <h1 class="hero-visual-title">Find a tee time</h1>
+      <p class="hero-visual-kicker">Every Utah course &mdash; ForeUp, Chronogolf, MemberSports &mdash; in one web search.</p>
+      <form class="hero-search" id="heroSearchForm" action="/app/" method="get">
+        <div class="hero-search-field">
+          <label for="heroQ">Location or course</label>
+          <input type="search" id="heroQ" name="q" autocomplete="off" placeholder="City, course name, or zip…" maxlength="120" />
+        </div>
+        <div class="hero-search-field">
+          <label for="heroDate">Date</label>
+          <input type="date" id="heroDate" name="date" />
+        </div>
+        <button type="submit" class="hero-search-submit">Search</button>
+      </form>
+      <p class="hero-visual-note">Opens the Tee-Time web app with your filters. You always complete checkout on the course&rsquo;s own site.</p>
+      <div class="hero-cta-row">
+        <a href="#access" class="nav-cta" style="display:inline-flex">Get early access</a>
+        <a href="/app/" class="hero-cta-secondary">Open app without search</a>
+      </div>
+      <div class="platforms">
+        <span class="platforms-label">Live feeds from</span>
+        <span class="platform-chip">ForeUp</span>
+        <span class="platform-chip">Chronogolf</span>
+        <span class="platform-chip">MemberSports</span>
+      </div>
     </div>
-    <div class="platforms">
-      <span class="platforms-label">Live feeds from</span>
-      <span class="platform-chip">ForeUp</span>
-      <span class="platform-chip">Chronogolf</span>
-      <span class="platform-chip">MemberSports</span>
-    </div>
+  </section>
 
+  <div class="lead-after-hero">
+    <p><strong>Every tee time, one search.</strong> Tee-Time doesn&rsquo;t replace the pro shop &mdash; it aggregates open slots so you stop re-typing the same filters on six different booking engines.</p>
+    <p>See <strong>list or map</strong>, keep every course visible (even when a day is empty), then set <strong>alerts</strong> or a <strong>share link</strong> for your group once you&rsquo;re signed in.</p>
+  </div>
+
+  <section class="section" style="padding-top:8px">
     <!-- Compare Component -->
     <div class="compare-wrap">
       <div class="compare-card">
@@ -947,10 +1079,38 @@
       </div>
       <span class="footer-name">tee-time.io</span>
     </div>
-    <p>Built for Utah golfers &middot; 2026</p>
+    <div style="text-align:right">
+      <p>Built for Utah golfers &middot; 2026</p>
+      <p style="margin-top:6px;font-size:0.72rem;color:rgba(255,255,255,0.28)">
+        Hero image via <a href="https://unsplash.com/license" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,0.42)">Unsplash</a>
+      </p>
+    </div>
   </footer>
 
   <script>
+    (function () {
+      var form = document.getElementById('heroSearchForm');
+      var dateInput = document.getElementById('heroDate');
+      if (dateInput && !dateInput.value) {
+        var y = new Date();
+        dateInput.value =
+          y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
+      }
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var qEl = document.getElementById('heroQ');
+          var q = qEl ? qEl.value.trim() : '';
+          var dt = dateInput ? dateInput.value : '';
+          var p = new URLSearchParams();
+          if (q) p.set('q', q);
+          if (dt) p.set('date', dt);
+          var qs = p.toString();
+          window.location.href = '/app/' + (qs ? '?' + qs : '');
+        });
+      }
+    })();
+
     const VALID_CODES = ['golf2026', 'teetime', 'earlybird', 'utahgolf'];
     const APP_URL = 'https://tee-time.io/app/';
 
