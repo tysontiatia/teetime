@@ -44,6 +44,8 @@ export type DbRoundVoter = {
   display_name: string;
   created_at: string;
   updated_at: string;
+  /** Set when the voter is signed in — used for Shared rounds (joined). */
+  user_id?: string | null;
 };
 
 function randomSlug(length = 11): string {
@@ -175,17 +177,49 @@ export async function fetchRoundBySlug(slug: string): Promise<DbRound | null> {
   return data as DbRound;
 }
 
-/** Rounds you created (for Shared rounds page). */
+const ROUND_LIST_COLS = 'id, share_slug, title, play_date, created_at, host_public_name, organizer_id';
+
+/** Rounds you created (host). */
 export async function fetchRoundsForOrganizer(organizerId: string): Promise<DbRound[]> {
   const { data, error } = await supabase
     .from('rounds')
-    .select('id, share_slug, title, play_date, created_at, host_public_name')
+    .select(ROUND_LIST_COLS)
     .eq('organizer_id', organizerId)
     .not('share_slug', 'is', null)
     .order('created_at', { ascending: false })
     .limit(50);
   if (error || !data) return [];
   return data as DbRound[];
+}
+
+/** Rounds you hosted or joined as a signed-in voter (Shared rounds). */
+export async function fetchRoundsForUser(userId: string): Promise<DbRound[]> {
+  const { data: hosted, error: hostedErr } = await supabase
+    .from('rounds')
+    .select(ROUND_LIST_COLS)
+    .eq('organizer_id', userId)
+    .not('share_slug', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (hostedErr) return [];
+  const hostedRows = (hosted ?? []) as DbRound[];
+  const hostedIds = new Set(hostedRows.map((r) => r.id));
+
+  const { data: voterRows } = await supabase.from('round_voters').select('round_id').eq('user_id', userId).limit(200);
+
+  const joinIds = [...new Set((voterRows ?? []).map((r) => r.round_id as string).filter(Boolean))].filter((id) => !hostedIds.has(id));
+  if (joinIds.length === 0) return hostedRows;
+
+  const { data: joined, error: joinErr } = await supabase
+    .from('rounds')
+    .select(ROUND_LIST_COLS)
+    .in('id', joinIds)
+    .not('share_slug', 'is', null);
+  if (joinErr || !joined?.length) return hostedRows;
+
+  const merged = [...hostedRows, ...(joined as DbRound[])];
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return merged;
 }
 
 export async function fetchRoundOptions(roundId: string): Promise<DbRoundOption[]> {
@@ -234,17 +268,18 @@ export async function upsertVoterName(params: {
   roundId: string;
   voterKey: string;
   displayName: string;
+  /** When set, links this voter row to the account (Shared rounds “joined”). */
+  userId?: string | null;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   const name = params.displayName.trim().slice(0, 60);
   if (!name) return { ok: false, message: 'Enter a name.' };
-  const { error } = await supabase.from('round_voters').upsert(
-    {
-      round_id: params.roundId,
-      voter_key: params.voterKey,
-      display_name: name,
-    },
-    { onConflict: 'round_id,voter_key' },
-  );
+  const row: Record<string, unknown> = {
+    round_id: params.roundId,
+    voter_key: params.voterKey,
+    display_name: name,
+  };
+  if (params.userId) row.user_id = params.userId;
+  const { error } = await supabase.from('round_voters').upsert(row, { onConflict: 'round_id,voter_key' });
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }

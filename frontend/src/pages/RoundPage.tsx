@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../state/AuthContext';
+import { profileDisplayNameFromUser } from '../lib/profileDisplayName';
 import {
   aggregateVotes,
   fetchRoundBySlug,
@@ -54,6 +56,7 @@ function panelStyle(): CSSProperties {
 
 export function RoundPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { user } = useAuth();
   const { courses } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
@@ -110,9 +113,34 @@ export function RoundPage() {
     setVoters(vr);
   }, [roundId]);
 
+  /** Signed-in users: create voter row from profile (uses getSession user so this callback stays stable). */
+  const ensureSignedInDisplay = useCallback(async (): Promise<boolean> => {
+    if (!roundId) return true;
+    const { data: auth } = await supabase.auth.getUser();
+    const u = auth.user;
+    if (!u?.id) return true;
+    const vr = await fetchVotersForRound(roundId);
+    const names = votersByKey(vr);
+    if (names.get(voterKey)?.trim()) return true;
+    const name = profileDisplayNameFromUser(u);
+    const res = await upsertVoterName({ roundId, voterKey, displayName: name, userId: u.id });
+    if (!res.ok) {
+      setErr(res.message);
+      return false;
+    }
+    setNameInput(name);
+    await refreshVotes();
+    return true;
+  }, [roundId, voterKey, refreshVotes]);
+
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    if (loading || !roundId || !user?.id) return;
+    void ensureSignedInDisplay();
+  }, [loading, roundId, user?.id, ensureSignedInDisplay]);
 
   useEffect(() => {
     if (!roundId) return;
@@ -163,6 +191,7 @@ export function RoundPage() {
 
   const onVote = async (optionId: string, status: 'in' | 'maybe' | 'out') => {
     if (!roundId) return;
+    if (!(await ensureSignedInDisplay())) return;
     setVoteBusy(optionId + status);
     const res = await upsertVote({ roundId, optionId, voterKey, status });
     setVoteBusy(null);
@@ -175,6 +204,7 @@ export function RoundPage() {
 
   const onCantMakeRound = async () => {
     if (!roundId || options.length === 0) return;
+    if (!(await ensureSignedInDisplay())) return;
     setVoteBusy('CANT');
     for (const o of options) {
       const res = await upsertVote({ roundId, optionId: o.id, voterKey, status: 'out' });
@@ -192,7 +222,7 @@ export function RoundPage() {
     if (!roundId) return;
     setNameBusy(true);
     setNameMsg(null);
-    const res = await upsertVoterName({ roundId, voterKey, displayName: nameInput });
+    const res = await upsertVoterName({ roundId, voterKey, displayName: nameInput, userId: user?.id ?? undefined });
     setNameBusy(false);
     if (!res.ok) {
       setNameMsg(res.message);
@@ -288,8 +318,15 @@ export function RoundPage() {
           <p style={{ marginTop: 10, fontSize: 14, color: 'var(--muted)', maxWidth: 640 }}>
             {hostPublicName ? (
               <>
-                <strong style={{ color: 'var(--ink)' }}>{hostPublicName}</strong> shared these tee times — add your name, then vote.
+                <strong style={{ color: 'var(--ink)' }}>{hostPublicName}</strong> shared these tee times
+                {user?.id ? (
+                  <> — you’re signed in, so we use your account name below (change it if your group calls you something else).</>
+                ) : (
+                  <> — add your name, then vote.</>
+                )}
               </>
+            ) : user?.id ? (
+              <>You’re signed in — we use your account name below for votes (edit if needed), then pick a time.</>
             ) : (
               <>Add your name so the group knows who voted, then pick a time.</>
             )}
@@ -397,7 +434,9 @@ export function RoundPage() {
           <div style={{ padding: 16, ...panelStyle(), background: '#fff' }}>
             <div style={{ fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Your name</div>
             <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
-              Shown next to your votes so friends recognize you.
+              {user?.id
+                ? 'Filled from your Google account by default. Update and save if your group uses a nickname — still linked to your account for Shared rounds.'
+                : 'Shown next to your votes so friends recognize you.'}
             </p>
             <input
               className="input"
@@ -607,10 +646,7 @@ export function RoundPage() {
 
           <details style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
             <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--ink)' }}>Live updates</summary>
-            <p style={{ margin: '8px 0 0' }}>
-              Votes can update for everyone on this link when Realtime is enabled in Supabase for <code style={{ fontSize: 11 }}>round_option_votes</code> and{' '}
-              <code style={{ fontSize: 11 }}>round_voters</code>.
-            </p>
+            <p style={{ margin: '8px 0 0' }}>Votes from others can show up here automatically while you keep this page open.</p>
           </details>
 
           <Link to="/" className="btn btn-ghost" style={{ textAlign: 'center', fontSize: 14 }}>

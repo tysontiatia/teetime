@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
-import { fetchRoundsForOrganizer, type DbRound } from '../lib/roundsApi';
+import { fetchRoundsForUser, type DbRound } from '../lib/roundsApi';
 import { formatDateShort } from '../lib/time';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { copyTextToClipboard } from '../lib/clipboard';
@@ -23,7 +23,7 @@ export function PlanPage() {
     setLoadErr(null);
     setCopyErr(null);
     try {
-      const rows = await fetchRoundsForOrganizer(user.id);
+      const rows = await fetchRoundsForUser(user.id);
       setRounds(rows);
     } catch {
       setLoadErr('Could not load your shared rounds.');
@@ -54,7 +54,7 @@ export function PlanPage() {
           Your vote links
         </h2>
         <p style={{ color: 'var(--muted)', maxWidth: 640, lineHeight: 1.55 }}>
-          When you use <strong style={{ color: 'var(--ink)' }}>Share</strong> on the finder or <strong style={{ color: 'var(--ink)' }}>Share times</strong> on a course, your rounds appear here. Anyone with the link can vote — no account needed on their side.
+          Rounds you <strong style={{ color: 'var(--ink)' }}>host</strong> (Share on the finder or course page) and rounds you <strong style={{ color: 'var(--ink)' }}>join</strong> while signed in appear here. Anyone with the link can vote — guests don’t need an account.
         </p>
 
         {authLoading ? (
@@ -68,7 +68,9 @@ export function PlanPage() {
         ) : loadErr ? (
           <p style={{ marginTop: 14, color: '#9a3412', fontSize: 14 }}>{loadErr}</p>
         ) : rounds.length === 0 ? (
-          <p style={{ marginTop: 14, color: 'var(--muted)' }}>No shared rounds yet. Open the finder and tap Share on a course.</p>
+          <p style={{ marginTop: 14, color: 'var(--muted)' }}>
+            No rounds here yet. Host one from the finder, or open a friend’s vote link while signed in to save it to this list.
+          </p>
         ) : (
           <ul style={{ margin: '18px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
             {rounds.map((r) => {
@@ -92,7 +94,20 @@ export function PlanPage() {
                   }}
                 >
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>{title}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>{title}</div>
+                      <span
+                        className="pill"
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          background: r.organizer_id === user.id ? 'rgba(233,245,234,0.95)' : 'rgba(248,250,248,0.95)',
+                          color: r.organizer_id === user.id ? 'var(--green-2)' : 'var(--muted)',
+                        }}
+                      >
+                        {r.organizer_id === user.id ? 'You hosted' : 'You joined'}
+                      </span>
+                    </div>
                     <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
                       Play {dateLabel}
                       <span aria-hidden> · </span>
