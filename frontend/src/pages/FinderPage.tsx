@@ -17,6 +17,7 @@ import { absoluteRoundUrl } from '../lib/shareUrl';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
+import { SignInToShareModal } from '../components/SignInToShareModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 
@@ -143,6 +144,8 @@ export function FinderPage() {
   const [showLiveNoMatch, setShowLiveNoMatch] = useState(false);
   const [shareBusyCourseId, setShareBusyCourseId] = useState<string | null>(null);
   const [shareFinderErr, setShareFinderErr] = useState<string | null>(null);
+  const [signInToShareOpen, setSignInToShareOpen] = useState(false);
+  const closeSignInToShare = useCallback(() => setSignInToShareOpen(false), []);
 
   const updatedLabel = useMemo(() => {
     const m = minutesSince(lastUpdatedAt);
@@ -156,7 +159,7 @@ export function FinderPage() {
       if (courseTimes.length === 0) return;
       const uid = user?.id;
       if (!uid) {
-        setShareFinderErr('Sign in with Google in the header to create a share link.');
+        setSignInToShareOpen(true);
         return;
       }
       setShareBusyCourseId(course.id);
@@ -537,14 +540,12 @@ export function FinderPage() {
                       <button
                         className="btn btn-primary"
                         type="button"
-                        disabled={times.length === 0 || shareBusyCourseId === course.id || authLoading || !user}
+                        disabled={times.length === 0 || shareBusyCourseId === course.id || authLoading}
                         onClick={() => void shareCourseRound(course, times)}
                         title={
                           authLoading
                             ? 'Checking account…'
-                            : !user
-                              ? 'Sign in with Google in the header to create a share link'
-                              : `Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`
+                            : `Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`
                         }
                         style={{
                           padding: '10px 16px',
@@ -734,6 +735,8 @@ export function FinderPage() {
           </p>
         </div>
       </div>
+
+      <SignInToShareModal open={signInToShareOpen} onClose={closeSignInToShare} />
 
       <NotificationModal
         open={notifCourseId != null}

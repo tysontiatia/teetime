@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { formatDateShort, formatTime12h, matchesPreset, toYmd } from '../lib/time';
@@ -7,6 +7,7 @@ import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { NotificationModal } from '../components/NotificationModal';
+import { SignInToShareModal } from '../components/SignInToShareModal';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 import { useAuth } from '../state/AuthContext';
 import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsApi';
@@ -46,6 +47,8 @@ export function CoursePage() {
   const [loadingTimes, setLoadingTimes] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareErr, setShareErr] = useState<string | null>(null);
+  const [signInToShareOpen, setSignInToShareOpen] = useState(false);
+  const closeSignInToShare = useCallback(() => setSignInToShareOpen(false), []);
 
   useEffect(() => {
     if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
@@ -109,7 +112,7 @@ export function CoursePage() {
     if (unsupported || times.length === 0) return;
     const uid = user?.id;
     if (!uid) {
-      setShareErr('Sign in with Google in the header to create a share link.');
+      setSignInToShareOpen(true);
       return;
     }
     setShareBusy(true);
@@ -169,14 +172,12 @@ export function CoursePage() {
             <button
               className="btn btn-primary"
               type="button"
-              disabled={shareBusy || authLoading || !user}
+              disabled={shareBusy || authLoading}
               onClick={() => void onShareTimes()}
               title={
                 authLoading
                   ? 'Checking account…'
-                  : !user
-                    ? 'Sign in with Google in the header to create a share link'
-                    : `Creates a vote page with all ${times.length} times below (after filters) and copies the link`
+                  : `Creates a vote page with all ${times.length} times below (after filters) and copies the link`
               }
             >
               {shareBusy ? 'Creating…' : `Share times (${times.length})`}
@@ -321,6 +322,8 @@ export function CoursePage() {
           </ul>
         </div>
       </div>
+
+      <SignInToShareModal open={signInToShareOpen} onClose={closeSignInToShare} />
 
       <NotificationModal open={notifOpen} onClose={() => setNotifOpen(false)} course={course} defaultDate={date} />
     </div>
