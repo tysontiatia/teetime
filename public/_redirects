@@ -1,13 +1,19 @@
-# Short vote links at site root → SPA (private windows / SMS often omit /app/).
-/round/:slug      /app/round/:slug      302
+# Short vote links (site root) → SPA under /app/…/
+# Without a trailing slash on /app/… deep links, Pages can 308 → /app/ and drop the path.
+/round/:slug      /app/round/:slug/     302
 
-# React SPA at /app/ — do NOT use /app/* here: Cloudflare applies redirects even
-# when a static file exists, which would break /app/assets/*.js (see Pages redirects docs).
-#
-# Use :param placeholders for one-segment routes — splat /app/course/* can fail to rewrite
-# on some Pages + wrangler deploys and falls through to the root marketing index.html.
+# React SPA at /app/ — do NOT use /app/* here: would break /app/assets/*.js
 /app              /app/                 302
-/app/course/:courseId   /app/index.html       200
-/app/plan               /app/index.html       200
-/app/share              /app/index.html       200
-/app/round/:slug        /app/index.html       200
+
+# Canonical trailing slash (302) so the splat 200 rules below match.
+/app/plan                /app/plan/                 302
+/app/share               /app/share/                302
+/app/round/:slug         /app/round/:slug/          302
+/app/course/:courseId    /app/course/:courseId/     302
+
+# 200 rewrites must target /app/ (directory index), not /app/index.html — the latter
+# gets an extra 308 → /app/ and the rewrite can resolve to the wrong HTML.
+/app/plan/               /app/                     200
+/app/share/              /app/                     200
+/app/round/*/            /app/                     200
+/app/course/*/           /app/                     200

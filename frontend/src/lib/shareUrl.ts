@@ -1,11 +1,11 @@
-/** In dev, Vite serves the app under `BASE_URL` only — no root redirect for `/round/`. */
+/** In dev, Vite serves under `BASE_URL`. In production, `/round/slug/` hits `_redirects` then the SPA (trailing slash avoids Pages 308 → `/app/`). */
 function roundPathForEnv(slug: string): string {
   const s = slug.trim().toLowerCase();
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '');
   if (import.meta.env.DEV) {
-    const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '');
     return `${base}/round/${s}`;
   }
-  return `/round/${s}`;
+  return `/round/${s}/`;
 }
 
 /** Canonical share URL: production uses site root `/round/:slug` (redirects to the SPA). */
