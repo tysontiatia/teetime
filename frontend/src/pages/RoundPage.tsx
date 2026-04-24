@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -22,7 +23,8 @@ import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { supabase } from '../lib/supabase';
 
-const CHIP_BG = ['#185FA5', '#3B6D11', '#993C1D', '#534AB7', '#2d7a3a', '#7c3aed'];
+/** Avatar chips — stay in the green brand range (no rainbow). */
+const AVATAR_BG = ['var(--green-2)', 'var(--green)', '#2f5a36', '#3d7348'];
 
 function initialLetter(name: string): string {
   const t = name.trim();
@@ -39,6 +41,15 @@ function votersInForOption(votes: DbRoundVote[], optionId: string, nameByKey: Ma
     out.push({ key: v.voter_key, name: nameByKey.get(v.voter_key) ?? 'Someone' });
   }
   return out;
+}
+
+function panelStyle(): CSSProperties {
+  return {
+    border: '1px solid var(--border)',
+    borderRadius: 18,
+    background: 'rgba(255,255,255,0.88)',
+    overflow: 'hidden',
+  };
 }
 
 export function RoundPage() {
@@ -213,30 +224,29 @@ export function RoundPage() {
     return [...u.entries()];
   }, [options, coursesById]);
 
-  const screen = {
-    maxWidth: 400,
-    margin: '0 auto',
-    borderRadius: 20,
-    overflow: 'hidden',
+  const cardShell = {
+    padding: 18,
+    borderRadius: 18,
     border: '1px solid var(--border)',
-    background: 'rgba(255,255,255,0.96)',
-    boxShadow: '0 12px 40px rgba(26,46,26,0.12)',
-  } as const;
+    background: 'rgba(255,255,255,0.92)',
+    textAlign: 'center' as const,
+    color: 'var(--muted)',
+  };
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: '24px 12px' }}>
-        <div style={{ ...screen, padding: 32, textAlign: 'center', color: 'var(--muted)' }}>Loading vote page…</div>
+      <div className="container" style={{ padding: '24px 0' }}>
+        <div style={cardShell}>Loading vote page…</div>
       </div>
     );
   }
 
   if (err && !roundId) {
     return (
-      <div className="container" style={{ padding: '24px 12px' }}>
-        <div style={{ ...screen, padding: 22 }}>
+      <div className="container" style={{ padding: '24px 0' }}>
+        <div style={{ ...cardShell, textAlign: 'left' }}>
           <div className="pill">Shared round</div>
-          <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 24 }}>Could not open link</h2>
+          <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.03em' }}>Could not open link</h2>
           <p style={{ color: 'var(--muted)' }}>{err}</p>
           <Link to="/" className="btn btn-primary" style={{ marginTop: 14 }}>
             Back to finder →
@@ -247,294 +257,154 @@ export function RoundPage() {
   }
 
   const dateBadge = playDate ? formatDateShort(playDate) : '';
+  const holesLabel = sortedOptions[0] ? `${sortedOptions[0]!.holes} holes` : null;
 
   return (
-    <div className="container" style={{ padding: '18px 12px 48px' }}>
-      <div style={screen}>
-        <div
-          style={{
-            position: 'relative',
-            minHeight: 148,
-            background: heroPhoto ? `url(${heroPhoto}) center/cover` : '#2d4a3e',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-            padding: 16,
-          }}
-        >
+    <div className="container" style={{ padding: '18px 0 48px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0 }}>
+          <Link to="/" className="pill">
+            ← Tee times
+          </Link>
+          <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+            {heroName}
+            {heroCity ? (
+              <span style={{ color: 'var(--muted)', fontWeight: 700 }}>
+                {' '}
+                ({heroCity})
+              </span>
+            ) : null}
+          </h2>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="pill">Shared round</span>
+            {dateBadge ? <span className="pill">{dateBadge}</span> : null}
+            {holesLabel ? <span className="pill">{holesLabel}</span> : null}
+            {sortedOptions[0] && typeof sortedOptions[0]!.players === 'number' ? (
+              <span className="pill">
+                {sortedOptions[0]!.players} player{sortedOptions[0]!.players === 1 ? '' : 's'}
+              </span>
+            ) : null}
+          </div>
+          <p style={{ marginTop: 10, fontSize: 14, color: 'var(--muted)', maxWidth: 640 }}>
+            {hostPublicName ? (
+              <>
+                <strong style={{ color: 'var(--ink)' }}>{hostPublicName}</strong> shared these tee times — add your name, then vote.
+              </>
+            ) : (
+              <>Add your name so the group knows who voted, then pick a time.</>
+            )}
+          </p>
+        </div>
+        <button className="btn btn-ghost" type="button" onClick={() => void onCopy()} style={{ padding: '8px 14px', flexShrink: 0 }}>
+          {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
+        </button>
+      </div>
+
+      <div className="split-two" style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'minmax(0, 1.08fr) minmax(0, 1fr)', gap: 14 }}>
+        <div style={panelStyle()}>
           <div
             style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%)',
+              position: 'relative',
+              minHeight: 220,
+              background: heroPhoto
+                ? `url(${heroPhoto}) center/cover`
+                : 'linear-gradient(145deg, var(--green) 0%, var(--green-2) 55%, var(--green-3) 100%)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              padding: 16,
             }}
-          />
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            {dateBadge ? (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '0.5px solid rgba(255,255,255,0.35)',
-                  borderRadius: 20,
-                  padding: '4px 10px',
-                  fontSize: 11,
-                  color: '#fff',
-                  marginBottom: 8,
-                }}
-              >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />
-                {dateBadge}
-              </div>
-            ) : null}
-            <div style={{ fontSize: 19, fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>{heroName}</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 4 }}>
-              {[heroCity, sortedOptions[0] ? `${sortedOptions[0]!.holes} holes` : null].filter(Boolean).join(' · ')}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: heroPhoto ? 'linear-gradient(to bottom, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.52) 100%)' : undefined,
+              }}
+            />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              {dateBadge ? (
+                <div style={{ marginBottom: 8 }}>
+                  <span className="pill" style={{ background: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.35)', color: '#fff' }}>
+                    {dateBadge}
+                  </span>
+                </div>
+              ) : null}
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>{heroName}</div>
+              {heroCity ? <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', marginTop: 4 }}>{heroCity}</div> : null}
             </div>
           </div>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '12px 16px',
-            borderBottom: '1px solid var(--border)',
-            background: '#fff',
-          }}
-        >
-          <div style={{ display: 'flex' }}>
-            {inviteAvatars.length === 0 ? (
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: 'var(--green-soft)',
-                  border: '2px solid #fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: 'var(--green-2)',
-                }}
-              >
-                ·
-              </div>
-            ) : (
-              inviteAvatars.map((n, i) => (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '14px 16px',
+              borderTop: '1px solid var(--border)',
+              background: '#fff',
+            }}
+          >
+            <div style={{ display: 'flex' }}>
+              {inviteAvatars.length === 0 ? (
                 <div
-                  key={`${n}-${i}`}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: 32,
+                    height: 32,
                     borderRadius: '50%',
-                    marginLeft: i === 0 ? 0 : -6,
-                    background: CHIP_BG[i % CHIP_BG.length],
+                    background: 'var(--green-soft)',
                     border: '2px solid #fff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.92)',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: 'var(--green-2)',
                   }}
                 >
-                  {initialLetter(n)}
+                  ·
                 </div>
-              ))
-            )}
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', flex: 1, lineHeight: 1.35 }}>
-            {hostPublicName ? (
-              <>
-                <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{hostPublicName}</strong> shared tee times — vote for a time
-              </>
-            ) : (
-              <>
-                <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>Your group</strong> is picking a tee time
-              </>
-            )}
+              ) : (
+                inviteAvatars.map((n, i) => (
+                  <div
+                    key={`${n}-${i}`}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      marginLeft: i === 0 ? 0 : -8,
+                      background: AVATAR_BG[i % AVATAR_BG.length],
+                      border: '2px solid #fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: '#fff',
+                    }}
+                  >
+                    {initialLetter(n)}
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', flex: 1, lineHeight: 1.4 }}>
+              {inviteAvatars.length === 0 ? 'Be the first to join this vote.' : `${inviteAvatars.length} in the group so far`}
+            </div>
           </div>
         </div>
 
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: '#fffbeb' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#854f0b' }}>
-            <span aria-hidden>⏰</span>
-            Times go fast — double-check availability before you book.
-          </div>
-        </div>
-
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, background: '#f6f7f6' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Pick your time
-            </span>
-            <button className="btn btn-ghost" type="button" onClick={() => void onCopy()} style={{ padding: '4px 10px', fontSize: 12 }}>
-              {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
-            </button>
-          </div>
-
-          {err ? (
-            <p style={{ color: '#9a3412', fontSize: 13 }}>{err}</p>
-          ) : null}
-
-          {sortedOptions.map((o) => {
-            const c = countsByOption.get(o.id) ?? { in: 0, maybe: 0, out: 0 };
-            const mine = myVotes.get(o.id);
-            const selected = mine === 'in';
-            const tIso = o.starts_at ?? null;
-            const timeLabel = tIso ? formatTime12h(tIso) : o.time_display;
-            const inVoters = votersInForOption(votes, o.id, nameByKey);
-            const busy = (s: string) => voteBusy === o.id + s;
-
-            return (
-              <div
-                key={o.id}
-                style={{
-                  background: '#fff',
-                  border: selected ? '2px solid var(--green-2)' : '1px solid var(--border)',
-                  borderRadius: 14,
-                  padding: '14px 16px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <div style={{ fontSize: 20, fontWeight: 600, color: selected ? 'var(--green-2)' : 'var(--ink)' }}>{timeLabel}</div>
-                  <div style={{ fontSize: 14, color: 'var(--muted)' }}>{o.price ? `$${o.price}` : '—'}</div>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                  {typeof o.players === 'number' ? (
-                    <span className="pill" style={{ fontSize: 11, background: 'rgba(233,245,234,0.9)', color: 'var(--green-2)' }}>
-                      {o.players} players
-                    </span>
-                  ) : null}
-                  <span className="pill" style={{ fontSize: 11 }}>
-                    {o.holes} holes
-                  </span>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  {inVoters.length === 0 ? (
-                    <span style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>No “in” votes yet</span>
-                  ) : (
-                    inVoters.map(({ key, name }, idx) => (
-                      <div
-                        key={key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          background: key === voterKey ? 'rgba(233,245,234,0.95)' : 'rgba(248,250,248,0.95)',
-                          borderRadius: 20,
-                          padding: '3px 8px 3px 4px',
-                          border: key === voterKey ? '1px solid rgba(45,122,58,0.35)' : '1px solid var(--border)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 18,
-                            height: 18,
-                            borderRadius: '50%',
-                            background: CHIP_BG[idx % CHIP_BG.length],
-                            color: '#fff',
-                            fontSize: 9,
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {initialLetter(name)}
-                        </div>
-                        <span style={{ fontSize: 11, color: key === voterKey ? 'var(--green-2)' : 'var(--muted)', fontWeight: key === voterKey ? 700 : 500 }}>
-                          {key === voterKey ? 'You' : name}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={!!voteBusy}
-                    onClick={() => void onVote(o.id, 'in')}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      background: mine === 'in' ? 'rgba(45,122,58,0.22)' : 'rgba(45,122,58,0.10)',
-                      borderColor: 'rgba(45,122,58,0.25)',
-                      color: 'var(--green-2)',
-                    }}
-                  >
-                    {busy('in') ? '…' : `In (${c.in})`}
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={!!voteBusy}
-                    onClick={() => void onVote(o.id, 'maybe')}
-                    style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: mine === 'maybe' ? 700 : 600 }}
-                  >
-                    {busy('maybe') ? '…' : `If needed (${c.maybe})`}
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={!!voteBusy}
-                    onClick={() => void onVote(o.id, 'out')}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      background: mine === 'out' ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.08)',
-                      borderColor: 'rgba(234,88,12,0.22)',
-                      color: '#9a3412',
-                    }}
-                  >
-                    {busy('out') ? '…' : `Out (${c.out})`}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-
-          <button
-            type="button"
-            className="btn"
-            disabled={voteBusy === 'CANT' || options.length === 0}
-            onClick={() => void onCantMakeRound()}
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              borderRadius: 14,
-              background: '#fff',
-              border: '1px solid var(--border)',
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <span style={{ fontSize: 14, color: 'var(--muted)' }}>Can’t make it this round</span>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{voteBusy === 'CANT' ? '…' : 'Mark out on all times'}</span>
-          </button>
-
-          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px' }}>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>Your name (so the group knows it’s you)</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          <div style={{ padding: 16, ...panelStyle(), background: '#fff' }}>
+            <div style={{ fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Your name</div>
+            <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
+              Shown next to your votes so friends recognize you.
+            </p>
             <input
               className="input"
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
-              placeholder="First name"
+              placeholder="First name or nickname"
               maxLength={60}
-              style={{ width: '100%' }}
             />
             <button
               className="btn btn-primary"
@@ -546,8 +416,180 @@ export function RoundPage() {
               {nameBusy ? 'Saving…' : 'Save name'}
             </button>
             {nameMsg ? (
-              <p style={{ marginTop: 8, fontSize: 12, color: nameMsg === 'Saved' ? 'var(--green-2)' : '#9a3412' }}>{nameMsg}</p>
+              <p style={{ marginTop: 8, fontSize: 13, color: nameMsg === 'Saved' ? 'var(--green-2)' : '#9a3412' }}>{nameMsg}</p>
             ) : null}
+          </div>
+
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: 14,
+              border: '1px solid rgba(180,130,40,0.28)',
+              background: 'rgba(255,251,235,0.95)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#92400e', lineHeight: 1.45 }}>
+              <span aria-hidden>⏰</span>
+              Times go fast — double-check availability before you book.
+            </div>
+          </div>
+
+          <div style={{ padding: 16, borderRadius: 18, border: '1px solid var(--border)', background: 'rgba(248,250,248,0.75)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Pick your time
+              </span>
+            </div>
+
+            {err ? (
+              <p style={{ color: '#9a3412', fontSize: 13, marginBottom: 10 }}>{err}</p>
+            ) : null}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {sortedOptions.map((o) => {
+                const c = countsByOption.get(o.id) ?? { in: 0, maybe: 0, out: 0 };
+                const mine = myVotes.get(o.id);
+                const selected = mine === 'in';
+                const tIso = o.starts_at ?? null;
+                const timeLabel = tIso ? formatTime12h(tIso) : o.time_display;
+                const inVoters = votersInForOption(votes, o.id, nameByKey);
+                const busy = (s: string) => voteBusy === o.id + s;
+
+                return (
+                  <div
+                    key={o.id}
+                    style={{
+                      background: '#fff',
+                      border: selected ? '2px solid var(--green-2)' : '1px solid var(--border)',
+                      borderRadius: 14,
+                      padding: '14px 16px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: selected ? 'var(--green-2)' : 'var(--ink)', fontFamily: 'var(--font-display)' }}>{timeLabel}</div>
+                      <div style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 700 }}>{o.price ? `$${o.price}` : '—'}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      {typeof o.players === 'number' ? (
+                        <span className="pill" style={{ fontSize: 11, background: 'rgba(233,245,234,0.9)', color: 'var(--green-2)' }}>
+                          {o.players} players
+                        </span>
+                      ) : null}
+                      <span className="pill" style={{ fontSize: 11 }}>
+                        {o.holes} holes
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                      {inVoters.length === 0 ? (
+                        <span style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>No “in” votes yet</span>
+                      ) : (
+                        inVoters.map(({ key, name }, idx) => (
+                          <div
+                            key={key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              background: key === voterKey ? 'rgba(233,245,234,0.95)' : 'rgba(248,250,248,0.95)',
+                              borderRadius: 20,
+                              padding: '3px 8px 3px 4px',
+                              border: key === voterKey ? '1px solid rgba(45,122,58,0.35)' : '1px solid var(--border)',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: '50%',
+                                background: AVATAR_BG[idx % AVATAR_BG.length],
+                                color: '#fff',
+                                fontSize: 9,
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {initialLetter(name)}
+                            </div>
+                            <span style={{ fontSize: 11, color: key === voterKey ? 'var(--green-2)' : 'var(--muted)', fontWeight: key === voterKey ? 700 : 600 }}>
+                              {key === voterKey ? 'You' : name}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={!!voteBusy}
+                        onClick={() => void onVote(o.id, 'in')}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          background: mine === 'in' ? 'rgba(45,122,58,0.22)' : 'rgba(45,122,58,0.10)',
+                          borderColor: 'rgba(45,122,58,0.25)',
+                          color: 'var(--green-2)',
+                        }}
+                      >
+                        {busy('in') ? '…' : `In (${c.in})`}
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={!!voteBusy}
+                        onClick={() => void onVote(o.id, 'maybe')}
+                        style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: mine === 'maybe' ? 800 : 600 }}
+                      >
+                        {busy('maybe') ? '…' : `If needed (${c.maybe})`}
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={!!voteBusy}
+                        onClick={() => void onVote(o.id, 'out')}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          background: mine === 'out' ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.08)',
+                          borderColor: 'rgba(234,88,12,0.22)',
+                          color: '#9a3412',
+                        }}
+                      >
+                        {busy('out') ? '…' : `Out (${c.out})`}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              className="btn"
+              disabled={voteBusy === 'CANT' || options.length === 0}
+              onClick={() => void onCantMakeRound()}
+              style={{
+                width: '100%',
+                marginTop: 12,
+                padding: '12px 16px',
+                borderRadius: 14,
+                background: '#fff',
+                border: '1px solid var(--border)',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span style={{ fontSize: 14, color: 'var(--muted)' }}>Can’t make it this round</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{voteBusy === 'CANT' ? '…' : 'Mark out on all times'}</span>
+            </button>
           </div>
 
           {bookingUrls.length > 0 ? (
@@ -555,7 +597,7 @@ export function RoundPage() {
               {bookingUrls.map(([cid, url]) => {
                 const c = coursesById.get(cid);
                 return (
-                  <a key={cid} className="btn btn-primary" href={url} target="_blank" rel="noreferrer" style={{ width: '100%', textAlign: 'center' }}>
+                  <a key={cid} className="btn btn-primary" href={url} target="_blank" rel="noreferrer" style={{ width: '100%', textAlign: 'center', padding: '12px 16px' }}>
                     Book {c?.name ?? 'course'} →
                   </a>
                 );
@@ -563,12 +605,15 @@ export function RoundPage() {
             </div>
           ) : null}
 
-          <p style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.45, textAlign: 'center' }}>
-            Votes can update live for everyone on this link when Realtime is enabled in Supabase for <code style={{ fontSize: 10 }}>round_option_votes</code> and{' '}
-            <code style={{ fontSize: 10 }}>round_voters</code>.
-          </p>
+          <details style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 700, color: 'var(--ink)' }}>Live updates</summary>
+            <p style={{ margin: '8px 0 0' }}>
+              Votes can update for everyone on this link when Realtime is enabled in Supabase for <code style={{ fontSize: 11 }}>round_option_votes</code> and{' '}
+              <code style={{ fontSize: 11 }}>round_voters</code>.
+            </p>
+          </details>
 
-          <Link to="/" className="btn btn-ghost" style={{ width: '100%', textAlign: 'center', fontSize: 13 }}>
+          <Link to="/" className="btn btn-ghost" style={{ textAlign: 'center', fontSize: 14 }}>
             Share another round →
           </Link>
         </div>
