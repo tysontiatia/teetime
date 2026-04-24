@@ -633,6 +633,150 @@ function sbHeaders(env, json = false) {
   return h;
 }
 
+function twilioVerifyConfigured(env) {
+  return Boolean(
+    env.TWILIO_ACCOUNT_SID &&
+      env.TWILIO_AUTH_TOKEN &&
+      env.TWILIO_VERIFY_SERVICE_SID,
+  );
+}
+
+/** Resolve Supabase user id from browser session JWT (Authorization: Bearer …). */
+async function getUserIdFromAccessToken(env, request) {
+  const auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) {
+    return { error: 'missing_auth', status: 401 };
+  }
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      Authorization: auth,
+      apikey: env.SUPABASE_ANON_KEY || '',
+    },
+  });
+  if (!res.ok) {
+    return { error: 'invalid_session', status: 401 };
+  }
+  const u = await res.json();
+  if (!u?.id) return { error: 'invalid_session', status: 401 };
+  return { userId: u.id };
+}
+
+function twilioBasicAuth(env) {
+  return `Basic ${btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`)}`;
+}
+
+async function handlePhoneVerifyStart(request, env) {
+  if (!twilioVerifyConfigured(env)) {
+    return corsResponse({ error: 'verify_not_configured' }, 503);
+  }
+  const auth = await getUserIdFromAccessToken(env, request);
+  if (auth.error) return corsResponse({ error: auth.error }, auth.status || 401);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return corsResponse({ error: 'invalid_body' }, 400);
+  }
+  const raw = body.phone ?? body.phone_e164 ?? '';
+  const phoneE164 = normalizePhone(String(raw));
+  if (!phoneE164 || !phoneE164.startsWith('+1')) {
+    return corsResponse({ error: 'invalid_phone', message: 'US mobile (+1) required' }, 400);
+  }
+
+  const form = new URLSearchParams();
+  form.set('To', phoneE164);
+  form.set('Channel', 'sms');
+  const url = `https://verify.twilio.com/v2/Services/${env.TWILIO_VERIFY_SERVICE_SID}/Verifications`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: twilioBasicAuth(env),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: form.toString(),
+  });
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text.slice(0, 300) };
+  }
+  if (!res.ok) {
+    console.error('[phone-verify] Twilio start failed', res.status, text.slice(0, 500));
+    return corsResponse(
+      { error: 'twilio_error', message: data.message || data.code || 'verification_start_failed' },
+      400,
+    );
+  }
+  return corsResponse({ ok: true, status: data.status || 'pending' });
+}
+
+async function handlePhoneVerifyCheck(request, env) {
+  if (!twilioVerifyConfigured(env)) {
+    return corsResponse({ error: 'verify_not_configured' }, 503);
+  }
+  const auth = await getUserIdFromAccessToken(env, request);
+  if (auth.error) return corsResponse({ error: auth.error }, auth.status || 401);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return corsResponse({ error: 'invalid_body' }, 400);
+  }
+  const raw = body.phone ?? body.phone_e164 ?? '';
+  const phoneE164 = normalizePhone(String(raw));
+  const code = String(body.code ?? '').replace(/\D/g, '');
+  if (!phoneE164 || !phoneE164.startsWith('+1')) {
+    return corsResponse({ error: 'invalid_phone' }, 400);
+  }
+  if (code.length < 4 || code.length > 10) {
+    return corsResponse({ error: 'invalid_code' }, 400);
+  }
+
+  const form = new URLSearchParams();
+  form.set('To', phoneE164);
+  form.set('Code', code);
+  const url = `https://verify.twilio.com/v2/Services/${env.TWILIO_VERIFY_SERVICE_SID}/VerificationCheck`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: twilioBasicAuth(env),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: form.toString(),
+  });
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = {};
+  }
+  if (!res.ok) {
+    console.error('[phone-verify] Twilio check HTTP', res.status, text.slice(0, 500));
+    return corsResponse({ error: 'twilio_error', message: data.message || 'check_failed' }, 400);
+  }
+  if (data.status !== 'approved') {
+    return corsResponse({ error: 'not_approved', status: data.status || 'denied' }, 400);
+  }
+
+  const verifiedAt = new Date().toISOString();
+  const patchRes = await fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${auth.userId}`, {
+    method: 'PATCH',
+    headers: sbHeaders(env, true),
+    body: JSON.stringify({ phone: phoneE164, phone_verified_at: verifiedAt }),
+  });
+  if (!patchRes.ok) {
+    const errText = await patchRes.text();
+    console.error('[phone-verify] profile PATCH failed', patchRes.status, errText.slice(0, 500));
+    return corsResponse({ error: 'profile_update_failed' }, 500);
+  }
+  return corsResponse({ ok: true, phone: phoneE164, phone_verified_at: verifiedAt });
+}
+
 /** One-time per calendar date + channel (specific-date alerts). */
 function wasAlreadySent(pref, evalDate, channel, logs) {
   return logs.some(
@@ -750,7 +894,7 @@ async function handleScheduled(env) {
 
       const [userRes, profileRes] = await Promise.all([
         fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${pref.user_id}`, { headers: sbHeaders(env) }),
-        fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${pref.user_id}&select=phone,notify_via`, { headers: sbHeaders(env) }),
+        fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${pref.user_id}&select=phone,notify_via,phone_verified_at`, { headers: sbHeaders(env) }),
       ]);
       if (!userRes.ok) continue;
       const user = await userRes.json();
@@ -759,7 +903,12 @@ async function handleScheduled(env) {
 
       const notifyVia = profile.notify_via || 'email';
       const wantEmail = notifyVia === 'email' || notifyVia === 'both';
-      const wantSms = (notifyVia === 'sms' || notifyVia === 'both') && profile.phone;
+      const phoneOk = Boolean(profile.phone && normalizePhone(profile.phone));
+      const smsVerified = Boolean(profile.phone_verified_at);
+      const wantSms =
+        (notifyVia === 'sms' || notifyVia === 'both') &&
+        phoneOk &&
+        smsVerified;
       const phoneE164 = wantSms ? normalizePhone(profile.phone) : null;
       const playersStr = String(pref.players || 1);
 
@@ -826,6 +975,20 @@ export default {
         return corsResponse({ error: 'method_not_allowed' }, 405);
       }
       return handleForeUpLogin(request);
+    }
+
+    if (path === '/account/phone/start') {
+      if (request.method !== 'POST') {
+        return corsResponse({ error: 'method_not_allowed' }, 405);
+      }
+      return handlePhoneVerifyStart(request, env);
+    }
+
+    if (path === '/account/phone/check') {
+      if (request.method !== 'POST') {
+        return corsResponse({ error: 'method_not_allowed' }, 405);
+      }
+      return handlePhoneVerifyCheck(request, env);
     }
 
     if (request.method !== 'GET') {

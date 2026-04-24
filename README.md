@@ -57,7 +57,8 @@ Returning users with an active session are auto-redirected from the landing page
 
 ```sql
 profiles                    -- auto-created on signup via trigger
-  id, display_name, phone, notify_via, created_at
+  id, display_name, phone, notify_via, phone_verified_at, created_at
+  -- phone_verified_at: set by Worker after Twilio Verify; SMS alerts require it (see migration 20260426100000)
 
 saved_courses               -- user's starred courses
   id, user_id, course_id, created_at
@@ -96,7 +97,7 @@ Signed-in users set an alert from the 🔔 modal: **specific date** (one play da
 5. For weekly prefs, each run evaluates calendar dates in the lookahead window whose weekday is in `days_of_week`
 6. Work is grouped by **`course_id` + calendar date** so tee times are fetched once per group (18 holes; `players` = max needed in that group for APIs that require it)
 7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
-8. If there are matches: skip if **specific** and a log row already exists for that user+course+date **and channel**; skip if **weekly** and a log row for that triple exists with **`sent_at` within 24h**; otherwise send on each enabled channel (email / SMS) and **insert `notification_log`** (always with the **calendar `target_date`** evaluated, even for weekly prefs)
+8. If there are matches: skip if **specific** and a log row already exists for that user+course+date **and channel**; skip if **weekly** and a log row for that triple exists with **`sent_at` within 24h**; otherwise send **email** when enabled; send **SMS** only when `profiles.phone_verified_at` is set (Twilio Verify on Account). Then **insert `notification_log`** (always with the **calendar `target_date`** evaluated, even for weekly prefs)
 
 **Deploy:** changing `worker/index.js` requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker.
 
@@ -108,11 +109,14 @@ When a course shows "No available tee times" or "Booking not yet open for this d
 
 - `SUPABASE_SERVICE_KEY` — Supabase service role key (bypasses RLS)
 - `RESEND_API_KEY` — Resend API key for sending emails
-- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — Twilio REST API for SMS (`TWILIO_FROM_NUMBER` must be E.164, e.g. `+18015551234`, and a number or messaging service your account is allowed to send from). If any of these are missing, SMS alerts are skipped (email still works).
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — Twilio **Messages** API for alert SMS (`TWILIO_FROM_NUMBER` must be E.164, e.g. `+18015551234`, and a number or messaging service your account is allowed to send from). If any of these are missing, SMS alerts are skipped (email still works).
+- `TWILIO_VERIFY_SERVICE_SID` — Twilio **Verify** service SID (Console → Verify → Services). Used for **SMS verification** on Account (`POST /account/phone/start` and `/account/phone/check`). Without it, “Send code” returns `503` until the secret is set.
+
+Plaintext Worker vars in `worker/wrangler.toml` include **`SUPABASE_ANON_KEY`** (same public anon key as the app) so the Worker can validate the user’s session JWT on `/account/phone/*`.
 
 **SMS / Twilio checklist:** US A2P 10DLC or a **verified toll-free** sender is usually required for production traffic to US mobiles; check the Twilio console for registration status and error codes. After deploy, use **Workers → utah-tee-times → Logs** (or `wrangler tail`) when testing—failed sends log Twilio’s HTTP status and response body.
 
-Account UI: **`/app/account`** — phone + **Alert channel** (`email` / `sms` / `both`).
+Account UI: **`/app/account`** — phone, **Twilio Verify** (send code / verify), **Alert channel** (`email` / `sms` / `both`), and **active tee time alerts** (pause / resume / remove).
 
 ---
 

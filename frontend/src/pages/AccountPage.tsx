@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { Link } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { confirmPhoneVerification, startPhoneVerification } from '../lib/accountPhoneVerify';
 import { supabase } from '../lib/supabase';
 
 type NotifyVia = 'email' | 'sms' | 'both';
@@ -69,6 +70,10 @@ export function AccountPage() {
   const [prefsBusyId, setPrefsBusyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
+  const [profilePhoneE164, setProfilePhoneE164] = useState<string | null>(null);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [verifyBusy, setVerifyBusy] = useState(false);
 
   const loadPrefs = useCallback(async (uid: string) => {
     const { data, error } = await supabase
@@ -81,23 +86,35 @@ export function AccountPage() {
     if (!error && data) setPrefs(data as NotificationPreferenceRow[]);
   }, []);
 
+  const applyProfile = useCallback((prof: {
+    phone: string | null;
+    notify_via: string | null;
+    phone_verified_at: string | null;
+  }) => {
+    setPhone(prof.phone ? formatPhoneDisplay(prof.phone.replace(/^\+1/, '')) : '');
+    setNotifyVia((prof.notify_via as NotifyVia) || 'email');
+    setPhoneVerifiedAt(prof.phone_verified_at ?? null);
+    setProfilePhoneE164(prof.phone ?? null);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const { data: prof } = await supabase.from('profiles').select('phone, notify_via').eq('id', user.id).single();
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('phone, notify_via, phone_verified_at')
+        .eq('id', user.id)
+        .single();
       if (cancelled) return;
-      if (prof) {
-        setPhone(prof.phone ? formatPhoneDisplay(prof.phone.replace(/^\+1/, '')) : '');
-        setNotifyVia((prof.notify_via as NotifyVia) || 'email');
-      }
+      if (prof) applyProfile(prof);
       await loadPrefs(user.id);
       if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user, loadPrefs]);
+  }, [user, loadPrefs, applyProfile]);
 
   const courseNameByCatalog = useMemo(() => {
     const m = new Map<string, string>();
@@ -135,11 +152,25 @@ export function AccountPage() {
     );
   }
 
+  const phoneMatchesVerified =
+    Boolean(phoneVerifiedAt) &&
+    Boolean(toE164(phone)) &&
+    Boolean(profilePhoneE164) &&
+    toE164(phone) === profilePhoneE164;
+
   const save = async () => {
     setMessage(null);
 
     if ((notifyVia === 'sms' || notifyVia === 'both') && !toE164(phone)) {
       setMessage({ type: 'err', text: 'Enter a valid 10-digit US phone number to enable SMS.' });
+      return;
+    }
+
+    if (notifyVia === 'sms' && toE164(phone) && !phoneMatchesVerified) {
+      setMessage({
+        type: 'err',
+        text: 'SMS-only alerts require a verified mobile number. Send a code below, then verify before saving.',
+      });
       return;
     }
 
@@ -154,9 +185,62 @@ export function AccountPage() {
     if (error) {
       setMessage({ type: 'err', text: error.message });
     } else {
-      setMessage({ type: 'ok', text: 'Saved.' });
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('phone, notify_via, phone_verified_at')
+        .eq('id', user.id)
+        .single();
+      if (prof) applyProfile(prof);
+      let ok = 'Saved.';
+      if (notifyVia === 'both' && !phoneMatchesVerified) {
+        ok += ' SMS will start after you verify this number below.';
+      }
+      setMessage({ type: 'ok', text: ok });
       if (user) void loadPrefs(user.id);
     }
+  };
+
+  const sendVerifyCode = async () => {
+    setMessage(null);
+    const e164 = toE164(phone);
+    if (!e164) {
+      setMessage({ type: 'err', text: 'Enter a valid 10-digit US number before sending a code.' });
+      return;
+    }
+    setVerifyBusy(true);
+    const { error } = await startPhoneVerification(e164);
+    setVerifyBusy(false);
+    if (error) setMessage({ type: 'err', text: error });
+    else setMessage({ type: 'ok', text: 'Code sent. Check your phone and enter it below.' });
+  };
+
+  const submitVerifyCode = async () => {
+    setMessage(null);
+    const e164 = toE164(phone);
+    if (!e164) {
+      setMessage({ type: 'err', text: 'Enter your phone number first.' });
+      return;
+    }
+    const digits = verifyCode.replace(/\D/g, '');
+    if (digits.length < 4) {
+      setMessage({ type: 'err', text: 'Enter the verification code from the text message.' });
+      return;
+    }
+    setVerifyBusy(true);
+    const { error } = await confirmPhoneVerification(e164, digits);
+    setVerifyBusy(false);
+    if (error) {
+      setMessage({ type: 'err', text: error });
+      return;
+    }
+    setVerifyCode('');
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('phone, notify_via, phone_verified_at')
+      .eq('id', user.id)
+      .single();
+    if (prof) applyProfile(prof);
+    setMessage({ type: 'ok', text: 'Phone verified. SMS alerts can be delivered to this number.' });
   };
 
   const labelStyle: CSSProperties = {
@@ -200,8 +284,45 @@ export function AccountPage() {
               onChange={(e) => setPhone(formatPhoneDisplay(e.target.value))}
             />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              US numbers only. Required for SMS alerts.
+              US numbers only. SMS uses Twilio Verify — send a code to confirm this number before alerts are texted.
             </p>
+            {phoneMatchesVerified ? (
+              <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--green-2)', marginTop: 10 }}>
+                ✓ Mobile verified for SMS
+              </p>
+            ) : (
+              <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={verifyBusy || !toE164(phone)}
+                    onClick={() => void sendVerifyCode()}
+                    style={{ padding: '8px 14px', fontSize: 13 }}
+                  >
+                    {verifyBusy ? '…' : 'Send code'}
+                  </button>
+                  <input
+                    className="input"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="6-digit code"
+                    value={verifyCode}
+                    onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    style={{ maxWidth: 140, fontSize: 15, letterSpacing: '0.12em' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={verifyBusy || verifyCode.replace(/\D/g, '').length < 4}
+                    onClick={() => void submitVerifyCode()}
+                    style={{ padding: '8px 14px', fontSize: 13 }}
+                  >
+                    Verify
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

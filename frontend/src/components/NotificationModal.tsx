@@ -92,7 +92,7 @@ export function NotificationModal({
     setSaving(true);
     const { data: profile, error: profileErr } = await supabase
       .from('profiles')
-      .select('notify_via, phone')
+      .select('notify_via, phone, phone_verified_at')
       .eq('id', user.id)
       .single();
 
@@ -104,12 +104,23 @@ export function NotificationModal({
 
     const via = (profile?.notify_via ?? 'email') as string;
     const hasPhone = profileHasValidUsPhone(profile?.phone);
+    const phoneVerified = Boolean(profile?.phone_verified_at);
 
     if (via === 'sms' && !hasPhone) {
       setSaving(false);
       setMessage({
         type: 'err',
         text: 'Your alert channel is set to SMS, but there is no US mobile number on your profile yet. Add one on Account, then save this alert again.',
+        showAccountLink: true,
+      });
+      return;
+    }
+
+    if (via === 'sms' && hasPhone && !phoneVerified) {
+      setSaving(false);
+      setMessage({
+        type: 'err',
+        text: 'SMS-only alerts need a verified phone number. Open Account, send the verification code, then try again.',
         showAccountLink: true,
       });
       return;
@@ -127,6 +138,15 @@ export function NotificationModal({
       setMessage({
         type: 'ok',
         text: 'Alert saved. You will get email when times match. Add a phone on Account to get SMS too.',
+        showAccountLink: true,
+      });
+      return;
+    }
+
+    if (via === 'both' && hasPhone && !phoneVerified) {
+      setMessage({
+        type: 'ok',
+        text: 'Alert saved. You will get email when times match. Verify your phone on Account to get SMS too.',
         showAccountLink: true,
       });
       return;
