@@ -4,3 +4,4 @@
 /app/course/*     /app/index.html       200
 /app/plan         /app/index.html       200
 /app/share        /app/index.html       200
+/app/round/*      /app/index.html       200

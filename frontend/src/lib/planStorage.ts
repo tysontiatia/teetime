@@ -1,26 +1,38 @@
 import type { Plan, PlanOption } from '../types';
+import { minYmdUtahFromIsoStarts } from './time';
 
 export const PLAN_STORAGE_KEY = 'teetime.plan.v1';
 
-function isPlayers(n: unknown): n is 1 | 2 | 3 | 4 {
-  return n === 1 || n === 2 || n === 3 || n === 4;
+function coercePlayers(n: unknown): 1 | 2 | 3 | 4 | null {
+  if (n === 1 || n === 2 || n === 3 || n === 4) return n;
+  const x = typeof n === 'string' ? Number(n) : typeof n === 'number' ? n : NaN;
+  if (x === 1 || x === 2 || x === 3 || x === 4) return x;
+  return null;
 }
 
-function isHoles(n: unknown): n is 9 | 18 {
-  return n === 9 || n === 18;
+function coerceHoles(n: unknown): 9 | 18 | null {
+  if (n === 9 || n === 18) return n;
+  const x = typeof n === 'string' ? Number(n) : typeof n === 'number' ? n : NaN;
+  if (x === 9) return 9;
+  if (x === 18) return 18;
+  return null;
 }
 
-function parseOption(x: unknown): PlanOption | null {
+function parseOption(x: unknown, fallbackCourseId: string | null): PlanOption | null {
   if (!x || typeof x !== 'object') return null;
   const o = x as Record<string, unknown>;
-  if (typeof o.id !== 'string' || typeof o.courseId !== 'string' || typeof o.startsAt !== 'string') return null;
-  if (!isHoles(o.holes) || !isPlayers(o.players)) return null;
+  const courseId =
+    typeof o.courseId === 'string' && o.courseId.length > 0 ? o.courseId : fallbackCourseId;
+  if (typeof o.id !== 'string' || !courseId || typeof o.startsAt !== 'string') return null;
+  const holes = coerceHoles(o.holes);
+  const players = coercePlayers(o.players);
+  if (holes == null || players == null) return null;
   const opt: PlanOption = {
     id: o.id,
-    courseId: o.courseId,
+    courseId,
     startsAt: o.startsAt,
-    holes: o.holes,
-    players: o.players,
+    holes,
+    players,
   };
   if (typeof o.price === 'number') opt.price = o.price;
   if (typeof o.spots === 'number') opt.spots = o.spots;
@@ -38,9 +50,10 @@ export function parseStoredPlan(raw: string | null): Plan | null {
     if (p.courseId != null && typeof p.courseId !== 'string') return null;
     const optionsRaw = p.options;
     if (!Array.isArray(optionsRaw)) return null;
+    const fallbackCourseId = typeof p.courseId === 'string' && p.courseId.length > 0 ? p.courseId : null;
     const options: PlanOption[] = [];
     for (const item of optionsRaw) {
-      const opt = parseOption(item);
+      const opt = parseOption(item, fallbackCourseId);
       if (opt) options.push(opt);
     }
     const plan: Plan = {
@@ -50,6 +63,9 @@ export function parseStoredPlan(raw: string | null): Plan | null {
       options,
     };
     if (typeof p.title === 'string') plan.title = p.title;
+    if (plan.options.length > 0) {
+      plan.date = minYmdUtahFromIsoStarts(plan.options.map((o) => o.startsAt));
+    }
     return plan;
   } catch {
     return null;

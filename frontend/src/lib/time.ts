@@ -6,6 +6,33 @@ export function toYmd(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** Calendar YYYY-MM-DD in Utah for an ISO instant (aligns plan date with tee sheets). */
+export function ymdInUtah(iso: string): string {
+  const d = new Date(iso);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: UTAH_TEE_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const mo = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+  if (!y || !mo || !day) return toYmd(d);
+  return `${y}-${mo}-${day}`;
+}
+
+/** Earliest calendar day (Utah) among tee-time instants — use as plan headline date. */
+export function minYmdUtahFromIsoStarts(startsAtIsos: string[]): string {
+  if (!startsAtIsos.length) return toYmd(new Date());
+  let min = ymdInUtah(startsAtIsos[0]!);
+  for (let i = 1; i < startsAtIsos.length; i++) {
+    const y = ymdInUtah(startsAtIsos[i]!);
+    if (y < min) min = y;
+  }
+  return min;
+}
+
 export function formatDateShort(ymd: string) {
   const [y, m, d] = ymd.split('-').map(Number);
   const dt = new Date(y, (m ?? 1) - 1, d ?? 1);

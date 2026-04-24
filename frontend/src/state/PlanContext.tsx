@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import type { Course, Plan, PlanOption, TeeTime } from '../types';
 import { loadPlanFromStorage, savePlanToStorage } from '../lib/planStorage';
+import { minYmdUtahFromIsoStarts, toYmd } from '../lib/time';
 
 type State = {
   plan: Plan;
@@ -65,12 +66,13 @@ function reducer(state: State, action: Action): State {
       );
       const u = uniqueCourseIds(nextOptions);
       const courseId = u.size === 1 ? [...u][0]! : null;
+      const date = minYmdUtahFromIsoStarts(nextOptions.map((o) => o.startsAt));
 
       return {
         plan: {
           ...state.plan,
           courseId,
-          date: state.plan.date,
+          date,
           options: nextOptions,
         },
       };
@@ -79,7 +81,11 @@ function reducer(state: State, action: Action): State {
       const nextOptions = state.plan.options.filter((o) => o.id !== action.optionId);
       const u = uniqueCourseIds(nextOptions);
       const courseId = u.size === 1 ? [...u][0]! : null;
-      return { plan: { ...state.plan, options: nextOptions, courseId } };
+      const date =
+        nextOptions.length > 0
+          ? minYmdUtahFromIsoStarts(nextOptions.map((o) => o.startsAt))
+          : toYmd(new Date());
+      return { plan: { ...state.plan, options: nextOptions, courseId, date } };
     }
     default:
       return state;
