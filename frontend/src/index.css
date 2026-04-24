@@ -79,6 +79,10 @@ button, input, select{ font: inherit; }
 }
 .btn:hover{ transform: translateY(-1px); border-color: rgba(45,122,58,0.28); }
 .btn:disabled{ opacity: 0.55; cursor:not-allowed; transform:none; }
+.btn:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45,122,58,0.35);
+}
 
 .btn-primary{
   background: var(--green-2);

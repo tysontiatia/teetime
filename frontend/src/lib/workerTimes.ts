@@ -41,19 +41,23 @@ function excludePastTeeTimes(times: TeeTime[], nowMs: number = Date.now()): TeeT
   return times.filter((t) => new Date(t.startsAt).getTime() > nowMs);
 }
 
+export type TeeTimeFetchResult = { times: TeeTime[]; ok: boolean };
+
+const emptyOk: TeeTimeFetchResult = { times: [], ok: true };
+
 export async function fetchTeeTimesForCourse(
   course: CourseRecord,
   courseSlug: string,
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4
-): Promise<TeeTime[]> {
+): Promise<TeeTimeFetchResult> {
   const base = getWorkerBaseUrl();
   let url: URL;
 
   switch (course.platform) {
     case 'foreup': {
-      if (!course.schedule_id) return [];
+      if (!course.schedule_id) return emptyOk;
       url = new URL(`${base}/foreup`);
       url.searchParams.set('schedule_id', course.schedule_id);
       url.searchParams.set('date', dateYmd);
@@ -63,7 +67,7 @@ export async function fetchTeeTimesForCourse(
     }
     case 'chronogolf_slc': {
       const { club_id, course_id, affiliation_type_id } = course;
-      if (!club_id || !course_id || !affiliation_type_id) return [];
+      if (!club_id || !course_id || !affiliation_type_id) return emptyOk;
       url = new URL(`${base}/chronogolf-slc`);
       url.searchParams.set('club_id', club_id);
       url.searchParams.set('course_id', course_id);
@@ -74,7 +78,7 @@ export async function fetchTeeTimesForCourse(
       break;
     }
     case 'membersports': {
-      if (!course.golf_club_id || !course.golf_course_id) return [];
+      if (!course.golf_club_id || !course.golf_course_id) return emptyOk;
       url = new URL(`${base}/membersports`);
       url.searchParams.set('golf_club_id', course.golf_club_id);
       url.searchParams.set('golf_course_id', course.golf_course_id);
@@ -82,27 +86,38 @@ export async function fetchTeeTimesForCourse(
       break;
     }
     case 'chronogolf': {
-      if (!course.course_ids?.length) return [];
+      if (!course.course_ids?.length) return emptyOk;
       url = new URL(`${base}/chronogolf`);
       url.searchParams.set('course_ids', course.course_ids.join(','));
       url.searchParams.set('date', dateYmd);
       break;
     }
     default:
-      return [];
+      return emptyOk;
   }
 
-  const res = await fetch(url.toString(), { method: 'GET' });
-  if (!res.ok) return [];
-  let data: unknown;
   try {
-    data = await res.json();
+    const res = await fetch(url.toString(), { method: 'GET' });
+    if (!res.ok) return { times: [], ok: false };
+    let data: unknown;
+    try {
+      data = await res.json();
+    } catch {
+      return { times: [], ok: false };
+    }
+    const rows = normalizeTimesWorker(course, data, String(holes));
+    const times = excludePastTeeTimes(rowsToTeeTimes(courseSlug, dateYmd, rows, holes));
+    return { times, ok: true };
   } catch {
-    return [];
+    return { times: [], ok: false };
   }
-  const rows = normalizeTimesWorker(course, data, String(holes));
-  return excludePastTeeTimes(rowsToTeeTimes(courseSlug, dateYmd, rows, holes));
 }
+
+export type TimesBySlugFetchResult = {
+  bySlug: Map<string, TeeTime[]>;
+  /** Slugs where the worker request failed (network, HTTP error, or parse error). */
+  failedSlugs: string[];
+};
 
 export async function fetchTimesForCourseSlugs(
   entries: { slug: string; record: CourseRecord }[],
@@ -110,25 +125,28 @@ export async function fetchTimesForCourseSlugs(
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
   concurrency: number
-): Promise<Map<string, TeeTime[]>> {
+): Promise<TimesBySlugFetchResult> {
   const out = new Map<string, TeeTime[]>();
+  const failedSlugs: string[] = [];
   let index = 0;
 
-  async function worker() {
+  async function runWorker() {
     for (;;) {
       const i = index++;
       if (i >= entries.length) break;
       const { slug, record } = entries[i];
       try {
-        const times = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
+        const { times, ok } = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
         out.set(slug, times);
+        if (!ok) failedSlugs.push(slug);
       } catch {
         out.set(slug, []);
+        failedSlugs.push(slug);
       }
     }
   }
 
   const n = Math.max(1, Math.min(concurrency, entries.length));
-  await Promise.all(Array.from({ length: n }, () => worker()));
-  return out;
+  await Promise.all(Array.from({ length: n }, () => runWorker()));
+  return { bySlug: out, failedSlugs };
 }

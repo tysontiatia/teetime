@@ -58,6 +58,8 @@ export function CoursePage() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [rawTimes, setRawTimes] = useState<TeeTime[]>([]);
   const [loadingTimes, setLoadingTimes] = useState(false);
+  const [teeTimesFetchFailed, setTeeTimesFetchFailed] = useState(false);
+  const [timesRetryNonce, setTimesRetryNonce] = useState(0);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareErr, setShareErr] = useState<string | null>(null);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
@@ -66,16 +68,24 @@ export function CoursePage() {
   useEffect(() => {
     if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
       setRawTimes([]);
+      setTeeTimesFetchFailed(false);
       return;
     }
     let cancelled = false;
     setLoadingTimes(true);
+    setTeeTimesFetchFailed(false);
     void (async () => {
       try {
-        const list = await fetchTeeTimesForCourse(record, courseId, date, holes, players);
-        if (!cancelled) setRawTimes(list);
+        const { times, ok } = await fetchTeeTimesForCourse(record, courseId, date, holes, players);
+        if (!cancelled) {
+          setRawTimes(times);
+          setTeeTimesFetchFailed(!ok);
+        }
       } catch {
-        if (!cancelled) setRawTimes([]);
+        if (!cancelled) {
+          setRawTimes([]);
+          setTeeTimesFetchFailed(true);
+        }
       } finally {
         if (!cancelled) setLoadingTimes(false);
       }
@@ -83,7 +93,13 @@ export function CoursePage() {
     return () => {
       cancelled = true;
     };
-  }, [courseId, record, date, holes, players]);
+  }, [courseId, record, date, holes, players, timesRetryNonce]);
+
+  useEffect(() => {
+    if (!course) return;
+    const short = course.name.length > 42 ? `${course.name.slice(0, 40)}…` : course.name;
+    document.title = `${short} — Tee-Time`;
+  }, [course]);
 
   const times = useMemo(() => {
     const list = rawTimes
@@ -196,7 +212,13 @@ export function CoursePage() {
               {shareBusy ? 'Creating…' : `Share times (${times.length})`}
             </button>
           ) : null}
-          <button className="btn" type="button" onClick={() => setNotifOpen(true)} title="Notifications">
+          <button
+            className="btn"
+            type="button"
+            onClick={() => setNotifOpen(true)}
+            title="Notifications"
+            aria-label="Tee time alerts for this course"
+          >
             🔔 Alerts
           </button>
           {course.bookingUrl && (
@@ -288,6 +310,15 @@ export function CoursePage() {
               </div>
             ) : loadingTimes ? (
               <div style={{ marginTop: 12, color: 'var(--muted)' }}>Loading tee times…</div>
+            ) : teeTimesFetchFailed ? (
+              <div style={{ marginTop: 12, padding: 14, borderRadius: 14, border: '1px solid rgba(180,120,40,0.45)', background: 'rgba(255,251,235,0.95)', color: '#92400e' }}>
+                <strong>Could not load tee times.</strong> Check your connection and try again.
+                <div style={{ marginTop: 10 }}>
+                  <button type="button" className="btn btn-primary" onClick={() => setTimesRetryNonce((n) => n + 1)}>
+                    Retry
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="times-grid" style={{ marginTop: 12 }}>
                 {times.slice(0, 18).map((t) => (
@@ -316,9 +347,12 @@ export function CoursePage() {
               </div>
             )}
 
-            {!unsupported && !loadingTimes && times.length === 0 && (
+            {!unsupported && !loadingTimes && !teeTimesFetchFailed && times.length === 0 && (
               <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', color: 'var(--muted)' }}>
-                No matching times for this filter set (or the course has not released times yet).
+                No matching times for this filter set (or the course has not released times yet).{' '}
+                <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setNotifOpen(true)}>
+                  Get notified when slots open
+                </button>
               </div>
             )}
           </div>

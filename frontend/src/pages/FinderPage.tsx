@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
-import { sortCourses } from '../lib/sort';
+import { sortFinderGridCourses } from '../lib/sort';
 import {
   capabilityHint,
   filterWorkerCourses,
@@ -85,7 +85,7 @@ export function FinderPage() {
     );
   }, [fetchPool, params.locationQuery]);
 
-  const { timesByCourse: rawTimesByCourse, loadingTimes } = useTimesByCourseMap(
+  const { timesByCourse: rawTimesByCourse, loadingTimes, failedSlugs, attemptedSlugCount } = useTimesByCourseMap(
     fetchPool,
     recordsBySlug,
     params.date,
@@ -113,10 +113,19 @@ export function FinderPage() {
     return map;
   }, [rawTimesByCourse, params.timeOfDay, params.players]);
 
-  const availableCourses = useMemo(() => {
-    const withTimes = searchPool.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) > 0);
-    return sortCourses(withTimes, timesByCourse, params.sortBy);
-  }, [params.sortBy, searchPool, timesByCourse]);
+  const gridCourses = useMemo(
+    () => sortFinderGridCourses(searchPool, timesByCourse, params.sortBy),
+    [params.sortBy, searchPool, timesByCourse]
+  );
+
+  const withTimesCount = useMemo(
+    () => gridCourses.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) > 0).length,
+    [gridCourses, timesByCourse]
+  );
+
+  const workerFetchTotalFailure =
+    !loadingTimes && failedSlugs.length > 0 && failedSlugs.length === attemptedSlugCount && attemptedSlugCount > 0;
+  const workerFetchPartialFailure = !loadingTimes && failedSlugs.length > 0 && !workerFetchTotalFailure;
 
   /** Same text search as live list, but over the full catalog (other states / platforms). */
   const queryAllCourses = useMemo(() => {
@@ -134,22 +143,12 @@ export function FinderPage() {
     return queryAllCourses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
   }, [queryAllCourses]);
 
-  const liveNoMatchCourses = useMemo(() => {
-    return searchPool.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) === 0);
-  }, [searchPool, timesByCourse]);
-
   const bookingOnlySorted = useMemo(
     () => [...bookingOnlyCourses].sort(sortCoursesByDistanceThenName),
     [bookingOnlyCourses]
   );
 
-  const liveNoMatchSorted = useMemo(
-    () => [...liveNoMatchCourses].sort(sortCoursesByDistanceThenName),
-    [liveNoMatchCourses]
-  );
-
   const [showBookingOnly, setShowBookingOnly] = useState(true);
-  const [showLiveNoMatch, setShowLiveNoMatch] = useState(false);
   const [shareBusyCourseId, setShareBusyCourseId] = useState<string | null>(null);
   const [shareFinderErr, setShareFinderErr] = useState<string | null>(null);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
@@ -257,6 +256,44 @@ export function FinderPage() {
         {shareFinderErr ? (
           <div style={{ marginTop: 10, padding: 12, borderRadius: 12, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d', fontSize: 14 }}>
             {shareFinderErr}
+          </div>
+        ) : null}
+
+        {workerFetchTotalFailure ? (
+          <div
+            style={{
+              marginTop: 10,
+              padding: 14,
+              borderRadius: 14,
+              border: '1px solid rgba(180,60,60,0.4)',
+              background: 'rgba(254,242,242,0.95)',
+              color: '#7f1d1d',
+              fontSize: 14,
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Could not load live tee times.</strong> Check your connection, then tap <strong>Search</strong> to retry.
+            <div style={{ marginTop: 10 }}>
+              <button type="button" className="btn btn-primary" onClick={() => setLastUpdatedAt(Date.now())}>
+                Retry now
+              </button>
+            </div>
+          </div>
+        ) : workerFetchPartialFailure ? (
+          <div
+            style={{
+              marginTop: 10,
+              padding: 12,
+              borderRadius: 12,
+              border: '1px solid rgba(180,120,40,0.45)',
+              background: 'rgba(255,251,235,0.95)',
+              color: '#92400e',
+              fontSize: 14,
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Some courses didn&apos;t refresh</strong> ({failedSlugs.length} of {attemptedSlugCount}). Results may be incomplete — tap{' '}
+            <strong>Search</strong> to try again.
           </div>
         ) : null}
 
@@ -387,20 +424,62 @@ export function FinderPage() {
           <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             {catalogLoading || loadingTimes
               ? 'Loading tee times…'
-              : `${availableCourses.length} courses with times matching filters`}
+              : `${gridCourses.length} live catalog course${gridCourses.length === 1 ? '' : 's'} · ${withTimesCount} with times for these filters`}
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
             {user ? (
               <>
-                Use <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a card for a vote link (all matching times), or open course details to refine filters.
+                Every live course stays listed — use <strong style={{ color: 'var(--ink)' }}>Share</strong> when times match, or{' '}
+                <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when they don&apos;t. Open a card for full details.
               </>
             ) : (
               <>
-                Sign in, then use <strong style={{ color: 'var(--ink)' }}>Share</strong> at the bottom of a card for a vote link (all matching times), or open course details to refine filters.
+                Every live course stays listed. Sign in for <strong style={{ color: 'var(--ink)' }}>Share</strong> and{' '}
+                <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when slots open.
               </>
             )}
           </div>
         </div>
+
+        {!catalogLoading && !loadingTimes && !catalogError && searchPool.length === 0 && fetchPool.length > 0 ? (
+          <div
+            style={{
+              padding: 18,
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              background: 'rgba(255,255,255,0.92)',
+              maxWidth: 560,
+            }}
+          >
+            <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: '-0.02em', marginBottom: 8 }}>No courses match that search</div>
+            <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.55, fontSize: 14 }}>
+              Try clearing the location box, switching time of day to <strong>Any</strong>, or picking another date. The full live catalog stays available when your search matches again.
+            </p>
+            <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {params.locationQuery.trim() ? (
+                <button type="button" className="btn btn-primary" onClick={() => setParam('q', '')}>
+                  Clear search
+                </button>
+              ) : null}
+              {params.timeOfDay !== 'any' ? (
+                <button type="button" className="btn" onClick={() => setParam('tod', 'any')}>
+                  Any time of day
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + 1);
+                  setParam('date', toYmd(d));
+                }}
+              >
+                Try tomorrow
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {view === 'map' ? (
           <Suspense
@@ -411,7 +490,7 @@ export function FinderPage() {
             }
           >
             <MapView
-              courses={availableCourses}
+              courses={gridCourses}
               timesByCourseId={timesByCourse}
               userLocation={userLocation}
               onSelectCourse={(id) => {
@@ -432,9 +511,49 @@ export function FinderPage() {
               ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
               : null}
             {!showFinderSkeleton &&
-              availableCourses.map((course) => {
+              gridCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
+              const hasTimes = times.length > 0;
+
+              const statusBadge = (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 10px',
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: '0.02em',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+                    ...(hasTimes
+                      ? {
+                          background: 'rgba(255,255,255,0.95)',
+                          color: 'var(--green-2)',
+                          border: '1px solid rgba(45,122,58,0.25)',
+                        }
+                      : {
+                          background: 'rgba(255,255,255,0.92)',
+                          color: 'var(--muted)',
+                          border: '1px solid rgba(0,0,0,0.08)',
+                        }),
+                  }}
+                >
+                  {hasTimes ? (
+                    <>
+                      <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--green-2)', flexShrink: 0 }} aria-hidden />
+                      {times.length} tee time{times.length === 1 ? '' : 's'}
+                    </>
+                  ) : (
+                    <>No matching times</>
+                  )}
+                </div>
+              );
 
               return (
                 <div
@@ -444,14 +563,51 @@ export function FinderPage() {
                     border: '1px solid var(--border)',
                     borderRadius: 'var(--radius)',
                     overflow: 'hidden',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.05)',
+                    boxShadow: hasTimes ? '0 6px 18px rgba(0,0,0,0.05)' : '0 4px 14px rgba(0,0,0,0.04)',
+                    opacity: hasTimes ? 1 : 0.97,
                   }}
                 >
                   {course.photoUrl ? (
-                    <div style={{ lineHeight: 0 }}>
+                    <div style={{ position: 'relative', lineHeight: 0 }}>
                       <img src={course.photoUrl} alt="" style={{ width: '100%', height: 132, objectFit: 'cover', display: 'block' }} />
+                      {statusBadge}
                     </div>
-                  ) : null}
+                  ) : (
+                    <div style={{ padding: '10px 12px 0', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '5px 10px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          letterSpacing: '0.02em',
+                          ...(hasTimes
+                            ? {
+                                background: 'var(--green-soft)',
+                                color: 'var(--green-2)',
+                                border: '1px solid rgba(45,122,58,0.22)',
+                              }
+                            : {
+                                background: 'rgba(248,250,248,0.95)',
+                                color: 'var(--muted)',
+                                border: '1px solid var(--border)',
+                              }),
+                        }}
+                      >
+                        {hasTimes ? (
+                          <>
+                            <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--green-2)', flexShrink: 0 }} aria-hidden />
+                            {times.length} tee time{times.length === 1 ? '' : 's'}
+                          </>
+                        ) : (
+                          <>No matching times</>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div style={{ padding: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
@@ -471,9 +627,6 @@ export function FinderPage() {
                             rowGap: 4,
                           }}
                         >
-                          <span style={{ fontWeight: 700, color: 'var(--ink)' }}>
-                            {times.length} tee time{times.length === 1 ? '' : 's'}
-                          </span>
                           {typeof course.rating === 'number' && (
                             <span>
                               ★ {course.rating.toFixed(1)}
@@ -484,53 +637,80 @@ export function FinderPage() {
                         </div>
                       </div>
 
-                      <button className="btn" type="button" onClick={() => setNotifCourseId(course.id)} style={{ padding: '8px 10px' }} title="Alerts">
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => setNotifCourseId(course.id)}
+                        style={{ padding: '8px 10px' }}
+                        title="Tee time alerts"
+                        aria-label={`Tee time alerts for ${course.name}`}
+                      >
                         🔔
                       </button>
                     </div>
 
-                    <div className="times-grid" style={{ marginTop: 10 }}>
-                      {top.map((t) => (
-                        <div
-                          key={t.id}
-                          style={{
-                            padding: '10px 10px',
-                            borderRadius: 12,
-                            background: '#fff',
-                            border: '1px solid rgba(45,122,58,0.22)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 2,
-                            alignItems: 'center',
-                          }}
-                        >
-                          <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
-                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
-                        </div>
-                      ))}
-                      {times.length > top.length && (
-                        <Link
-                          to={`/course/${course.id}?${courseDetailQueryString(params)}`}
-                          className="btn"
-                          style={{
-                            padding: '10px 10px',
-                            borderRadius: 12,
-                            background: 'rgba(233,245,234,0.75)',
-                            borderColor: 'rgba(45,122,58,0.18)',
-                            color: 'var(--green-2)',
-                            fontWeight: 900,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
-                            fontSize: 12,
-                          }}
-                        >
-                          +{times.length - top.length} more
-                        </Link>
-                      )}
-                    </div>
+                    {hasTimes ? (
+                      <div className="times-grid" style={{ marginTop: 10 }}>
+                        {top.map((t) => (
+                          <div
+                            key={t.id}
+                            style={{
+                              padding: '10px 10px',
+                              borderRadius: 12,
+                              background: '#fff',
+                              border: '1px solid rgba(45,122,58,0.22)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 2,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
+                          </div>
+                        ))}
+                        {times.length > top.length && (
+                          <Link
+                            to={`/course/${course.id}?${courseDetailQueryString(params)}`}
+                            className="btn"
+                            style={{
+                              padding: '10px 10px',
+                              borderRadius: 12,
+                              background: 'rgba(233,245,234,0.75)',
+                              borderColor: 'rgba(45,122,58,0.18)',
+                              color: 'var(--green-2)',
+                              fontWeight: 900,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.08em',
+                              fontSize: 12,
+                            }}
+                          >
+                            +{times.length - top.length} more
+                          </Link>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: 12,
+                          borderRadius: 12,
+                          border: '1px dashed rgba(45,122,58,0.28)',
+                          background: 'rgba(233,245,234,0.35)',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
+                          Nothing for this date and filter set — get notified when something opens up.
+                        </p>
+                        <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setNotifCourseId(course.id)}>
+                          Get notified
+                        </button>
+                      </div>
+                    )}
 
                     <div
                       style={{
@@ -557,9 +737,11 @@ export function FinderPage() {
                         disabled={times.length === 0 || shareBusyCourseId === course.id || authLoading}
                         onClick={() => void shareCourseRound(course, times)}
                         title={
-                          authLoading
-                            ? 'Checking account…'
-                            : `Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`
+                          times.length === 0
+                            ? 'Need at least one matching tee time to create a vote link'
+                            : authLoading
+                              ? 'Checking account…'
+                              : `Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`
                         }
                         style={{
                           padding: '10px 16px',
@@ -593,7 +775,7 @@ export function FinderPage() {
           </div>
         )}
 
-        {view === 'list' && (bookingOnlySorted.length > 0 || liveNoMatchSorted.length > 0) ? (
+        {view === 'list' && bookingOnlySorted.length > 0 ? (
           <div style={{ marginTop: 22, display: 'grid', gap: 14 }}>
             {bookingOnlySorted.length > 0 ? (
               <div
@@ -661,69 +843,17 @@ export function FinderPage() {
                             >
                               Details
                             </Link>
-                            <button className="btn" type="button" onClick={() => setNotifCourseId(course.id)} style={{ padding: '8px 10px' }} title="Alerts">
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => setNotifCourseId(course.id)}
+                              style={{ padding: '8px 10px' }}
+                              title="Tee time alerts"
+                              aria-label={`Tee time alerts for ${course.name}`}
+                            >
                               🔔
                             </button>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {liveNoMatchSorted.length > 0 ? (
-              <div
-                style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: 16,
-                  background: 'rgba(248,250,248,0.95)',
-                  overflow: 'hidden',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setShowLiveNoMatch((s) => !s)}
-                  className="btn btn-ghost"
-                  style={{
-                    width: '100%',
-                    borderRadius: 0,
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    fontWeight: 900,
-                    border: 'none',
-                    borderBottom: showLiveNoMatch ? '1px solid var(--border)' : 'none',
-                  }}
-                >
-                  <span>Live feed courses — no times match filters ({liveNoMatchSorted.length})</span>
-                  <span style={{ color: 'var(--muted)', fontWeight: 800 }}>{showLiveNoMatch ? '▼' : '▶'}</span>
-                </button>
-                {showLiveNoMatch ? (
-                  <div style={{ padding: 14 }}>
-                    <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
-                      These use the worker but returned nothing for this date/holes, or every slot was filtered out (time-of-day, players). Try another date or loosen filters.
-                    </p>
-                    <div className="grid-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-                      {liveNoMatchSorted.map((course) => (
-                        <div
-                          key={course.id}
-                          style={{
-                            border: '1px solid var(--border)',
-                            borderRadius: 14,
-                            padding: 12,
-                            background: '#fff',
-                          }}
-                        >
-                          <div style={{ fontWeight: 900 }}>{course.name}</div>
-                          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{course.city}</div>
-                          <Link
-                            className="btn btn-ghost"
-                            to={`/course/${course.id}?${courseDetailQueryString(params)}`}
-                            style={{ marginTop: 10, padding: '8px 10px' }}
-                          >
-                            Open course →
-                          </Link>
                         </div>
                       ))}
                     </div>

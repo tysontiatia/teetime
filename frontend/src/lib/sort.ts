@@ -38,3 +38,14 @@ export function sortCourses(
   return copy;
 }
 
+/** Live-inventory courses with matching times first, then the rest — each group sorted by `sortBy`. */
+export function sortFinderGridCourses(
+  pool: Course[],
+  timesByCourseId: Map<string, TeeTime[]>,
+  sortBy: SortBy
+): Course[] {
+  const withTimes = pool.filter((c) => (timesByCourseId.get(c.id)?.length ?? 0) > 0);
+  const without = pool.filter((c) => (timesByCourseId.get(c.id)?.length ?? 0) === 0);
+  return [...sortCourses(withTimes, timesByCourseId, sortBy), ...sortCourses(without, timesByCourseId, sortBy)];
+}
+

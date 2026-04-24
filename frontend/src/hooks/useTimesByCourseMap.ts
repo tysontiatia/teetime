@@ -19,14 +19,20 @@ export function useTimesByCourseMap(
 
   const [map, setMap] = useState<Map<string, TeeTime[]>>(new Map());
   const [loading, setLoading] = useState(false);
+  const [failedSlugs, setFailedSlugs] = useState<string[]>([]);
+  const [attemptedSlugCount, setAttemptedSlugCount] = useState(0);
 
   useEffect(() => {
     if (catalogLoading) {
       setLoading(false);
+      setFailedSlugs([]);
+      setAttemptedSlugCount(0);
       return;
     }
     if (workerCourses.length === 0) {
       setMap(new Map());
+      setFailedSlugs([]);
+      setAttemptedSlugCount(0);
       setLoading(false);
       return;
     }
@@ -40,6 +46,8 @@ export function useTimesByCourseMap(
 
     if (entries.length === 0) {
       setMap(new Map());
+      setFailedSlugs([]);
+      setAttemptedSlugCount(0);
       setLoading(false);
       return;
     }
@@ -49,9 +57,11 @@ export function useTimesByCourseMap(
 
     const runFetch = () => {
       void (async () => {
-        const next = await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6);
+        const { bySlug, failedSlugs: failed } = await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6);
         if (!cancelled) {
-          setMap(next);
+          setMap(bySlug);
+          setFailedSlugs(failed);
+          setAttemptedSlugCount(entries.length);
           setLoading(false);
         }
       })();
@@ -72,5 +82,5 @@ export function useTimesByCourseMap(
     };
   }, [slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug]);
 
-  return { timesByCourse: map, loadingTimes: loading };
+  return { timesByCourse: map, loadingTimes: loading, failedSlugs, attemptedSlugCount };
 }
