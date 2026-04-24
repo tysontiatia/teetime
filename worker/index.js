@@ -552,79 +552,141 @@ function buildAlertEmail(course, times, date, players) {
 </html>`;
 }
 
+// ── Date helpers (UTC date strings YYYY-MM-DD) ─────────────────────────
+function addDaysToYmd(ymd, addDays) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const t = Date.UTC(y, m - 1, d + addDays);
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+function ymdUtcWeekday(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+function findCourseByCatalogId(courses, courseId) {
+  return courses.find((c) => c.name === courseId || c.catalogName === courseId) || null;
+}
+
+function sbHeaders(env, json = false) {
+  const h = {
+    apikey: env.SUPABASE_SERVICE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+  };
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+/** One-time per calendar date (specific-date alerts). */
+function wasSpecificAlreadySent(pref, evalDate, logs) {
+  return logs.some(
+    (l) => l.user_id === pref.user_id && l.course_id === pref.course_id && l.target_date === evalDate,
+  );
+}
+
+/** Weekly / open-ended: same course+date can email again after 24h (see notification_log migration). */
+function wasOpenInCooldown(pref, evalDate, logs) {
+  const threshold = Date.now() - 24 * 3600 * 1000;
+  return logs.some((l) => {
+    if (l.user_id !== pref.user_id || l.course_id !== pref.course_id || l.target_date !== evalDate) return false;
+    const ts = new Date(l.sent_at).getTime();
+    return Number.isFinite(ts) && ts > threshold;
+  });
+}
+
+function appendSyntheticLog(logs, row) {
+  logs.push({ ...row, sent_at: new Date().toISOString() });
+}
+
 // ── Cron handler: check alerts and send notifications ────────────────
 async function handleScheduled(env) {
   const courses = await loadCourses(env);
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // Fetch all active alert preferences with target_date >= today
-  const prefsRes = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/notification_preferences?active=eq.true&target_date=gte.${todayStr}&select=*`,
-    {
-      headers: {
-        'apikey': env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-        'Content-Type': 'application/json',
-      },
+  const cutoffStr = addDaysToYmd(todayStr, 14);
+  const logSinceStr = addDaysToYmd(todayStr, -45);
+
+  const [specRes, openRes] = await Promise.all([
+    fetch(
+      `${env.SUPABASE_URL}/rest/v1/notification_preferences?active=eq.true&target_date=not.is.null&target_date=gte.${todayStr}&select=*`,
+      { headers: sbHeaders(env) },
+    ),
+    fetch(
+      `${env.SUPABASE_URL}/rest/v1/notification_preferences?active=eq.true&target_date=is.null&look_ahead_days=not.is.null&select=*`,
+      { headers: sbHeaders(env) },
+    ),
+  ]);
+
+  const specificPrefs = specRes.ok ? await specRes.json() : [];
+  const openPrefs = openRes.ok ? await openRes.json() : [];
+
+  const activeSpecific = specificPrefs.filter((p) => p.target_date && p.target_date <= cutoffStr);
+
+  /** @type {{ type: 'specific' | 'open', pref: object, evalDate: string }[]} */
+  const work = [];
+  for (const pref of activeSpecific) {
+    work.push({ type: 'specific', pref, evalDate: pref.target_date });
+  }
+  for (const pref of openPrefs) {
+    const horizon = Math.min(Math.max(Number(pref.look_ahead_days) || 14, 1), 60);
+    const dowAllow = Array.isArray(pref.days_of_week) && pref.days_of_week.length ? pref.days_of_week : [0, 1, 2, 3, 4, 5, 6];
+    for (let d = 0; d < horizon; d++) {
+      const evalDate = addDaysToYmd(todayStr, d);
+      if (evalDate < todayStr) continue;
+      if (!dowAllow.includes(ymdUtcWeekday(evalDate))) continue;
+      work.push({ type: 'open', pref, evalDate });
     }
-  );
-  if (!prefsRes.ok) return;
-  const prefs = await prefsRes.json();
-  if (!prefs.length) return;
+  }
 
-  // Only process alerts where target_date is within 14 days
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() + 14);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-  const activePrefs = prefs.filter(p => p.target_date <= cutoffStr);
-  if (!activePrefs.length) return;
+  if (!work.length) return;
 
-  // Fetch existing notification_log entries to avoid duplicates
-  const courseIds = [...new Set(activePrefs.map(p => p.course_id))];
-  const userIds = [...new Set(activePrefs.map(p => p.user_id))];
+  const userIds = [...new Set(work.map((w) => w.pref.user_id))];
   const logRes = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/notification_log?user_id=in.(${userIds.join(',')})&channel=eq.email&select=user_id,course_id,target_date`,
-    {
-      headers: {
-        'apikey': env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-      },
-    }
+    `${env.SUPABASE_URL}/rest/v1/notification_log?user_id=in.(${userIds.join(',')})&channel=eq.email&sent_at=gte.${logSinceStr}&select=user_id,course_id,target_date,sent_at&order=sent_at.desc`,
+    { headers: sbHeaders(env) },
   );
-  const existingLogs = logRes.ok ? await logRes.json() : [];
-  const sentKeys = new Set(existingLogs.map(l => `${l.user_id}|${l.course_id}|${l.target_date}`));
+  const logs = logRes.ok ? await logRes.json() : [];
 
-  // Group prefs by course+date so we only fetch each combo once
-  const groupKey = p => `${p.course_id}||${p.target_date}`;
   const groups = {};
-  for (const pref of activePrefs) {
-    const key = groupKey(pref);
-    if (!groups[key]) groups[key] = { course_id: pref.course_id, target_date: pref.target_date, prefs: [] };
-    groups[key].prefs.push(pref);
+  for (const item of work) {
+    const k = `${item.pref.course_id}||${item.evalDate}`;
+    if (!groups[k]) {
+      groups[k] = {
+        course_id: item.pref.course_id,
+        evalDate: item.evalDate,
+        items: [],
+      };
+    }
+    groups[k].items.push(item);
   }
 
   for (const group of Object.values(groups)) {
-    const course = courses.find(c => c.name === group.course_id);
+    const course = findCourseByCatalogId(courses, group.course_id);
     if (!course) continue;
 
-    // Fetch times for this course+date (use 18 holes as default)
-    const data = await fetchTimesForCourse(course, group.target_date, '18', '1');
+    const maxPlayers = Math.min(
+      4,
+      Math.max(1, ...group.items.map((it) => Number(it.pref.players || it.pref.min_spots || 1))),
+    );
+    const playersStr = String(maxPlayers);
+
+    const data = await fetchTimesForCourse(course, group.evalDate, '18', playersStr);
     if (!data) continue;
 
     const allTimes = normalizeTimesWorker(course, data, '18');
-    if (!allTimes.length) continue; // No times released yet
+    if (!allTimes.length) continue;
 
-    // For each user pref in this group, filter times and notify
-    for (const pref of group.prefs) {
-      const logKey = `${pref.user_id}|${pref.course_id}|${pref.target_date}`;
-      if (sentKeys.has(logKey)) continue; // Already notified
+    for (const item of group.items) {
+      const { pref, type, evalDate } = item;
+      if (type === 'specific') {
+        if (wasSpecificAlreadySent(pref, evalDate, logs)) continue;
+      } else if (wasOpenInCooldown(pref, evalDate, logs)) continue;
 
-      // Filter by time window and spots
       const earliest = pref.earliest_time?.slice(0, 5) || '00:00';
       const latest = pref.latest_time?.slice(0, 5) || '23:59';
       const minSpots = pref.min_spots || pref.players || 1;
 
-      const matching = allTimes.filter(t => {
+      const matching = allTimes.filter((t) => {
         if (t.rawTime < earliest || t.rawTime > latest) return false;
         if (t.spots != null && t.spots < minSpots) return false;
         return true;
@@ -632,44 +694,34 @@ async function handleScheduled(env) {
 
       if (!matching.length) continue;
 
-      // Look up user email
-      const userRes = await fetch(
-        `${env.SUPABASE_URL}/auth/v1/admin/users/${pref.user_id}`,
-        {
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-          },
-        }
-      );
+      const userRes = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${pref.user_id}`, {
+        headers: sbHeaders(env),
+      });
       if (!userRes.ok) continue;
       const user = await userRes.json();
       if (!user.email) continue;
 
-      // Send email
       const subject = `⛳ ${matching.length} tee time${matching.length !== 1 ? 's' : ''} at ${course.name}`;
-      const html = buildAlertEmail(course, matching, group.target_date, pref.players || 1);
+      const html = buildAlertEmail(course, matching, evalDate, pref.players || 1);
       const sent = await sendEmail(env, user.email, subject, html);
 
       if (sent) {
-        // Log it to prevent duplicates
         await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
           method: 'POST',
-          headers: {
-            'apikey': env.SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
-          },
+          headers: sbHeaders(env, true),
           body: JSON.stringify({
             user_id: pref.user_id,
             course_id: pref.course_id,
-            target_date: pref.target_date,
+            target_date: evalDate,
             channel: 'email',
             times_found: matching.length,
           }),
         });
-        sentKeys.add(logKey);
+        appendSyntheticLog(logs, {
+          user_id: pref.user_id,
+          course_id: pref.course_id,
+          target_date: evalDate,
+        });
       }
     }
   }
