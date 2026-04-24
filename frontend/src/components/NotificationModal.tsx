@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { Course } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../state/AuthContext';
@@ -21,6 +22,21 @@ function windowToRange(w: 'any' | 'morning' | 'afternoon' | 'evening'): { earlie
 
 const DOW_MAP: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
+/** Profile `phone` is stored E.164; accept 10- or 11-digit US when normalized. */
+function profileHasValidUsPhone(phone: string | null | undefined): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return true;
+  if (digits.length === 11 && digits.startsWith('1')) return true;
+  return false;
+}
+
+type AlertMessage = {
+  type: 'ok' | 'err';
+  text: string;
+  showAccountLink?: boolean;
+};
+
 export function NotificationModal({
   open,
   onClose,
@@ -39,7 +55,7 @@ export function NotificationModal({
   const [players, setPlayers] = useState<1 | 2 | 3 | 4>(2);
   const [targetDate, setTargetDate] = useState(() => defaultDate || toYmd(new Date()));
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [message, setMessage] = useState<AlertMessage | null>(null);
 
   const title = useMemo(() => (course ? `${course.name} (${course.city})` : 'Course'), [course]);
 
@@ -60,7 +76,6 @@ export function NotificationModal({
     const { earliest, latest } = windowToRange(timeWindow);
     const days_of_week = mode === 'weekly' ? [DOW_MAP[dayOfWeek] ?? 6] : [];
 
-    setSaving(true);
     const row = {
       user_id: user.id,
       course_id: course.catalogName,
@@ -74,17 +89,49 @@ export function NotificationModal({
       look_ahead_days: mode === 'weekly' ? 14 : null,
     };
 
-    const [{ error }, { data: profile }] = await Promise.all([
-      supabase.from('notification_preferences').insert(row),
-      supabase.from('profiles').select('notify_via').eq('id', user.id).single(),
-    ]);
+    setSaving(true);
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('notify_via, phone')
+      .eq('id', user.id)
+      .single();
+
+    if (profileErr) {
+      setSaving(false);
+      setMessage({ type: 'err', text: profileErr.message });
+      return;
+    }
+
+    const via = (profile?.notify_via ?? 'email') as string;
+    const hasPhone = profileHasValidUsPhone(profile?.phone);
+
+    if (via === 'sms' && !hasPhone) {
+      setSaving(false);
+      setMessage({
+        type: 'err',
+        text: 'Your alert channel is set to SMS, but there is no US mobile number on your profile yet. Add one on Account, then save this alert again.',
+        showAccountLink: true,
+      });
+      return;
+    }
+
+    const { error } = await supabase.from('notification_preferences').insert(row);
     setSaving(false);
 
     if (error) {
       setMessage({ type: 'err', text: error.message });
       return;
     }
-    const via = (profile?.notify_via ?? 'email') as string;
+
+    if (via === 'both' && !hasPhone) {
+      setMessage({
+        type: 'ok',
+        text: 'Alert saved. You will get email when times match. Add a phone on Account to get SMS too.',
+        showAccountLink: true,
+      });
+      return;
+    }
+
     const channelLabel = via === 'both' ? 'email and SMS' : via === 'sms' ? 'SMS' : 'email';
     const article = via === 'email' ? 'an' : 'a';
     setMessage({ type: 'ok', text: 'Alert saved. You will get ' + article + ' ' + channelLabel + ' when times match.' });
@@ -247,7 +294,23 @@ export function NotificationModal({
                 fontSize: 14,
               }}
             >
-              {message.text}
+              <div>{message.text}</div>
+              {message.showAccountLink ? (
+                <div style={{ marginTop: 10 }}>
+                  <Link
+                    to="/account"
+                    onClick={onClose}
+                    style={{
+                      fontWeight: 800,
+                      color: message.type === 'ok' ? 'var(--green-2)' : '#991b1b',
+                      textDecoration: 'underline',
+                      textUnderlineOffset: 2,
+                    }}
+                  >
+                    Open Account →
+                  </Link>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
