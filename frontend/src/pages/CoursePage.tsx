@@ -99,6 +99,9 @@ export function CoursePage() {
   const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
   const unsupported = !record || cap !== 'live_inventory';
 
+  const lockedCourseId = plan.options[0]?.courseId;
+  const foreignLock = Boolean(lockedCourseId && lockedCourseId !== course.id);
+
   return (
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -125,15 +128,33 @@ export function CoursePage() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn btn-primary" type="button" onClick={() => setCourse(course.id, date)} title="Set plan date to this search">
-            Plan this course
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => {
+              if (foreignLock) {
+                // eslint-disable-next-line no-alert
+                const ok = window.confirm('Clear your current vote list and use this course instead?');
+                if (!ok) return;
+                clear();
+              }
+              setCourse(course.id, date);
+            }}
+            title="Use this course for your group vote list"
+          >
+            Use this course
           </button>
           <button className="btn" type="button" onClick={() => setNotifOpen(true)} title="Notifications">
             🔔 Alerts
           </button>
+          {plan.options.length > 0 && lockedCourseId === course.id ? (
+            <Link className="btn btn-ghost" to="/plan">
+              Create vote link →
+            </Link>
+          ) : null}
           {plan.options.length > 0 && (
             <button className="btn" type="button" onClick={clear}>
-              Clear plan
+              Clear list
             </button>
           )}
           {course.bookingUrl && (
@@ -195,8 +216,13 @@ export function CoursePage() {
 
             <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
             <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-              Add 3–8 candidates to your plan. Your buddies vote. You book externally once there’s consensus.
+              Tap times to add them to your group vote list (this course only), then create the share link for your chat.
             </div>
+            {foreignLock ? (
+              <p style={{ marginTop: 10, fontSize: 13, color: '#9a3412' }}>
+                You already have times picked for another course. Clear the list or switch with <strong>Use this course</strong>.
+              </p>
+            ) : null}
 
             {unsupported ? (
               <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', color: 'var(--muted)' }}>
@@ -218,9 +244,20 @@ export function CoursePage() {
                     key={t.id}
                     className="btn"
                     type="button"
+                    disabled={foreignLock}
                     onClick={() => {
                       setHighlightTime(t.startsAt);
-                      addOption(course, t, players);
+                      const r = addOption(course, t, players);
+                      if (!r.ok && r.reason === 'different_course') {
+                        // eslint-disable-next-line no-alert
+                        const ok = window.confirm(
+                          'Your vote list is for another course. Clear it and add this time instead?',
+                        );
+                        if (!ok) return;
+                        clear();
+                        setCourse(course.id, date);
+                        addOption(course, t, players);
+                      }
                     }}
                     style={{
                       padding: 12,
@@ -231,6 +268,7 @@ export function CoursePage() {
                       flexDirection: 'column',
                       alignItems: 'center',
                       gap: 2,
+                      opacity: foreignLock ? 0.45 : 1,
                     }}
                   >
                     <div style={{ fontWeight: 950, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
@@ -254,11 +292,11 @@ export function CoursePage() {
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Planning rules</div>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Group vote</div>
           <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
-            <li>Add tee times from this page or the finder; the plan can mix multiple courses.</li>
-            <li>Review on the plan page, copy a snapshot link, or publish a live round for stored votes.</li>
-            <li>Sharing is a link — not a screenshot.</li>
+            <li>One course per list — add a handful of times, then create the link.</li>
+            <li>Everyone opens the same link to vote; you book when the group agrees.</li>
+            <li>No screenshots — one link in the group chat.</li>
           </ul>
         </div>
       </div>

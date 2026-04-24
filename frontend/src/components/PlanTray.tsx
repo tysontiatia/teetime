@@ -10,17 +10,14 @@ export function PlanTray({ coursesById }: { coursesById: Map<string, Course> }) 
 
   const summary = useMemo(() => {
     if (plan.options.length === 0) return null;
-    const ids = [...new Set(plan.options.map((o) => o.courseId))];
-    const names = ids.map((id) => coursesById.get(id)?.name ?? id);
-    const label =
-      names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' · ');
+    const lockedId = plan.options[0]!.courseId;
+    const name = coursesById.get(lockedId)?.name ?? lockedId;
     const sorted = [...plan.options].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
     const first = sorted[0]!;
     const last = sorted[sorted.length - 1]!;
     return {
-      label,
+      name,
       dateLabel: formatDateShort(plan.date),
-      nCourses: ids.length,
       nTimes: plan.options.length,
       first,
       last,
@@ -51,23 +48,19 @@ export function PlanTray({ coursesById }: { coursesById: Map<string, Course> }) 
     >
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {summary.label}
+          {summary.name}
         </div>
         <div style={{ fontSize: 12, opacity: 0.72, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <span>{summary.dateLabel}</span>
           <span aria-hidden>·</span>
           <span>
-            {summary.nCourses} course{summary.nCourses === 1 ? '' : 's'}, {summary.nTimes} time{summary.nTimes === 1 ? '' : 's'}
-          </span>
-          <span aria-hidden>·</span>
-          <span>
-            {formatTime12h(summary.first.startsAt)}–{formatTime12h(summary.last.startsAt)}
+            {summary.nTimes} time{summary.nTimes === 1 ? '' : 's'} · {formatTime12h(summary.first.startsAt)}–{formatTime12h(summary.last.startsAt)}
           </span>
         </div>
       </div>
 
       <Link className="btn btn-primary" to="/plan">
-        Review & share →
+        Create vote link →
       </Link>
       <button
         className="btn btn-ghost"
@@ -75,7 +68,7 @@ export function PlanTray({ coursesById }: { coursesById: Map<string, Course> }) 
           clear();
           nav('/');
         }}
-        aria-label="Clear plan"
+        aria-label="Clear list"
         style={{ color: 'rgba(255,255,255,0.75)', borderColor: 'rgba(255,255,255,0.18)' }}
       >
         ✕

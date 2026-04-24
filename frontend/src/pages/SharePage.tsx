@@ -100,7 +100,7 @@ export function SharePage() {
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
-          <div className="pill">Share link</div>
+          <div className="pill">Legacy snapshot</div>
           <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
             {title}
           </h2>
@@ -117,7 +117,7 @@ export function SharePage() {
             {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
           </button>
           <Link to="/plan" className="btn btn-primary">
-            Back to plan →
+            Group vote →
           </Link>
         </div>
       </div>
@@ -190,9 +190,9 @@ export function SharePage() {
       </div>
 
       <div style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.7)' }}>
-        <div style={{ fontWeight: 900 }}>Next step</div>
+        <div style={{ fontWeight: 900 }}>Prefer a real group vote?</div>
         <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-          For stored votes, names, and live updates, use <strong style={{ color: 'var(--ink)' }}>Publish live round</strong> on the plan page — it opens <code style={{ fontSize: 13 }}>/round/…</code> backed by Supabase.
+          This page is a frozen snapshot. For a single link where everyone votes and names stick, use <strong style={{ color: 'var(--ink)' }}>Create group vote link</strong> on the Group vote screen — it opens <code style={{ fontSize: 13 }}>/round/…</code>.
         </p>
       </div>
     </div>

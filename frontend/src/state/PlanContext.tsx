@@ -34,17 +34,33 @@ function reducer(state: State, action: Action): State {
     case 'plan/clear':
       return { plan: newPlan(state.plan.date) };
     case 'plan/setCourse': {
+      const opts = state.plan.options;
+      if (opts.length > 0) {
+        const locked = opts[0]!.courseId;
+        if (action.courseId !== locked) return state;
+        return {
+          plan: {
+            ...state.plan,
+            courseId: action.courseId,
+            date: action.date,
+            options: opts,
+          },
+        };
+      }
       return {
         plan: {
           ...state.plan,
           courseId: action.courseId,
           date: action.date,
-          options: state.plan.options,
+          options: opts,
         },
       };
     }
     case 'plan/addOption': {
       const { course, teeTime, players } = action;
+      const first = state.plan.options[0];
+      if (first && first.courseId !== course.id) return state;
+
       const option: PlanOption = {
         id: crypto.randomUUID(),
         courseId: course.id,
@@ -92,10 +108,12 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+export type AddOptionResult = { ok: true } | { ok: false; reason: 'different_course' };
+
 type PlanApi = {
   plan: Plan;
   setCourse: (courseId: string, date: string) => void;
-  addOption: (course: Course, teeTime: TeeTime, players: 1 | 2 | 3 | 4) => void;
+  addOption: (course: Course, teeTime: TeeTime, players: 1 | 2 | 3 | 4) => AddOptionResult;
   removeOption: (optionId: string) => void;
   clear: () => void;
 };
@@ -116,7 +134,12 @@ export function PlanProvider({ children, initialDate }: { children: React.ReactN
       plan: state.plan,
       setCourse: (courseId, date) => dispatch({ type: 'plan/setCourse', courseId, date }),
       addOption: (course, teeTime, players) => {
+        const first = state.plan.options[0];
+        if (first && first.courseId !== course.id) {
+          return { ok: false, reason: 'different_course' };
+        }
         dispatch({ type: 'plan/addOption', course, teeTime, players });
+        return { ok: true };
       },
       removeOption: (optionId) => dispatch({ type: 'plan/removeOption', optionId }),
       clear: () => dispatch({ type: 'plan/clear' }),

@@ -229,7 +229,7 @@ export function RoundPage() {
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
-          <div className="pill">Live round</div>
+          <div className="pill">Group vote</div>
           <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>{title}</h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', color: 'var(--muted)' }}>
             {playDate ? <span className="pill">{formatDateShort(playDate)}</span> : null}
@@ -249,7 +249,7 @@ export function RoundPage() {
             {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
           </button>
           <Link to="/plan" className="btn btn-primary">
-            Your plan →
+            Your vote list →
           </Link>
         </div>
       </div>

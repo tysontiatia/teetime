@@ -148,20 +148,10 @@ export function FinderPage() {
 
   const planningSummary = useMemo(() => {
     if (plan.options.length === 0) return null;
-    const ids = [...new Set(plan.options.map((o) => o.courseId))];
-    const names = ids.map((id) => coursesById.get(id)?.name ?? id);
-    const label =
-      names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' · ');
-    return { label, nCourses: ids.length, nTimes: plan.options.length };
-  }, [coursesById, plan.options]);
-
-  /** Shown when Plan was clicked but no tee times are in the shortlist yet. */
-  const planningFocus = useMemo(() => {
-    if (plan.options.length > 0 || !plan.courseId) return null;
-    const courseId = plan.courseId;
-    const name = coursesById.get(courseId)?.name ?? courseId;
-    return { courseId, name, dateLabel: formatDateShort(plan.date) };
-  }, [coursesById, plan.courseId, plan.date, plan.options.length]);
+    const lockedId = plan.options[0]!.courseId;
+    const name = coursesById.get(lockedId)?.name ?? lockedId;
+    return { courseId: lockedId, name, nTimes: plan.options.length, dateLabel: formatDateShort(plan.date) };
+  }, [coursesById, plan.date, plan.options]);
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(sp);
@@ -333,39 +323,20 @@ export function FinderPage() {
             </div>
           </div>
 
-          {(planningSummary || planningFocus) && (
+          {planningSummary && (
             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              {planningSummary ? (
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  Planning: <strong style={{ color: 'var(--green-2)' }}>{planningSummary.label}</strong>
-                  <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
-                    {' '}
-                    · {planningSummary.nCourses} course{planningSummary.nCourses === 1 ? '' : 's'}, {planningSummary.nTimes} time
-                    {planningSummary.nTimes === 1 ? '' : 's'}
-                  </span>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                <strong style={{ color: 'var(--green-2)' }}>{planningSummary.name}</strong>
+                <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
+                  {' '}
+                  · {planningSummary.dateLabel} · {planningSummary.nTimes} time{planningSummary.nTimes === 1 ? '' : 's'} for the group vote
                 </span>
-              ) : planningFocus ? (
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  Building shortlist for <strong style={{ color: 'var(--green-2)' }}>{planningFocus.name}</strong>
-                  <span style={{ color: 'var(--muted)', fontWeight: 600 }}> · {planningFocus.dateLabel}</span>
-                  {' — '}
-                  tap tee times on the cards (or{' '}
-                  <Link
-                    to={`/course/${planningFocus.courseId}?date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`}
-                    style={{ color: 'var(--green-2)', fontWeight: 800 }}
-                  >
-                    open full list
-                  </Link>
-                  ).
-                </span>
-              ) : null}
-              {plan.options.length > 0 ? (
-                <Link to="/plan" className="btn btn-ghost" style={{ padding: '6px 12px' }}>
-                  Review plan →
-                </Link>
-              ) : null}
+              </span>
+              <Link to="/plan" className="btn btn-ghost" style={{ padding: '6px 12px' }}>
+                Create vote link →
+              </Link>
               <button className="btn btn-ghost" type="button" onClick={clear}>
-                Clear plan
+                Clear
               </button>
             </div>
           )}
@@ -380,7 +351,7 @@ export function FinderPage() {
               : `${availableCourses.length} courses with times matching filters`}
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Tap a time on a card to add it to your plan, then share the plan link.
+            Open a course to pick times (one course per vote list), then create a group vote link.
           </div>
         </div>
 
@@ -417,8 +388,9 @@ export function FinderPage() {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
               const hasOptionsHere = plan.options.some((o) => o.courseId === course.id);
-              const isPlanAnchorHere = plan.courseId === course.id && plan.date === params.date;
-              const planChipActive = hasOptionsHere || isPlanAnchorHere;
+              const lockedCourseId = plan.options[0]?.courseId;
+              const lockedElsewhere = Boolean(lockedCourseId && lockedCourseId !== course.id);
+              const courseQs = `date=${params.date}&players=${params.players}&holes=${params.holes}&tod=${params.timeOfDay}&sort=${params.sortBy}`;
 
               return (
                 <div
@@ -475,17 +447,22 @@ export function FinderPage() {
                         <button
                           className="btn"
                           type="button"
-                          onClick={() => setCourse(course.id, params.date)}
+                          onClick={() => {
+                            if (!lockedElsewhere || lockedCourseId === course.id) {
+                              setCourse(course.id, params.date);
+                            }
+                            nav(`/course/${course.id}?${courseQs}`);
+                          }}
                           style={{
                             padding: '8px 10px',
                             borderRadius: 12,
-                            background: planChipActive ? 'var(--green-soft)' : 'rgba(255,255,255,0.8)',
-                            color: planChipActive ? 'var(--green-2)' : 'var(--muted)',
-                            borderColor: planChipActive ? 'rgba(45,122,58,0.28)' : 'var(--border)',
+                            background: hasOptionsHere ? 'var(--green-soft)' : 'rgba(255,255,255,0.8)',
+                            color: hasOptionsHere ? 'var(--green-2)' : 'var(--muted)',
+                            borderColor: hasOptionsHere ? 'rgba(45,122,58,0.28)' : 'var(--border)',
                           }}
-                          title="Anchor the plan to this course and date, then tap times to add them"
+                          title="Open this course to pick tee times for the group vote"
                         >
-                          Plan
+                          Pick times →
                         </button>
                       </div>
                     </div>
@@ -496,7 +473,21 @@ export function FinderPage() {
                             key={t.id}
                             className="btn"
                             type="button"
-                            onClick={() => addOption(course, t, params.players)}
+                            onClick={() => {
+                              const r = addOption(course, t, params.players);
+                              if (!r.ok && r.reason === 'different_course') {
+                                // eslint-disable-next-line no-alert
+                                const ok = window.confirm(
+                                  'Your vote list is for another course. Clear it and add this time instead?',
+                                );
+                                if (!ok) return;
+                                clear();
+                                setCourse(course.id, params.date);
+                                addOption(course, t, params.players);
+                              }
+                            }}
+                            disabled={lockedElsewhere}
+                            title={lockedElsewhere ? 'Clear your list or finish the other course first' : 'Add to group vote list'}
                             style={{
                               padding: '10px 10px',
                               borderRadius: 12,
@@ -506,6 +497,7 @@ export function FinderPage() {
                               flexDirection: 'column',
                               gap: 2,
                               alignItems: 'center',
+                              opacity: lockedElsewhere ? 0.45 : 1,
                             }}
                           >
                             <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
@@ -694,9 +686,9 @@ export function FinderPage() {
         ) : null}
 
         <div style={{ marginTop: 26, padding: 16, border: '1px solid var(--border)', borderRadius: 16, background: 'rgba(255,255,255,0.7)' }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Why shortlist-first planning?</div>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>How the group vote works</div>
           <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-            Browse by course, tap times to build a shortlist (one course or several), then share a link or publish a live round so the group can vote with names — no screenshot chains.
+            Pick one course, add a few tee times, then create a single link everyone opens to vote — same flow as dropping a link in the group chat, without juggling screenshots.
           </p>
         </div>
       </div>
