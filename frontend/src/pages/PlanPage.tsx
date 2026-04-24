@@ -62,10 +62,16 @@ export function PlanPage() {
     }
     setPublishBusy(true);
     setPublishErr(null);
+    const host =
+      (user?.user_metadata?.full_name as string | undefined) ||
+      (user?.user_metadata?.name as string | undefined) ||
+      user?.email?.split('@')[0] ||
+      null;
     const res = await publishRoundFromPlan({
       plan,
       coursesById,
       organizerId: user?.id ?? null,
+      hostPublicName: host,
     });
     setPublishBusy(false);
     if ('error' in res) {

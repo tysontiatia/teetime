@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { formatDateShort, formatTime12h, matchesPreset, toYmd } from '../lib/time';
 import { usePlan } from '../state/PlanContext';
@@ -9,6 +9,10 @@ import { capabilityHint, getPlatformCapability, platformDisplayName, workerSuppo
 import { WeatherStrip } from '../components/WeatherStrip';
 import { NotificationModal } from '../components/NotificationModal';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
+import { useAuth } from '../state/AuthContext';
+import { publishRoundFromPlan, planFromCourseVisibleTimes, SHARE_TIMES_SLOT_COUNT } from '../lib/roundsApi';
+import { copyTextToClipboard } from '../lib/clipboard';
+import { absoluteRoundUrl } from '../lib/shareUrl';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -22,9 +26,12 @@ function clampHoles(n: number): 9 | 18 {
 }
 
 export function CoursePage() {
+  const nav = useNavigate();
   const { courseId } = useParams();
   const [sp] = useSearchParams();
+  const { user } = useAuth();
   const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
+  const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
   const date = sp.get('date') || toYmd(new Date());
   const players = clampPlayers(Number(sp.get('players') || 2));
@@ -40,6 +47,8 @@ export function CoursePage() {
   const [highlightTime, setHighlightTime] = useState<string | null>(null);
   const [rawTimes, setRawTimes] = useState<TeeTime[]>([]);
   const [loadingTimes, setLoadingTimes] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareErr, setShareErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
@@ -102,6 +111,37 @@ export function CoursePage() {
   const lockedCourseId = plan.options[0]?.courseId;
   const foreignLock = Boolean(lockedCourseId && lockedCourseId !== course.id);
 
+  const shareSlotCount = Math.min(SHARE_TIMES_SLOT_COUNT, times.length);
+
+  const onShareTimes = async () => {
+    if (unsupported || times.length === 0) return;
+    setShareBusy(true);
+    setShareErr(null);
+    const planPayload = planFromCourseVisibleTimes(course, date, times, players, SHARE_TIMES_SLOT_COUNT);
+    const host =
+      (user?.user_metadata?.full_name as string | undefined) ||
+      (user?.user_metadata?.name as string | undefined) ||
+      user?.email?.split('@')[0] ||
+      null;
+    const res = await publishRoundFromPlan({
+      plan: planPayload,
+      coursesById,
+      organizerId: user?.id ?? null,
+      hostPublicName: host,
+    });
+    setShareBusy(false);
+    if ('error' in res) {
+      setShareErr(res.error);
+      return;
+    }
+    const url = absoluteRoundUrl(res.slug);
+    const copied = await copyTextToClipboard(url);
+    if (!copied) {
+      setShareErr('Vote page created, but the link could not be copied automatically — copy it from the address bar.');
+    }
+    nav(`/round/${res.slug}`);
+  };
+
   return (
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -128,8 +168,19 @@ export function CoursePage() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          {!unsupported && times.length > 0 ? (
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={shareBusy}
+              onClick={() => void onShareTimes()}
+              title={`Creates a vote page with the first ${shareSlotCount} times shown below and copies the link`}
+            >
+              {shareBusy ? 'Creating…' : `Share times (${shareSlotCount})`}
+            </button>
+          ) : null}
           <button
-            className="btn btn-primary"
+            className="btn"
             type="button"
             onClick={() => {
               if (foreignLock) {
@@ -140,7 +191,7 @@ export function CoursePage() {
               }
               setCourse(course.id, date);
             }}
-            title="Use this course for your group vote list"
+            title="Anchor this course when building a list by hand"
           >
             Use this course
           </button>
@@ -164,6 +215,12 @@ export function CoursePage() {
           )}
         </div>
       </div>
+
+      {shareErr ? (
+        <p style={{ marginTop: 10, color: '#9a3412', fontSize: 14 }}>
+          {shareErr}
+        </p>
+      ) : null}
 
       <div className="split-two" style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14 }}>
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', background: 'rgba(255,255,255,0.85)' }}>
@@ -216,7 +273,7 @@ export function CoursePage() {
 
             <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
             <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-              Tap times to add them to your group vote list (this course only), then create the share link for your chat.
+              <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses the first {SHARE_TIMES_SLOT_COUNT} slots below (after your filters). The link is copied for you — paste it in your group chat. Or tap times to build a custom list and use <strong>Group vote</strong> in the nav.
             </div>
             {foreignLock ? (
               <p style={{ marginTop: 10, fontSize: 13, color: '#9a3412' }}>
@@ -294,9 +351,13 @@ export function CoursePage() {
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
           <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Group vote</div>
           <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
-            <li>One course per list — add a handful of times, then create the link.</li>
+            <li>
+              <strong>Share times</strong> — one click from live tee times (first {SHARE_TIMES_SLOT_COUNT} shown).
+            </li>
+            <li>
+              <strong>Custom list</strong> — tap individual times, then <strong>Group vote</strong> in the header to trim or publish.
+            </li>
             <li>Everyone opens the same link to vote; you book when the group agrees.</li>
-            <li>No screenshots — one link in the group chat.</li>
           </ul>
         </div>
       </div>

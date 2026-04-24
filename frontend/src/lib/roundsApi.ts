@@ -1,4 +1,4 @@
-import type { Course, Plan } from '../types';
+import type { Course, Plan, TeeTime } from '../types';
 import { supabase } from './supabase';
 import { formatDateShort, formatTime12h } from './time';
 
@@ -12,6 +12,7 @@ export type DbRound = {
   title: string;
   organizer_id: string | null;
   created_at: string;
+  host_public_name?: string | null;
 };
 
 export type DbRoundOption = {
@@ -51,13 +52,44 @@ function randomSlug(length = 11): string {
   return [...bytes].map((b) => SLUG_CHARS[b % 36]).join('');
 }
 
+/** Default number of tee rows included when using “Share times” from the course page. */
+export const SHARE_TIMES_SLOT_COUNT = 6;
+
+/** Build a one-course plan from the first N visible tee times (course page “Share times”). */
+export function planFromCourseVisibleTimes(
+  course: Course,
+  dateYmd: string,
+  teeTimes: TeeTime[],
+  players: 1 | 2 | 3 | 4,
+  maxSlots: number = SHARE_TIMES_SLOT_COUNT,
+): Plan {
+  const slice = teeTimes.slice(0, Math.max(0, maxSlots));
+  return {
+    id: crypto.randomUUID(),
+    courseId: course.id,
+    date: dateYmd,
+    options: slice.map((t) => ({
+      id: crypto.randomUUID(),
+      courseId: course.id,
+      startsAt: t.startsAt,
+      holes: t.holes,
+      players,
+      price: t.price,
+      spots: t.spots,
+      bookingUrl: course.bookingUrl,
+    })),
+  };
+}
+
 /** Publish all plan options (may span multiple courses). */
 export async function publishRoundFromPlan(params: {
   plan: Plan;
   coursesById: Map<string, Course>;
   organizerId: string | null;
+  /** Shown on the round page (“Alex shared this vote”). Optional. */
+  hostPublicName?: string | null;
 }): Promise<{ slug: string; roundId: string } | { error: string }> {
-  const { plan, coursesById, organizerId } = params;
+  const { plan, coursesById, organizerId, hostPublicName } = params;
   if (plan.options.length === 0) {
     return { error: 'Add at least one tee time from the finder or a course page.' };
   }
@@ -71,6 +103,9 @@ export async function publishRoundFromPlan(params: {
         ? `${names.join(' · ')} — ${formatDateShort(plan.date)}`
         : `${names[0] ?? 'Round'} — ${formatDateShort(plan.date)}`;
 
+  const hostTrimmed =
+    typeof hostPublicName === 'string' && hostPublicName.trim() ? hostPublicName.trim().slice(0, 60) : null;
+
   for (let attempt = 0; attempt < 10; attempt++) {
     const slug = randomSlug(11);
     const { data: roundRow, error: rErr } = await supabase
@@ -81,6 +116,7 @@ export async function publishRoundFromPlan(params: {
         title,
         course_id: courseIds.length === 1 ? courseIds[0] : null,
         play_date: plan.date,
+        ...(hostTrimmed ? { host_public_name: hostTrimmed } : {}),
       })
       .select('id, share_slug')
       .single();
@@ -90,7 +126,7 @@ export async function publishRoundFromPlan(params: {
       if (rErr.code === 'PGRST204') {
         return {
           error:
-            'Supabase is missing newer round columns (e.g. share_slug). Run the SQL migrations in supabase/migrations on this project — at least 20260423130000_rounds_slug_and_votes.sql and 20260423180000_round_voters_and_realtime.sql — then retry.',
+            'Supabase is missing newer round columns. Run migrations in supabase/migrations through 20260424120000_rounds_host_public_name.sql (includes share_slug, votes, host name), then retry.',
         };
       }
       return { error: rErr.message };
