@@ -143,6 +143,16 @@ button, input, select{ font: inherit; }
   border: 1px solid var(--border);
 }
 
+/* Leaflet divIcon — drop default white box around custom SVG pins */
+.teetime-map-pin{
+  background: transparent !important;
+  border: none !important;
+}
+.teetime-map-pin svg{
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
 .times-grid{
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

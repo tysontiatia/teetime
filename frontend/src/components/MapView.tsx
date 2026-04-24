@@ -5,13 +5,20 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import type { Course, TeeTime } from '../types';
 import { formatTime12h } from '../lib/time';
 
-// Fix default marker icons for Vite bundling
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+/** Matches `:root` --green-2 / --green in `index.css` */
+const PIN_FILL = '#2d7a3a';
+const PIN_STROKE = '#1a2e1a';
+
+const coursePinIcon = L.divIcon({
+  className: 'teetime-map-pin',
+  html: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36" aria-hidden="true">
+    <path fill="${PIN_FILL}" stroke="${PIN_STROKE}" stroke-width="1.1" stroke-linejoin="round"
+      d="M14 1C8.2 1 3.5 5.7 3.5 11.4c0 6.8 9.1 22.6 10.5 24.6 1.4-2 10.5-17.8 10.5-24.6C24.5 5.7 19.8 1 14 1z"/>
+    <circle cx="14" cy="11.4" r="3.6" fill="rgba(255,255,255,0.92)"/>
+  </svg>`,
+  iconSize: [28, 36],
+  iconAnchor: [14, 34],
+  popupAnchor: [0, -30],
 });
 
 /** Zoom level when centering on the user's location (regional “around me” view). */
@@ -90,7 +97,7 @@ export function MapView({
             const times = timesByCourseId.get(c.id) ?? [];
             const top = times.slice(0, 3);
             return (
-              <Marker key={c.id} position={[c.lat as number, c.lng as number]}>
+              <Marker key={c.id} position={[c.lat as number, c.lng as number]} icon={coursePinIcon}>
                 <Popup>
                   <div style={{ minWidth: 220 }}>
                     <div style={{ fontWeight: 900 }}>{c.name}</div>
