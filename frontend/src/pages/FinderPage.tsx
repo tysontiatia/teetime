@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
@@ -59,22 +59,27 @@ export function FinderPage() {
   const [sp, setSp] = useSearchParams();
   const params = useMemo(() => parseParams(sp), [sp]);
   const [locationDraft, setLocationDraft] = useState(() => params.locationQuery);
+  /** Last q value we wrote to the URL — avoids resetting the input while debouncing. */
+  const lastCommittedQ = useRef(params.locationQuery);
 
   useEffect(() => {
-    setLocationDraft(params.locationQuery);
-  }, [params.locationQuery]);
-
-  useEffect(() => {
-    if (locationDraft === params.locationQuery) return;
     const id = window.setTimeout(() => {
-      const next = new URLSearchParams(sp);
       const trimmed = locationDraft.trim();
+      if (trimmed === lastCommittedQ.current) return;
+      lastCommittedQ.current = trimmed;
+      const next = new URLSearchParams(sp);
       if (trimmed) next.set('q', trimmed);
       else next.delete('q');
       setSp(next, { replace: true });
     }, 350);
     return () => window.clearTimeout(id);
-  }, [locationDraft, params.locationQuery, sp, setSp]);
+  }, [locationDraft, sp, setSp]);
+
+  useEffect(() => {
+    if (params.locationQuery === lastCommittedQ.current) return;
+    lastCommittedQ.current = params.locationQuery;
+    setLocationDraft(params.locationQuery);
+  }, [params.locationQuery]);
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [view, setView] = useState<'list' | 'map'>('list');
@@ -491,6 +496,7 @@ export function FinderPage() {
                   className="btn btn-primary"
                   onClick={() => {
                     setLocationDraft('');
+                    lastCommittedQ.current = '';
                     const next = new URLSearchParams(sp);
                     next.delete('q');
                     setSp(next, { replace: true });
