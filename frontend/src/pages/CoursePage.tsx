@@ -6,6 +6,7 @@ import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
 import { WeatherStrip } from '../components/WeatherStrip';
+import { CoursePhoto } from '../components/CoursePhoto';
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInToShareModal } from '../components/SignInToShareModal';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
@@ -237,9 +238,7 @@ export function CoursePage() {
 
       <div className="split-two" style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14 }}>
         <div style={{ border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', background: 'rgba(255,255,255,0.85)' }}>
-          {course.photoUrl ? (
-            <img src={course.photoUrl} alt="" style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }} />
-          ) : null}
+          <CoursePhoto src={course.photoUrl} height={240} />
           <div style={{ padding: 14 }}>
             <div
               style={{

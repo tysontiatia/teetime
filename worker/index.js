@@ -5,6 +5,11 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+const IMAGE_CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+};
+
 function corsResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -425,6 +430,45 @@ function normalizeTimesWorker(course, data, holes) {
     case 'chronogolf':     return normalizeChronogolfTimesWorker(data);
     default:               return [];
   }
+}
+
+/** Proxy Google Places photos using a stable photo_reference (CDN URLs in catalog expire). */
+async function handlePlacePhoto(params, env) {
+  const ref = String(params.reference || params.photo_reference || '').trim();
+  if (!ref || ref.length > 512 || /[\s<>"']/.test(ref)) {
+    return corsResponse({ error: 'invalid_reference' }, 400);
+  }
+  if (!env.GOOGLE_PLACES_KEY) {
+    return corsResponse({ error: 'photo_unconfigured' }, 503);
+  }
+
+  const maxwidth = Math.min(1600, Math.max(100, parseInt(params.maxwidth, 10) || 800));
+  const googleUrl =
+    `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}` +
+    `&photo_reference=${encodeURIComponent(ref)}&key=${env.GOOGLE_PLACES_KEY}`;
+
+  let res;
+  try {
+    res = await fetchWithTimeout(googleUrl, { redirect: 'follow' }, 10000);
+  } catch {
+    return new Response('Photo upstream timeout', { status: 504, headers: IMAGE_CORS_HEADERS });
+  }
+
+  if (!res.ok) {
+    return new Response('Photo not found', {
+      status: res.status === 404 ? 404 : 502,
+      headers: IMAGE_CORS_HEADERS,
+    });
+  }
+
+  return new Response(res.body, {
+    status: 200,
+    headers: {
+      ...IMAGE_CORS_HEADERS,
+      'Content-Type': res.headers.get('Content-Type') || 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
+    },
+  });
 }
 
 function formatTime12h(timeStr) {
@@ -1012,6 +1056,10 @@ export default {
 
     if (path === '/membersports') {
       return handleMemberSports(params);
+    }
+
+    if (path === '/place-photo') {
+      return handlePlacePhoto(params, env);
     }
 
     return corsResponse({ error: 'not_found' }, 404);

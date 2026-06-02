@@ -1,4 +1,5 @@
 import type { Course } from '../types';
+import { coursePhotoUrl } from './coursePhotoUrl';
 import { slugFromCourseName } from './courseSlug';
 
 /** One row from `public/courses.json` */
@@ -12,7 +13,10 @@ export type CourseRecord = {
   rating?: number;
   review_count?: number;
   address?: string;
+  /** @deprecated Expired CDN URLs — use photo_reference + worker /place-photo instead. */
   photo_url?: string;
+  /** Stable Google Places photo id — proxied via worker with GOOGLE_PLACES_KEY. */
+  photo_reference?: string;
   schedule_id?: string;
   booking_class_id?: string;
   course_ids?: number[];
@@ -39,7 +43,7 @@ export function recordToCourse(record: CourseRecord, distanceMi?: number): Cours
     city: city || record.area || 'Utah',
     lat: record.lat,
     lng: record.lng,
-    photoUrl: record.photo_url,
+    photoUrl: coursePhotoUrl(record),
     rating: record.rating,
     reviewCount: record.review_count,
     distanceMi,

@@ -107,6 +107,7 @@ When a course shows "No available tee times" or "Booking not yet open for this d
 
 ### Worker secrets (set via `wrangler secret put`)
 
+- `GOOGLE_PLACES_KEY` — Google Places API key for **`GET /place-photo`** (proxies course card images from stable `photo_reference` values in `courses.json`)
 - `SUPABASE_SERVICE_KEY` — Supabase service role key (bypasses RLS)
 - `RESEND_API_KEY` — Resend API key for sending emails
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — Twilio **Messages** API for alert SMS (`TWILIO_FROM_NUMBER` must be E.164, e.g. `+18015551234`, and a number or messaging service your account is allowed to send from). If any of these are missing, SMS alerts are skipped (email still works).
@@ -159,14 +160,24 @@ Each course entry contains:
   "booking_url": "https://www.chronogolf.com/club/14222",
   "lat": 40.7982542,
   "lng": -111.9261956,
-  "photo_url": "https://lh3.googleusercontent.com/places/...",
+  "photo_reference": "ATKogpceexample…",
   "rating": 3.6,
   "review_count": 205,
   "address": "1386 N Redwood Rd, Salt Lake City, UT 84116, USA"
 }
 ```
 
-Fields vary by platform. `lat`/`lng` are required for Near Me sorting. `photo_url`, `rating`, `review_count`, and `address` are fetched via Google Places API using `scripts/fetch-place-data.mjs` (requires `GOOGLE_PLACES_KEY` env var).
+Fields vary by platform. `lat`/`lng` are required for Near Me sorting. `photo_reference`, `rating`, `review_count`, and `address` are fetched via Google Places API:
+
+```bash
+# One-time / periodic refresh for all courses (stores photo_reference, removes expired photo_url CDN links)
+GOOGLE_PLACES_KEY=your_key node scripts/refresh-photo-references.mjs
+
+# Initial metadata backfill for courses missing ratings
+GOOGLE_PLACES_KEY=your_key node scripts/fetch-place-data.mjs
+```
+
+Course card images are served through the worker at `GET /place-photo?reference=…` (requires `GOOGLE_PLACES_KEY` as a worker secret via `wrangler secret put GOOGLE_PLACES_KEY`).
 
 The root `courses.json` and `public/courses.json` must stay in sync. Always edit `public/courses.json` (the source of truth) and copy to root, or vice versa.
 
@@ -211,8 +222,9 @@ tee-time/
 ├── frontend/                 ← React SPA (build → merged into `deploy/app/`)
 ├── courses.json              ← Copy of public/courses.json (keep in sync)
 ├── scripts/
-│   ├── fetch-place-data.mjs  ← Fetch Google Places photos/ratings for all courses
+│   ├── fetch-place-data.mjs  ← Fetch Google Places ratings for courses missing metadata
 │   ├── fetch-place-patch.mjs ← Patch Google Places data for specific courses
+│   ├── refresh-photo-references.mjs ← Refresh photo_reference for all catalog courses
 │   ├── add-course-fields.mjs ← Add fields to courses
 │   ├── geocode.mjs           ← Geocode courses via Google Maps
 │   ├── geocode-patch.mjs     ← Patch geocoding for specific courses

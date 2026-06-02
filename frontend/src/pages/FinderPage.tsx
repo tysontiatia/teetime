@@ -19,6 +19,7 @@ const MapView = lazy(() => import('../components/MapView').then((m) => ({ defaul
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInToShareModal } from '../components/SignInToShareModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
+import { CoursePhoto } from '../components/CoursePhoto';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { courseDetailQueryString } from '../lib/finderUrl';
 
@@ -567,47 +568,10 @@ export function FinderPage() {
                     opacity: hasTimes ? 1 : 0.97,
                   }}
                 >
-                  {course.photoUrl ? (
-                    <div style={{ position: 'relative', lineHeight: 0 }}>
-                      <img src={course.photoUrl} alt="" style={{ width: '100%', height: 132, objectFit: 'cover', display: 'block' }} />
-                      {statusBadge}
-                    </div>
-                  ) : (
-                    <div style={{ padding: '10px 12px 0', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '5px 10px',
-                          borderRadius: 999,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          letterSpacing: '0.02em',
-                          ...(hasTimes
-                            ? {
-                                background: 'var(--green-soft)',
-                                color: 'var(--green-2)',
-                                border: '1px solid rgba(45,122,58,0.22)',
-                              }
-                            : {
-                                background: 'rgba(248,250,248,0.95)',
-                                color: 'var(--muted)',
-                                border: '1px solid var(--border)',
-                              }),
-                        }}
-                      >
-                        {hasTimes ? (
-                          <>
-                            <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--green-2)', flexShrink: 0 }} aria-hidden />
-                            {times.length} tee time{times.length === 1 ? '' : 's'}
-                          </>
-                        ) : (
-                          <>No matching times</>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <div style={{ position: 'relative', lineHeight: 0 }}>
+                    <CoursePhoto src={course.photoUrl} height={132} />
+                    {statusBadge}
+                  </div>
 
                   <div style={{ padding: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
