@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
@@ -59,27 +59,22 @@ export function FinderPage() {
   const [sp, setSp] = useSearchParams();
   const params = useMemo(() => parseParams(sp), [sp]);
   const [locationDraft, setLocationDraft] = useState(() => params.locationQuery);
-  /** Last q value we wrote to the URL — avoids resetting the input while debouncing. */
-  const lastCommittedQ = useRef(params.locationQuery);
 
+  /** Keep draft in sync when URL q changes externally (back button, shared link). */
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      const trimmed = locationDraft.trim();
-      if (trimmed === lastCommittedQ.current) return;
-      lastCommittedQ.current = trimmed;
+    setLocationDraft(params.locationQuery);
+  }, [params.locationQuery]);
+
+  const commitLocationToUrl = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
       const next = new URLSearchParams(sp);
       if (trimmed) next.set('q', trimmed);
       else next.delete('q');
       setSp(next, { replace: true });
-    }, 350);
-    return () => window.clearTimeout(id);
-  }, [locationDraft, sp, setSp]);
-
-  useEffect(() => {
-    if (params.locationQuery === lastCommittedQ.current) return;
-    lastCommittedQ.current = params.locationQuery;
-    setLocationDraft(params.locationQuery);
-  }, [params.locationQuery]);
+    },
+    [sp, setSp]
+  );
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [view, setView] = useState<'list' | 'map'>('list');
@@ -354,6 +349,13 @@ export function FinderPage() {
                 enterKeyHint="search"
                 autoComplete="off"
                 onChange={(e) => setLocationDraft(e.target.value)}
+                onBlur={() => commitLocationToUrl(locationDraft)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    commitLocationToUrl(locationDraft);
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
               />
             </div>
             <div className="search-grid-filters">
@@ -496,10 +498,7 @@ export function FinderPage() {
                   className="btn btn-primary"
                   onClick={() => {
                     setLocationDraft('');
-                    lastCommittedQ.current = '';
-                    const next = new URLSearchParams(sp);
-                    next.delete('q');
-                    setSp(next, { replace: true });
+                    commitLocationToUrl('');
                   }}
                 >
                   Clear search
