@@ -116,8 +116,24 @@ button, input, select{ font: inherit; }
 }
 
 /* Finder search row: grid items default to min-width:auto and refuse to shrink */
+.search-grid{
+  display: grid;
+  grid-template-columns: 1.1fr 0.7fr 0.6fr 0.9fr auto;
+  gap: 10px;
+  min-width: 0;
+}
+
 .search-grid > *{
   min-width: 0;
+}
+
+.search-grid-filters{
+  display: contents;
+}
+
+.search-grid-submit{
+  align-self: end;
+  padding: 11px 16px;
 }
 
 /* Finder search fields: same track width in the grid */
@@ -350,6 +366,25 @@ button, input, select{ font: inherit; }
 
   .search-grid{
     grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .search-grid-filters{
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr) minmax(0, 0.85fr);
+    gap: 10px;
+  }
+
+  .search-grid-submit{
+    width: 100%;
+    min-height: 44px;
+    align-self: stretch;
+  }
+
+  /* Prevent iOS Safari from zooming focused inputs */
+  .search-grid .input,
+  .search-grid .btn{
+    font-size: 16px;
   }
 
   .plan-split{

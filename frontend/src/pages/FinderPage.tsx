@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
@@ -51,10 +51,30 @@ function parseParams(sp: URLSearchParams): SearchParams {
   return { date, players, holes, timeOfDay, sortBy, locationQuery };
 }
 
+/** Worker refetch only when date or party size changes — not text search, sort, or time-of-day. */
+const FETCH_PARAM_KEYS = new Set(['date', 'holes', 'players']);
+
 export function FinderPage() {
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
   const params = useMemo(() => parseParams(sp), [sp]);
+  const [locationDraft, setLocationDraft] = useState(() => params.locationQuery);
+
+  useEffect(() => {
+    setLocationDraft(params.locationQuery);
+  }, [params.locationQuery]);
+
+  useEffect(() => {
+    if (locationDraft === params.locationQuery) return;
+    const id = window.setTimeout(() => {
+      const next = new URLSearchParams(sp);
+      const trimmed = locationDraft.trim();
+      if (trimmed) next.set('q', trimmed);
+      else next.delete('q');
+      setSp(next, { replace: true });
+    }, 350);
+    return () => window.clearTimeout(id);
+  }, [locationDraft, params.locationQuery, sp, setSp]);
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [view, setView] = useState<'list' | 'map'>('list');
@@ -76,7 +96,7 @@ export function FinderPage() {
   const fetchPool = useMemo(() => filterWorkerCourses(courses), [courses]);
 
   const searchPool = useMemo(() => {
-    const q = params.locationQuery.trim().toLowerCase();
+    const q = locationDraft.trim().toLowerCase();
     if (!q) return fetchPool;
     return fetchPool.filter(
       (c) =>
@@ -84,7 +104,7 @@ export function FinderPage() {
         c.name.toLowerCase().includes(q) ||
         c.city.toLowerCase().includes(q)
     );
-  }, [fetchPool, params.locationQuery]);
+  }, [fetchPool, locationDraft]);
 
   const { timesByCourse: rawTimesByCourse, loadingTimes, failedSlugs, attemptedSlugCount } = useTimesByCourseMap(
     fetchPool,
@@ -130,7 +150,7 @@ export function FinderPage() {
 
   /** Same text search as live list, but over the full catalog (other states / platforms). */
   const queryAllCourses = useMemo(() => {
-    const q = params.locationQuery.trim().toLowerCase();
+    const q = locationDraft.trim().toLowerCase();
     if (!q) return courses;
     return courses.filter(
       (c) =>
@@ -138,7 +158,7 @@ export function FinderPage() {
         c.name.toLowerCase().includes(q) ||
         c.city.toLowerCase().includes(q)
     );
-  }, [courses, params.locationQuery]);
+  }, [courses, locationDraft]);
 
   const bookingOnlyCourses = useMemo(() => {
     return queryAllCourses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
@@ -199,12 +219,18 @@ export function FinderPage() {
     [coursesById, nav, params.date, params.players, user],
   );
 
-  const setParam = (key: string, value: string) => {
-    const next = new URLSearchParams(sp);
-    next.set(key, value);
-    setSp(next, { replace: true });
-    setLastUpdatedAt(Date.now());
-  };
+  const setParam = useCallback(
+    (key: string, value: string) => {
+      const next = new URLSearchParams(sp);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      setSp(next, { replace: true });
+      if (FETCH_PARAM_KEYS.has(key)) {
+        setLastUpdatedAt(Date.now());
+      }
+    },
+    [sp, setSp]
+  );
 
   const timeChip = (tod: TimeOfDayPreset, label: string) => (
     <button
@@ -310,50 +336,52 @@ export function FinderPage() {
             maxWidth: '100%',
           }}
         >
-          <div
-            className="search-grid"
-            style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 0.6fr 0.9fr auto', gap: 10, minWidth: 0 }}
-          >
-            <div className="search-grid-field">
+          <div className="search-grid">
+            <div className="search-grid-field search-grid-field--location">
               <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Location or course
               </label>
               <input
                 className="input"
-                value={params.locationQuery}
+                value={locationDraft}
                 placeholder="City, course name, or zip…"
-                onChange={(e) => setParam('q', e.target.value)}
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                onChange={(e) => setLocationDraft(e.target.value)}
               />
             </div>
-            <div className="search-grid-field">
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Date
-              </label>
-              <div className="search-grid-date-input">
-                <input className="input" type="date" value={params.date} onChange={(e) => setParam('date', e.target.value)} />
+            <div className="search-grid-filters">
+              <div className="search-grid-field">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Date
+                </label>
+                <div className="search-grid-date-input">
+                  <input className="input" type="date" value={params.date} onChange={(e) => setParam('date', e.target.value)} />
+                </div>
+              </div>
+              <div className="search-grid-field">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Players
+                </label>
+                <select className="input" value={params.players} onChange={(e) => setParam('players', String(e.target.value))}>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                </select>
+              </div>
+              <div className="search-grid-field">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Holes
+                </label>
+                <select className="input" value={params.holes} onChange={(e) => setParam('holes', String(e.target.value))}>
+                  <option value="18">18</option>
+                  <option value="9">9</option>
+                </select>
               </div>
             </div>
-            <div className="search-grid-field">
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Players
-              </label>
-              <select className="input" value={params.players} onChange={(e) => setParam('players', String(e.target.value))}>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-              </select>
-            </div>
-            <div className="search-grid-field">
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Holes
-              </label>
-              <select className="input" value={params.holes} onChange={(e) => setParam('holes', String(e.target.value))}>
-                <option value="18">18</option>
-                <option value="9">9</option>
-              </select>
-            </div>
-            <button className="btn btn-primary" type="button" onClick={() => setLastUpdatedAt(Date.now())} style={{ alignSelf: 'end', padding: '11px 16px' }}>
+            <button className="btn btn-primary search-grid-submit" type="button" onClick={() => setLastUpdatedAt(Date.now())}>
               Search
             </button>
           </div>
@@ -457,8 +485,17 @@ export function FinderPage() {
               Try clearing the location box, switching time of day to <strong>Any</strong>, or picking another date. The full live catalog stays available when your search matches again.
             </p>
             <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {params.locationQuery.trim() ? (
-                <button type="button" className="btn btn-primary" onClick={() => setParam('q', '')}>
+              {locationDraft.trim() ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setLocationDraft('');
+                    const next = new URLSearchParams(sp);
+                    next.delete('q');
+                    setSp(next, { replace: true });
+                  }}
+                >
                   Clear search
                 </button>
               ) : null}
