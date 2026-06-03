@@ -41,6 +41,7 @@ export function recordToCourse(record: CourseRecord, distanceMi?: number): Cours
     catalogName: record.name,
     name: short,
     city: city || record.area || 'Utah',
+    area: record.area,
     lat: record.lat,
     lng: record.lng,
     photoUrl: coursePhotoUrl(record),

@@ -18,10 +18,11 @@ import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInToShareModal } from '../components/SignInToShareModal';
-import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
+import { CourseCardSkeleton, CourseCardTimesSkeleton } from '../components/CourseCardSkeleton';
 import { CoursePhoto } from '../components/CoursePhoto';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { courseDetailQueryString } from '../lib/finderUrl';
+import { buildTimesFetchScope, courseMatchesLocationQuery } from '../lib/timesFetchScope';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -48,7 +49,8 @@ function parseParams(sp: URLSearchParams): SearchParams {
   const timeOfDay = (sp.get('tod') as TimeOfDayPreset) || 'any';
   const sortBy = (sp.get('sort') as SortBy) || 'distance';
   const locationQuery = sp.get('q') || '';
-  return { date, players, holes, timeOfDay, sortBy, locationQuery };
+  const fetchScope: SearchParams['fetchScope'] = sp.get('scope') === 'all' ? 'all' : 'nearby';
+  return { date, players, holes, timeOfDay, sortBy, locationQuery, fetchScope };
 }
 
 /** Worker refetch only when date or party size changes — not text search, sort, or time-of-day. */
@@ -92,21 +94,55 @@ export function FinderPage() {
 
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
-  /** All worker-backed courses — fetch times once; filter by search client-side. */
-  const fetchPool = useMemo(() => filterWorkerCourses(courses), [courses]);
+  const fetchAllUtah = params.fetchScope === 'all';
+
+  const setFetchScope = useCallback(
+    (scope: 'nearby' | 'all') => {
+      const next = new URLSearchParams(sp);
+      if (scope === 'all') next.set('scope', 'all');
+      else next.delete('scope');
+      setSp(next, { replace: true });
+    },
+    [sp, setSp]
+  );
+
+  const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
+
+  const timesFetchScope = useMemo(
+    () =>
+      buildTimesFetchScope(workerCourses, userLocation, {
+        fetchAllUtah,
+        locationQuery: params.locationQuery,
+      }),
+    [workerCourses, userLocation, fetchAllUtah, params.locationQuery]
+  );
+
+  const fetchPool = timesFetchScope.fetchPool;
+
+  const fetchSlugSet = useMemo(() => new Set(fetchPool.map((c) => c.id)), [fetchPool]);
 
   const searchPool = useMemo(() => {
-    const q = locationDraft.trim().toLowerCase();
-    if (!q) return fetchPool;
-    return fetchPool.filter(
-      (c) =>
-        c.catalogName.toLowerCase().includes(q) ||
-        c.name.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q)
-    );
-  }, [fetchPool, locationDraft]);
+    const q = locationDraft.trim();
+    let pool = workerCourses;
+    if (q) {
+      pool = pool.filter((c) => courseMatchesLocationQuery(c, q));
+    } else if (!fetchAllUtah) {
+      pool = pool.filter((c) => fetchSlugSet.has(c.id));
+    }
+    return pool;
+  }, [workerCourses, locationDraft, fetchAllUtah, fetchSlugSet]);
 
-  const { timesByCourse: rawTimesByCourse, loadingTimes, failedSlugs, attemptedSlugCount } = useTimesByCourseMap(
+  const searchPendingCommit =
+    locationDraft.trim() !== params.locationQuery.trim() && locationDraft.trim().length > 0;
+
+  const {
+    timesByCourse: rawTimesByCourse,
+    loadingTimes,
+    failedSlugs,
+    attemptedSlugCount,
+    pendingSlugs,
+    loadedSlugCount,
+  } = useTimesByCourseMap(
     fetchPool,
     recordsBySlug,
     params.date,
@@ -116,10 +152,10 @@ export function FinderPage() {
     catalogLoading
   );
 
-  const showFinderSkeleton =
-    view === 'list' &&
-    !catalogError &&
-    (catalogLoading || (loadingTimes && fetchPool.length > 0));
+  const showCatalogSkeleton = view === 'list' && !catalogError && catalogLoading;
+
+  const fetchProgressLabel =
+    loadingTimes && attemptedSlugCount > 0 ? ` · ${loadedSlugCount}/${attemptedSlugCount}` : '';
 
   const timesByCourse = useMemo(() => {
     const map = new Map<string, TeeTime[]>();
@@ -150,14 +186,9 @@ export function FinderPage() {
 
   /** Same text search as live list, but over the full catalog (other states / platforms). */
   const queryAllCourses = useMemo(() => {
-    const q = locationDraft.trim().toLowerCase();
+    const q = locationDraft.trim();
     if (!q) return courses;
-    return courses.filter(
-      (c) =>
-        c.catalogName.toLowerCase().includes(q) ||
-        c.name.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q)
-    );
+    return courses.filter((c) => courseMatchesLocationQuery(c, q));
   }, [courses, locationDraft]);
 
   const bookingOnlyCourses = useMemo(() => {
@@ -357,6 +388,9 @@ export function FinderPage() {
                   }
                 }}
               />
+              {searchPendingCommit ? (
+                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>Press Enter to load live times for this search.</div>
+              ) : null}
             </div>
             <div className="search-grid-filters">
               <div className="search-grid-field">
@@ -458,26 +492,58 @@ export function FinderPage() {
 
         <div style={{ marginTop: 10, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            {catalogLoading || loadingTimes
-              ? 'Loading tee times…'
-              : `${gridCourses.length} live catalog course${gridCourses.length === 1 ? '' : 's'} · ${withTimesCount} with times for these filters`}
+            {catalogLoading
+              ? 'Loading courses…'
+              : loadingTimes
+              ? fetchAllUtah
+                ? `Loading Utah tee times${fetchProgressLabel}…`
+                : timesFetchScope.mode === 'search'
+                  ? `Loading tee times for “${timesFetchScope.searchQuery}”${fetchProgressLabel}…`
+                  : `Loading tee times within ${timesFetchScope.radiusMi} mi${fetchProgressLabel}…`
+              : fetchAllUtah
+                ? `${gridCourses.length} Utah live course${gridCourses.length === 1 ? '' : 's'} · ${withTimesCount} with times for these filters`
+                : timesFetchScope.mode === 'search'
+                  ? `${fetchPool.length} course${fetchPool.length === 1 ? '' : 's'} matching “${timesFetchScope.searchQuery}” · ${withTimesCount} with times for these filters`
+                  : `${fetchPool.length} live course${fetchPool.length === 1 ? '' : 's'} within ${timesFetchScope.radiusMi} mi · ${withTimesCount} with times for these filters`}
           </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            {user ? (
-              <>
-                Every live course stays listed — use <strong style={{ color: 'var(--ink)' }}>Share</strong> when times match, or{' '}
-                <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when they don&apos;t. Open a card for full details.
-              </>
-            ) : (
-              <>
-                Every live course stays listed. Sign in for <strong style={{ color: 'var(--ink)' }}>Share</strong> and{' '}
-                <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when slots open.
-              </>
-            )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+            {!catalogLoading && timesFetchScope.regional && timesFetchScope.outOfScopeCount > 0 ? (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setFetchScope('all')}
+                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 800 }}
+              >
+                Search all Utah ({workerCourses.length})
+              </button>
+            ) : null}
+            {!catalogLoading && fetchAllUtah ? (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setFetchScope('nearby')}
+                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 800 }}
+              >
+                Show nearby only
+              </button>
+            ) : null}
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+              {user ? (
+                <>
+                  Use <strong style={{ color: 'var(--ink)' }}>Share</strong> when times match, or{' '}
+                  <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when they don&apos;t.
+                </>
+              ) : (
+                <>
+                  Sign in for <strong style={{ color: 'var(--ink)' }}>Share</strong> and{' '}
+                  <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when slots open.
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {!catalogLoading && !loadingTimes && !catalogError && searchPool.length === 0 && fetchPool.length > 0 ? (
+        {!catalogLoading && !loadingTimes && !catalogError && searchPool.length === 0 && workerCourses.length > 0 ? (
           <div
             style={{
               padding: 18,
@@ -489,7 +555,10 @@ export function FinderPage() {
           >
             <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: '-0.02em', marginBottom: 8 }}>No courses match that search</div>
             <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.55, fontSize: 14 }}>
-              Try clearing the location box, switching time of day to <strong>Any</strong>, or picking another date. The full live catalog stays available when your search matches again.
+              Try clearing the location box, switching time of day to <strong>Any</strong>, or picking another date.
+              {!fetchAllUtah && timesFetchScope.mode === 'nearby' && timesFetchScope.outOfScopeCount > 0
+                ? ' Try Search all Utah for statewide results, or search a city like St. George.'
+                : ' The full live catalog stays available when your search matches again.'}
             </p>
             <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {locationDraft.trim() ? (
@@ -502,6 +571,11 @@ export function FinderPage() {
                   }}
                 >
                   Clear search
+                </button>
+              ) : null}
+              {!fetchAllUtah && timesFetchScope.outOfScopeCount > 0 ? (
+                <button type="button" className="btn btn-primary" onClick={() => setFetchScope('all')}>
+                  Search all Utah
                 </button>
               ) : null}
               {params.timeOfDay !== 'any' ? (
@@ -550,14 +624,17 @@ export function FinderPage() {
               gap: 14,
             }}
           >
-            {showFinderSkeleton
+            {showCatalogSkeleton
               ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
               : null}
-            {!showFinderSkeleton &&
+            {!showCatalogSkeleton &&
               gridCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const top = times.slice(0, 6);
               const hasTimes = times.length > 0;
+              const inFetchPool = fetchSlugSet.has(course.id);
+              const outOfScope = !inFetchPool && !fetchAllUtah;
+              const timesPending = inFetchPool && pendingSlugs.has(course.id);
 
               const statusBadge = (
                 <div
@@ -580,11 +657,23 @@ export function FinderPage() {
                           color: 'var(--green-2)',
                           border: '1px solid rgba(45,122,58,0.25)',
                         }
-                      : {
-                          background: 'rgba(255,255,255,0.92)',
-                          color: 'var(--muted)',
-                          border: '1px solid rgba(0,0,0,0.08)',
-                        }),
+                      : timesPending
+                        ? {
+                            background: 'rgba(255,255,255,0.92)',
+                            color: 'var(--ink)',
+                            border: '1px solid rgba(0,0,0,0.1)',
+                          }
+                      : outOfScope
+                        ? {
+                            background: 'rgba(255,255,255,0.92)',
+                            color: 'var(--ink)',
+                            border: '1px solid rgba(0,0,0,0.1)',
+                          }
+                        : {
+                            background: 'rgba(255,255,255,0.92)',
+                            color: 'var(--muted)',
+                            border: '1px solid rgba(0,0,0,0.08)',
+                          }),
                   }}
                 >
                   {hasTimes ? (
@@ -592,6 +681,10 @@ export function FinderPage() {
                       <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--green-2)', flexShrink: 0 }} aria-hidden />
                       {times.length} tee time{times.length === 1 ? '' : 's'}
                     </>
+                  ) : timesPending ? (
+                    <>Loading times…</>
+                  ) : outOfScope ? (
+                    <>Times not loaded</>
                   ) : (
                     <>No matching times</>
                   )}
@@ -698,6 +791,31 @@ export function FinderPage() {
                           </Link>
                         )}
                       </div>
+                    ) : timesPending ? (
+                      <CourseCardTimesSkeleton />
+                    ) : outOfScope ? (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: 12,
+                          borderRadius: 12,
+                          border: '1px dashed rgba(0,0,0,0.12)',
+                          background: 'rgba(255,255,255,0.6)',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
+                          Outside your nearby search area. Search all Utah to load live times here, or open the course page.
+                        </p>
+                        <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                          <button type="button" className="btn btn-primary" onClick={() => setFetchScope('all')}>
+                            Search all Utah
+                          </button>
+                          <Link to={`/course/${course.id}?${courseDetailQueryString(params)}`} className="btn">
+                            Course page →
+                          </Link>
+                        </div>
+                      </div>
                     ) : (
                       <div
                         style={{
@@ -740,7 +858,7 @@ export function FinderPage() {
                       <button
                         className="btn btn-primary"
                         type="button"
-                        disabled={times.length === 0 || shareBusyCourseId === course.id || authLoading}
+                        disabled={times.length === 0 || timesPending || shareBusyCourseId === course.id || authLoading}
                         onClick={() => void shareCourseRound(course, times)}
                         title={
                           times.length === 0

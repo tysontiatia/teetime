@@ -49,6 +49,7 @@ export function CoursePage() {
       timeOfDay: tod,
       sortBy: sort,
       locationQuery: sp.get('q') || '',
+      fetchScope: sp.get('scope') === 'all' ? 'all' : 'nearby',
     };
     return courseDetailQueryString(finderParams);
   }, [date, players, holes, tod, sort, sp]);

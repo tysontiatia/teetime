@@ -11,5 +11,6 @@ export function courseDetailQueryString(params: SearchParams): string {
   });
   const loc = params.locationQuery.trim();
   if (loc) q.set('q', loc);
+  if (params.fetchScope === 'all') q.set('scope', 'all');
   return q.toString();
 }

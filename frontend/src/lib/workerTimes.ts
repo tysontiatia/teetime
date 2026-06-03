@@ -119,12 +119,19 @@ export type TimesBySlugFetchResult = {
   failedSlugs: string[];
 };
 
+export type CourseTimesUpdate = {
+  slug: string;
+  times: TeeTime[];
+  ok: boolean;
+};
+
 export async function fetchTimesForCourseSlugs(
   entries: { slug: string; record: CourseRecord }[],
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
-  concurrency: number
+  concurrency: number,
+  onCourseComplete?: (update: CourseTimesUpdate) => void
 ): Promise<TimesBySlugFetchResult> {
   const out = new Map<string, TeeTime[]>();
   const failedSlugs: string[] = [];
@@ -139,9 +146,11 @@ export async function fetchTimesForCourseSlugs(
         const { times, ok } = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
         out.set(slug, times);
         if (!ok) failedSlugs.push(slug);
+        onCourseComplete?.({ slug, times, ok });
       } catch {
         out.set(slug, []);
         failedSlugs.push(slug);
+        onCourseComplete?.({ slug, times: [], ok: false });
       }
     }
   }

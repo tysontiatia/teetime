@@ -38,17 +38,18 @@ export function CourseCardSkeleton() {
           </div>
         </div>
 
-        <div className="times-grid" style={{ marginTop: 10 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Shimmer key={i} style={{ height: 52, borderRadius: 12 }} />
-          ))}
-        </div>
-
-        <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Shimmer style={{ width: 140, height: 34, borderRadius: 12 }} />
-          <Shimmer style={{ width: 160, height: 14 }} />
-        </div>
+        <CourseCardTimesSkeleton />
       </div>
+    </div>
+  );
+}
+
+export function CourseCardTimesSkeleton() {
+  return (
+    <div className="times-grid" style={{ marginTop: 10 }}>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Shimmer key={i} style={{ height: 52, borderRadius: 12 }} />
+      ))}
     </div>
   );
 }

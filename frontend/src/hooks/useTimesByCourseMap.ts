@@ -21,18 +21,21 @@ export function useTimesByCourseMap(
   const [loading, setLoading] = useState(false);
   const [failedSlugs, setFailedSlugs] = useState<string[]>([]);
   const [attemptedSlugCount, setAttemptedSlugCount] = useState(0);
+  const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (catalogLoading) {
       setLoading(false);
       setFailedSlugs([]);
       setAttemptedSlugCount(0);
+      setPendingSlugs(new Set());
       return;
     }
     if (workerCourses.length === 0) {
       setMap(new Map());
       setFailedSlugs([]);
       setAttemptedSlugCount(0);
+      setPendingSlugs(new Set());
       setLoading(false);
       return;
     }
@@ -48,39 +51,58 @@ export function useTimesByCourseMap(
       setMap(new Map());
       setFailedSlugs([]);
       setAttemptedSlugCount(0);
+      setPendingSlugs(new Set());
       setLoading(false);
       return;
     }
 
     let cancelled = false;
+    const slugs = entries.map((e) => e.slug);
+
+    setMap(new Map());
+    setFailedSlugs([]);
+    setAttemptedSlugCount(entries.length);
+    setPendingSlugs(new Set(slugs));
     setLoading(true);
 
-    const runFetch = () => {
-      void (async () => {
-        const { bySlug, failedSlugs: failed } = await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6);
-        if (!cancelled) {
-          setMap(bySlug);
-          setFailedSlugs(failed);
-          setAttemptedSlugCount(entries.length);
-          setLoading(false);
-        }
-      })();
-    };
+    void (async () => {
+      const failed: string[] = [];
+      await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6, ({ slug, times, ok }) => {
+        if (cancelled) return;
+        setMap((prev) => {
+          const next = new Map(prev);
+          next.set(slug, times);
+          return next;
+        });
+        setPendingSlugs((prev) => {
+          if (!prev.has(slug)) return prev;
+          const next = new Set(prev);
+          next.delete(slug);
+          return next;
+        });
+        if (!ok) failed.push(slug);
+      });
 
-    // Let the shell paint before we open many worker connections (major win vs old single-file cold start perception).
-    if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(() => !cancelled && runFetch(), { timeout: 1800 });
-      return () => {
-        cancelled = true;
-        cancelIdleCallback(id);
-      };
-    }
-    const t = window.setTimeout(() => !cancelled && runFetch(), 150);
+      if (!cancelled) {
+        setFailedSlugs(failed);
+        setPendingSlugs(new Set());
+        setLoading(false);
+      }
+    })();
+
     return () => {
       cancelled = true;
-      window.clearTimeout(t);
     };
   }, [slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug]);
 
-  return { timesByCourse: map, loadingTimes: loading, failedSlugs, attemptedSlugCount };
+  const loadedSlugCount = attemptedSlugCount - pendingSlugs.size;
+
+  return {
+    timesByCourse: map,
+    loadingTimes: loading,
+    failedSlugs,
+    attemptedSlugCount,
+    pendingSlugs,
+    loadedSlugCount,
+  };
 }
