@@ -46,7 +46,7 @@ export function CourseCardSkeleton() {
 
 export function CourseCardTimesSkeleton() {
   return (
-    <div className="times-grid" style={{ marginTop: 10 }}>
+    <div className="times-grid" style={{ marginTop: 10, minHeight: 118 }}>
       {Array.from({ length: 6 }).map((_, i) => (
         <Shimmer key={i} style={{ height: 52, borderRadius: 12 }} />
       ))}

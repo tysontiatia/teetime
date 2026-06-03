@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
-import { sortFinderGridCourses } from '../lib/sort';
+import { sortFinderGridCourses, sortCourses } from '../lib/sort';
 import {
   capabilityHint,
   filterWorkerCourses,
@@ -170,10 +170,13 @@ export function FinderPage() {
     return map;
   }, [rawTimesByCourse, params.timeOfDay, params.players]);
 
-  const gridCourses = useMemo(
-    () => sortFinderGridCourses(searchPool, timesByCourse, params.sortBy),
-    [params.sortBy, searchPool, timesByCourse]
-  );
+  const gridCourses = useMemo(() => {
+    if (loadingTimes) {
+      // Freeze card order while times stream in — re-sort once when the fetch batch finishes.
+      return sortCourses([...searchPool], new Map(), 'distance');
+    }
+    return sortFinderGridCourses(searchPool, timesByCourse, params.sortBy);
+  }, [loadingTimes, params.sortBy, searchPool, timesByCourse]);
 
   const withTimesCount = useMemo(
     () => gridCourses.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) > 0).length,
