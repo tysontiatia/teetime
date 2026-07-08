@@ -18,4 +18,5 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 #   TWILIO_VERIFY_SERVICE_SID   (Twilio Console → Verify → Services → SID; SMS OTP for phone verification)
 
 [triggers]
-crons = ["*/15 6-23 * * *"]
+# UTC heartbeats — golf hours and tiers are gated in America/Denver inside the worker.
+crons = ["*/5 * * * *", "*/15 6-23 * * *"]

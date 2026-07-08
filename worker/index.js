@@ -1,3 +1,5 @@
+import { handleAvailabilityPoll } from './availabilityPoll.js';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -1066,6 +1068,18 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(handleScheduled(env));
+    const cron = event.cron || '';
+    if (cron === '*/5 * * * *') {
+      ctx.waitUntil(
+        handleAvailabilityPoll(env, {
+          loadCourses,
+          fetchTimesForCourse,
+          normalizeTimesWorker,
+        }),
+      );
+    }
+    if (cron === '*/15 6-23 * * *') {
+      ctx.waitUntil(handleScheduled(env));
+    }
   },
 };
