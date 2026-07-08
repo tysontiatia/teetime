@@ -228,6 +228,7 @@ async function ensureScheduleRows(env, pairs) {
 /**
  * Single-statement batch claim via Postgres RPC (FOR UPDATE SKIP LOCKED).
  * Concurrent ticks cannot claim the same (course_slug, play_date).
+ * Throws on RPC/HTTP failure — never masquerade a broken claim as "nothing due".
  */
 async function claimPollBatch(env, todayMt, maxPlayDate, batchSize) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/claim_availability_poll_batch`, {
@@ -242,8 +243,11 @@ async function claimPollBatch(env, todayMt, maxPlayDate, batchSize) {
   });
   if (!res.ok) {
     const text = await res.text();
-    console.error('[poll] claim RPC failed', res.status, text.slice(0, 500));
-    return [];
+    const detail = `claim_availability_poll_batch HTTP ${res.status}: ${text.slice(0, 400)}`;
+    console.error(
+      `[poll] FATAL: claim RPC failed — poller cannot run (is 20260708170100_claim_poll_batch_rpc.sql applied?). ${detail}`,
+    );
+    throw new Error(detail);
   }
   return res.json();
 }
@@ -551,7 +555,8 @@ async function markBurstPollDone(env, course, todayMt) {
 
 // ── Main cron entry ─────────────────────────────────────────────────
 
-function summarizeRunStatus(coursesOk, coursesFailed, coursesClaimed) {
+function summarizeRunStatus(coursesOk, coursesFailed, coursesClaimed, runErrored) {
+  if (runErrored) return 'failed';
   if (!coursesClaimed) return 'ok';
   if (coursesFailed && coursesOk) return 'partial';
   if (coursesFailed && !coursesOk) return 'failed';
@@ -671,6 +676,7 @@ export async function handleAvailabilityPoll(env, deps) {
   let coursesFailed = 0;
   let slotsUpserted = 0;
   let eventsWritten = 0;
+  let runErrored = false;
   const errors = [];
 
   try {
@@ -718,12 +724,13 @@ export async function handleAvailabilityPoll(env, deps) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    runErrored = true;
     console.error('[poll] run-level failure:', err);
     errors.push(`run:${message}`);
   } finally {
     try {
       await finishPollRun(env, pollRunId, {
-        status: summarizeRunStatus(coursesOk, coursesFailed, coursesClaimed),
+        status: summarizeRunStatus(coursesOk, coursesFailed, coursesClaimed, runErrored),
         courses_claimed: coursesClaimed,
         courses_ok: coursesOk,
         courses_failed: coursesFailed,
