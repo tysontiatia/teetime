@@ -210,19 +210,43 @@ async function insertPollRunCourse(env, row) {
 }
 
 async function ensureScheduleRows(env, pairs) {
-  if (!pairs.length) return;
+  if (!pairs.length) return 0;
   const body = pairs.map(({ course_slug, play_date }) => ({
     course_slug,
     play_date,
   }));
-  await fetch(`${env.SUPABASE_URL}/rest/v1/availability_poll_schedule?on_conflict=course_slug,play_date`, {
-    method: 'POST',
-    headers: sbHeaders(env, {
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=ignore-duplicates',
-    }),
-    body: JSON.stringify(body),
-  });
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/availability_poll_schedule?on_conflict=course_slug,play_date`,
+    {
+      method: 'POST',
+      headers: sbHeaders(env, {
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=ignore-duplicates,return=minimal',
+      }),
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    const detail = `ensureScheduleRows HTTP ${res.status}: ${text.slice(0, 400)}`;
+    console.error(`[poll] FATAL: ${detail}`);
+    throw new Error(detail);
+  }
+  return body.length;
+}
+
+async function countDueScheduleRows(env, todayMt, maxPlayDate) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/availability_poll_schedule` +
+      `?play_date=gte.${todayMt}&play_date=lte.${maxPlayDate}` +
+      `&select=course_slug`,
+    { headers: sbHeaders(env, { Prefer: 'count=exact' }) },
+  );
+  if (!res.ok) return null;
+  const range = res.headers.get('content-range');
+  if (!range) return null;
+  const m = range.match(/\/(\d+)$/);
+  return m ? Number(m[1]) : null;
 }
 
 /**
@@ -680,18 +704,30 @@ export async function handleAvailabilityPoll(env, deps) {
   const errors = [];
 
   try {
-    await ensureScheduleRows(
-      env,
-      candidatePairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
-    );
-
     let maxPlayDate = addDaysYmd(todayMt, POLL_MAX_DAY_OFFSET);
     for (const b of burstCandidates) {
       if (b.play_date > maxPlayDate) maxPlayDate = b.play_date;
     }
 
     const courseBySlug = new Map(courses.map((c) => [c.slug, c]));
+    const schedulePairs = candidatePairs.length;
+    const ensured = await ensureScheduleRows(
+      env,
+      candidatePairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
+    );
     const claimed = await claimPollBatch(env, todayMt, maxPlayDate, CLAIM_BATCH_SIZE);
+
+    if (!claimed.length) {
+      const schedRows = await countDueScheduleRows(env, todayMt, maxPlayDate);
+      const msg =
+        `claim returned 0 (today=${todayMt}, pairs=${schedulePairs}, ensured=${ensured}, ` +
+        `schedule_rows_in_range=${schedRows ?? 'unknown'})`;
+      console.warn(`[poll] ${msg}`);
+      if (schedRows != null && schedRows > 0) {
+        runErrored = true;
+        errors.push(`claim:${msg}`);
+      }
+    }
 
     for (const row of claimed) {
       const course = courseBySlug.get(row.course_slug);
