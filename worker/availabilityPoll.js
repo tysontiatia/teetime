@@ -551,6 +551,77 @@ async function markBurstPollDone(env, course, todayMt) {
 
 // ── Main cron entry ─────────────────────────────────────────────────
 
+function summarizeRunStatus(coursesOk, coursesFailed, coursesClaimed) {
+  if (!coursesClaimed) return 'ok';
+  if (coursesFailed && coursesOk) return 'partial';
+  if (coursesFailed && !coursesOk) return 'failed';
+  return 'ok';
+}
+
+async function pollOneClaimedCourse(env, {
+  pollRunId,
+  row,
+  course,
+  burstCandidates,
+  todayMt,
+  fetchTimesForCourse,
+  normalizeTimesWorker,
+}) {
+  const started = Date.now();
+  const baseRow = {
+    poll_run_id: pollRunId,
+    course_slug: row.course_slug,
+    play_date: row.play_date,
+  };
+
+  try {
+    const result = await pollCourseDate(
+      env,
+      course,
+      row.play_date,
+      pollRunId,
+      fetchTimesForCourse,
+      normalizeTimesWorker,
+    );
+
+    await insertPollRunCourse(env, {
+      ...baseRow,
+      status: result.status,
+      slots_written: result.slots_written,
+      events_written: result.events_written,
+      latency_ms: result.latency_ms,
+      error_message: result.error_message,
+    });
+
+    if (result.status === 'ok') {
+      const burst = burstCandidates.find(
+        (b) => b.slug === row.course_slug && b.play_date === row.play_date,
+      );
+      if (burst) await markBurstPollDone(env, burst.course, todayMt);
+    }
+
+    return result;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[poll] ${row.course_slug} threw:`, err);
+    await insertPollRunCourse(env, {
+      ...baseRow,
+      status: 'failed',
+      slots_written: 0,
+      events_written: 0,
+      latency_ms: Date.now() - started,
+      error_message: message.slice(0, 500),
+    });
+    return {
+      status: 'failed',
+      slots_written: 0,
+      events_written: 0,
+      latency_ms: Date.now() - started,
+      error_message: message,
+    };
+  }
+}
+
 export async function handleAvailabilityPoll(env, deps) {
   const { loadCourses, fetchTimesForCourse, normalizeTimesWorker } = deps;
 
@@ -589,19 +660,6 @@ export async function handleAvailabilityPoll(env, deps) {
   const burstCandidates = await loadBurstCandidates(env, courses, todayMt, mt);
   const candidatePairs = buildCandidatePairs(courses, todayMt, burstCandidates);
 
-  await ensureScheduleRows(
-    env,
-    candidatePairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
-  );
-
-  let maxPlayDate = addDaysYmd(todayMt, POLL_MAX_DAY_OFFSET);
-  for (const b of burstCandidates) {
-    if (b.play_date > maxPlayDate) maxPlayDate = b.play_date;
-  }
-
-  const courseBySlug = new Map(courses.map((c) => [c.slug, c]));
-  const claimed = await claimPollBatch(env, todayMt, maxPlayDate, CLAIM_BATCH_SIZE);
-
   const pollRunId = await createPollRun(env);
   if (!pollRunId) {
     console.error('[poll] failed to create poll run');
@@ -615,57 +673,66 @@ export async function handleAvailabilityPoll(env, deps) {
   let eventsWritten = 0;
   const errors = [];
 
-  for (const row of claimed) {
-    const course = courseBySlug.get(row.course_slug);
-    if (!course) continue;
-    coursesClaimed++;
-
-    const result = await pollCourseDate(
+  try {
+    await ensureScheduleRows(
       env,
-      course,
-      row.play_date,
-      pollRunId,
-      fetchTimesForCourse,
-      normalizeTimesWorker,
+      candidatePairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
     );
 
-    await insertPollRunCourse(env, {
-      poll_run_id: pollRunId,
-      course_slug: row.course_slug,
-      play_date: row.play_date,
-      status: result.status,
-      slots_written: result.slots_written,
-      events_written: result.events_written,
-      latency_ms: result.latency_ms,
-      error_message: result.error_message,
-    });
+    let maxPlayDate = addDaysYmd(todayMt, POLL_MAX_DAY_OFFSET);
+    for (const b of burstCandidates) {
+      if (b.play_date > maxPlayDate) maxPlayDate = b.play_date;
+    }
 
-    if (result.status === 'ok') {
-      coursesOk++;
-      slotsUpserted += result.slots_written;
-      eventsWritten += result.events_written;
+    const courseBySlug = new Map(courses.map((c) => [c.slug, c]));
+    const claimed = await claimPollBatch(env, todayMt, maxPlayDate, CLAIM_BATCH_SIZE);
 
-      const burst = burstCandidates.find(
-        (b) => b.slug === row.course_slug && b.play_date === row.play_date,
-      );
-      if (burst) await markBurstPollDone(env, burst.course, todayMt);
-    } else {
-      coursesFailed++;
-      if (result.error_message) errors.push(`${row.course_slug}:${result.error_message}`);
+    for (const row of claimed) {
+      const course = courseBySlug.get(row.course_slug);
+      if (!course) {
+        console.warn(`[poll] unknown course_slug claimed: ${row.course_slug}`);
+        continue;
+      }
+      coursesClaimed++;
+
+      const result = await pollOneClaimedCourse(env, {
+        pollRunId,
+        row,
+        course,
+        burstCandidates,
+        todayMt,
+        fetchTimesForCourse,
+        normalizeTimesWorker,
+      });
+
+      if (result.status === 'ok') {
+        coursesOk++;
+        slotsUpserted += result.slots_written;
+        eventsWritten += result.events_written;
+      } else {
+        coursesFailed++;
+        if (result.error_message) {
+          errors.push(`${row.course_slug}:${result.error_message}`);
+        }
+      }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[poll] run-level failure:', err);
+    errors.push(`run:${message}`);
+  } finally {
+    try {
+      await finishPollRun(env, pollRunId, {
+        status: summarizeRunStatus(coursesOk, coursesFailed, coursesClaimed),
+        courses_claimed: coursesClaimed,
+        courses_ok: coursesOk,
+        courses_failed: coursesFailed,
+        slots_upserted: slotsUpserted,
+        events_written: eventsWritten,
+        error_summary: errors.length ? errors.slice(0, 5).join('; ') : null,
+      });
+    } catch (finishErr) {
+      console.error('[poll] failed to finalize poll run:', finishErr);
     }
   }
-
-  let status = 'ok';
-  if (coursesFailed && coursesOk) status = 'partial';
-  else if (coursesFailed && !coursesOk && coursesClaimed) status = 'failed';
-
-  await finishPollRun(env, pollRunId, {
-    status: coursesClaimed ? status : 'ok',
-    courses_claimed: coursesClaimed,
-    courses_ok: coursesOk,
-    courses_failed: coursesFailed,
-    slots_upserted: slotsUpserted,
-    events_written: eventsWritten,
-    error_summary: errors.length ? errors.slice(0, 5).join('; ') : null,
-  });
 }
