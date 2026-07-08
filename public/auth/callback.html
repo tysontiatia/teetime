@@ -22,7 +22,15 @@
     });
 
     sb.auth.getSession().then(() => {
-      window.location.replace('/app/');
+      let next = window.location.origin + '/app/';
+      try {
+        const stored = sessionStorage.getItem('tt_auth_return_to');
+        if (stored && stored.startsWith(window.location.origin)) next = stored;
+        sessionStorage.removeItem('tt_auth_return_to');
+      } catch {
+        // ignore
+      }
+      window.location.replace(next);
     });
   </script>
 </body>
