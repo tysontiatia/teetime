@@ -97,6 +97,8 @@ Every pull request runs lint + build (no deploy).
 
 Every pull request deploys a **Cloudflare Pages preview** URL. Test the full built app without touching production.
 
+**Keep previews public:** In Cloudflare → Workers & Pages → `utah-tee-times` → Settings → General, leave **Access policy** disabled. If you see “Log in to utah-tee-times - Cloudflare Access” on a `*.pages.dev` URL, disable the Access policy (or delete the Access application in Zero Trust → Access → Applications). Production `tee-time.io` is unaffected.
+
 ### Production deploy
 
 Merging to `main` deploys Pages + Worker automatically.
