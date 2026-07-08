@@ -16,6 +16,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Lint, build React app, and assemble Pages bundle
         run: bash scripts/build-pages.sh
+        env:
+          VITE_LAUNCHDARKLY_CLIENT_SIDE_ID: 6a4e663319d3db0a5e25b9d2
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

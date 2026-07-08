@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
+import { LaunchDarklyFlagBanner } from './LaunchDarklyFlagBanner';
 
 const MOBILE_MQ = '(max-width: 720px)';
 
@@ -284,6 +285,7 @@ export function AppShell() {
 
   return (
     <div>
+      <LaunchDarklyFlagBanner />
       <header
         className="app-header"
         style={{

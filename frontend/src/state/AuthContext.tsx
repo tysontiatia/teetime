@@ -45,9 +45,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session?.user ?? null,
       loading,
       signInWithGoogle: async () => {
+        const origin = redirectOrigin();
+        const redirectTo = `${origin}/auth/callback.html`;
+        try {
+          sessionStorage.setItem('tt_auth_return_to', `${origin}/app/`);
+        } catch {
+          // ignore if storage is unavailable
+        }
         await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: `${redirectOrigin()}/auth/callback.html` },
+          options: { redirectTo },
         });
       },
       signOut: async () => {

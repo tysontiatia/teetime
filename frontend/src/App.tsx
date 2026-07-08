@@ -9,6 +9,7 @@ import { RoundPage } from './pages/RoundPage';
 import { AccountPage } from './pages/AccountPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AuthProvider } from './state/AuthContext';
+import { LaunchDarklyProvider } from './state/LaunchDarklyContext';
 import { CourseCatalogProvider } from './state/CourseCatalogContext';
 
 function RoutedApp() {
@@ -35,9 +36,11 @@ function App() {
     <ErrorBoundary>
       <CourseCatalogProvider>
         <AuthProvider>
-          <BrowserRouter basename="/app">
-            <RoutedApp />
-          </BrowserRouter>
+          <LaunchDarklyProvider>
+            <BrowserRouter basename="/app">
+              <RoutedApp />
+            </BrowserRouter>
+          </LaunchDarklyProvider>
         </AuthProvider>
       </CourseCatalogProvider>
     </ErrorBoundary>
