@@ -779,14 +779,68 @@ function buildForeUpTeeSheetUrl(course, date, holes, players) {
   return bookingUrl || null;
 }
 
+function buildChronogolfTeeTimesUrl(course, date, holes, players) {
+  const bookingUrl = String(course.booking_url || '').trim();
+  const templateOverride = String(course.booking_url_template || '').trim();
+
+  if (templateOverride.includes('{')) {
+    return applyBookingTemplate(templateOverride, date, holes, players);
+  }
+
+  const base = (bookingUrl || templateOverride).replace(/[?#].*$/, '').replace(/\/$/, '');
+  if (!base) return null;
+
+  const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
+  const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
+  const courseId =
+    course.course_id != null && String(course.course_id).trim()
+      ? String(course.course_id).trim()
+      : course.golf_course_id != null && String(course.golf_course_id).trim()
+        ? String(course.golf_course_id).trim()
+        : '';
+
+  try {
+    const u = new URL(base);
+    u.searchParams.set('date', date);
+    u.searchParams.set('players', playersStr);
+    u.searchParams.set('step', 'teetimes');
+    u.searchParams.set('holes', holesStr);
+    u.searchParams.set('coursesIds', courseId);
+    u.searchParams.set('deals', 'false');
+    u.searchParams.set('groupSize', playersStr);
+    return u.toString();
+  } catch {
+    const q = new URLSearchParams({
+      date,
+      players: playersStr,
+      step: 'teetimes',
+      holes: holesStr,
+      coursesIds: courseId,
+      deals: 'false',
+      groupSize: playersStr,
+    });
+    return `${base}?${q.toString()}`;
+  }
+}
+
 function buildBookingUrlWorker(course, date, holes, players) {
   const base = course.booking_url;
-  if (!base && course.platform !== 'foreup' && course.platform !== 'foreup_login') {
+  if (
+    !base &&
+    course.platform !== 'foreup' &&
+    course.platform !== 'foreup_login' &&
+    course.platform !== 'chronogolf' &&
+    course.platform !== 'chronogolf_slc'
+  ) {
     return 'https://tee-time.io';
   }
 
   if (course.platform === 'foreup' || course.platform === 'foreup_login') {
     return buildForeUpTeeSheetUrl(course, date, holes, players) || base || 'https://tee-time.io';
+  }
+
+  if (course.platform === 'chronogolf' || course.platform === 'chronogolf_slc') {
+    return buildChronogolfTeeTimesUrl(course, date, holes, players) || base || 'https://tee-time.io';
   }
 
   const templateOverride = String(course.booking_url_template || '').trim();
@@ -796,9 +850,6 @@ function buildBookingUrlWorker(course, date, holes, players) {
       : templateOverride;
   }
 
-  if (course.platform === 'chronogolf' || course.platform === 'chronogolf_slc') {
-    return `${String(base).replace(/\/$/, '')}?date=${date}&players=${players}`;
-  }
   return base || 'https://tee-time.io';
 }
 

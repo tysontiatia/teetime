@@ -157,20 +157,64 @@ function buildForeUpTeeSheetUrl(
   return bookingUrl || null;
 }
 
+/**
+ * Chronogolf's club overview ignores date/players alone. Jump to the tee sheet
+ * with step=teetimes (+ holes / groupSize) the way the booking SPA expects.
+ */
+function buildChronogolfTeeTimesUrl(
+  source: BookingSource,
+  params: BookingLinkParams,
+): string | null {
+  const bookingUrl = (source.booking_url || source.bookingUrl || '').trim();
+  const templateOverride = (source.booking_url_template || '').trim();
+
+  // Explicit templates with placeholders win (rare; prefer booking_url otherwise).
+  if (templateOverride.includes('{')) {
+    return applyTemplate(templateOverride, params);
+  }
+
+  const base = (bookingUrl || templateOverride).replace(/[?#].*$/, '').replace(/\/$/, '');
+  if (!base) return null;
+
+  const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  const holes = String(params.holes === 9 ? 9 : 18);
+  const courseId =
+    source.course_id != null && String(source.course_id).trim()
+      ? String(source.course_id).trim()
+      : source.golf_course_id != null && String(source.golf_course_id).trim()
+        ? String(source.golf_course_id).trim()
+        : '';
+
+  try {
+    const u = new URL(base);
+    u.searchParams.set('date', params.dateYmd);
+    u.searchParams.set('players', players);
+    u.searchParams.set('step', 'teetimes');
+    u.searchParams.set('holes', holes);
+    u.searchParams.set('coursesIds', courseId);
+    u.searchParams.set('deals', 'false');
+    u.searchParams.set('groupSize', players);
+    return u.toString();
+  } catch {
+    const q = new URLSearchParams({
+      date: params.dateYmd,
+      players,
+      step: 'teetimes',
+      holes,
+      coursesIds: courseId,
+      deals: 'false',
+      groupSize: players,
+    });
+    return `${base}?${q.toString()}`;
+  }
+}
+
 function defaultTemplate(
   record: Pick<CourseRecord, 'platform' | 'booking_url'>,
 ): string | null {
   const base = record.booking_url?.trim();
   if (!base) return null;
-  const clean = base.replace(/\/$/, '');
-
-  switch (record.platform) {
-    case 'chronogolf':
-    case 'chronogolf_slc':
-      return `${clean}?date={date}&players={players}`;
-    default:
-      return base;
-  }
+  return base;
 }
 
 export type BookingSource = {
@@ -180,6 +224,8 @@ export type BookingSource = {
   platform?: string | null;
   schedule_id?: string | number | null;
   booking_class_id?: string | number | null;
+  course_id?: string | number | null;
+  golf_course_id?: string | number | null;
 };
 
 /**
@@ -206,6 +252,12 @@ export function buildBookingUrl(
     'booking_class_id' in source && source.booking_class_id != null
       ? String(source.booking_class_id)
       : null;
+  const courseId =
+    'course_id' in source && source.course_id != null ? String(source.course_id) : null;
+  const golfCourseId =
+    'golf_course_id' in source && source.golf_course_id != null
+      ? String(source.golf_course_id)
+      : null;
 
   const bookingSource: BookingSource = {
     booking_url: bookingUrl,
@@ -213,10 +265,16 @@ export function buildBookingUrl(
     platform,
     schedule_id: scheduleId,
     booking_class_id: bookingClassId,
+    course_id: courseId,
+    golf_course_id: golfCourseId,
   };
 
   if (platform === 'foreup' || platform === 'foreup_login') {
     return buildForeUpTeeSheetUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'chronogolf' || platform === 'chronogolf_slc') {
+    return buildChronogolfTeeTimesUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;
