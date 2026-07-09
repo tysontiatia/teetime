@@ -501,17 +501,30 @@ async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesFor
   const holes = String(canonicalHolesForPoll(course));
   const started = Date.now();
   const data = await fetchTimesForCourse(course, play_date, holes, '1');
-  if (!data || data.error) {
+
+  if (data && typeof data === 'object' && data.error) {
     return {
       status: 'failed',
       slots_written: 0,
       events_written: 0,
       latency_ms: Date.now() - started,
-      error_message: data?.error || 'fetch_failed',
+      error_message: data.error,
     };
   }
 
-  const rows = normalizeTimesWorker(course, data, holes);
+  // ForeUp sometimes returns literal JSON `false` for empty/unavailable — not an error.
+  if (data == null) {
+    return {
+      status: 'failed',
+      slots_written: 0,
+      events_written: 0,
+      latency_ms: Date.now() - started,
+      error_message: 'fetch_failed',
+    };
+  }
+
+  const rows =
+    data === false ? [] : normalizeTimesWorker(course, data, holes);
   const { slotsWritten, eventsWritten } = await applyPollDiff(env, {
     course,
     play_date,
