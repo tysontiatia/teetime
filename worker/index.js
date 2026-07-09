@@ -1,11 +1,19 @@
 import { handleAvailabilityPoll } from './availabilityPoll.js';
+import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses } from './courseAdmin.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
   'Access-Control-Allow-Headers': '*',
   'Content-Type': 'application/json',
 };
+
+const courseAdmin = createCourseAdminHandlers({
+  invalidateCoursesCache: () => {
+    coursesCache = null;
+    coursesCacheAt = 0;
+  },
+});
 
 const IMAGE_CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -357,14 +365,32 @@ async function handleChronogolfSlc(params) {
 // ── Supabase + Resend config (set via wrangler secrets) ──────────────
 // env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, env.RESEND_API_KEY
 
-// ── Courses list (embedded at build, or fetched) ─────────────────────
+// ── Courses list (registry in Supabase, else static JSON) ─────────────
 let coursesCache = null;
+let coursesCacheAt = 0;
+const COURSES_CACHE_MS = 60_000;
 
 async function loadCourses(env) {
-  if (coursesCache) return coursesCache;
-  // Fetch from the Pages site so we have one source of truth
+  if (coursesCache && Date.now() - coursesCacheAt < COURSES_CACHE_MS) {
+    return coursesCache;
+  }
+
+  if (env.SUPABASE_SERVICE_KEY) {
+    try {
+      const rows = await fetchRegistryCourses(env);
+      if (rows.length > 0) {
+        coursesCache = registryRowsToCourses(rows);
+        coursesCacheAt = Date.now();
+        return coursesCache;
+      }
+    } catch {
+      // fall through to static JSON
+    }
+  }
+
   const res = await fetch('https://tee-time.io/courses.json');
   coursesCache = await res.json();
+  coursesCacheAt = Date.now();
   return coursesCache;
 }
 
@@ -1035,6 +1061,16 @@ export default {
         return corsResponse({ error: 'method_not_allowed' }, 405);
       }
       return handlePhoneVerifyCheck(request, env);
+    }
+
+    if (path === '/v1/courses' && request.method === 'GET') {
+      return courseAdmin.handlePublicCourses(env);
+    }
+
+    if (path.startsWith('/admin/')) {
+      const adminRes = await courseAdmin.handleAdminRequest(request, env, path);
+      if (adminRes) return adminRes;
+      return corsResponse({ error: 'not_found' }, 404);
     }
 
     if (request.method !== 'GET') {

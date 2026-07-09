@@ -11,6 +11,8 @@
     "export:catalog-csv": "node scripts/export-course-catalog-csv.mjs",
     "import:catalog-csv": "node scripts/import-course-catalog-csv.mjs",
     "catalog:sql": "node scripts/import-course-catalog-csv.mjs --sql --out data/catalog-upsert.sql",
-    "rates:sql": "node scripts/sheet-rates-to-sql.mjs"
+    "rates:sql": "node scripts/sheet-rates-to-sql.mjs",
+    "registry:backfill": "node scripts/backfill-course-registry.mjs",
+    "registry:sync": "node scripts/sync-courses-from-registry.mjs"
   }
 }

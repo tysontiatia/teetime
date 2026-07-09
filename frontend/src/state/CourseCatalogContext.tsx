@@ -23,7 +23,8 @@ function coursesJsonUrl(): string {
   if (import.meta.env.DEV) {
     return '/courses.json';
   }
-  return `${window.location.origin}/courses.json`;
+  const worker = import.meta.env.VITE_WORKER_URL || 'https://utah-tee-times.tysontiatia.workers.dev';
+  return `${String(worker).replace(/\/$/, '')}/v1/courses`;
 }
 
 export function CourseCatalogProvider({ children }: { children: React.ReactNode }) {
@@ -36,10 +37,18 @@ export function CourseCatalogProvider({ children }: { children: React.ReactNode 
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(coursesJsonUrl(), { credentials: 'omit' });
-      if (!res.ok) throw new Error(`courses.json HTTP ${res.status}`);
-      const data = (await res.json()) as CourseRecord[];
-      if (!Array.isArray(data)) throw new Error('Invalid courses.json');
+      const url = coursesJsonUrl();
+      const res = await fetch(url, { credentials: 'omit' });
+      if (!res.ok) throw new Error(`courses HTTP ${res.status}`);
+      let data = (await res.json()) as CourseRecord[];
+      if (!Array.isArray(data) || data.length === 0) {
+        const fallback = await fetch(
+          import.meta.env.DEV ? '/courses.json' : `${window.location.origin}/courses.json`,
+          { credentials: 'omit' },
+        );
+        if (fallback.ok) data = (await fallback.json()) as CourseRecord[];
+      }
+      if (!Array.isArray(data)) throw new Error('Invalid courses payload');
       setRecords(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load courses');
