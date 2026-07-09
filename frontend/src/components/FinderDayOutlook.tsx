@@ -15,7 +15,7 @@ export function FinderDayOutlook({ dateYmd }: { dateYmd: string }) {
           if (cancelled) return;
           const rain = o.maxPrecipProb > 0 ? ` · up to ${Math.round(o.maxPrecipProb)}% rain` : '';
           setText(
-            `Wasatch area (${formatDateShort(dateYmd)}): high ${Math.round(o.highF)}° / low ${Math.round(o.lowF)}° · wind to ${Math.round(o.maxWindMph)} mph${rain}`
+            `Wasatch · high ${Math.round(o.highF)}° / low ${Math.round(o.lowF)}° · wind to ${Math.round(o.maxWindMph)} mph${rain}`
           );
         } catch {
           if (!cancelled) setText(null);
@@ -39,16 +39,7 @@ export function FinderDayOutlook({ dateYmd }: { dateYmd: string }) {
   if (!text) return null;
 
   return (
-    <div
-      style={{
-        marginTop: 10,
-        paddingTop: 10,
-        borderTop: '1px solid rgba(26,46,26,0.08)',
-        fontSize: 13,
-        color: 'var(--muted)',
-        lineHeight: 1.45,
-      }}
-    >
+    <div className="day-outlook" aria-label={`Weather for ${formatDateShort(dateYmd)}`}>
       {text}
     </div>
   );

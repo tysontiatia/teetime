@@ -9,7 +9,7 @@ SUPABASE_URL = "https://nmwlebcvezybfwertlzs.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg"
 
 # Secrets (set via `wrangler secret put`):
-#   GOOGLE_PLACES_KEY   (Places Photo API — /place-photo proxy for course card images)
+#   GOOGLE_PLACES_KEY   (Places Photo + Details — /place-photo, /place-reviews)
 #   SUPABASE_SERVICE_KEY
 #   RESEND_API_KEY
 #   TWILIO_ACCOUNT_SID

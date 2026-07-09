@@ -229,6 +229,7 @@ export type CourseTimesUpdate = {
   slug: string;
   times: TeeTime[];
   ok: boolean;
+  source?: 'snapshot' | 'live';
 };
 
 export async function fetchTimesForCourseSlugs(
@@ -249,10 +250,10 @@ export async function fetchTimesForCourseSlugs(
       if (i >= entries.length) break;
       const { slug, record } = entries[i];
       try {
-        const { times, ok } = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
+        const { times, ok, source } = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
         out.set(slug, times);
         if (!ok) failedSlugs.push(slug);
-        onCourseComplete?.({ slug, times, ok });
+        onCourseComplete?.({ slug, times, ok, source });
       } catch {
         out.set(slug, []);
         failedSlugs.push(slug);

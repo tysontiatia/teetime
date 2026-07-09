@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
-import { LaunchDarklyFlagBanner } from './LaunchDarklyFlagBanner';
-
+import { useTheme } from '../state/ThemeContext';
 const MOBILE_MQ = '(max-width: 720px)';
 
 function useIsMobile() {
@@ -67,6 +66,42 @@ function FlagMark() {
         />
       </svg>
     </span>
+  );
+}
+
+function ThemeToggle() {
+  const { resolved, toggleTheme } = useTheme();
+  const label = resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={toggleTheme}
+      aria-label={label}
+      title={label}
+    >
+      {resolved === 'dark' ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M12 3a9 9 0 109 9c0-5-4-9-9-9z"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.9" />
+          <path
+            d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.1 5.1l1.6 1.6M17.3 17.3l1.6 1.6M18.9 5.1l-1.6 1.6M6.7 17.3l-1.6 1.6"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+    </button>
   );
 }
 
@@ -213,7 +248,6 @@ export function AppShell() {
 
   return (
     <div>
-      <LaunchDarklyFlagBanner />
       <header className="app-header">
         <div className="container app-header-inner">
           <Link to="/" className="app-header-logo">
@@ -224,9 +258,6 @@ export function AppShell() {
           </Link>
 
           <nav className="app-header-nav-desktop" aria-label="Main">
-            <NavLink to="/" end className={navLinkClass}>
-              Tee times
-            </NavLink>
             <NavLink to="/plan" className={navLinkClass}>
               Shared rounds
             </NavLink>
@@ -235,11 +266,13 @@ export function AppShell() {
                 Account
               </NavLink>
             )}
+            <ThemeToggle />
             {authDesktop}
           </nav>
 
           {isMobile && (
             <div className="app-header-mobile-trailing">
+              <ThemeToggle />
               {!loading && user && <AvatarChip avatar={avatar} initial={initial} />}
               <button
                 type="button"
@@ -279,9 +312,6 @@ export function AppShell() {
             onClick={(e) => e.stopPropagation()}
             onTransitionEnd={onDrawerTransitionEnd}
           >
-            <NavLink to="/" end className={drawerLinkClass} onClick={() => setMenuOpen(false)}>
-              Tee times
-            </NavLink>
             <NavLink to="/plan" className={drawerLinkClass} onClick={() => setMenuOpen(false)}>
               Shared rounds
             </NavLink>

@@ -500,6 +500,121 @@ async function handlePlacePhoto(params, env) {
   });
 }
 
+const PLACE_REVIEWS_CACHE_MS = 6 * 60 * 60 * 1000;
+const placeReviewsCache = new Map();
+
+function stripReviewHtml(text) {
+  return String(text || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+/**
+ * Newest Google reviews for a course (Places Details, max 5).
+ * Resolves place_id via Text Search when not provided.
+ */
+async function handlePlaceReviews(params, env) {
+  if (!env.GOOGLE_PLACES_KEY) {
+    return corsResponse({ error: 'places_unconfigured' }, 503);
+  }
+
+  const name = String(params.name || '').trim().slice(0, 200);
+  const lat = Number(params.lat);
+  const lng = Number(params.lng);
+  let placeId = String(params.place_id || '').trim();
+  if (placeId && !/^[\w-]+$/.test(placeId)) {
+    return corsResponse({ error: 'invalid_place_id' }, 400);
+  }
+
+  if (!placeId && !name) {
+    return corsResponse({ error: 'missing_name' }, 400);
+  }
+
+  const cacheKey = placeId
+    ? `id:${placeId}`
+    : `q:${name}|${Number.isFinite(lat) ? lat.toFixed(4) : ''}|${Number.isFinite(lng) ? lng.toFixed(4) : ''}`;
+  const cached = placeReviewsCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < PLACE_REVIEWS_CACHE_MS) {
+    return new Response(JSON.stringify(cached.body), {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        'Cache-Control': 'public, max-age=3600, s-maxage=21600',
+      },
+    });
+  }
+
+  try {
+    if (!placeId) {
+      let searchUrl =
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(`${name} golf course`)}` +
+        `&key=${env.GOOGLE_PLACES_KEY}`;
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        searchUrl += `&location=${lat},${lng}&radius=8000`;
+      }
+      const searchRes = await fetchWithTimeout(searchUrl, {}, 8000);
+      const searchData = await searchRes.json();
+      if (searchData.status !== 'OK' || !searchData.results?.[0]?.place_id) {
+        return corsResponse({ error: 'not_found', reviews: [] }, 404);
+      }
+      placeId = searchData.results[0].place_id;
+    }
+
+    const detailsUrl =
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}` +
+      `&fields=name,rating,user_ratings_total,url,reviews` +
+      `&reviews_sort=newest&key=${env.GOOGLE_PLACES_KEY}`;
+    const detailsRes = await fetchWithTimeout(detailsUrl, {}, 8000);
+    const detailsData = await detailsRes.json();
+    if (detailsData.status !== 'OK' || !detailsData.result) {
+      return corsResponse({ error: 'details_failed', status: detailsData.status || 'UNKNOWN' }, 502);
+    }
+
+    const result = detailsData.result;
+    const reviews = (result.reviews || [])
+      .map((r) => ({
+        author: r.author_name || 'Google user',
+        authorUrl: r.author_url || null,
+        profilePhotoUrl: r.profile_photo_url || null,
+        rating: typeof r.rating === 'number' ? r.rating : null,
+        relativeTime: r.relative_time_description || null,
+        time: typeof r.time === 'number' ? r.time : null,
+        text: stripReviewHtml(r.text),
+        language: r.language || null,
+      }))
+      .sort((a, b) => (b.time || 0) - (a.time || 0));
+
+    const body = {
+      placeId,
+      name: result.name || name || null,
+      rating: result.rating ?? null,
+      reviewCount: result.user_ratings_total ?? null,
+      mapsUrl: result.url || null,
+      sort: 'newest',
+      reviews,
+    };
+
+    placeReviewsCache.set(cacheKey, { at: Date.now(), body });
+    if (placeId) placeReviewsCache.set(`id:${placeId}`, { at: Date.now(), body });
+
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        'Cache-Control': 'public, max-age=3600, s-maxage=21600',
+      },
+    });
+  } catch (err) {
+    if (err?.message === 'timeout') return corsResponse({ error: 'timeout' }, 504);
+    return corsResponse({ error: 'upstream_error' }, 502);
+  }
+}
+
 function formatTime12h(timeStr) {
   const match = timeStr.match(/(\d{1,2}):(\d{2})/);
   if (!match) return timeStr;
@@ -1117,6 +1232,10 @@ export default {
 
     if (path === '/place-photo') {
       return handlePlacePhoto(params, env);
+    }
+
+    if (path === '/place-reviews') {
+      return handlePlaceReviews(params, env);
     }
 
     return corsResponse({ error: 'not_found' }, 404);
