@@ -108,6 +108,8 @@ function filterSlotsForPlayers(slots, players) {
   return slots.filter((slot) => {
     if (!slot.play_starts_at) return false;
     if (new Date(slot.play_starts_at).getTime() <= nowMs) return false;
+    // Without spot counts we cannot honor multi-player searches (chronogolf_slc legacy rows).
+    if (players > 1 && slot.spots_open == null) return false;
     if (slot.spots_open != null && slot.spots_open < players) return false;
     return true;
   });

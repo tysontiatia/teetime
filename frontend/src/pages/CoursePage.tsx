@@ -143,7 +143,10 @@ export function CoursePage() {
   const times = useMemo(() => {
     const list = rawTimes
       .filter((t) => matchesPreset(t.startsAt, tod))
-      .filter((t) => t.spots == null || t.spots >= players)
+      .filter((t) => {
+        if (players === 1) return true;
+        return t.spots != null && t.spots >= players;
+      })
       .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
     if (sort === 'price') {

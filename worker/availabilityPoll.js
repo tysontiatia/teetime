@@ -552,23 +552,58 @@ async function applyPollDiff(env, {
 
 // ── Single (course, date) poll ──────────────────────────────────────
 
+/** Chronogolf SLC filters capacity via affiliation_type_ids[] count — infer spots with 4→1 passes. */
+async function pollNormalizedRows(course, play_date, holes, fetchTimesForCourse, normalizeTimesWorker) {
+  if (course.platform !== 'chronogolf_slc') {
+    const data = await fetchTimesForCourse(course, play_date, holes, '1');
+    if (data && typeof data === 'object' && data.error) return { rows: null, error: data.error };
+    if (data == null) return { rows: null, error: 'fetch_failed' };
+    return { rows: data === false ? [] : normalizeTimesWorker(course, data, holes) };
+  }
+
+  const byTime = new Map();
+  const passes = await Promise.all(
+    [4, 3, 2, 1].map(async (players) => {
+      const data = await fetchTimesForCourse(course, play_date, holes, String(players));
+      if (!data || data === false || (typeof data === 'object' && data.error)) {
+        return { players, rows: [] };
+      }
+      return { players, rows: normalizeTimesWorker(course, data, holes) };
+    }),
+  );
+
+  for (const { players, rows } of passes) {
+    for (const row of rows) {
+      if (!row.rawTime || byTime.has(row.rawTime)) continue;
+      byTime.set(row.rawTime, { ...row, spots: players });
+    }
+  }
+
+  return { rows: Array.from(byTime.values()) };
+}
+
 async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesForCourse, normalizeTimesWorker) {
   const holes = String(canonicalHolesForPoll(course));
   const started = Date.now();
-  const data = await fetchTimesForCourse(course, play_date, holes, '1');
+  const { rows, error } = await pollNormalizedRows(
+    course,
+    play_date,
+    holes,
+    fetchTimesForCourse,
+    normalizeTimesWorker,
+  );
 
-  if (data && typeof data === 'object' && data.error) {
+  if (error) {
     return {
       status: 'failed',
       slots_written: 0,
       events_written: 0,
       latency_ms: Date.now() - started,
-      error_message: data.error,
+      error_message: error,
     };
   }
 
-  // ForeUp sometimes returns literal JSON `false` for empty/unavailable — not an error.
-  if (data == null) {
+  if (rows == null) {
     return {
       status: 'failed',
       slots_written: 0,
@@ -578,8 +613,6 @@ async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesFor
     };
   }
 
-  const rows =
-    data === false ? [] : normalizeTimesWorker(course, data, holes);
   const { slotsWritten, eventsWritten, diffMeta } = await applyPollDiff(env, {
     course,
     play_date,

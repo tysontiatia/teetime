@@ -162,7 +162,8 @@ export function FinderPage() {
     for (const [courseId, list] of rawTimesByCourse) {
       const filtered = list.filter(
         (t) =>
-          matchesPreset(t.startsAt, params.timeOfDay) && (t.spots == null || t.spots >= params.players)
+          matchesPreset(t.startsAt, params.timeOfDay) &&
+          (params.players === 1 || (t.spots != null && t.spots >= params.players))
       );
       filtered.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
       map.set(courseId, filtered);

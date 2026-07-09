@@ -169,6 +169,14 @@ async function fetchTeeTimesLive(
   }
 }
 
+function snapshotHasPlayerSpotData(
+  times: NonNullable<SnapshotAvailabilityResponse['times']>,
+  players: 1 | 2 | 3 | 4,
+): boolean {
+  if (players === 1) return true;
+  return times.every((row) => row.spots != null);
+}
+
 export async function fetchTeeTimesForCourse(
   course: CourseRecord,
   courseSlug: string,
@@ -178,7 +186,12 @@ export async function fetchTeeTimesForCourse(
 ): Promise<TeeTimeFetchResult> {
   if (course.platform && workerSupportedPlatform(course.platform)) {
     const snapshot = await fetchTeeTimesFromSnapshot(courseSlug, dateYmd, holes, players);
-    if (snapshot?.ok && snapshot.has_poll_coverage && Array.isArray(snapshot.times)) {
+    if (
+      snapshot?.ok &&
+      snapshot.has_poll_coverage &&
+      Array.isArray(snapshot.times) &&
+      snapshotHasPlayerSpotData(snapshot.times, players)
+    ) {
       return {
         times: snapshotToTeeTimes(courseSlug, dateYmd, snapshot.times),
         ok: true,
