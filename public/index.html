@@ -835,30 +835,35 @@
         padding-left: max(20px, env(safe-area-inset-left, 0px));
         padding-right: max(20px, env(safe-area-inset-right, 0px));
       }
-      .hero-visual { padding-left: 18px; padding-right: 18px; padding-bottom: 44px; min-height: min(88vh, 820px); }
+      .nav-actions { gap: 8px; }
+      .nav-cta, .nav-open-app { padding: 8px 12px; font-size: 0.8rem; }
+      .hero-visual { padding-left: 16px; padding-right: 16px; padding-bottom: 40px; min-height: min(88vh, 820px); }
+      .hero-visual-inner { width: 100%; max-width: 100%; }
       .hero-visual-title--fpb { gap: 0.06em 0.22em; }
       .hero-fpb-strip {
         grid-template-columns: 1fr;
         max-width: 360px;
+        width: 100%;
         margin-left: auto;
         margin-right: auto;
         margin-bottom: 18px;
       }
-      .hero-search { grid-template-columns: 1fr; }
+      .hero-search { grid-template-columns: 1fr; width: 100%; }
       .hero-search-submit { width: 100%; }
-      .section, .access-section { padding-left: 20px; padding-right: 20px; }
+      .hero-cta-row { flex-wrap: wrap; justify-content: center; width: 100%; }
+      .section, .access-section { padding-left: 16px; padding-right: 16px; }
       .steps { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: 1fr; }
-      .access-card { padding: 32px 22px; grid-template-columns: 1fr; gap: 32px; }
-      .access-section { padding: 48px 20px 40px; }
+      .access-card { padding: 28px 18px; grid-template-columns: 1fr; gap: 28px; }
+      .access-section { padding: 48px 16px 40px; }
       .stats { grid-template-columns: 1fr; }
       .stats.stats-cards { grid-template-columns: 1fr; }
-      .tail-inner { padding-left: 20px; padding-right: 20px; padding-top: 44px; }
+      .tail-inner { padding-left: 16px; padding-right: 16px; padding-top: 44px; }
       .pre-access { flex-direction: column; align-items: stretch; text-align: center; }
       .pre-access-text { max-width: none; }
       .pre-access-actions { justify-content: center; width: 100%; }
       .pre-access-btn { flex: 1; min-width: 0; justify-content: center; }
-      footer { flex-direction: column; gap: 10px; text-align: center; align-items: center; }
+      footer { flex-direction: column; gap: 10px; text-align: center; align-items: center; padding-left: 16px; padding-right: 16px; }
       .footer-main { align-items: center; }
       .footer-nav { justify-content: center; }
       .footer-tagline { text-align: center; max-width: 320px; }
@@ -866,6 +871,7 @@
       .compare-card { grid-template-columns: 1fr; }
       .compare-divider { width: auto; height: 36px; border-left: none; border-right: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
       .diff-grid { grid-template-columns: 1fr; }
+      .lead-after-hero { padding-left: 16px; padding-right: 16px; }
     }
   </style>
 </head>
