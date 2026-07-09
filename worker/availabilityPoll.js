@@ -30,6 +30,17 @@ const SUPPORTED_PLATFORMS = new Set([
   'membersports',
 ]);
 
+/**
+ * Phantom-churn guards (3b): suppress false closed/reopened on flaky vendor sheets.
+ * • Partial-fetch: if this poll returns far fewer rows than open inventory, skip ALL
+ *   closes for the tick (incomplete API response — not proof slots were booked).
+ * • Close debounce: only close after a slot has been missing longer than this window
+ *   since last_seen_at (~2 effective poll cycles at today's batch cadence).
+ */
+const MIN_OPEN_SLOTS_FOR_PARTIAL_GUARD = 5;
+const PARTIAL_FETCH_MIN_RATIO = 0.65;
+const CLOSE_DEBOUNCE_MS = 70 * 60 * 1000; // ~2 effective poll cycles at batch cadence
+
 // ── Mountain Time helpers ───────────────────────────────────────────
 
 function mtParts(date = new Date()) {
@@ -367,6 +378,7 @@ async function applyPollDiff(env, {
   poll_run_id,
 }) {
   const now = new Date().toISOString();
+  const nowMs = Date.now();
   const existing = await loadExistingSlots(env, course.slug, play_date);
   const byKey = new Map();
   for (const slot of existing) {
@@ -468,10 +480,38 @@ async function applyPollDiff(env, {
     }
   }
 
+  const openSlots = existing.filter((s) => s.status === 'open');
+  const partialFetch =
+    openSlots.length >= MIN_OPEN_SLOTS_FOR_PARTIAL_GUARD &&
+    seen.size < openSlots.length * PARTIAL_FETCH_MIN_RATIO;
+
+  if (partialFetch) {
+    console.warn(
+      `[poll] partial-fetch guard: ${course.slug} ${play_date} ` +
+        `seen=${seen.size} open=${openSlots.length} — skipping closes`,
+    );
+  }
+
+  let closesSkippedDebounce = 0;
+  let closesSkippedPartial = 0;
+
   for (const slot of existing) {
     const local = normalizeLocalTime(slot.starts_at_local);
     const key = slotKey(local, slot.holes);
     if (seen.has(key) || slot.status === 'closed') continue;
+
+    if (partialFetch) {
+      closesSkippedPartial++;
+      await patchSlot(env, slot.id, { last_polled_at: now });
+      continue;
+    }
+
+    const lastSeenMs = slot.last_seen_at ? Date.parse(slot.last_seen_at) : 0;
+    if (lastSeenMs && nowMs - lastSeenMs < CLOSE_DEBOUNCE_MS) {
+      closesSkippedDebounce++;
+      await patchSlot(env, slot.id, { last_polled_at: now });
+      continue;
+    }
 
     await patchSlot(env, slot.id, {
       status: 'closed',
@@ -492,7 +532,22 @@ async function applyPollDiff(env, {
     })) eventsWritten++;
   }
 
-  return { slotsWritten, eventsWritten };
+  if (closesSkippedDebounce > 0) {
+    console.warn(
+      `[poll] close debounce: ${course.slug} ${play_date} ` +
+        `skipped ${closesSkippedDebounce} close(s) (<${CLOSE_DEBOUNCE_MS / 60000}m since last_seen)`,
+    );
+  }
+
+  return {
+    slotsWritten,
+    eventsWritten,
+    diffMeta: {
+      partialFetch,
+      closesSkippedDebounce,
+      closesSkippedPartial,
+    },
+  };
 }
 
 // ── Single (course, date) poll ──────────────────────────────────────
@@ -525,19 +580,28 @@ async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesFor
 
   const rows =
     data === false ? [] : normalizeTimesWorker(course, data, holes);
-  const { slotsWritten, eventsWritten } = await applyPollDiff(env, {
+  const { slotsWritten, eventsWritten, diffMeta } = await applyPollDiff(env, {
     course,
     play_date,
     normalizedRows: rows,
     poll_run_id,
   });
 
+  const partialGuard =
+    diffMeta?.partialFetch ||
+    (diffMeta?.closesSkippedDebounce ?? 0) > 0 ||
+    (diffMeta?.closesSkippedPartial ?? 0) > 0;
+
   return {
     status: 'ok',
     slots_written: slotsWritten,
     events_written: eventsWritten,
     latency_ms: Date.now() - started,
-    error_message: null,
+    error_message: partialGuard
+      ? `churn_guard:partial=${diffMeta?.partialFetch ?? false},` +
+        `debounce_skipped=${diffMeta?.closesSkippedDebounce ?? 0},` +
+        `partial_skipped=${diffMeta?.closesSkippedPartial ?? 0}`
+      : null,
   };
 }
 
