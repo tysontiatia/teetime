@@ -467,7 +467,7 @@ export function FinderPage() {
           <span className="result-count">
             <strong>{resultCountLabel}</strong>
             {updatedLabel !== '—' ? ` · ${updatedLabel}` : ''}
-            {` · ${formatDateShort(params.date)}`}
+            <span className="result-count-date">{` · ${formatDateShort(params.date)}`}</span>
           </span>
           <FinderDayOutlook dateYmd={params.date} />
         </div>

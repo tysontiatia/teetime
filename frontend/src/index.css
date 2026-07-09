@@ -403,7 +403,9 @@ html[data-theme='dark'] .modal-msg.err{
   justify-content: space-between;
   gap: 24px;
   height: 72px;
-  padding: 0;
+  /* Keep .container horizontal padding — do not zero it out. */
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .app-header-logo{
   display: flex;
@@ -633,6 +635,7 @@ html[data-theme='dark'] .modal-msg.err{
 .filter-row{
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -643,6 +646,8 @@ html[data-theme='dark'] .modal-msg.err{
   width: 100%;
   flex: 1 1 auto;
   overscroll-behavior-x: contain;
+  /* Room so the last chip isn’t flush against the edge when scrolled */
+  padding-right: 4px;
 }
 .filter-row::-webkit-scrollbar{ display: none; }
 .filter-toolbar{
@@ -742,6 +747,7 @@ html[data-theme='dark'] .modal-msg.err{
 .filter-spacer{ flex: 1; min-width: 8px; }
 .result-count{ font-size: 13px; color: var(--ink-3); white-space: nowrap; }
 .result-count strong{ color: var(--ink); font-weight: 600; }
+.result-count-date{ white-space: nowrap; }
 
 .sp-mobile-sheet{ display: none; }
 .sp-desktop-only{ display: flex; }
@@ -1743,6 +1749,7 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
   .app-header-mobile-trailing{ display: flex; }
   .app-header-nav-desktop{ display: none; }
   .app-header-logo{ font-size: 17px; }
+  .app-header-logo-flag{ width: 24px; height: 24px; border-radius: 7px; }
 
   .search-zone{ padding: 18px 0 4px; }
   .sp-desktop-only{ display: none !important; }
@@ -1790,9 +1797,14 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
   .filter-row{
     width: 100%;
     max-width: 100%;
-    flex-wrap: wrap;
-    overflow-x: visible;
-    padding-bottom: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 2px;
+    /* Soft edge hint that more chips scroll */
+    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 20px), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 20px), transparent 100%);
   }
   .filter-controls{
     width: 100%;
@@ -1804,6 +1816,8 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
   .sort-control select{ width: 100%; max-width: 100%; }
   .result-meta{ flex-direction: column; align-items: flex-start; gap: 6px; }
   .result-count{ white-space: normal; }
+  /* Date already shown in WHEN — drop redundant “Tue, Jul 14” on mobile */
+  .result-count-date{ display: none; }
 
   .mp-grid{ grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .mp-course{ min-width: 0; max-width: 100%; }
