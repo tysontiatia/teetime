@@ -32,6 +32,16 @@ export type CourseRecord = {
   booking_opens_time?: string;
   timezone?: string;
   holes?: 9 | 18;
+  par?: number;
+  yardage?: number;
+  walkability?: 'flat' | 'moderate' | 'hilly' | 'carts only';
+  rate_notes?: string;
+  twilight_discount?: boolean;
+  rates_updated_at?: string;
+  cancellation_policy?: string;
+  editorial_note?: string;
+  signature_hole?: string;
+  history_blurb?: string;
   /** Course marketing site (distinct from platform booking_url). */
   website?: string;
   phone_number?: string;

@@ -15,6 +15,13 @@ import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsA
 import { copyTextToClipboard } from '../lib/clipboard';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import { absoluteRoundUrl } from '../lib/shareUrl';
+import { CourseDetailPanel } from '../components/CourseDetailPanel';
+import {
+  fetchCourseCatalogMeta,
+  fetchCourseRatesExpanded,
+  type CourseCatalogMeta,
+  type CourseRatesExpanded,
+} from '../lib/courseCatalogApi';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -66,6 +73,36 @@ export function CoursePage() {
   const [shareErr, setShareErr] = useState<string | null>(null);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
   const closeSignInToShare = useCallback(() => setSignInToShareOpen(false), []);
+  const [ratesExpanded, setRatesExpanded] = useState<CourseRatesExpanded | null>(null);
+  const [catalogMeta, setCatalogMeta] = useState<CourseCatalogMeta | null>(null);
+  const [catalogDetailLoading, setCatalogDetailLoading] = useState(false);
+
+  useEffect(() => {
+    if (!courseId) {
+      setRatesExpanded(null);
+      setCatalogMeta(null);
+      return;
+    }
+    let cancelled = false;
+    setCatalogDetailLoading(true);
+    void (async () => {
+      try {
+        const [rates, meta] = await Promise.all([
+          fetchCourseRatesExpanded(courseId),
+          fetchCourseCatalogMeta(courseId),
+        ]);
+        if (!cancelled) {
+          setRatesExpanded(rates);
+          setCatalogMeta(meta);
+        }
+      } finally {
+        if (!cancelled) setCatalogDetailLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
 
   useEffect(() => {
     if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
@@ -358,16 +395,12 @@ export function CoursePage() {
           </div>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Shared rounds</div>
-          <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6 }}>
-            <li>
-              <strong>Share times</strong> — {user ? 'one click' : 'sign in, then one click'}; every filtered tee time goes into the vote link.
-            </li>
-            <li>Check the weather strip above for conditions that day.</li>
-            <li>Everyone opens the same link to vote; you book when the group agrees.</li>
-          </ul>
-        </div>
+        <CourseDetailPanel
+          record={record}
+          rates={ratesExpanded}
+          catalogMeta={catalogMeta}
+          ratesLoading={catalogDetailLoading}
+        />
       </div>
 
       <SignInToShareModal open={signInToShareOpen} onClose={closeSignInToShare} />
