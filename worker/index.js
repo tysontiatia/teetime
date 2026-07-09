@@ -708,30 +708,30 @@ function parseForeUpIds(url, scheduleFromRecord) {
   return { facilityId: null, scheduleId: scheduleFromRecord || null, host };
 }
 
-function ensureForeUpDateOnTeeSheet(url, date, holes, players) {
-  let out = String(url || '').trim();
+function ensureForeUpDateOnTeeSheet(url, date, holes, players, scheduleId, bookingClassId) {
+  const beforeHash = String(url || '').trim().replace(/#.*$/, '').replace(/\/$/, '');
   const dateUs = foreupDateUs(date);
   const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
   const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
 
-  if (!/#\/?teetimes/i.test(out)) {
-    out = out.replace(/#.*$/, '').replace(/\/$/, '');
-    out = `${out}#/teetimes`;
-  } else {
-    out = out.replace(/#\/?teetimes.*/i, '#/teetimes');
-  }
-
-  const hashIdx = out.indexOf('#');
-  const before = hashIdx >= 0 ? out.slice(0, hashIdx) : out;
   try {
-    const u = new URL(before);
+    const u = new URL(beforeHash);
     u.searchParams.set('date', dateUs);
     u.searchParams.set('players', playersStr);
     u.searchParams.set('holes', holesStr);
-    return `${u.toString().replace(/\/$/, '')}#/teetimes?date=${encodeURIComponent(dateUs)}`;
+    if (scheduleId) u.searchParams.set('schedule_id', String(scheduleId));
+    if (bookingClassId) u.searchParams.set('booking_class_id', String(bookingClassId));
+    return `${u.toString().replace(/\/$/, '')}#/teetimes`;
   } catch {
-    const sep = before.includes('?') ? '&' : '?';
-    return `${before}${sep}date=${dateUs}&players=${playersStr}&holes=${holesStr}#/teetimes?date=${encodeURIComponent(dateUs)}`;
+    const q = new URLSearchParams({
+      date: dateUs,
+      players: playersStr,
+      holes: holesStr,
+    });
+    if (scheduleId) q.set('schedule_id', String(scheduleId));
+    if (bookingClassId) q.set('booking_class_id', String(bookingClassId));
+    const sep = beforeHash.includes('?') ? '&' : '?';
+    return `${beforeHash}${sep}${q.toString()}#/teetimes`;
   }
 }
 
@@ -739,15 +739,20 @@ function buildForeUpTeeSheetUrl(course, date, holes, players) {
   const bookingUrl = String(course.booking_url || '').trim();
   const templateOverride = String(course.booking_url_template || '').trim();
   const scheduleId = course.schedule_id != null ? String(course.schedule_id).trim() : '';
+  const bookingClassId = course.booking_class_id != null ? String(course.booking_class_id).trim() : '';
   const parseFrom = templateOverride || bookingUrl;
   const ids = parseForeUpIds(parseFrom, scheduleId || null);
+  const resolvedSchedule = ids.scheduleId || scheduleId || null;
+  const resolvedClass = bookingClassId || null;
 
-  if (ids.facilityId && ids.scheduleId) {
+  if (ids.facilityId && resolvedSchedule) {
     return ensureForeUpDateOnTeeSheet(
-      `https://${ids.host}/index.php/booking/${ids.facilityId}/${ids.scheduleId}#/teetimes`,
+      `https://${ids.host}/index.php/booking/${ids.facilityId}/${resolvedSchedule}`,
       date,
       holes,
       players,
+      resolvedSchedule,
+      resolvedClass,
     );
   }
 
@@ -755,19 +760,21 @@ function buildForeUpTeeSheetUrl(course, date, holes, players) {
     let sheet = templateOverride.includes('{')
       ? applyBookingTemplate(templateOverride, date, holes, players)
       : templateOverride;
-    return ensureForeUpDateOnTeeSheet(sheet, date, holes, players);
+    return ensureForeUpDateOnTeeSheet(sheet, date, holes, players, resolvedSchedule, resolvedClass);
   }
 
   if (ids.facilityId) {
     return ensureForeUpDateOnTeeSheet(
-      `https://${ids.host}/index.php/booking/${ids.facilityId}#/teetimes`,
+      `https://${ids.host}/index.php/booking/${ids.facilityId}`,
       date,
       holes,
       players,
+      resolvedSchedule,
+      resolvedClass,
     );
   }
   if (bookingUrl && /foreupsoftware\.com/i.test(bookingUrl) && !/\/booking\/index\//i.test(bookingUrl)) {
-    return ensureForeUpDateOnTeeSheet(bookingUrl, date, holes, players);
+    return ensureForeUpDateOnTeeSheet(bookingUrl, date, holes, players, resolvedSchedule, resolvedClass);
   }
   return bookingUrl || null;
 }

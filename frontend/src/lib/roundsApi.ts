@@ -1,4 +1,5 @@
 import type { Course, Plan, TeeTime } from '../types';
+import type { CourseRecord } from './courseRecord';
 import { supabase } from './supabase';
 import { formatDateShort, formatTime12h } from './time';
 import { buildBookingUrl } from './bookingUrl';
@@ -62,9 +63,11 @@ export function planFromCourseVisibleTimes(
   teeTimes: TeeTime[],
   players: 1 | 2 | 3 | 4,
   maxSlots?: number,
+  record?: CourseRecord | null,
 ): Plan {
   const cap = maxSlots === undefined ? teeTimes.length : Math.min(teeTimes.length, Math.max(0, maxSlots));
   const slice = teeTimes.slice(0, cap);
+  const bookingSource = record ?? { bookingUrl: course.bookingUrl, platform: course.platform };
   return {
     id: crypto.randomUUID(),
     courseId: course.id,
@@ -78,10 +81,12 @@ export function planFromCourseVisibleTimes(
       price: t.price,
       spots: t.spots,
       bookingUrl:
-        buildBookingUrl(
-          { bookingUrl: course.bookingUrl, platform: course.platform },
-          { dateYmd, players, holes: t.holes, startsAtIso: t.startsAt },
-        ) ?? course.bookingUrl,
+        buildBookingUrl(bookingSource, {
+          dateYmd,
+          players,
+          holes: t.holes,
+          startsAtIso: t.startsAt,
+        }) ?? course.bookingUrl,
     })),
   };
 }
@@ -93,8 +98,10 @@ export async function publishRoundFromPlan(params: {
   organizerId: string;
   /** Shown on the round page (“Alex shared this vote”). Optional. */
   hostPublicName?: string | null;
+  /** Catalog rows — needed for ForeUp schedule/class deep links. */
+  recordsBySlug?: Map<string, CourseRecord>;
 }): Promise<{ slug: string; roundId: string } | { error: string }> {
-  const { plan, coursesById, organizerId, hostPublicName } = params;
+  const { plan, coursesById, organizerId, hostPublicName, recordsBySlug } = params;
   if (plan.options.length === 0) {
     return { error: 'Add at least one tee time from the finder or a course page.' };
   }
@@ -142,9 +149,13 @@ export async function publishRoundFromPlan(params: {
 
     const optRows = plan.options.map((o) => {
       const c = coursesById.get(o.courseId);
+      const record = recordsBySlug?.get(o.courseId);
       const enriched =
         buildBookingUrl(
-          { bookingUrl: o.bookingUrl ?? c?.bookingUrl, platform: c?.platform },
+          record ?? {
+            bookingUrl: o.bookingUrl ?? c?.bookingUrl,
+            platform: c?.platform,
+          },
           {
             dateYmd: plan.date,
             players: o.players,

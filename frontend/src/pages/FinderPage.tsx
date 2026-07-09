@@ -237,7 +237,14 @@ export function FinderPage() {
       }
       setShareBusyCourseId(course.id);
       setShareFinderErr(null);
-      const planPayload = planFromCourseVisibleTimes(course, params.date, courseTimes, params.players);
+      const planPayload = planFromCourseVisibleTimes(
+        course,
+        params.date,
+        courseTimes,
+        params.players,
+        undefined,
+        recordsBySlug.get(course.id),
+      );
       const host =
         (user?.user_metadata?.full_name as string | undefined) ||
         (user?.user_metadata?.name as string | undefined) ||
@@ -248,6 +255,7 @@ export function FinderPage() {
         coursesById,
         organizerId: uid,
         hostPublicName: host,
+        recordsBySlug,
       });
       setShareBusyCourseId(null);
       if ('error' in res) {
@@ -261,7 +269,7 @@ export function FinderPage() {
       }
       nav(`/round/${res.slug}`);
     },
-    [coursesById, nav, params.date, params.players, user],
+    [coursesById, nav, params.date, params.players, recordsBySlug, user],
   );
 
   const setParam = useCallback(
