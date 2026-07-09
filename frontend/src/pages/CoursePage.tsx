@@ -247,7 +247,7 @@ export function CoursePage() {
     }
     setShareBusy(true);
     setShareErr(null);
-    const planPayload = planFromCourseVisibleTimes(course, date, times, players);
+    const planPayload = planFromCourseVisibleTimes(course, date, times, players, undefined, record);
     const host =
       (user?.user_metadata?.full_name as string | undefined) ||
       (user?.user_metadata?.name as string | undefined) ||
@@ -258,6 +258,7 @@ export function CoursePage() {
       coursesById,
       organizerId: uid,
       hostPublicName: host,
+      recordsBySlug,
     });
     setShareBusy(false);
     if ('error' in res) {
