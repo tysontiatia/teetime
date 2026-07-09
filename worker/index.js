@@ -1,6 +1,6 @@
 import { handleAvailabilityPoll } from './availabilityPoll.js';
-import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses } from './courseAdmin.js';
-import { handleAvailabilityRequest } from './availabilityRead.js';
+import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
+import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest } from './availabilityRead.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -944,10 +944,23 @@ async function handleScheduled(env) {
     );
     const playersStr = String(maxPlayers);
 
-    const data = await fetchTimesForCourse(course, group.evalDate, '18', playersStr);
-    if (!data) continue;
+    const courseSlug = slugFromCourseName(course.name);
+    const snapshot = await fetchSnapshotNormalizedTimes(
+      env,
+      courseSlug,
+      group.evalDate,
+      '18',
+      maxPlayers,
+    );
 
-    const allTimes = normalizeTimesWorker(course, data, '18');
+    let allTimes;
+    if (snapshot.has_poll_coverage) {
+      allTimes = snapshot.times;
+    } else {
+      const data = await fetchTimesForCourse(course, group.evalDate, '18', playersStr);
+      if (!data) continue;
+      allTimes = normalizeTimesWorker(course, data, '18');
+    }
     if (!allTimes.length) continue;
 
     for (const item of group.items) {

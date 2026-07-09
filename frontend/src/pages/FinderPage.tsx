@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { matchesPreset, minutesSince, toYmd, formatTime12h } from '../lib/time';
+import { matchesPreset, minutesSince, toYmd, formatReopenedAgo, formatTime12h } from '../lib/time';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
 import {
   capabilityHint,
@@ -768,6 +768,20 @@ export function FinderPage() {
                             }}
                           >
                             <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
+                            {t.reopenedAt ? (
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 800,
+                                  color: '#15803d',
+                                  background: 'rgba(34,197,94,0.14)',
+                                  padding: '1px 5px',
+                                  borderRadius: 999,
+                                }}
+                              >
+                                {formatReopenedAgo(t.reopenedAt)}
+                              </div>
+                            ) : null}
                             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
                           </div>
                         ))}

@@ -39,6 +39,8 @@ export type TeeTime = {
   price?: number;
   spots?: number;
   holes: 9 | 18;
+  /** ISO timestamp when poller detected this slot reopened (snapshot path only). */
+  reopenedAt?: string;
 };
 
 export type SearchParams = {

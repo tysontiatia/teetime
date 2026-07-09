@@ -16,6 +16,7 @@ type SnapshotAvailabilityResponse = {
     price?: number;
     spots?: number;
     holes: 9 | 18;
+    reopenedAt?: string;
   }>;
 };
 
@@ -94,6 +95,7 @@ function snapshotToTeeTimes(
     price: row.price,
     spots: row.spots,
     holes: row.holes === 9 ? 9 : 18,
+    reopenedAt: row.reopenedAt,
   }));
   out.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   return excludePastTeeTimes(out);

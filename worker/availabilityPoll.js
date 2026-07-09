@@ -17,7 +17,7 @@ const GOLF_HOUR_END = 23;
  * effective cadence ≈ ceil(67 / CLAIM_BATCH_SIZE) × 5 min (~35 min today).
  * Raise batch size (or use Queues) before alerts v2 / reopened badges depend on hot latency.
  */
-const CLAIM_BATCH_SIZE = 10;
+const CLAIM_BATCH_SIZE = 20;
 
 const MS_HOT = 5 * 60 * 1000;
 const MS_WARM = 15 * 60 * 1000;

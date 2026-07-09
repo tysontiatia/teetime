@@ -65,6 +65,16 @@ export function minutesSince(ts: number | null) {
   return Math.max(0, Math.floor((Date.now() - ts) / 60000));
 }
 
+/** Human label for a slot that recently reopened (snapshot events). */
+export function formatReopenedAgo(iso: string) {
+  const mins = minutesSince(new Date(iso).getTime());
+  if (mins == null || mins < 1) return 'Just opened';
+  if (mins < 60) return `Opened ${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 6) return `Opened ${hrs}h ago`;
+  return 'Recently opened';
+}
+
 export function matchesPreset(startsAtIso: string, preset: TimeOfDayPreset) {
   if (preset === 'any') return true;
   const h = Number(

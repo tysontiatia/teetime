@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { formatDateShort, formatTime12h, matchesPreset, toYmd } from '../lib/time';
+import { formatDateShort, formatReopenedAgo, formatTime12h, matchesPreset, toYmd } from '../lib/time';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
@@ -373,6 +373,20 @@ export function CoursePage() {
                     }}
                   >
                     <div style={{ fontWeight: 950, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
+                    {t.reopenedAt ? (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: '#15803d',
+                          background: 'rgba(34,197,94,0.14)',
+                          padding: '2px 6px',
+                          borderRadius: 999,
+                        }}
+                      >
+                        {formatReopenedAgo(t.reopenedAt)}
+                      </div>
+                    ) : null}
                     <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
                     {typeof t.spots === 'number' && (
                       <div style={{ fontSize: 11, color: '#b45309', fontWeight: 900 }}>
