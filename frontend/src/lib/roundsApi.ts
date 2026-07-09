@@ -1,6 +1,7 @@
 import type { Course, Plan, TeeTime } from '../types';
 import { supabase } from './supabase';
 import { formatDateShort, formatTime12h } from './time';
+import { buildBookingUrl } from './bookingUrl';
 
 const SLUG_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -76,7 +77,11 @@ export function planFromCourseVisibleTimes(
       players,
       price: t.price,
       spots: t.spots,
-      bookingUrl: course.bookingUrl,
+      bookingUrl:
+        buildBookingUrl(
+          { bookingUrl: course.bookingUrl, platform: course.platform },
+          { dateYmd, players, holes: t.holes, startsAtIso: t.startsAt },
+        ) ?? course.bookingUrl,
     })),
   };
 }
@@ -137,6 +142,19 @@ export async function publishRoundFromPlan(params: {
 
     const optRows = plan.options.map((o) => {
       const c = coursesById.get(o.courseId);
+      const enriched =
+        buildBookingUrl(
+          { bookingUrl: o.bookingUrl ?? c?.bookingUrl, platform: c?.platform },
+          {
+            dateYmd: plan.date,
+            players: o.players,
+            holes: o.holes,
+            startsAtIso: o.startsAt,
+          },
+        ) ??
+        o.bookingUrl ??
+        c?.bookingUrl ??
+        null;
       return {
         round_id: roundRow.id,
         course_name: c?.catalogName ?? c?.name ?? o.courseId,
@@ -147,7 +165,7 @@ export async function publishRoundFromPlan(params: {
         holes: o.holes,
         players: o.players,
         price: typeof o.price === 'number' ? String(o.price) : null,
-        booking_url: o.bookingUrl ?? c?.bookingUrl ?? null,
+        booking_url: enriched,
       };
     });
 

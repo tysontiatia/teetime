@@ -560,6 +560,9 @@ export function FinderPage() {
                     outOfScope={outOfScope}
                     inventorySource={sourceBySlug.get(course.id)}
                     batchLoading={loadingTimes}
+                    dateYmd={params.date}
+                    players={params.players}
+                    holes={params.holes}
                     onAlert={() => setNotifCourseId(course.id)}
                     onSearchAllUtah={() => setFetchScope('all')}
                     onShare={() => void shareCourseRound(course, times)}
@@ -599,6 +602,9 @@ export function FinderPage() {
                       record={recordsBySlug.get(course.id)}
                       detailHref={`/course/${course.id}?${courseDetailQueryString(params)}`}
                       variant="comingSoon"
+                      dateYmd={params.date}
+                      players={params.players}
+                      holes={params.holes}
                       onAlert={() => setNotifCourseId(course.id)}
                     />
                   ))}

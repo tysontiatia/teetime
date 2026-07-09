@@ -667,12 +667,39 @@ async function fetchTimesForCourse(course, date, holes, players) {
 }
 
 // ── Build booking URL ────────────────────────────────────────────────
+function foreupDateUs(ymd) {
+  const [y, m, d] = String(ymd || '').split('-');
+  if (!y || !m || !d) return ymd;
+  return `${m}-${d}-${y}`;
+}
+
+function applyBookingTemplate(template, date, holes, players) {
+  const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
+  const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
+  return template
+    .replace(/\{date\}/g, date)
+    .replace(/\{date_us\}/g, foreupDateUs(date))
+    .replace(/\{players\}/g, playersStr)
+    .replace(/\{holes\}/g, holesStr)
+    .replace(/\{time\}/g, '');
+}
+
 function buildBookingUrlWorker(course, date, holes, players) {
   const base = course.booking_url;
   if (!base) return 'https://tee-time.io';
-  if (course.platform === 'foreup' && base.includes('foreupsoftware.com')) {
-    const [y, m, d] = date.split('-');
-    return `${base}?date=${m}-${d}-${y}&players=${players}&holes=${holes}`;
+
+  const templateOverride = String(course.booking_url_template || '').trim();
+  if (templateOverride) {
+    return templateOverride.includes('{')
+      ? applyBookingTemplate(templateOverride, date, holes, players)
+      : templateOverride;
+  }
+
+  if ((course.platform === 'foreup' || course.platform === 'foreup_login') && base.includes('foreupsoftware.com')) {
+    return `${base.replace(/\/$/, '')}?date=${foreupDateUs(date)}&players=${players}&holes=${holes}`;
+  }
+  if (course.platform === 'chronogolf' || course.platform === 'chronogolf_slc') {
+    return `${base.replace(/\/$/, '')}?date=${date}&players=${players}`;
   }
   return base;
 }

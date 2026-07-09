@@ -24,6 +24,7 @@ import {
   type CourseRatesExpanded,
 } from '../lib/courseCatalogApi';
 import { fetchPlaceReviews, type PlaceReview } from '../lib/placeReviews';
+import { buildBookingUrl } from '../lib/bookingUrl';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -272,14 +273,20 @@ export function CoursePage() {
   };
 
   const platformName = platformDisplayName(record?.platform);
-  const bookLabel = course.bookingUrl
+  const bookingHref = buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
+    dateYmd: date,
+    players,
+    holes,
+    startsAtIso: selected?.startsAt ?? null,
+  });
+  const bookLabel = bookingHref
     ? selected
       ? `Continue on ${platformName} →`
       : `Open ${platformName} →`
     : 'No booking link';
   const bookNote = selected
-    ? `Opens ${platformName} — pick ${formatTime12h(selected.startsAt)} there. No markup, ever.`
-    : 'Opens the course’s booking site. No markup, ever.';
+    ? `Opens ${platformName} with ${formatDateShort(date)} · ${players} · ${holes} holes — confirm ${formatTime12h(selected.startsAt)} there. No markup, ever.`
+    : 'Opens the course’s booking site with your date and party when supported. No markup, ever.';
 
   const heroMeta = [
     course.city || null,
@@ -510,8 +517,8 @@ export function CoursePage() {
             </>
           )}
 
-          {course.bookingUrl ? (
-            <a className="rail-cta" href={course.bookingUrl} target="_blank" rel="noreferrer">
+          {bookingHref ? (
+            <a className="rail-cta" href={bookingHref} target="_blank" rel="noreferrer">
               {bookLabel}
             </a>
           ) : (

@@ -20,6 +20,7 @@ import {
 } from '../lib/roundsApi';
 import { getOrCreateVoterKey } from '../lib/voterKey';
 import { formatDateShort, formatTime12h } from '../lib/time';
+import { buildBookingUrl } from '../lib/bookingUrl';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
@@ -57,7 +58,7 @@ function panelStyle(): CSSProperties {
 export function RoundPage() {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
-  const { courses } = useCourseCatalog();
+  const { courses, recordsBySlug } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
   const [loading, setLoading] = useState(true);
@@ -262,14 +263,27 @@ export function RoundPage() {
     const u = new Map<string, string>();
     for (const o of options) {
       const cid = o.course_id;
-      if (cid && o.booking_url) u.set(cid, o.booking_url);
-      else if (cid) {
-        const c = coursesById.get(cid);
-        if (c?.bookingUrl) u.set(cid, c.bookingUrl);
-      }
+      if (!cid) continue;
+      const c = coursesById.get(cid);
+      const record = recordsBySlug.get(cid);
+      const enriched = buildBookingUrl(
+        record ?? {
+          bookingUrl: o.booking_url ?? c?.bookingUrl ?? null,
+          platform: c?.platform ?? null,
+        },
+        {
+          dateYmd: o.date || playDate || '',
+          players: o.players || 2,
+          holes: o.holes || 18,
+          startsAtIso: o.starts_at,
+        },
+      );
+      if (enriched) u.set(cid, enriched);
+      else if (o.booking_url) u.set(cid, o.booking_url);
+      else if (c?.bookingUrl) u.set(cid, c.bookingUrl);
     }
     return [...u.entries()];
-  }, [options, coursesById]);
+  }, [options, coursesById, recordsBySlug, playDate]);
 
   const cardShell = {
     padding: 18,

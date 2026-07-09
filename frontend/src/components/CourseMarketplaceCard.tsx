@@ -5,6 +5,7 @@ import { formatReopenedAgo, formatTime12h } from '../lib/time';
 import type { InventorySource } from '../hooks/useTimesByCourseMap';
 import { CoursePhoto } from './CoursePhoto';
 import { CourseCardTimesSkeleton } from './CourseCardSkeleton';
+import { buildBookingUrl } from '../lib/bookingUrl';
 
 function walkabilityLabel(v: CourseRecord['walkability']): string | null {
   if (!v) return null;
@@ -33,6 +34,10 @@ type Props = {
   variant?: 'inventory' | 'comingSoon';
   /** True while the finder batch is still fetching — keeps layout calm. */
   batchLoading?: boolean;
+  /** Finder search date — used to enrich “Open site” booking links. */
+  dateYmd?: string;
+  players?: number;
+  holes?: number;
   onAlert: () => void;
   onSearchAllUtah?: () => void;
   onShare?: () => void;
@@ -50,6 +55,9 @@ export function CourseMarketplaceCard({
   inventorySource,
   variant = 'inventory',
   batchLoading = false,
+  dateYmd,
+  players = 2,
+  holes = 18,
   onAlert,
   onSearchAllUtah,
   onShare,
@@ -82,6 +90,14 @@ export function CourseMarketplaceCard({
   }
 
   const showSkeletonFooter = timesPending || (batchLoading && !hasTimes && !comingSoon);
+  const openSiteHref =
+    dateYmd != null
+      ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
+          dateYmd,
+          players,
+          holes,
+        })
+      : course.bookingUrl;
 
   return (
     <article className={`mp-course${isEmpty ? ' is-empty' : ''}`}>
@@ -217,10 +233,10 @@ export function CourseMarketplaceCard({
                   <button type="button" className="tee-empty-action" onClick={onAlert}>
                     Notify me
                   </button>
-                  {course.bookingUrl ? (
+                  {openSiteHref ? (
                     <a
                       className="tee-empty-action"
-                      href={course.bookingUrl}
+                      href={openSiteHref}
                       target="_blank"
                       rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
