@@ -25,6 +25,13 @@ export type CourseRecord = {
   club_id?: string;
   course_id?: string;
   affiliation_type_id?: string;
+  /** Trutee public booking (City of St. George munis, etc.). */
+  trutee_org_slug?: string;
+  trutee_course_id?: string;
+  booking_window_days?: number;
+  booking_opens_time?: string;
+  timezone?: string;
+  holes?: 9 | 18;
 };
 
 /** "Bear Lake (Garden City)" → { short: "Bear Lake", city: "Garden City" } */

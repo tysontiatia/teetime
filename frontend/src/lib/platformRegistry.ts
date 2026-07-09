@@ -34,6 +34,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   membersports: 'MemberSports',
   golfpay: 'GolfPay',
   tenfore: 'TenFore',
+  trutee: 'Trutee',
 };
 
 export function platformDisplayName(platform: string | undefined): string {
