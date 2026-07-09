@@ -2,7 +2,22 @@ import type { TeeTime } from '../types';
 import type { CourseRecord } from './courseRecord';
 import { getWorkerBaseUrl } from './env';
 import { normalizeTimesWorker } from './normalizeTimes';
+import { workerSupportedPlatform } from './platformRegistry';
 import { rawTeeTimeToIsoUtc } from './teeTimeInstant';
+
+type SnapshotAvailabilityResponse = {
+  ok: boolean;
+  source?: string;
+  has_poll_coverage?: boolean;
+  last_polled_at?: string | null;
+  times?: Array<{
+    id: string;
+    startsAt: string;
+    price?: number;
+    spots?: number;
+    holes: 9 | 18;
+  }>;
+};
 
 function parsePrice(s: string | null): number | undefined {
   if (!s) return undefined;
@@ -41,11 +56,50 @@ function excludePastTeeTimes(times: TeeTime[], nowMs: number = Date.now()): TeeT
   return times.filter((t) => new Date(t.startsAt).getTime() > nowMs);
 }
 
-export type TeeTimeFetchResult = { times: TeeTime[]; ok: boolean };
+export type TeeTimeFetchResult = { times: TeeTime[]; ok: boolean; source?: 'snapshot' | 'live' };
 
 const emptyOk: TeeTimeFetchResult = { times: [], ok: true };
 
-export async function fetchTeeTimesForCourse(
+async function fetchTeeTimesFromSnapshot(
+  courseSlug: string,
+  dateYmd: string,
+  holes: 9 | 18,
+  players: 1 | 2 | 3 | 4,
+): Promise<SnapshotAvailabilityResponse | null> {
+  const base = getWorkerBaseUrl();
+  const url = new URL(`${base}/v1/availability`);
+  url.searchParams.set('course_slug', courseSlug);
+  url.searchParams.set('date', dateYmd);
+  url.searchParams.set('holes', String(holes));
+  url.searchParams.set('players', String(players));
+
+  try {
+    const res = await fetch(url.toString(), { method: 'GET' });
+    if (!res.ok) return null;
+    return (await res.json()) as SnapshotAvailabilityResponse;
+  } catch {
+    return null;
+  }
+}
+
+function snapshotToTeeTimes(
+  courseSlug: string,
+  dateYmd: string,
+  rows: NonNullable<SnapshotAvailabilityResponse['times']>,
+): TeeTime[] {
+  const out: TeeTime[] = rows.map((row, i) => ({
+    id: row.id || `${courseSlug}-${dateYmd}-${i}-${row.startsAt}`,
+    courseId: courseSlug,
+    startsAt: row.startsAt,
+    price: row.price,
+    spots: row.spots,
+    holes: row.holes === 9 ? 9 : 18,
+  }));
+  out.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  return excludePastTeeTimes(out);
+}
+
+async function fetchTeeTimesLive(
   course: CourseRecord,
   courseSlug: string,
   dateYmd: string,
@@ -107,10 +161,31 @@ export async function fetchTeeTimesForCourse(
     }
     const rows = normalizeTimesWorker(course, data, String(holes));
     const times = excludePastTeeTimes(rowsToTeeTimes(courseSlug, dateYmd, rows, holes));
-    return { times, ok: true };
+    return { times, ok: true, source: 'live' };
   } catch {
     return { times: [], ok: false };
   }
+}
+
+export async function fetchTeeTimesForCourse(
+  course: CourseRecord,
+  courseSlug: string,
+  dateYmd: string,
+  holes: 9 | 18,
+  players: 1 | 2 | 3 | 4
+): Promise<TeeTimeFetchResult> {
+  if (course.platform && workerSupportedPlatform(course.platform)) {
+    const snapshot = await fetchTeeTimesFromSnapshot(courseSlug, dateYmd, holes, players);
+    if (snapshot?.ok && snapshot.has_poll_coverage && Array.isArray(snapshot.times)) {
+      return {
+        times: snapshotToTeeTimes(courseSlug, dateYmd, snapshot.times),
+        ok: true,
+        source: 'snapshot',
+      };
+    }
+  }
+
+  return fetchTeeTimesLive(course, courseSlug, dateYmd, holes, players);
 }
 
 export type TimesBySlugFetchResult = {

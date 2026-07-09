@@ -1,5 +1,6 @@
 import { handleAvailabilityPoll } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses } from './courseAdmin.js';
+import { handleAvailabilityRequest } from './availabilityRead.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -1065,6 +1066,11 @@ export default {
 
     if (path === '/v1/courses' && request.method === 'GET') {
       return courseAdmin.handlePublicCourses(env);
+    }
+
+    if (path === '/v1/availability' && request.method === 'GET') {
+      const params = Object.fromEntries(url.searchParams.entries());
+      return handleAvailabilityRequest(env, params);
     }
 
     if (path.startsWith('/admin/')) {

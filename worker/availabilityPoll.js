@@ -7,8 +7,8 @@
 
 const MT = 'America/Denver';
 
-/** Phase 2: today only. Raise to 14 when expanding the poll horizon. */
-const POLL_MAX_DAY_OFFSET = 0;
+/** Poll horizon: today through +14 days (alert + search window). */
+const POLL_MAX_DAY_OFFSET = 14;
 
 const GOLF_HOUR_START = 6;
 const GOLF_HOUR_END = 23;
