@@ -32,6 +32,9 @@ export type CourseRecord = {
   booking_opens_time?: string;
   timezone?: string;
   holes?: 9 | 18;
+  /** Course marketing site (distinct from platform booking_url). */
+  website?: string;
+  phone_number?: string;
 };
 
 /** "Bear Lake (Garden City)" → { short: "Bear Lake", city: "Garden City" } */

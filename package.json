@@ -7,6 +7,10 @@
     "dev:worker": "npx wrangler dev --config worker/wrangler.toml",
     "lint": "npm run lint --prefix frontend",
     "preview": "npm run preview --prefix frontend",
-    "check": "bash scripts/build-pages.sh"
+    "check": "bash scripts/build-pages.sh",
+    "export:catalog-csv": "node scripts/export-course-catalog-csv.mjs",
+    "import:catalog-csv": "node scripts/import-course-catalog-csv.mjs",
+    "catalog:sql": "node scripts/import-course-catalog-csv.mjs --sql --out data/catalog-upsert.sql",
+    "rates:sql": "node scripts/sheet-rates-to-sql.mjs"
   }
 }
