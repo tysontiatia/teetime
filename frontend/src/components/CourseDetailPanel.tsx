@@ -81,74 +81,73 @@ export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: 
     record?.history_blurb ||
     catalogMeta?.history_blurb ||
     catalogMeta?.signature_hole ||
-    record?.signature_hole;
-
-  const hasContact = record?.website || record?.phone_number;
+    record?.signature_hole ||
+    vitals ||
+    booking ||
+    record?.website ||
+    record?.phone_number ||
+    catalogMeta?.prepaid ||
+    catalogMeta?.cancellation_policy ||
+    record?.cancellation_policy;
 
   if (!record && !ratesLoading && !rateRows.length) {
     return (
       <div className="section">
-        <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Course details coming soon.</p>
+        <p className="section-muted">Course details coming soon.</p>
       </div>
     );
   }
 
   return (
     <>
-      {(hasAbout || vitals || booking || hasContact) && (
+      {hasAbout ? (
         <div className="section">
-          <h2>About this course</h2>
-          {vitals ? <p style={{ marginBottom: 10, fontWeight: 600, color: 'var(--ink)' }}>{vitals}</p> : null}
-          {booking ? <p style={{ marginBottom: 10, fontSize: 13 }}>{booking}</p> : null}
+          <h2>About</h2>
+          {vitals ? <p className="about-vitals">{vitals}</p> : null}
+          {booking ? <p className="about-booking">{booking}</p> : null}
           {catalogMeta?.prepaid ? (
-            <div style={{ marginBottom: 12 }}>
-              <span className="pill" style={{ color: '#9a3412', borderColor: 'rgba(180,83,9,0.35)' }}>
-                Prepaid at booking
-              </span>
+            <div className="about-pill-row">
+              <span className="pill about-prepaid">Prepaid at booking</span>
             </div>
           ) : null}
-          {record?.editorial_note ? <p style={{ marginBottom: 10 }}>{record.editorial_note}</p> : null}
-          {(catalogMeta?.signature_hole || record?.signature_hole) ? (
-            <p style={{ marginBottom: 10 }}>
-              <strong style={{ color: 'var(--ink)' }}>Signature hole:</strong>{' '}
-              {catalogMeta?.signature_hole ?? record?.signature_hole}
+          {record?.editorial_note ? <p>{record.editorial_note}</p> : null}
+          {catalogMeta?.signature_hole || record?.signature_hole ? (
+            <p>
+              <strong>Signature hole:</strong> {catalogMeta?.signature_hole ?? record?.signature_hole}
             </p>
           ) : null}
-          {(catalogMeta?.history_blurb || record?.history_blurb) ? (
-            <p style={{ marginBottom: 10, fontSize: 13 }}>{catalogMeta?.history_blurb ?? record?.history_blurb}</p>
+          {catalogMeta?.history_blurb || record?.history_blurb ? (
+            <p className="about-history">{catalogMeta?.history_blurb ?? record?.history_blurb}</p>
           ) : null}
-          {(catalogMeta?.cancellation_policy || record?.cancellation_policy) ? (
-            <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
-              <strong style={{ color: 'var(--ink)' }}>Cancellation:</strong>{' '}
-              {catalogMeta?.cancellation_policy ?? record?.cancellation_policy}
+          {catalogMeta?.cancellation_policy || record?.cancellation_policy ? (
+            <p className="about-cancel">
+              <strong>Cancellation:</strong> {catalogMeta?.cancellation_policy ?? record?.cancellation_policy}
             </p>
           ) : null}
-          {hasContact ? (
-            <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 14 }}>
+          {record?.website || record?.phone_number ? (
+            <div className="about-contact">
               {record?.website ? (
-                <a href={record.website} target="_blank" rel="noreferrer" style={{ color: 'var(--pine)', fontWeight: 600 }}>
+                <a href={record.website} target="_blank" rel="noreferrer" className="detail-text-link">
                   Course website →
                 </a>
               ) : null}
               {record?.phone_number ? (
-                <a href={`tel:${record.phone_number.replace(/\D/g, '')}`} style={{ color: 'var(--pine)', fontWeight: 600 }}>
+                <a href={`tel:${record.phone_number.replace(/\D/g, '')}`} className="detail-text-link">
                   {record.phone_number}
                 </a>
               ) : null}
             </div>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       <div className="section">
         <h2>Green fees</h2>
-        <p className="rate-fine" style={{ marginTop: 0, marginBottom: 12 }}>
-          Published green fees (not live tee-time prices). Seasonal or resident splits may not appear here yet.
-        </p>
+        <p className="rate-fine rate-fine-lead">Published green fees — not live tee-time prices.</p>
         {ratesLoading ? (
-          <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Loading rates…</p>
+          <p className="section-muted">Loading rates…</p>
         ) : rateRows.length === 0 ? (
-          <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Rates not cataloged yet.</p>
+          <p className="section-muted">Rates not cataloged yet.</p>
         ) : (
           <table className="rate-table">
             <thead>

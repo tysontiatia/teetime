@@ -16,12 +16,14 @@ import { copyTextToClipboard } from '../lib/clipboard';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { CourseDetailPanel } from '../components/CourseDetailPanel';
+import { CourseReviewsSection } from '../components/CourseReviewsSection';
 import {
   fetchCourseCatalogMeta,
   fetchCourseRatesExpanded,
   type CourseCatalogMeta,
   type CourseRatesExpanded,
 } from '../lib/courseCatalogApi';
+import { fetchPlaceReviews, type PlaceReview } from '../lib/placeReviews';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -33,6 +35,8 @@ function clampPlayers(n: number): 1 | 2 | 3 | 4 {
 function clampHoles(n: number): 9 | 18 {
   return n === 9 ? 9 : 18;
 }
+
+const RAIL_SLOT_PREVIEW = 9;
 
 export function CoursePage() {
   const nav = useNavigate();
@@ -76,6 +80,9 @@ export function CoursePage() {
   const [ratesExpanded, setRatesExpanded] = useState<CourseRatesExpanded | null>(null);
   const [catalogMeta, setCatalogMeta] = useState<CourseCatalogMeta | null>(null);
   const [catalogDetailLoading, setCatalogDetailLoading] = useState(false);
+  const [reviews, setReviews] = useState<PlaceReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsMapsUrl, setReviewsMapsUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!courseId) {
@@ -103,6 +110,35 @@ export function CoursePage() {
       cancelled = true;
     };
   }, [courseId]);
+
+  const reviewQueryName = course?.catalogName || course?.name || '';
+  const reviewLat = course?.lat;
+  const reviewLng = course?.lng;
+
+  useEffect(() => {
+    if (!courseId || !reviewQueryName) {
+      setReviews([]);
+      setReviewsMapsUrl(null);
+      setReviewsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setReviewsLoading(true);
+    void (async () => {
+      const data = await fetchPlaceReviews({
+        name: reviewQueryName,
+        lat: reviewLat,
+        lng: reviewLng,
+      });
+      if (cancelled) return;
+      setReviews(data?.reviews ?? []);
+      setReviewsMapsUrl(data?.mapsUrl ?? null);
+      setReviewsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, reviewQueryName, reviewLat, reviewLng]);
 
   useEffect(() => {
     if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
@@ -156,9 +192,11 @@ export function CoursePage() {
   }, [rawTimes, tod, players, sort]);
 
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [slotsExpanded, setSlotsExpanded] = useState(false);
 
   useEffect(() => {
     setSelectedSlotId(null);
+    setSlotsExpanded(false);
   }, [courseId, date, holes, players, tod]);
 
   useEffect(() => {
@@ -196,7 +234,8 @@ export function CoursePage() {
   const unsupported = !record || cap !== 'live_inventory';
   const selected = times.find((t) => t.id === selectedSlotId) ?? times[0] ?? null;
   const priceHint = selected?.price ?? times.find((t) => typeof t.price === 'number')?.price;
-  const railSlots = times.slice(0, 9);
+  const hiddenSlotCount = Math.max(0, times.length - RAIL_SLOT_PREVIEW);
+  const railSlots = slotsExpanded || hiddenSlotCount === 0 ? times : times.slice(0, RAIL_SLOT_PREVIEW);
 
   const onShareTimes = async () => {
     if (unsupported || times.length === 0) return;
@@ -232,11 +271,26 @@ export function CoursePage() {
     nav(`/round/${res.slug}`);
   };
 
-  const bookLabel = selected
-    ? `Book ${formatTime12h(selected.startsAt)} on ${platformDisplayName(record?.platform)} →`
-    : course.bookingUrl
-      ? `Open ${platformDisplayName(record?.platform)} →`
-      : 'No booking link';
+  const platformName = platformDisplayName(record?.platform);
+  const bookLabel = course.bookingUrl
+    ? selected
+      ? `Continue on ${platformName} →`
+      : `Open ${platformName} →`
+    : 'No booking link';
+  const bookNote = selected
+    ? `Opens ${platformName} — pick ${formatTime12h(selected.startsAt)} there. No markup, ever.`
+    : 'Opens the course’s booking site. No markup, ever.';
+
+  const heroMeta = [
+    course.city || null,
+    typeof course.distanceMi === 'number' ? `${course.distanceMi.toFixed(1)} mi` : null,
+    record?.par ? `Par ${record.par}` : null,
+    record?.yardage ? `${record.yardage.toLocaleString()} yds` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const canShare = !unsupported && times.length > 0;
 
   return (
     <div className="container">
@@ -247,108 +301,89 @@ export function CoursePage() {
           </svg>
           All courses
         </Link>
-        <div className="detail-actions">
-          <button type="button" className="btn-ghost-pill" onClick={() => setNotifOpen(true)}>
-            Alert me
-          </button>
-          {!unsupported && times.length > 0 ? (
-            <button
-              type="button"
-              className="btn-ghost-pill"
-              disabled={shareBusy || authLoading}
-              onClick={() => void onShareTimes()}
-            >
-              {shareBusy ? 'Creating…' : 'Share times'}
-            </button>
-          ) : null}
-          {course.bookingUrl ? (
-            <a className="btn-ghost-pill" href={course.bookingUrl} target="_blank" rel="noreferrer">
-              Booking site
-            </a>
-          ) : null}
-        </div>
       </div>
 
-      {shareErr ? <p style={{ margin: '0 0 12px', color: '#9a3412', fontSize: 14 }}>{shareErr}</p> : null}
+      {shareErr ? <p className="detail-share-err">{shareErr}</p> : null}
 
-      <div className="mosaic">
-        <div className="m-main">
-          {course.photoUrl ? (
-            <CoursePhoto src={course.photoUrl} height={360} style={{ height: '100%' }} />
-          ) : (
-            <div className="mp-photo-fallback" style={{ height: '100%' }} aria-hidden />
-          )}
-        </div>
-      </div>
-
-      <div className="detail-title">
-        <h1>
-          {course.name}
-          {course.city ? ` (${course.city})` : ''}
-        </h1>
-        <div className="detail-sub">
-          {typeof course.rating === 'number' ? (
-            <>
-              <strong>★ {course.rating.toFixed(1)}</strong>
-              {typeof course.reviewCount === 'number' ? (
-                <a href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
-                  {course.reviewCount.toLocaleString()} reviews
-                </a>
-              ) : null}
-              <span className="sep">·</span>
-            </>
-          ) : null}
-          {course.city}
-          {typeof course.distanceMi === 'number' ? (
-            <>
-              <span className="sep">·</span>
-              {course.distanceMi.toFixed(1)} mi away
-            </>
-          ) : null}
-          {record?.par || record?.yardage ? (
-            <>
-              <span className="sep">·</span>
-              <span className="mono">
-                {[record.par ? `Par ${record.par}` : null, record.yardage ? `${record.yardage.toLocaleString()} yds` : null]
-                  .filter(Boolean)
-                  .join(' · ')}
+      <div className="detail-hero">
+        {course.photoUrl ? (
+          <CoursePhoto src={course.photoUrl} height={280} className="detail-hero-photo" style={{ height: '100%' }} />
+        ) : (
+          <div className="mp-photo-fallback detail-hero-photo" style={{ height: '100%' }} aria-hidden />
+        )}
+        <div className="detail-hero-scrim">
+          <h1 className="detail-hero-name">{course.name}</h1>
+          <div className="detail-hero-meta">
+            {typeof course.rating === 'number' ? (
+              <span className="course-rating">
+                <span className="star-gold" aria-hidden>
+                  ★
+                </span>{' '}
+                {course.rating.toFixed(1)}
+                {typeof course.reviewCount === 'number' ? (
+                  <a href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer" className="detail-hero-reviews">
+                    {' '}
+                    ({course.reviewCount.toLocaleString()})
+                  </a>
+                ) : null}
               </span>
-            </>
-          ) : null}
+            ) : null}
+            {typeof course.rating === 'number' && heroMeta ? (
+              <span className="sep" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {heroMeta || null}
+          </div>
+        </div>
+        <div className="mp-course-actions detail-hero-actions">
+          <button
+            type="button"
+            className="mp-icon-btn"
+            aria-label={`Tee time alerts for ${course.name}`}
+            title="Tee time alerts"
+            onClick={() => setNotifOpen(true)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="mp-icon-btn"
+            aria-label={`Share vote link for ${course.name}`}
+            title="Share times"
+            disabled={!canShare || shareBusy || authLoading}
+            onClick={() => void onShareTimes()}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 3v11M8.5 6.5L12 3l3.5 3.5"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5 12v6.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V12"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
       <div className="detail-cols">
-        <div>
-          <div className="section">
-            <div className="facts">
-              {record?.walkability ? (
-                <div className="fact">
-                  <div className="k">Walkability</div>
-                  <div className="v">{record.walkability === 'carts only' ? 'Carts only' : record.walkability.charAt(0).toUpperCase() + record.walkability.slice(1)}</div>
-                </div>
-              ) : null}
-              {Number.isFinite(record?.booking_window_days) ? (
-                <div className="fact">
-                  <div className="k">Books out</div>
-                  <div className="v mono">{record!.booking_window_days} days</div>
-                </div>
-              ) : null}
-              {record?.platform ? (
-                <div className="fact">
-                  <div className="k">Booking via</div>
-                  <div className="v">{platformDisplayName(record.platform)}</div>
-                </div>
-              ) : null}
-              <div className="fact">
-                <div className="k">Playing</div>
-                <div className="v mono">
-                  {formatDateShort(date)} · {players}p · {holes}h
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <div className="detail-main">
           <CourseDetailPanel
             record={record}
             rates={ratesExpanded}
@@ -358,18 +393,27 @@ export function CoursePage() {
 
           <div className="section">
             <h2>Conditions</h2>
-            <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={date} />
+            <WeatherStrip
+              lat={course.lat}
+              lng={course.lng}
+              dateYmd={date}
+              highlightTimeIso={selected?.startsAt ?? null}
+            />
           </div>
 
+          <CourseReviewsSection
+            reviews={reviews}
+            loading={reviewsLoading}
+            mapsUrl={reviewsMapsUrl}
+            course={course}
+          />
+
           <div className="section">
-            <h2>What golfers say</h2>
-            <p style={{ marginBottom: 14 }}>
-              Star ratings and review counts come from Google Places. Full review text stays on Google.
-            </p>
-            <a className="btn btn-primary" href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer" style={{ borderRadius: 999 }}>
-              Read reviews on Google Maps →
+            <h2>Location</h2>
+            {record?.address ? <p className="detail-address">{record.address}</p> : null}
+            <a className="detail-text-link" href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer">
+              Open in Google Maps →
             </a>
-            {record?.address ? <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-3)' }}>{record.address}</div> : null}
           </div>
         </div>
 
@@ -397,51 +441,73 @@ export function CoursePage() {
             </div>
           </div>
 
-          <h3>Today&apos;s times</h3>
+          <h3>Tee times</h3>
           {unsupported ? (
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5 }}>
-              <strong style={{ color: 'var(--ink)' }}>{platformDisplayName(record?.platform)}</strong> — {capabilityHint(cap)}.
-            </p>
+            <div className="rail-empty">
+              <p>
+                <strong>{platformDisplayName(record?.platform)}</strong> — {capabilityHint(cap)}.
+              </p>
+              <button type="button" className="tee-empty-action" onClick={() => setNotifOpen(true)}>
+                Notify me
+              </button>
+            </div>
           ) : loadingTimes ? (
-            <p style={{ margin: '0 0 16px', color: 'var(--ink-3)', fontSize: 14 }}>Loading tee times…</p>
+            <p className="rail-status">Checking tee times…</p>
           ) : teeTimesFetchFailed ? (
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ margin: 0, color: '#92400e', fontSize: 13 }}>Could not load tee times.</p>
-              <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setTimesRetryNonce((n) => n + 1)}>
+            <div className="rail-empty">
+              <p>Could not load tee times.</p>
+              <button type="button" className="tee-empty-action" onClick={() => setTimesRetryNonce((n) => n + 1)}>
                 Retry
               </button>
             </div>
           ) : railSlots.length === 0 ? (
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.45 }}>
-                No matching times for this filter set.
-              </p>
-              <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setNotifOpen(true)}>
-                Get notified
+            <div className="rail-empty">
+              <p>No tee times for these filters</p>
+              <button type="button" className="tee-empty-action" onClick={() => setNotifOpen(true)}>
+                Notify me
               </button>
             </div>
           ) : (
-            <div className="rail-slots">
-              {railSlots.map((t) => (
+            <>
+              <div className={`rail-slots${slotsExpanded && times.length > RAIL_SLOT_PREVIEW ? ' is-expanded' : ''}`}>
+                {railSlots.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`slot${t.id === selected?.id ? ' sel' : ''}`}
+                    onClick={() => setSelectedSlotId(t.id)}
+                  >
+                    <span className="t">{formatTime12h(t.startsAt).replace(' ', '').toLowerCase()}</span>
+                    <span className={`s${typeof t.spots === 'number' && t.spots <= 2 ? ' low' : ''}`}>
+                      {t.reopenedAt
+                        ? formatReopenedAgo(t.reopenedAt)
+                        : typeof t.spots === 'number'
+                          ? `${t.spots} spot${t.spots === 1 ? '' : 's'}`
+                          : typeof t.price === 'number'
+                            ? `$${t.price}`
+                            : 'Open'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {hiddenSlotCount > 0 ? (
                 <button
-                  key={t.id}
                   type="button"
-                  className={`slot${t.id === selected?.id ? ' sel' : ''}`}
-                  onClick={() => setSelectedSlotId(t.id)}
+                  className="rail-slots-more"
+                  onClick={() => {
+                    if (slotsExpanded) {
+                      const idx = times.findIndex((t) => t.id === selectedSlotId);
+                      if (idx >= RAIL_SLOT_PREVIEW) setSelectedSlotId(times[0]?.id ?? null);
+                      setSlotsExpanded(false);
+                    } else {
+                      setSlotsExpanded(true);
+                    }
+                  }}
                 >
-                  <span className="t">{formatTime12h(t.startsAt).replace(' ', '').toLowerCase()}</span>
-                  <span className={`s${typeof t.spots === 'number' && t.spots <= 2 ? ' low' : ''}`}>
-                    {t.reopenedAt
-                      ? formatReopenedAgo(t.reopenedAt)
-                      : typeof t.spots === 'number'
-                        ? `${t.spots} spot${t.spots === 1 ? '' : 's'}`
-                        : typeof t.price === 'number'
-                          ? `$${t.price}`
-                          : 'Open'}
-                  </span>
+                  {slotsExpanded ? 'Show fewer times' : `Show ${hiddenSlotCount} more`}
                 </button>
-              ))}
-            </div>
+              ) : null}
+            </>
           )}
 
           {course.bookingUrl ? (
@@ -453,14 +519,14 @@ export function CoursePage() {
               {bookLabel}
             </button>
           )}
-          <div className="rail-note">Opens the course&apos;s booking site. No markup, ever.</div>
+          <div className="rail-note">{bookNote}</div>
 
           <div className="rail-plan">
             <span className="icon" aria-hidden>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9.5 11a4 4 0 100-8 4 4 0 000 8ZM22 21v-2a4 4 0 00-3-3.87M15.5 3.13a4 4 0 010 7.75"
-                  stroke="#2A4405"
+                  stroke="currentColor"
                   strokeWidth="1.9"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -474,7 +540,7 @@ export function CoursePage() {
             <button
               type="button"
               className="go"
-              disabled={unsupported || times.length === 0 || shareBusy || authLoading}
+              disabled={!canShare || shareBusy || authLoading}
               onClick={() => void onShareTimes()}
             >
               Plan a round

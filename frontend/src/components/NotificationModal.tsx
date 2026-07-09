@@ -63,6 +63,15 @@ export function NotificationModal({
     if (open && defaultDate) setTargetDate(defaultDate);
   }, [open, defaultDate]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const save = async () => {
@@ -160,91 +169,49 @@ export function NotificationModal({
 
   return (
     <div
+      className="modal-backdrop"
       role="dialog"
       aria-modal="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 80,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 18,
-      }}
+      aria-labelledby="notif-modal-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        style={{
-          width: 'min(520px, 100%)',
-          background: 'rgba(255,255,255,0.95)',
-          borderRadius: 18,
-          border: '1px solid rgba(26,46,26,0.12)',
-          boxShadow: '0 30px 90px rgba(0,0,0,0.28)',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            padding: 14,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid rgba(26,46,26,0.10)',
-            background: 'rgba(233,245,234,0.55)',
-          }}
-        >
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
           <div>
-            <div style={{ fontWeight: 950, letterSpacing: '-0.02em' }}>Notifications</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{title}</div>
+            <h2 id="notif-modal-title" className="modal-header-title">
+              Notifications
+            </h2>
+            <p className="modal-header-sub">{title}</p>
           </div>
-          <button className="btn btn-ghost" type="button" onClick={onClose}>
+          <button className="btn btn-ghost" type="button" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
 
-        <div style={{ padding: 14, display: 'grid', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="modal-body">
+          <div className="modal-seg">
             <button
-              className="btn"
+              className={`btn modal-seg-btn${mode === 'specific' ? ' on' : ''}`}
               type="button"
               onClick={() => setMode('specific')}
-              style={{
-                borderRadius: 999,
-                padding: '8px 12px',
-                background: mode === 'specific' ? 'var(--green-soft)' : '#fff',
-                color: mode === 'specific' ? 'var(--green-2)' : 'var(--muted)',
-                borderColor: mode === 'specific' ? 'rgba(45,122,58,0.25)' : 'var(--border)',
-                fontWeight: 950,
-              }}
             >
               Specific date
             </button>
             <button
-              className="btn"
+              className={`btn modal-seg-btn${mode === 'weekly' ? ' on' : ''}`}
               type="button"
               onClick={() => setMode('weekly')}
-              style={{
-                borderRadius: 999,
-                padding: '8px 12px',
-                background: mode === 'weekly' ? 'var(--green-soft)' : '#fff',
-                color: mode === 'weekly' ? 'var(--green-2)' : 'var(--muted)',
-                borderColor: mode === 'weekly' ? 'rgba(45,122,58,0.25)' : 'var(--border)',
-                fontWeight: 950,
-              }}
             >
               Weekly
             </button>
           </div>
 
           {mode === 'weekly' ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="modal-grid-2">
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Day
-                </label>
+                <label className="modal-label">Day</label>
                 <select className="input" value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)}>
                   <option value="mon">Monday</option>
                   <option value="tue">Tuesday</option>
@@ -256,10 +223,12 @@ export function NotificationModal({
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Window
-                </label>
-                <select className="input" value={timeWindow} onChange={(e) => setTimeWindow(e.target.value as 'any' | 'morning' | 'afternoon' | 'evening')}>
+                <label className="modal-label">Window</label>
+                <select
+                  className="input"
+                  value={timeWindow}
+                  onChange={(e) => setTimeWindow(e.target.value as 'any' | 'morning' | 'afternoon' | 'evening')}
+                >
                   <option value="any">Any</option>
                   <option value="morning">Morning</option>
                   <option value="afternoon">Afternoon</option>
@@ -268,18 +237,18 @@ export function NotificationModal({
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="modal-grid-2">
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Date
-                </label>
+                <label className="modal-label">Date</label>
                 <input className="input" type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Window
-                </label>
-                <select className="input" value={timeWindow} onChange={(e) => setTimeWindow(e.target.value as 'any' | 'morning' | 'afternoon' | 'evening')}>
+                <label className="modal-label">Window</label>
+                <select
+                  className="input"
+                  value={timeWindow}
+                  onChange={(e) => setTimeWindow(e.target.value as 'any' | 'morning' | 'afternoon' | 'evening')}
+                >
                   <option value="any">Any</option>
                   <option value="morning">Morning</option>
                   <option value="afternoon">Afternoon</option>
@@ -289,11 +258,9 @@ export function NotificationModal({
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="modal-grid-2">
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Players
-              </label>
+              <label className="modal-label">Players</label>
               <select className="input" value={players} onChange={(e) => setPlayers(Number(e.target.value) as 1 | 2 | 3 | 4)}>
                 <option value="1">1</option>
                 <option value="2">2</option>
@@ -304,29 +271,11 @@ export function NotificationModal({
           </div>
 
           {message ? (
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 14,
-                border: `1px solid ${message.type === 'ok' ? 'rgba(45,122,58,0.35)' : 'rgba(180,60,60,0.35)'}`,
-                background: message.type === 'ok' ? 'rgba(233,245,234,0.85)' : 'rgba(254,242,242,0.9)',
-                color: message.type === 'ok' ? 'var(--green-2)' : '#7f1d1d',
-                fontSize: 14,
-              }}
-            >
+            <div className={`modal-msg ${message.type}`}>
               <div>{message.text}</div>
               {message.showAccountLink ? (
                 <div style={{ marginTop: 10 }}>
-                  <Link
-                    to="/account"
-                    onClick={onClose}
-                    style={{
-                      fontWeight: 800,
-                      color: message.type === 'ok' ? 'var(--green-2)' : '#991b1b',
-                      textDecoration: 'underline',
-                      textUnderlineOffset: 2,
-                    }}
-                  >
+                  <Link to="/account" onClick={onClose}>
                     Open Account →
                   </Link>
                 </div>
@@ -335,7 +284,7 @@ export function NotificationModal({
           ) : null}
         </div>
 
-        <div style={{ padding: 14, borderTop: '1px solid rgba(26,46,26,0.10)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <div className="modal-footer">
           <button className="btn" type="button" onClick={onClose}>
             Cancel
           </button>

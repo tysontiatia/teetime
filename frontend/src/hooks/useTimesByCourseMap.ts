@@ -5,6 +5,8 @@ import type { CourseRecord } from '../lib/courseRecord';
 import { fetchTimesForCourseSlugs } from '../lib/workerTimes';
 import { filterWorkerCourses } from '../lib/platformRegistry';
 
+export type InventorySource = 'snapshot' | 'live';
+
 export function useTimesByCourseMap(
   courses: Course[],
   recordsBySlug: Map<string, CourseRecord>,
@@ -18,6 +20,7 @@ export function useTimesByCourseMap(
   const slugKey = useMemo(() => workerCourses.map((c) => c.id).join('|'), [workerCourses]);
 
   const [map, setMap] = useState<Map<string, TeeTime[]>>(new Map());
+  const [sourceBySlug, setSourceBySlug] = useState<Map<string, InventorySource>>(new Map());
   const [loading, setLoading] = useState(false);
   const [failedSlugs, setFailedSlugs] = useState<string[]>([]);
   const [attemptedSlugCount, setAttemptedSlugCount] = useState(0);
@@ -33,6 +36,7 @@ export function useTimesByCourseMap(
     }
     if (workerCourses.length === 0) {
       setMap(new Map());
+      setSourceBySlug(new Map());
       setFailedSlugs([]);
       setAttemptedSlugCount(0);
       setPendingSlugs(new Set());
@@ -49,6 +53,7 @@ export function useTimesByCourseMap(
 
     if (entries.length === 0) {
       setMap(new Map());
+      setSourceBySlug(new Map());
       setFailedSlugs([]);
       setAttemptedSlugCount(0);
       setPendingSlugs(new Set());
@@ -60,6 +65,7 @@ export function useTimesByCourseMap(
     const slugs = entries.map((e) => e.slug);
 
     setMap(new Map());
+    setSourceBySlug(new Map());
     setFailedSlugs([]);
     setAttemptedSlugCount(entries.length);
     setPendingSlugs(new Set(slugs));
@@ -67,13 +73,20 @@ export function useTimesByCourseMap(
 
     void (async () => {
       const failed: string[] = [];
-      await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6, ({ slug, times, ok }) => {
+      await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6, ({ slug, times, ok, source }) => {
         if (cancelled) return;
         setMap((prev) => {
           const next = new Map(prev);
           next.set(slug, times);
           return next;
         });
+        if (source) {
+          setSourceBySlug((prev) => {
+            const next = new Map(prev);
+            next.set(slug, source);
+            return next;
+          });
+        }
         setPendingSlugs((prev) => {
           if (!prev.has(slug)) return prev;
           const next = new Set(prev);
@@ -99,6 +112,7 @@ export function useTimesByCourseMap(
 
   return {
     timesByCourse: map,
+    sourceBySlug,
     loadingTimes: loading,
     failedSlugs,
     attemptedSlugCount,

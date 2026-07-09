@@ -88,43 +88,36 @@ export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact, com
     );
   }
 
-  return (
-    <div
-      style={{
-        border: '1px solid rgba(26,46,26,0.12)',
-        borderRadius: 16,
-        padding: 12,
-        background: 'rgba(255,255,255,0.8)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Weather (forecast)</div>
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-          {status === 'loading' ? 'Loading…' : status === 'error' ? 'Unavailable' : 'Temp · Wind · Precip'}
-        </div>
-      </div>
+  if (status === 'loading') {
+    return <p className="section-muted weather-status">Loading forecast…</p>;
+  }
+  if (status === 'error' || !slice.length) {
+    return <p className="section-muted weather-status">Forecast unavailable.</p>;
+  }
 
+  return (
+    <div className="weather-strip">
+      <div className="weather-strip-meta">
+        {highlight ? (
+          <span>
+            Near tee time · {Math.round(highlight.tempF)}° · {Math.round(highlight.windMph)} mph ·{' '}
+            {Math.round(highlight.precipProb)}% rain
+          </span>
+        ) : (
+          <span>Hourly forecast · temp · wind · rain chance</span>
+        )}
+      </div>
       <div className="weather-scroll">
-        <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 8 }}>
-          {slice.slice(0, 18).map((p) => {
+        <div className="weather-hours">
+          {slice.slice(0, 15).map((p) => {
             const isOn = highlight != null && hourInUtah(p.timeIso) === hourInUtah(highlight.timeIso);
+            const precip = Math.round(p.precipProb);
             return (
-              <div
-                key={p.timeIso}
-                style={{
-                  border: '1px solid rgba(26,46,26,0.10)',
-                  borderRadius: 14,
-                  padding: 10,
-                  background: isOn ? 'rgba(233,245,234,0.9)' : '#fff',
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontSize: 12, fontWeight: 950, color: isOn ? 'var(--green-2)' : 'var(--muted)' }}>
-                  {formatTime12h(p.timeIso)}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 950, marginTop: 2 }}>{Math.round(p.tempF)}°</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{Math.round(p.windMph)} mph</div>
-                <div style={{ fontSize: 11, color: '#9a3412', fontWeight: 900, marginTop: 2 }}>{Math.round(p.precipProb)}%</div>
+              <div key={p.timeIso} className={`weather-hour${isOn ? ' is-on' : ''}`}>
+                <span className="wh-t">{formatTime12h(p.timeIso).replace(' ', '').toLowerCase()}</span>
+                <span className="wh-temp">{Math.round(p.tempF)}°</span>
+                <span className="wh-wind">{Math.round(p.windMph)} mph</span>
+                <span className={`wh-rain${precip >= 40 ? ' is-wet' : ''}`}>{precip}%</span>
               </div>
             );
           })}
@@ -133,4 +126,3 @@ export function WeatherStrip({ lat, lng, dateYmd, highlightTimeIso, compact, com
     </div>
   );
 }
-
