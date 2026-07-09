@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { matchesPreset, minutesSince, toYmd, formatDateShort } from '../lib/time';
+import { matchesPreset, minutesSince, toYmd, formatDateShort, formatDateCompact } from '../lib/time';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
 import {
   filterWorkerCourses,
@@ -316,6 +316,21 @@ export function FinderPage() {
     </select>
   );
 
+  const dateField = (id: string) => (
+    <span className="sp-date">
+      <span className="sp-date-label" aria-hidden>
+        {formatDateCompact(params.date)}
+      </span>
+      <input
+        id={id}
+        type="date"
+        value={params.date}
+        aria-label="Date"
+        onChange={(e) => setParam('date', e.target.value)}
+      />
+    </span>
+  );
+
   return (
     <div className="container">
       <div className="finder-page">
@@ -376,14 +391,7 @@ export function FinderPage() {
             </div>
             <div className="sp-cell sp-desktop-only">
               <span className="sp-label">When</span>
-              <span className="sp-value">
-                <input
-                  type="date"
-                  value={params.date}
-                  aria-label="Date"
-                  onChange={(e) => setParam('date', e.target.value)}
-                />
-              </span>
+              <span className="sp-value">{dateField('finder-date-desktop')}</span>
             </div>
             <div className="sp-cell sp-desktop-only">
               <span className="sp-label">Players</span>
@@ -405,14 +413,7 @@ export function FinderPage() {
           <div className="sp-mobile-sheet">
             <div className="sp-cell">
               <span className="sp-label">When</span>
-              <span className="sp-value">
-                <input
-                  type="date"
-                  value={params.date}
-                  aria-label="Date"
-                  onChange={(e) => setParam('date', e.target.value)}
-                />
-              </span>
+              <span className="sp-value">{dateField('finder-date-mobile')}</span>
             </div>
             <div className="sp-cell">
               <span className="sp-label">Players</span>
