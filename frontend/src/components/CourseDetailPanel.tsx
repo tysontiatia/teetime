@@ -87,131 +87,90 @@ export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: 
 
   if (!record && !ratesLoading && !rateRows.length) {
     return (
-      <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-        <div style={{ color: 'var(--muted)', fontSize: 14 }}>Course details coming soon.</div>
+      <div className="section">
+        <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Course details coming soon.</p>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-        <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>About this course</div>
+    <>
+      {(hasAbout || vitals || booking || hasContact) && (
+        <div className="section">
+          <h2>About this course</h2>
+          {vitals ? <p style={{ marginBottom: 10, fontWeight: 600, color: 'var(--ink)' }}>{vitals}</p> : null}
+          {booking ? <p style={{ marginBottom: 10, fontSize: 13 }}>{booking}</p> : null}
+          {catalogMeta?.prepaid ? (
+            <div style={{ marginBottom: 12 }}>
+              <span className="pill" style={{ color: '#9a3412', borderColor: 'rgba(180,83,9,0.35)' }}>
+                Prepaid at booking
+              </span>
+            </div>
+          ) : null}
+          {record?.editorial_note ? <p style={{ marginBottom: 10 }}>{record.editorial_note}</p> : null}
+          {(catalogMeta?.signature_hole || record?.signature_hole) ? (
+            <p style={{ marginBottom: 10 }}>
+              <strong style={{ color: 'var(--ink)' }}>Signature hole:</strong>{' '}
+              {catalogMeta?.signature_hole ?? record?.signature_hole}
+            </p>
+          ) : null}
+          {(catalogMeta?.history_blurb || record?.history_blurb) ? (
+            <p style={{ marginBottom: 10, fontSize: 13 }}>{catalogMeta?.history_blurb ?? record?.history_blurb}</p>
+          ) : null}
+          {(catalogMeta?.cancellation_policy || record?.cancellation_policy) ? (
+            <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
+              <strong style={{ color: 'var(--ink)' }}>Cancellation:</strong>{' '}
+              {catalogMeta?.cancellation_policy ?? record?.cancellation_policy}
+            </p>
+          ) : null}
+          {hasContact ? (
+            <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 14 }}>
+              {record?.website ? (
+                <a href={record.website} target="_blank" rel="noreferrer" style={{ color: 'var(--pine)', fontWeight: 600 }}>
+                  Course website →
+                </a>
+              ) : null}
+              {record?.phone_number ? (
+                <a href={`tel:${record.phone_number.replace(/\D/g, '')}`} style={{ color: 'var(--pine)', fontWeight: 600 }}>
+                  {record.phone_number}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      )}
 
-        {vitals ? (
-          <div style={{ marginTop: 8, fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>{vitals}</div>
-        ) : null}
-
-        {booking ? (
-          <div style={{ marginTop: 6, fontSize: 13, color: 'var(--muted)' }}>{booking}</div>
-        ) : null}
-
-        {catalogMeta?.prepaid ? (
-          <div style={{ marginTop: 10 }}>
-            <span className="pill" style={{ color: '#9a3412', borderColor: 'rgba(180,83,9,0.35)' }}>
-              Prepaid at booking
-            </span>
-          </div>
-        ) : null}
-
-        {hasContact ? (
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14 }}>
-            {record?.website ? (
-              <a href={record.website} target="_blank" rel="noreferrer" style={{ color: 'var(--green-2)', fontWeight: 700 }}>
-                Course website →
-              </a>
-            ) : null}
-            {record?.phone_number ? (
-              <a href={`tel:${record.phone_number.replace(/\D/g, '')}`} style={{ color: 'var(--green-2)', fontWeight: 700 }}>
-                {record.phone_number}
-              </a>
-            ) : null}
-          </div>
-        ) : null}
-
-        {hasAbout ? (
-          <div style={{ marginTop: 12, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>
-            {record?.editorial_note ? <p style={{ margin: '0 0 10px' }}>{record.editorial_note}</p> : null}
-            {(catalogMeta?.signature_hole || record?.signature_hole) ? (
-              <p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>
-                <strong style={{ color: 'var(--ink)' }}>Signature hole:</strong>{' '}
-                {catalogMeta?.signature_hole ?? record?.signature_hole}
-              </p>
-            ) : null}
-            {(catalogMeta?.history_blurb || record?.history_blurb) ? (
-              <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
-                {catalogMeta?.history_blurb ?? record?.history_blurb}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {(catalogMeta?.cancellation_policy || record?.cancellation_policy) ? (
-          <p style={{ marginTop: 12, marginBottom: 0, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-            <strong style={{ color: 'var(--ink)' }}>Cancellation:</strong>{' '}
-            {catalogMeta?.cancellation_policy ?? record?.cancellation_policy}
-          </p>
-        ) : null}
-      </div>
-
-      <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-        <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Rate card</div>
-        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+      <div className="section">
+        <h2>Green fees</h2>
+        <p className="rate-fine" style={{ marginTop: 0, marginBottom: 12 }}>
           Published green fees (not live tee-time prices). Seasonal or resident splits may not appear here yet.
         </p>
-
         {ratesLoading ? (
-          <div style={{ marginTop: 12, color: 'var(--muted)', fontSize: 14 }}>Loading rates…</div>
+          <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Loading rates…</p>
         ) : rateRows.length === 0 ? (
-          <div style={{ marginTop: 12, color: 'var(--muted)', fontSize: 14 }}>Rates not cataloged yet.</div>
+          <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Rates not cataloged yet.</p>
         ) : (
-          <div style={{ marginTop: 12, overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 12 }}>
-                  <th style={{ padding: '6px 8px 6px 0', fontWeight: 700 }} />
-                  {showNine ? <th style={{ padding: '6px 8px', fontWeight: 700 }}>9 holes</th> : null}
-                  {showEighteen ? <th style={{ padding: '6px 0 6px 8px', fontWeight: 700 }}>18 holes</th> : null}
+          <table className="rate-table">
+            <thead>
+              <tr>
+                <th>Rate</th>
+                {showNine ? <th className="num">9 holes</th> : null}
+                {showEighteen ? <th className="num">18 holes</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {rateRows.map((row) => (
+                <tr key={row.label}>
+                  <td>{row.label}</td>
+                  {showNine ? <td className="num">{formatRateDollars(row.nine)}</td> : null}
+                  {showEighteen ? <td className="num">{formatRateDollars(row.eighteen)}</td> : null}
                 </tr>
-              </thead>
-              <tbody>
-                {rateRows.map((row) => (
-                  <tr key={row.label} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ padding: '8px 8px 8px 0', fontWeight: 600 }}>{row.label}</td>
-                    {showNine ? (
-                      <td style={{ padding: '8px', fontWeight: 800, color: 'var(--green-2)' }}>
-                        {formatRateDollars(row.nine)}
-                      </td>
-                    ) : null}
-                    {showEighteen ? (
-                      <td style={{ padding: '8px 0 8px 8px', fontWeight: 800, color: 'var(--green-2)' }}>
-                        {formatRateDollars(row.eighteen)}
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
-
-        {record?.rate_notes ? (
-          <p style={{ marginTop: 12, marginBottom: 0, fontSize: 12, color: 'var(--muted)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-            {record.rate_notes}
-          </p>
-        ) : null}
+        {record?.rate_notes ? <p className="rate-fine" style={{ whiteSpace: 'pre-wrap' }}>{record.rate_notes}</p> : null}
       </div>
-
-      <div style={{ border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.75)', padding: 14 }}>
-        <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Shared rounds</div>
-        <ul style={{ margin: '10px 0 0', paddingLeft: 18, color: 'var(--muted)', lineHeight: 1.6, fontSize: 14 }}>
-          <li>
-            <strong>Share times</strong> puts every filtered tee time into a vote link for your group.
-          </li>
-          <li>Check the weather strip for conditions that day.</li>
-          <li>Everyone opens the same link to vote; one person books when the group agrees.</li>
-        </ul>
-      </div>
-    </div>
+    </>
   );
 }

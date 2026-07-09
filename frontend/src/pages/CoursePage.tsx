@@ -155,10 +155,26 @@ export function CoursePage() {
     return list;
   }, [rawTimes, tod, players, sort]);
 
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedSlotId(null);
+  }, [courseId, date, holes, players, tod]);
+
+  useEffect(() => {
+    if (!times.length) {
+      setSelectedSlotId(null);
+      return;
+    }
+    if (!selectedSlotId || !times.some((t) => t.id === selectedSlotId)) {
+      setSelectedSlotId(times[0]!.id);
+    }
+  }, [times, selectedSlotId]);
+
   if (catalogLoading && !course) {
     return (
       <div className="container">
-        <div style={{ padding: 18, color: 'var(--muted)' }}>Loading course…</div>
+        <div style={{ padding: 18, color: 'var(--ink-3)' }}>Loading course…</div>
       </div>
     );
   }
@@ -166,8 +182,8 @@ export function CoursePage() {
   if (!course || !courseId) {
     return (
       <div className="container">
-        <div style={{ padding: 18, background: 'rgba(255,255,255,0.8)', border: '1px solid var(--border)', borderRadius: 16 }}>
-          <div style={{ fontWeight: 900 }}>Course not found</div>
+        <div style={{ padding: 18, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16 }}>
+          <div style={{ fontWeight: 700 }}>Course not found</div>
           <Link className="btn" to={`/?${finderBackSearch}`} style={{ marginTop: 10 }}>
             Back to finder
           </Link>
@@ -178,6 +194,9 @@ export function CoursePage() {
 
   const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
   const unsupported = !record || cap !== 'live_inventory';
+  const selected = times.find((t) => t.id === selectedSlotId) ?? times[0] ?? null;
+  const priceHint = selected?.price ?? times.find((t) => typeof t.price === 'number')?.price;
+  const railSlots = times.slice(0, 9);
 
   const onShareTimes = async () => {
     if (unsupported || times.length === 0) return;
@@ -213,215 +232,258 @@ export function CoursePage() {
     nav(`/round/${res.slug}`);
   };
 
+  const bookLabel = selected
+    ? `Book ${formatTime12h(selected.startsAt)} on ${platformDisplayName(record?.platform)} →`
+    : course.bookingUrl
+      ? `Open ${platformDisplayName(record?.platform)} →`
+      : 'No booking link';
+
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <Link to={`/?${finderBackSearch}`} className="pill">
-            ← Back to results
-          </Link>
-          <h2 style={{ margin: '12px 0 4px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
-            {course.name} <span style={{ color: 'var(--muted)', fontWeight: 700 }}>({course.city})</span>
-          </h2>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            {typeof course.rating === 'number' && (
-              <span className="pill">
-                ★ {course.rating.toFixed(1)}
-                {typeof course.reviewCount === 'number' ? ` · ${course.reviewCount.toLocaleString()} reviews` : ''}
-              </span>
-            )}
-            {typeof course.distanceMi === 'number' && <span className="pill">{course.distanceMi.toFixed(1)} mi</span>}
-            <span className="pill">{formatDateShort(date)}</span>
-            <span className="pill">
-              {players} player{players === 1 ? '' : 's'} · {holes} holes
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="back-row">
+        <Link to={`/?${finderBackSearch}`} className="back-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          All courses
+        </Link>
+        <div className="detail-actions">
+          <button type="button" className="btn-ghost-pill" onClick={() => setNotifOpen(true)}>
+            Alert me
+          </button>
           {!unsupported && times.length > 0 ? (
             <button
-              className="btn btn-primary"
               type="button"
+              className="btn-ghost-pill"
               disabled={shareBusy || authLoading}
               onClick={() => void onShareTimes()}
-              title={
-                authLoading
-                  ? 'Checking account…'
-                  : `Creates a vote page with all ${times.length} times below (after filters) and copies the link`
-              }
             >
-              {shareBusy ? 'Creating…' : `Share times (${times.length})`}
+              {shareBusy ? 'Creating…' : 'Share times'}
             </button>
           ) : null}
-          <button
-            className="btn"
-            type="button"
-            onClick={() => setNotifOpen(true)}
-            title="Notifications"
-            aria-label="Tee time alerts for this course"
-          >
-            🔔 Alerts
-          </button>
-          {course.bookingUrl && (
-            <a className="btn btn-ghost" href={course.bookingUrl} target="_blank" rel="noreferrer">
-              Open booking site →
+          {course.bookingUrl ? (
+            <a className="btn-ghost-pill" href={course.bookingUrl} target="_blank" rel="noreferrer">
+              Booking site
             </a>
+          ) : null}
+        </div>
+      </div>
+
+      {shareErr ? <p style={{ margin: '0 0 12px', color: '#9a3412', fontSize: 14 }}>{shareErr}</p> : null}
+
+      <div className="mosaic">
+        <div className="m-main">
+          {course.photoUrl ? (
+            <CoursePhoto src={course.photoUrl} height={360} style={{ height: '100%' }} />
+          ) : (
+            <div className="mp-photo-fallback" style={{ height: '100%' }} aria-hidden />
           )}
         </div>
       </div>
 
-      {shareErr ? (
-        <p style={{ marginTop: 10, color: '#9a3412', fontSize: 14 }}>
-          {shareErr}
-        </p>
-      ) : null}
-
-      <div className="split-two" style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 14 }}>
-        <div style={{ border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', background: 'rgba(255,255,255,0.85)' }}>
-          <CoursePhoto src={course.photoUrl} height={240} />
-          <div style={{ padding: 14 }}>
-            <div
-              style={{
-                marginBottom: 14,
-                padding: 12,
-                borderRadius: 14,
-                border: '1px solid var(--border)',
-                background: 'rgba(248,250,248,0.95)',
-              }}
-            >
-              <div style={{ fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Google reviews</div>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>
-                Star ratings and review counts in the catalog come from Google Places. Full review text stays on Google — we open Maps so we do not need your Maps API key in the browser.
-              </p>
-              <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                {typeof course.rating === 'number' ? (
-                  <span className="pill" style={{ fontWeight: 800 }}>
-                    ★ {course.rating.toFixed(1)}
-                    {typeof course.reviewCount === 'number' ? ` · ${course.reviewCount.toLocaleString()} reviews` : ''}
-                  </span>
-                ) : typeof course.reviewCount === 'number' ? (
-                  <span className="pill" style={{ fontWeight: 800 }}>
-                    {course.reviewCount.toLocaleString()} reviews
-                  </span>
-                ) : (
-                  <span className="pill" style={{ fontWeight: 700, color: 'var(--muted)' }}>
-                    No rating in catalog
-                  </span>
-                )}
-                <a
-                  className="btn btn-primary"
-                  href={googleMapsPlaceUrl(course)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ padding: '8px 14px', fontSize: 13 }}
-                >
-                  Read reviews on Google Maps →
+      <div className="detail-title">
+        <h1>
+          {course.name}
+          {course.city ? ` (${course.city})` : ''}
+        </h1>
+        <div className="detail-sub">
+          {typeof course.rating === 'number' ? (
+            <>
+              <strong>★ {course.rating.toFixed(1)}</strong>
+              {typeof course.reviewCount === 'number' ? (
+                <a href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
+                  {course.reviewCount.toLocaleString()} reviews
                 </a>
-              </div>
-              {record?.address ? <div style={{ marginTop: 10, fontSize: 13, color: 'var(--muted)' }}>{record.address}</div> : null}
-            </div>
+              ) : null}
+              <span className="sep">·</span>
+            </>
+          ) : null}
+          {course.city}
+          {typeof course.distanceMi === 'number' ? (
+            <>
+              <span className="sep">·</span>
+              {course.distanceMi.toFixed(1)} mi away
+            </>
+          ) : null}
+          {record?.par || record?.yardage ? (
+            <>
+              <span className="sep">·</span>
+              <span className="mono">
+                {[record.par ? `Par ${record.par}` : null, record.yardage ? `${record.yardage.toLocaleString()} yds` : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+            </>
+          ) : null}
+        </div>
+      </div>
 
-            <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={date} />
-
-            <div style={{ fontWeight: 900, letterSpacing: '-0.02em' }}>Tee times</div>
-            <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-              {user ? (
-                <>
-                  <strong style={{ color: 'var(--ink)' }}>Share times</strong> uses every slot below that matches your filters. The link is copied for you — paste it in your group chat.
-                </>
-              ) : (
-                <>
-                  <strong style={{ color: 'var(--ink)' }}>Share times</strong> (after you sign in) uses every slot below that matches your filters. The link is copied for you — paste it in your group chat.
-                </>
-              )}
-            </div>
-
-            {unsupported ? (
-              <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', color: 'var(--muted)' }}>
-                <strong style={{ color: 'var(--ink)' }}>{platformDisplayName(record?.platform)}</strong>
-                {' — '}
-                {capabilityHint(cap)}.{' '}
-                {course.bookingUrl ? (
-                  <a href={course.bookingUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--green-2)', fontWeight: 700 }}>
-                    Open booking site →
-                  </a>
-                ) : null}
-              </div>
-            ) : loadingTimes ? (
-              <div style={{ marginTop: 12, color: 'var(--muted)' }}>Loading tee times…</div>
-            ) : teeTimesFetchFailed ? (
-              <div style={{ marginTop: 12, padding: 14, borderRadius: 14, border: '1px solid rgba(180,120,40,0.45)', background: 'rgba(255,251,235,0.95)', color: '#92400e' }}>
-                <strong>Could not load tee times.</strong> Check your connection and try again.
-                <div style={{ marginTop: 10 }}>
-                  <button type="button" className="btn btn-primary" onClick={() => setTimesRetryNonce((n) => n + 1)}>
-                    Retry
-                  </button>
+      <div className="detail-cols">
+        <div>
+          <div className="section">
+            <div className="facts">
+              {record?.walkability ? (
+                <div className="fact">
+                  <div className="k">Walkability</div>
+                  <div className="v">{record.walkability === 'carts only' ? 'Carts only' : record.walkability.charAt(0).toUpperCase() + record.walkability.slice(1)}</div>
+                </div>
+              ) : null}
+              {Number.isFinite(record?.booking_window_days) ? (
+                <div className="fact">
+                  <div className="k">Books out</div>
+                  <div className="v mono">{record!.booking_window_days} days</div>
+                </div>
+              ) : null}
+              {record?.platform ? (
+                <div className="fact">
+                  <div className="k">Booking via</div>
+                  <div className="v">{platformDisplayName(record.platform)}</div>
+                </div>
+              ) : null}
+              <div className="fact">
+                <div className="k">Playing</div>
+                <div className="v mono">
+                  {formatDateShort(date)} · {players}p · {holes}h
                 </div>
               </div>
-            ) : (
-              <div className="times-grid" style={{ marginTop: 12 }}>
-                {times.slice(0, 18).map((t) => (
-                  <div
-                    key={t.id}
-                    style={{
-                      padding: 12,
-                      borderRadius: 14,
-                      background: '#fff',
-                      border: '1px solid rgba(45,122,58,0.22)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 2,
-                    }}
-                  >
-                    <div style={{ fontWeight: 950, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
-                    {t.reopenedAt ? (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 800,
-                          color: '#15803d',
-                          background: 'rgba(34,197,94,0.14)',
-                          padding: '2px 6px',
-                          borderRadius: 999,
-                        }}
-                      >
-                        {formatReopenedAgo(t.reopenedAt)}
-                      </div>
-                    ) : null}
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
-                    {typeof t.spots === 'number' && (
-                      <div style={{ fontSize: 11, color: '#b45309', fontWeight: 900 }}>
-                        {t.spots} spot{t.spots === 1 ? '' : 's'}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            </div>
+          </div>
 
-            {!unsupported && !loadingTimes && !teeTimesFetchFailed && times.length === 0 && (
-              <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', color: 'var(--muted)' }}>
-                No matching times for this filter set (or the course has not released times yet).{' '}
-                <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setNotifOpen(true)}>
-                  Get notified when slots open
-                </button>
-              </div>
-            )}
+          <CourseDetailPanel
+            record={record}
+            rates={ratesExpanded}
+            catalogMeta={catalogMeta}
+            ratesLoading={catalogDetailLoading}
+          />
+
+          <div className="section">
+            <h2>Conditions</h2>
+            <WeatherStrip lat={course.lat} lng={course.lng} dateYmd={date} />
+          </div>
+
+          <div className="section">
+            <h2>What golfers say</h2>
+            <p style={{ marginBottom: 14 }}>
+              Star ratings and review counts come from Google Places. Full review text stays on Google.
+            </p>
+            <a className="btn btn-primary" href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer" style={{ borderRadius: 999 }}>
+              Read reviews on Google Maps →
+            </a>
+            {record?.address ? <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-3)' }}>{record.address}</div> : null}
           </div>
         </div>
 
-        <CourseDetailPanel
-          record={record}
-          rates={ratesExpanded}
-          catalogMeta={catalogMeta}
-          ratesLoading={catalogDetailLoading}
-        />
+        <aside className="rail">
+          <div className="rail-price">
+            <span className="amt mono">{typeof priceHint === 'number' ? `$${priceHint}` : '—'}</span>
+            <span className="per">/ player · {holes} holes</span>
+          </div>
+          <div className="rail-picker">
+            <div className="rp-row">
+              <div className="rp-cell">
+                <div className="k">Date</div>
+                <div className="v">{formatDateShort(date)}</div>
+              </div>
+              <div className="rp-cell">
+                <div className="k">Players</div>
+                <div className="v">
+                  {players} golfer{players === 1 ? '' : 's'}
+                </div>
+              </div>
+            </div>
+            <div className="rp-cell">
+              <div className="k">Holes</div>
+              <div className="v">{holes} holes</div>
+            </div>
+          </div>
+
+          <h3>Today&apos;s times</h3>
+          {unsupported ? (
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.5 }}>
+              <strong style={{ color: 'var(--ink)' }}>{platformDisplayName(record?.platform)}</strong> — {capabilityHint(cap)}.
+            </p>
+          ) : loadingTimes ? (
+            <p style={{ margin: '0 0 16px', color: 'var(--ink-3)', fontSize: 14 }}>Loading tee times…</p>
+          ) : teeTimesFetchFailed ? (
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ margin: 0, color: '#92400e', fontSize: 13 }}>Could not load tee times.</p>
+              <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setTimesRetryNonce((n) => n + 1)}>
+                Retry
+              </button>
+            </div>
+          ) : railSlots.length === 0 ? (
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.45 }}>
+                No matching times for this filter set.
+              </p>
+              <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setNotifOpen(true)}>
+                Get notified
+              </button>
+            </div>
+          ) : (
+            <div className="rail-slots">
+              {railSlots.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`slot${t.id === selected?.id ? ' sel' : ''}`}
+                  onClick={() => setSelectedSlotId(t.id)}
+                >
+                  <span className="t">{formatTime12h(t.startsAt).replace(' ', '').toLowerCase()}</span>
+                  <span className={`s${typeof t.spots === 'number' && t.spots <= 2 ? ' low' : ''}`}>
+                    {t.reopenedAt
+                      ? formatReopenedAgo(t.reopenedAt)
+                      : typeof t.spots === 'number'
+                        ? `${t.spots} spot${t.spots === 1 ? '' : 's'}`
+                        : typeof t.price === 'number'
+                          ? `$${t.price}`
+                          : 'Open'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {course.bookingUrl ? (
+            <a className="rail-cta" href={course.bookingUrl} target="_blank" rel="noreferrer">
+              {bookLabel}
+            </a>
+          ) : (
+            <button type="button" className="rail-cta" disabled>
+              {bookLabel}
+            </button>
+          )}
+          <div className="rail-note">Opens the course&apos;s booking site. No markup, ever.</div>
+
+          <div className="rail-plan">
+            <span className="icon" aria-hidden>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9.5 11a4 4 0 100-8 4 4 0 000 8ZM22 21v-2a4 4 0 00-3-3.87M15.5 3.13a4 4 0 010 7.75"
+                  stroke="#2A4405"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <span className="txt">
+              <strong>Playing with a group?</strong>
+              Send these times to a vote.
+            </span>
+            <button
+              type="button"
+              className="go"
+              disabled={unsupported || times.length === 0 || shareBusy || authLoading}
+              onClick={() => void onShareTimes()}
+            >
+              Plan a round
+            </button>
+          </div>
+        </aside>
       </div>
 
       <SignInToShareModal open={signInToShareOpen} onClose={closeSignInToShare} />
-
       <NotificationModal open={notifOpen} onClose={() => setNotifOpen(false)} course={course} defaultDate={date} />
     </div>
   );

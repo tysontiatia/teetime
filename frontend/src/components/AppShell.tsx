@@ -33,37 +33,39 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
-  padding: '8px 12px',
-  borderRadius: 10,
-  color: isActive ? '#fff' : 'rgba(255,255,255,0.68)',
-  background: isActive ? 'rgba(255,255,255,0.10)' : 'transparent',
-  fontWeight: 700,
-  fontSize: 13,
-});
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `app-nav-link${isActive ? ' on' : ''}`;
 
-const navLinkStyleDrawer = ({ isActive }: { isActive: boolean }) => ({
-  display: 'block',
-  padding: '14px 14px',
-  borderRadius: 12,
-  color: isActive ? '#fff' : 'rgba(255,255,255,0.78)',
-  background: isActive ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)',
-  fontWeight: 700,
-  fontSize: 16,
-  textDecoration: 'none',
-});
+const drawerLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `app-drawer-link${isActive ? ' on' : ''}`;
 
 function AvatarChip({ avatar, initial }: { avatar?: string; initial: string }) {
   if (avatar) {
     return (
       <span className="app-header-avatar-chip" aria-hidden>
-        <img src={avatar} alt="" width={36} height={36} />
+        <img src={avatar} alt="" width={34} height={34} />
       </span>
     );
   }
   return (
     <span className="app-header-avatar-chip" aria-hidden>
       {initial}
+    </span>
+  );
+}
+
+function FlagMark() {
+  return (
+    <span className="app-header-logo-flag" aria-hidden>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M6 21V4M6 4l11 3.5L6 11"
+          stroke="#B7EA3C"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </span>
   );
 }
@@ -162,49 +164,11 @@ export function AppShell() {
   };
 
   const authDesktop = loading ? (
-    <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginLeft: 8 }}>…</span>
+    <span style={{ color: 'var(--ink-3)', fontSize: 13, marginLeft: 8 }}>…</span>
   ) : user ? (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 8 }}>
-      {avatar ? (
-        <img
-          src={avatar}
-          alt=""
-          width={32}
-          height={32}
-          style={{ borderRadius: 999, border: '1px solid rgba(255,255,255,0.25)' }}
-        />
-      ) : (
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 999,
-            background: 'rgba(255,255,255,0.15)',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 13,
-            fontWeight: 800,
-          }}
-        >
-          {initial}
-        </div>
-      )}
-      <button
-        className="btn"
-        type="button"
-        onClick={() => void signOut()}
-        style={{
-          padding: '8px 12px',
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.08)',
-          color: 'rgba(255,255,255,0.85)',
-          borderColor: 'rgba(255,255,255,0.18)',
-          fontWeight: 700,
-          fontSize: 13,
-        }}
-      >
+      <AvatarChip avatar={avatar} initial={initial} />
+      <button className="btn-ghost-pill" type="button" onClick={() => void signOut()} style={{ padding: '8px 14px' }}>
         Sign out
       </button>
     </div>
@@ -213,61 +177,25 @@ export function AppShell() {
       className="btn btn-primary"
       type="button"
       onClick={() => void signInWithGoogle()}
-      style={{ marginLeft: 8, padding: '8px 14px', fontSize: 13 }}
+      style={{ marginLeft: 8, padding: '8px 14px', fontSize: 13, borderRadius: 999 }}
     >
-      Sign in with Google
+      Sign in
     </button>
   );
 
   const authDrawer = loading ? (
-    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, margin: '8px 0 0' }}>Loading…</p>
+    <p style={{ color: 'var(--ink-3)', fontSize: 14, margin: '8px 0 0' }}>Loading…</p>
   ) : user ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {avatar ? (
-          <img
-            src={avatar}
-            alt=""
-            width={40}
-            height={40}
-            style={{ borderRadius: 999, border: '1px solid rgba(255,255,255,0.25)' }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.15)',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 15,
-              fontWeight: 800,
-            }}
-          >
-            {initial}
-          </div>
-        )}
-        <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, wordBreak: 'break-all' }}>
-          {user.email}
-        </span>
+        <AvatarChip avatar={avatar} initial={initial} />
+        <span style={{ color: 'var(--ink-2)', fontSize: 14, wordBreak: 'break-all' }}>{user.email}</span>
       </div>
       <button
         className="btn"
         type="button"
         onClick={() => void signOut()}
-        style={{
-          width: '100%',
-          padding: '12px 14px',
-          borderRadius: 12,
-          background: 'rgba(255,255,255,0.08)',
-          color: 'rgba(255,255,255,0.9)',
-          borderColor: 'rgba(255,255,255,0.18)',
-          fontWeight: 700,
-          fontSize: 15,
-        }}
+        style={{ width: '100%', padding: '12px 14px', borderRadius: 12 }}
       >
         Sign out
       </button>
@@ -286,71 +214,24 @@ export function AppShell() {
   return (
     <div>
       <LaunchDarklyFlagBanner />
-      <header
-        className="app-header"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 20,
-          background: 'rgba(26,46,26,0.96)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-        }}
-      >
+      <header className="app-header">
         <div className="container app-header-inner">
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <div
-              aria-hidden
-              style={{
-                width: 34,
-                height: 34,
-                flexShrink: 0,
-                borderRadius: 10,
-                background: 'rgba(255,255,255,0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="3.5" y="2" width="1.5" height="12" fill="white" rx="0.5" />
-                <path d="M5 2.5L12.5 5.5L5 8.5V2.5Z" fill="white" />
-              </svg>
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div
-                style={{
-                  fontFamily: 'var(--font-display)',
-                  color: '#fff',
-                  fontSize: isMobile ? 16 : 18,
-                  lineHeight: 1.15,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                Tee-Time{' '}
-                <span style={{ fontSize: isMobile ? 9 : 10, opacity: 0.55, marginLeft: 4, letterSpacing: '0.12em' }}>
-                  UTAH
-                </span>
-              </div>
-              <div className="app-header-brand-sub" style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>
-                Find availability. Plan the round.
-              </div>
-            </div>
+          <Link to="/" className="app-header-logo">
+            <FlagMark />
+            <span>
+              Tee-Time<span className="app-header-logo-tld">.io</span>
+            </span>
           </Link>
 
-          {!isMobile && <div style={{ flex: 1 }} />}
-
           <nav className="app-header-nav-desktop" aria-label="Main">
-            <NavLink to="/" end style={navLinkStyle}>
+            <NavLink to="/" end className={navLinkClass}>
               Tee times
             </NavLink>
-            <NavLink to="/plan" style={navLinkStyle}>
+            <NavLink to="/plan" className={navLinkClass}>
               Shared rounds
             </NavLink>
             {user && (
-              <NavLink to="/account" style={navLinkStyle}>
+              <NavLink to="/account" className={navLinkClass}>
                 Account
               </NavLink>
             )}
@@ -398,26 +279,24 @@ export function AppShell() {
             onClick={(e) => e.stopPropagation()}
             onTransitionEnd={onDrawerTransitionEnd}
           >
-            <NavLink to="/" end style={navLinkStyleDrawer} onClick={() => setMenuOpen(false)}>
+            <NavLink to="/" end className={drawerLinkClass} onClick={() => setMenuOpen(false)}>
               Tee times
             </NavLink>
-            <NavLink to="/plan" style={navLinkStyleDrawer} onClick={() => setMenuOpen(false)}>
+            <NavLink to="/plan" className={drawerLinkClass} onClick={() => setMenuOpen(false)}>
               Shared rounds
             </NavLink>
             {user && (
-              <NavLink to="/account" style={navLinkStyleDrawer} onClick={() => setMenuOpen(false)}>
+              <NavLink to="/account" className={drawerLinkClass} onClick={() => setMenuOpen(false)}>
                 Account
               </NavLink>
             )}
 
-            <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              {authDrawer}
-            </div>
+            <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid var(--line)' }}>{authDrawer}</div>
           </aside>
         </div>
       )}
 
-      <main style={{ padding: '18px 0 120px' }}>
+      <main className="app-main">
         <Outlet />
       </main>
     </div>

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { matchesPreset, minutesSince, toYmd, formatReopenedAgo, formatTime12h } from '../lib/time';
+import { matchesPreset, minutesSince, toYmd, formatDateShort } from '../lib/time';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
 import {
   capabilityHint,
@@ -18,8 +18,8 @@ import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInToShareModal } from '../components/SignInToShareModal';
-import { CourseCardSkeleton, CourseCardTimesSkeleton } from '../components/CourseCardSkeleton';
-import { CoursePhoto } from '../components/CoursePhoto';
+import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
+import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import { buildTimesFetchScope, courseMatchesLocationQuery } from '../lib/timesFetchScope';
@@ -275,43 +275,30 @@ export function FinderPage() {
 
   const timeChip = (tod: TimeOfDayPreset, label: string) => (
     <button
-      className="btn"
+      className={`chip${params.timeOfDay === tod ? ' on' : ''}`}
       onClick={() => setParam('tod', tod)}
-      style={{
-        padding: '8px 12px',
-        borderRadius: 999,
-        borderColor: params.timeOfDay === tod ? 'rgba(45,122,58,0.35)' : 'var(--border)',
-        background: params.timeOfDay === tod ? 'var(--green-soft)' : 'rgba(255,255,255,0.7)',
-        color: params.timeOfDay === tod ? 'var(--green-2)' : 'var(--muted)',
-        fontWeight: 800,
-        fontSize: 12,
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-      }}
       type="button"
     >
       {label}
     </button>
   );
 
+  const runSearch = () => {
+    commitLocationToUrl(locationDraft);
+    setLastUpdatedAt(Date.now());
+  };
+
+  const resultCountLabel = catalogLoading
+    ? 'Loading courses…'
+    : loadingTimes
+      ? `Loading times${fetchProgressLabel}…`
+      : `${withTimesCount} with times · ${gridCourses.length} courses`;
+
   return (
     <div className="container">
-      <div style={{ display: 'grid', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-          <div>
-            <div className="pill">Availability finder</div>
-            <h1 style={{ margin: '10px 0 0', fontFamily: 'var(--font-display)', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
-              Find open tee times.<br />
-              Plan the round with your buddies.
-            </h1>
-            <p style={{ marginTop: 10, color: 'var(--muted)', maxWidth: 660 }}>
-              Live Utah catalog and tee times via the Cloudflare worker. Sign in (header) to save notification alerts to your account.
-            </p>
-          </div>
-        </div>
-
+      <div style={{ display: 'grid', gap: 0 }}>
         {catalogError ? (
-          <div style={{ padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d' }}>
+          <div style={{ marginTop: 18, padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d' }}>
             <strong>Could not load courses.</strong> {catalogError}
             <div style={{ marginTop: 12 }}>
               <button type="button" className="btn btn-primary" onClick={() => void refreshCatalog()}>
@@ -322,25 +309,14 @@ export function FinderPage() {
         ) : null}
 
         {shareFinderErr ? (
-          <div style={{ marginTop: 10, padding: 12, borderRadius: 12, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d', fontSize: 14 }}>
+          <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d', fontSize: 14 }}>
             {shareFinderErr}
           </div>
         ) : null}
 
         {workerFetchTotalFailure ? (
-          <div
-            style={{
-              marginTop: 10,
-              padding: 14,
-              borderRadius: 14,
-              border: '1px solid rgba(180,60,60,0.4)',
-              background: 'rgba(254,242,242,0.95)',
-              color: '#7f1d1d',
-              fontSize: 14,
-              lineHeight: 1.5,
-            }}
-          >
-            <strong>Could not load live tee times.</strong> Check your connection, then tap <strong>Search</strong> to retry.
+          <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.4)', background: 'rgba(254,242,242,0.95)', color: '#7f1d1d', fontSize: 14, lineHeight: 1.5 }}>
+            <strong>Could not load live tee times.</strong> Check your connection, then search again.
             <div style={{ marginTop: 10 }}>
               <button type="button" className="btn btn-primary" onClick={() => setLastUpdatedAt(Date.now())}>
                 Retry now
@@ -348,210 +324,150 @@ export function FinderPage() {
             </div>
           </div>
         ) : workerFetchPartialFailure ? (
-          <div
-            style={{
-              marginTop: 10,
-              padding: 12,
-              borderRadius: 12,
-              border: '1px solid rgba(180,120,40,0.45)',
-              background: 'rgba(255,251,235,0.95)',
-              color: '#92400e',
-              fontSize: 14,
-              lineHeight: 1.5,
-            }}
-          >
-            <strong>Some courses didn&apos;t refresh</strong> ({failedSlugs.length} of {attemptedSlugCount}). Results may be incomplete — tap{' '}
-            <strong>Search</strong> to try again.
+          <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: '1px solid rgba(180,120,40,0.45)', background: 'rgba(255,251,235,0.95)', color: '#92400e', fontSize: 14, lineHeight: 1.5 }}>
+            <strong>Some courses didn&apos;t refresh</strong> ({failedSlugs.length} of {attemptedSlugCount}). Results may be incomplete.
           </div>
         ) : null}
 
-        {/* Search bar */}
-        <div
-          style={{
-            background: 'rgba(255,255,255,0.85)',
-            border: '1px solid var(--border)',
-            borderRadius: 18,
-            padding: 12,
-            boxShadow: '0 6px 22px rgba(26,46,26,0.06)',
-            minWidth: 0,
-            maxWidth: '100%',
-          }}
-        >
-          <div className="search-grid">
-            <div className="search-grid-field search-grid-field--location">
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Location or course
-              </label>
-              <input
-                className="input"
-                value={locationDraft}
-                placeholder="City, course name, or zip…"
-                inputMode="search"
-                enterKeyHint="search"
-                autoComplete="off"
-                onChange={(e) => setLocationDraft(e.target.value)}
-                onBlur={() => commitLocationToUrl(locationDraft)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    commitLocationToUrl(locationDraft);
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-              />
-              {searchPendingCommit ? (
-                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>Press Enter to load live times for this search.</div>
-              ) : null}
+        <div className="search-zone">
+          <div className="search-pill">
+            <div className="sp-cell">
+              <span className="sp-label">Where</span>
+              <span className="sp-value">
+                <input
+                  value={locationDraft}
+                  placeholder="Course, city, or zip"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  aria-label="Location or course"
+                  onChange={(e) => setLocationDraft(e.target.value)}
+                  onBlur={() => commitLocationToUrl(locationDraft)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      runSearch();
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                />
+              </span>
             </div>
-            <div className="search-grid-filters">
-              <div className="search-grid-field">
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Date
-                </label>
-                <div className="search-grid-date-input">
-                  <input className="input" type="date" value={params.date} onChange={(e) => setParam('date', e.target.value)} />
-                </div>
-              </div>
-              <div className="search-grid-field">
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Players
-                </label>
-                <select className="input" value={params.players} onChange={(e) => setParam('players', String(e.target.value))}>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                </select>
-              </div>
-              <div className="search-grid-field">
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Holes
-                </label>
-                <select className="input" value={params.holes} onChange={(e) => setParam('holes', String(e.target.value))}>
-                  <option value="18">18</option>
-                  <option value="9">9</option>
-                </select>
-              </div>
+            <div className="sp-cell">
+              <span className="sp-label">When</span>
+              <span className="sp-value">
+                <input
+                  type="date"
+                  value={params.date}
+                  aria-label="Date"
+                  onChange={(e) => setParam('date', e.target.value)}
+                />
+              </span>
             </div>
-            <button className="btn btn-primary search-grid-submit" type="button" onClick={() => setLastUpdatedAt(Date.now())}>
-              Search
+            <div className="sp-cell">
+              <span className="sp-label">Players</span>
+              <span className="sp-value">
+                <select
+                  aria-label="Players and holes"
+                  value={`${params.players}-${params.holes}`}
+                  onChange={(e) => {
+                    const [p, h] = e.target.value.split('-');
+                    const next = new URLSearchParams(sp);
+                    next.set('players', p);
+                    next.set('holes', h);
+                    setSp(next, { replace: true });
+                    setLastUpdatedAt(Date.now());
+                  }}
+                >
+                  <option value="1-18">1 · 18 holes</option>
+                  <option value="2-18">2 · 18 holes</option>
+                  <option value="3-18">3 · 18 holes</option>
+                  <option value="4-18">4 · 18 holes</option>
+                  <option value="1-9">1 · 9 holes</option>
+                  <option value="2-9">2 · 9 holes</option>
+                  <option value="3-9">3 · 9 holes</option>
+                  <option value="4-9">4 · 9 holes</option>
+                </select>
+              </span>
+            </div>
+            <button className="sp-go" type="button" aria-label="Search" onClick={runSearch}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <circle cx="11" cy="11" r="7" stroke="#fff" strokeWidth="2.4" />
+                <path d="M20 20l-3.5-3.5" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
-
-          {/* Control row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap', minWidth: 0 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {timeChip('any', 'Any')}
-              {timeChip('morning', 'Morning')}
-              {timeChip('afternoon', 'Afternoon')}
-              {timeChip('evening', 'Evening')}
+          {searchPendingCommit ? (
+            <div style={{ maxWidth: 860, margin: '8px auto 0', fontSize: 12, color: 'var(--ink-3)', textAlign: 'center' }}>
+              Press Enter or search to load live times for this place.
             </div>
+          ) : null}
 
-            <div style={{ flex: 1 }} />
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => setView('list')}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 999,
-                    background: view === 'list' ? 'var(--green-soft)' : '#fff',
-                    color: view === 'list' ? 'var(--green-2)' : 'var(--muted)',
-                    borderColor: view === 'list' ? 'rgba(45,122,58,0.25)' : 'var(--border)',
-                    fontWeight: 950,
-                  }}
-                >
-                  List
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => setView('map')}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 999,
-                    background: view === 'map' ? 'var(--green-soft)' : '#fff',
-                    color: view === 'map' ? 'var(--green-2)' : 'var(--muted)',
-                    borderColor: view === 'map' ? 'rgba(45,122,58,0.25)' : 'var(--border)',
-                    fontWeight: 950,
-                  }}
-                >
-                  Map
-                </button>
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sort</span>
-              <select
-                className="input"
-                style={{ width: 'min(170px, 100%)', minWidth: 0, maxWidth: '100%' }}
-                value={params.sortBy}
-                onChange={(e) => setParam('sort', e.target.value as SortBy)}
-              >
-                <option value="distance">Distance</option>
-                <option value="soonest">Soonest</option>
-                <option value="price">Price</option>
-                <option value="rating">Rating</option>
+          <div className="sp-mobile-filters">
+            <div>
+              <label className="sp-label" style={{ display: 'block', marginBottom: 4 }}>When</label>
+              <input className="input" type="date" value={params.date} onChange={(e) => setParam('date', e.target.value)} />
+            </div>
+            <div>
+              <label className="sp-label" style={{ display: 'block', marginBottom: 4 }}>Players</label>
+              <select className="input" value={params.players} onChange={(e) => setParam('players', e.target.value)}>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
               </select>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{updatedLabel}</span>
             </div>
-          </div>
-
-          <FinderDayOutlook dateYmd={params.date} />
-        </div>
-
-        <div style={{ marginTop: 10, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            {catalogLoading
-              ? 'Loading courses…'
-              : loadingTimes
-              ? fetchAllUtah
-                ? `Loading Utah tee times${fetchProgressLabel}…`
-                : timesFetchScope.mode === 'search'
-                  ? `Loading tee times for “${timesFetchScope.searchQuery}”${fetchProgressLabel}…`
-                  : `Loading tee times within ${timesFetchScope.radiusMi} mi${fetchProgressLabel}…`
-              : fetchAllUtah
-                ? `${gridCourses.length} Utah live course${gridCourses.length === 1 ? '' : 's'} · ${withTimesCount} with times for these filters`
-                : timesFetchScope.mode === 'search'
-                  ? `${fetchPool.length} course${fetchPool.length === 1 ? '' : 's'} matching “${timesFetchScope.searchQuery}” · ${withTimesCount} with times for these filters`
-                  : `${fetchPool.length} live course${fetchPool.length === 1 ? '' : 's'} within ${timesFetchScope.radiusMi} mi · ${withTimesCount} with times for these filters`}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-            {!catalogLoading && timesFetchScope.regional && timesFetchScope.outOfScopeCount > 0 ? (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setFetchScope('all')}
-                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 800 }}
-              >
-                Search all Utah ({workerCourses.length})
-              </button>
-            ) : null}
-            {!catalogLoading && fetchAllUtah ? (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setFetchScope('nearby')}
-                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 800 }}
-              >
-                Show nearby only
-              </button>
-            ) : null}
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-              {user ? (
-                <>
-                  Use <strong style={{ color: 'var(--ink)' }}>Share</strong> when times match, or{' '}
-                  <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when they don&apos;t.
-                </>
-              ) : (
-                <>
-                  Sign in for <strong style={{ color: 'var(--ink)' }}>Share</strong> and{' '}
-                  <strong style={{ color: 'var(--ink)' }}>Alerts</strong> when slots open.
-                </>
-              )}
+            <div>
+              <label className="sp-label" style={{ display: 'block', marginBottom: 4 }}>Holes</label>
+              <select className="input" value={params.holes} onChange={(e) => setParam('holes', e.target.value)}>
+                <option value="18">18</option>
+                <option value="9">9</option>
+              </select>
             </div>
           </div>
         </div>
+
+        <div className="filter-row">
+          {timeChip('any', 'Any time')}
+          {timeChip('morning', 'Morning')}
+          {timeChip('afternoon', 'Afternoon')}
+          {timeChip('evening', 'Twilight')}
+          <button className={`chip${view === 'list' ? ' on' : ''}`} type="button" onClick={() => setView('list')}>
+            List
+          </button>
+          <button className={`chip${view === 'map' ? ' on' : ''}`} type="button" onClick={() => setView('map')}>
+            Map
+          </button>
+          <select
+            className="chip"
+            style={{ paddingRight: 28 }}
+            value={params.sortBy}
+            aria-label="Sort"
+            onChange={(e) => setParam('sort', e.target.value as SortBy)}
+          >
+            <option value="distance">Distance</option>
+            <option value="soonest">Soonest</option>
+            <option value="price">Price</option>
+            <option value="rating">Rating</option>
+          </select>
+          {!catalogLoading && timesFetchScope.regional && timesFetchScope.outOfScopeCount > 0 ? (
+            <button type="button" className="chip" onClick={() => setFetchScope('all')}>
+              All Utah
+            </button>
+          ) : null}
+          {!catalogLoading && fetchAllUtah ? (
+            <button type="button" className="chip" onClick={() => setFetchScope('nearby')}>
+              Nearby
+            </button>
+          ) : null}
+          <div className="filter-spacer" />
+          <span className="result-count">
+            <strong>{resultCountLabel}</strong>
+            {updatedLabel !== '—' ? ` · ${updatedLabel}` : ''}
+            {` · ${formatDateShort(params.date)}`}
+          </span>
+        </div>
+
+        <FinderDayOutlook dateYmd={params.date} />
 
         {!catalogLoading && !loadingTimes && !catalogError && searchPool.length === 0 && workerCourses.length > 0 ? (
           <div
@@ -611,7 +527,7 @@ export function FinderPage() {
         {view === 'map' ? (
           <Suspense
             fallback={
-              <div className="map-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+              <div className="map-shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)' }}>
                 Loading map…
               </div>
             }
@@ -626,300 +542,34 @@ export function FinderPage() {
             />
           </Suspense>
         ) : (
-          <div
-            className="grid-cards"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-              gap: 14,
-            }}
-          >
+          <div className="mp-grid">
             {showCatalogSkeleton
               ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
               : null}
             {!showCatalogSkeleton &&
               gridCourses.map((course) => {
-              const times = timesByCourse.get(course.id) ?? [];
-              const top = times.slice(0, 6);
-              const hasTimes = times.length > 0;
-              const inFetchPool = fetchSlugSet.has(course.id);
-              const outOfScope = !inFetchPool && !fetchAllUtah;
-              const timesPending = inFetchPool && pendingSlugs.has(course.id);
-
-              const statusBadge = (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 10,
-                    left: 10,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '5px 10px',
-                    borderRadius: 999,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: '0.02em',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
-                    ...(hasTimes
-                      ? {
-                          background: 'rgba(255,255,255,0.95)',
-                          color: 'var(--green-2)',
-                          border: '1px solid rgba(45,122,58,0.25)',
-                        }
-                      : timesPending
-                        ? {
-                            background: 'rgba(255,255,255,0.92)',
-                            color: 'var(--ink)',
-                            border: '1px solid rgba(0,0,0,0.1)',
-                          }
-                      : outOfScope
-                        ? {
-                            background: 'rgba(255,255,255,0.92)',
-                            color: 'var(--ink)',
-                            border: '1px solid rgba(0,0,0,0.1)',
-                          }
-                        : {
-                            background: 'rgba(255,255,255,0.92)',
-                            color: 'var(--muted)',
-                            border: '1px solid rgba(0,0,0,0.08)',
-                          }),
-                  }}
-                >
-                  {hasTimes ? (
-                    <>
-                      <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--green-2)', flexShrink: 0 }} aria-hidden />
-                      {times.length} tee time{times.length === 1 ? '' : 's'}
-                    </>
-                  ) : timesPending ? (
-                    <>Loading times…</>
-                  ) : outOfScope ? (
-                    <>Times not loaded</>
-                  ) : (
-                    <>No matching times</>
-                  )}
-                </div>
-              );
-
-              return (
-                <div
-                  key={course.id}
-                  style={{
-                    background: 'rgba(255,255,255,0.9)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)',
-                    overflow: 'hidden',
-                    boxShadow: hasTimes ? '0 6px 18px rgba(0,0,0,0.05)' : '0 4px 14px rgba(0,0,0,0.04)',
-                    opacity: hasTimes ? 1 : 0.97,
-                  }}
-                >
-                  <div style={{ position: 'relative', lineHeight: 0 }}>
-                    <CoursePhoto src={course.photoUrl} height={132} />
-                    {statusBadge}
-                  </div>
-
-                  <div style={{ padding: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: '-0.02em' }}>
-                          {course.name} <span style={{ color: 'var(--muted)', fontWeight: 700 }}>({course.city})</span>
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 6,
-                            fontSize: 12,
-                            color: 'var(--muted)',
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                            columnGap: 10,
-                            rowGap: 4,
-                          }}
-                        >
-                          {typeof course.rating === 'number' && (
-                            <span>
-                              ★ {course.rating.toFixed(1)}
-                              {typeof course.reviewCount === 'number' ? ` (${course.reviewCount.toLocaleString()})` : ''}
-                            </span>
-                          )}
-                          {typeof course.distanceMi === 'number' && <span>{course.distanceMi.toFixed(1)} mi</span>}
-                        </div>
-                      </div>
-
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => setNotifCourseId(course.id)}
-                        style={{ padding: '8px 10px' }}
-                        title="Tee time alerts"
-                        aria-label={`Tee time alerts for ${course.name}`}
-                      >
-                        🔔
-                      </button>
-                    </div>
-
-                    {hasTimes ? (
-                      <div className="times-grid" style={{ marginTop: 10 }}>
-                        {top.map((t) => (
-                          <div
-                            key={t.id}
-                            style={{
-                              padding: '10px 10px',
-                              borderRadius: 12,
-                              background: '#fff',
-                              border: '1px solid rgba(45,122,58,0.22)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 2,
-                              alignItems: 'center',
-                            }}
-                          >
-                            <div style={{ fontWeight: 900, fontSize: 13, color: 'var(--green-2)' }}>{formatTime12h(t.startsAt)}</div>
-                            {t.reopenedAt ? (
-                              <div
-                                style={{
-                                  fontSize: 9,
-                                  fontWeight: 800,
-                                  color: '#15803d',
-                                  background: 'rgba(34,197,94,0.14)',
-                                  padding: '1px 5px',
-                                  borderRadius: 999,
-                                }}
-                              >
-                                {formatReopenedAgo(t.reopenedAt)}
-                              </div>
-                            ) : null}
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{typeof t.price === 'number' ? `$${t.price}` : '—'}</div>
-                          </div>
-                        ))}
-                        {times.length > top.length && (
-                          <Link
-                            to={`/course/${course.id}?${courseDetailQueryString(params)}`}
-                            className="btn"
-                            style={{
-                              padding: '10px 10px',
-                              borderRadius: 12,
-                              background: 'rgba(233,245,234,0.75)',
-                              borderColor: 'rgba(45,122,58,0.18)',
-                              color: 'var(--green-2)',
-                              fontWeight: 900,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.08em',
-                              fontSize: 12,
-                            }}
-                          >
-                            +{times.length - top.length} more
-                          </Link>
-                        )}
-                      </div>
-                    ) : timesPending ? (
-                      <CourseCardTimesSkeleton />
-                    ) : outOfScope ? (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          padding: 12,
-                          borderRadius: 12,
-                          border: '1px dashed rgba(0,0,0,0.12)',
-                          background: 'rgba(255,255,255,0.6)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
-                          Outside your nearby search area. Search all Utah to load live times here, or open the course page.
-                        </p>
-                        <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                          <button type="button" className="btn btn-primary" onClick={() => setFetchScope('all')}>
-                            Search all Utah
-                          </button>
-                          <Link to={`/course/${course.id}?${courseDetailQueryString(params)}`} className="btn">
-                            Course page →
-                          </Link>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          padding: 12,
-                          borderRadius: 12,
-                          border: '1px dashed rgba(45,122,58,0.28)',
-                          background: 'rgba(233,245,234,0.35)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
-                          Nothing for this date and filter set — get notified when something opens up.
-                        </p>
-                        <button type="button" className="btn btn-primary" style={{ marginTop: 10, width: '100%' }} onClick={() => setNotifCourseId(course.id)}>
-                          Get notified
-                        </button>
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        marginTop: 12,
-                        paddingTop: 12,
-                        borderTop: '1px solid var(--border)',
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                      }}
-                    >
-                      <Link
-                        to={`/course/${course.id}?${courseDetailQueryString(params)}`}
-                        className="btn btn-ghost"
-                        style={{ padding: '8px 10px', color: 'var(--muted)' }}
-                      >
-                        Course details →
-                      </Link>
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        disabled={times.length === 0 || timesPending || shareBusyCourseId === course.id || authLoading}
-                        onClick={() => void shareCourseRound(course, times)}
-                        title={
-                          times.length === 0
-                            ? 'Need at least one matching tee time to create a vote link'
-                            : authLoading
-                              ? 'Checking account…'
-                              : `Create a vote link with all ${times.length} tee time${times.length === 1 ? '' : 's'} matching your filters (link copied)`
-                        }
-                        style={{
-                          padding: '10px 16px',
-                          borderRadius: 12,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          fontWeight: 800,
-                          fontSize: 14,
-                        }}
-                        aria-label={`Share vote link for ${course.name}`}
-                      >
-                        {shareBusyCourseId === course.id ? (
-                          '…'
-                        ) : (
-                          <>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-                              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                              <polyline points="16 6 12 2 8 6" />
-                              <line x1="12" y1="2" x2="12" y2="15" />
-                            </svg>
-                            Share
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                const times = timesByCourse.get(course.id) ?? [];
+                const inFetchPool = fetchSlugSet.has(course.id);
+                const outOfScope = !inFetchPool && !fetchAllUtah;
+                const timesPending = inFetchPool && pendingSlugs.has(course.id);
+                const detailHref = `/course/${course.id}?${courseDetailQueryString(params)}`;
+                return (
+                  <CourseMarketplaceCard
+                    key={course.id}
+                    course={course}
+                    record={recordsBySlug.get(course.id)}
+                    times={times}
+                    detailHref={detailHref}
+                    timesPending={timesPending}
+                    outOfScope={outOfScope}
+                    onAlert={() => setNotifCourseId(course.id)}
+                    onSearchAllUtah={() => setFetchScope('all')}
+                    onShare={() => void shareCourseRound(course, times)}
+                    shareBusy={shareBusyCourseId === course.id}
+                    shareDisabled={times.length === 0 || timesPending || authLoading}
+                  />
+                );
+              })}
           </div>
         )}
 
