@@ -163,7 +163,12 @@ async function fetchTeeTimesLive(
     } catch {
       return { times: [], ok: false };
     }
-    const rows = normalizeTimesWorker(course, data, String(holes));
+    let rows = normalizeTimesWorker(course, data, String(holes));
+    // Chronogolf SLC capacity is applied upstream via affiliation_type_ids[] count;
+    // the payload has no spot field — stamp the requested size so UI filters work.
+    if (course.platform === 'chronogolf_slc') {
+      rows = rows.map((row) => ({ ...row, spots: row.spots ?? players }));
+    }
     const times = excludePastTeeTimes(rowsToTeeTimes(courseSlug, dateYmd, rows, holes));
     return { times, ok: true, source: 'live' };
   } catch {
