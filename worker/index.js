@@ -684,9 +684,103 @@ function applyBookingTemplate(template, date, holes, players) {
     .replace(/\{time\}/g, '');
 }
 
+function parseForeUpIds(url, scheduleFromRecord) {
+  const hostMatch = String(url || '').match(/https?:\/\/([^/]+)/i);
+  const host = hostMatch?.[1] || 'foreupsoftware.com';
+  const path = String(url || '').split('#')[0] || '';
+
+  const facilitySchedule = path.match(/\/booking\/(\d+)\/(\d+)/);
+  if (facilitySchedule) {
+    return {
+      facilityId: facilitySchedule[1],
+      scheduleId: scheduleFromRecord || facilitySchedule[2],
+      host,
+    };
+  }
+  const indexFacility = path.match(/\/booking\/index\/(\d+)/);
+  if (indexFacility) {
+    return { facilityId: indexFacility[1], scheduleId: scheduleFromRecord || null, host };
+  }
+  const facilityOnly = path.match(/\/booking\/(\d+)(?:\/?#|$|\?)/);
+  if (facilityOnly) {
+    return { facilityId: facilityOnly[1], scheduleId: scheduleFromRecord || null, host };
+  }
+  return { facilityId: null, scheduleId: scheduleFromRecord || null, host };
+}
+
+function ensureForeUpDateOnTeeSheet(url, date, holes, players) {
+  let out = String(url || '').trim();
+  const dateUs = foreupDateUs(date);
+  const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
+  const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
+
+  if (!/#\/?teetimes/i.test(out)) {
+    out = out.replace(/#.*$/, '').replace(/\/$/, '');
+    out = `${out}#/teetimes`;
+  } else {
+    out = out.replace(/#\/?teetimes.*/i, '#/teetimes');
+  }
+
+  const hashIdx = out.indexOf('#');
+  const before = hashIdx >= 0 ? out.slice(0, hashIdx) : out;
+  try {
+    const u = new URL(before);
+    u.searchParams.set('date', dateUs);
+    u.searchParams.set('players', playersStr);
+    u.searchParams.set('holes', holesStr);
+    return `${u.toString().replace(/\/$/, '')}#/teetimes?date=${encodeURIComponent(dateUs)}`;
+  } catch {
+    const sep = before.includes('?') ? '&' : '?';
+    return `${before}${sep}date=${dateUs}&players=${playersStr}&holes=${holesStr}#/teetimes?date=${encodeURIComponent(dateUs)}`;
+  }
+}
+
+function buildForeUpTeeSheetUrl(course, date, holes, players) {
+  const bookingUrl = String(course.booking_url || '').trim();
+  const templateOverride = String(course.booking_url_template || '').trim();
+  const scheduleId = course.schedule_id != null ? String(course.schedule_id).trim() : '';
+  const parseFrom = templateOverride || bookingUrl;
+  const ids = parseForeUpIds(parseFrom, scheduleId || null);
+
+  if (ids.facilityId && ids.scheduleId) {
+    return ensureForeUpDateOnTeeSheet(
+      `https://${ids.host}/index.php/booking/${ids.facilityId}/${ids.scheduleId}#/teetimes`,
+      date,
+      holes,
+      players,
+    );
+  }
+
+  if (templateOverride && !/\/booking\/index\//i.test(templateOverride)) {
+    let sheet = templateOverride.includes('{')
+      ? applyBookingTemplate(templateOverride, date, holes, players)
+      : templateOverride;
+    return ensureForeUpDateOnTeeSheet(sheet, date, holes, players);
+  }
+
+  if (ids.facilityId) {
+    return ensureForeUpDateOnTeeSheet(
+      `https://${ids.host}/index.php/booking/${ids.facilityId}#/teetimes`,
+      date,
+      holes,
+      players,
+    );
+  }
+  if (bookingUrl && /foreupsoftware\.com/i.test(bookingUrl) && !/\/booking\/index\//i.test(bookingUrl)) {
+    return ensureForeUpDateOnTeeSheet(bookingUrl, date, holes, players);
+  }
+  return bookingUrl || null;
+}
+
 function buildBookingUrlWorker(course, date, holes, players) {
   const base = course.booking_url;
-  if (!base) return 'https://tee-time.io';
+  if (!base && course.platform !== 'foreup' && course.platform !== 'foreup_login') {
+    return 'https://tee-time.io';
+  }
+
+  if (course.platform === 'foreup' || course.platform === 'foreup_login') {
+    return buildForeUpTeeSheetUrl(course, date, holes, players) || base || 'https://tee-time.io';
+  }
 
   const templateOverride = String(course.booking_url_template || '').trim();
   if (templateOverride) {
@@ -695,13 +789,10 @@ function buildBookingUrlWorker(course, date, holes, players) {
       : templateOverride;
   }
 
-  if ((course.platform === 'foreup' || course.platform === 'foreup_login') && base.includes('foreupsoftware.com')) {
-    return `${base.replace(/\/$/, '')}?date=${foreupDateUs(date)}&players=${players}&holes=${holes}`;
-  }
   if (course.platform === 'chronogolf' || course.platform === 'chronogolf_slc') {
-    return `${base.replace(/\/$/, '')}?date=${date}&players=${players}`;
+    return `${String(base).replace(/\/$/, '')}?date=${date}&players=${players}`;
   }
-  return base;
+  return base || 'https://tee-time.io';
 }
 
 function twilioConfigured(env) {
