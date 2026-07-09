@@ -14,8 +14,9 @@ const GOLF_HOUR_START = 6;
 const GOLF_HOUR_END = 23;
 /**
  * Claims per 5-minute tick. Hot tier target is 5 min/course but with ~67 courses
- * effective cadence ≈ ceil(67 / CLAIM_BATCH_SIZE) × 5 min (~35 min today).
- * Raise batch size (or use Queues) before alerts v2 / reopened badges depend on hot latency.
+ * × 15 dates, effective hot cadence ≈ ceil(pairs_due / CLAIM_BATCH_SIZE) × 5 min
+ * (~15–20 min today at batch 20). Raise batch / prioritize alert courses before
+ * live-feed or near-instant notify depends on hot latency.
  */
 const CLAIM_BATCH_SIZE = 20;
 
