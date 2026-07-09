@@ -23,7 +23,7 @@ type SnapshotAvailabilityResponse = {
 };
 
 /** Snapshots older than this fall back to live vendor (avoids stale open slots). */
-const SNAPSHOT_STALE_MS = 45 * 60 * 1000;
+const SNAPSHOT_STALE_MS = 12 * 60 * 1000;
 
 function parsePrice(s: string | null): number | undefined {
   if (!s) return undefined;

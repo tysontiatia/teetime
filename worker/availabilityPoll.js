@@ -501,14 +501,18 @@ async function applyPollDiff(env, {
     const key = slotKey(local, slot.holes);
     if (seen.has(key) || slot.status === 'closed') continue;
 
-    if (partialFetch) {
+    const lastSeenMs = slot.last_seen_at ? Date.parse(slot.last_seen_at) : 0;
+    const withinDebounce = lastSeenMs && nowMs - lastSeenMs < CLOSE_DEBOUNCE_MS;
+
+    // Partial-fetch only protects recently-seen slots. Aged missing slots must
+    // still close — otherwise zombies inflate openSlots and the guard deadlocks.
+    if (partialFetch && withinDebounce) {
       closesSkippedPartial++;
       await patchSlot(env, slot.id, { last_polled_at: now });
       continue;
     }
 
-    const lastSeenMs = slot.last_seen_at ? Date.parse(slot.last_seen_at) : 0;
-    if (lastSeenMs && nowMs - lastSeenMs < CLOSE_DEBOUNCE_MS) {
+    if (!partialFetch && withinDebounce) {
       closesSkippedDebounce++;
       await patchSlot(env, slot.id, { last_polled_at: now });
       continue;
