@@ -22,6 +22,9 @@ type SnapshotAvailabilityResponse = {
   }>;
 };
 
+/** Snapshots older than this fall back to live vendor (avoids stale open slots). */
+const SNAPSHOT_STALE_MS = 45 * 60 * 1000;
+
 function parsePrice(s: string | null): number | undefined {
   if (!s) return undefined;
   const n = parseInt(s.replace(/[^0-9]/g, ''), 10);
@@ -176,11 +179,18 @@ async function fetchTeeTimesLive(
   }
 }
 
+function snapshotIsFresh(snapshot: SnapshotAvailabilityResponse): boolean {
+  if (!snapshot.last_polled_at) return false;
+  const age = Date.now() - new Date(snapshot.last_polled_at).getTime();
+  return Number.isFinite(age) && age >= 0 && age <= SNAPSHOT_STALE_MS;
+}
+
 function canTrustSnapshotForPlayers(
   snapshot: SnapshotAvailabilityResponse,
   players: 1 | 2 | 3 | 4,
 ): boolean {
   if (!snapshot.ok || !snapshot.has_poll_coverage || !Array.isArray(snapshot.times)) return false;
+  if (!snapshotIsFresh(snapshot)) return false;
   if (players === 1) return true;
   // Multi-player needs spot counts. Empty [].every() is vacuously true — don't trust that.
   if (snapshot.spots_known === false) return false;

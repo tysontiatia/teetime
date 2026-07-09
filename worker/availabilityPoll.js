@@ -34,12 +34,13 @@ const SUPPORTED_PLATFORMS = new Set([
  * Phantom-churn guards (3b): suppress false closed/reopened on flaky vendor sheets.
  * • Partial-fetch: if this poll returns far fewer rows than open inventory, skip ALL
  *   closes for the tick (incomplete API response — not proof slots were booked).
+ *   Ratio is intentionally low: normal booking shrink (e.g. 8→5) must still close.
  * • Close debounce: only close after a slot has been missing longer than this window
- *   since last_seen_at (~2 effective poll cycles at today's batch cadence).
+ *   since last_seen_at (~1–2 effective poll cycles at CLAIM_BATCH_SIZE=20).
  */
-const MIN_OPEN_SLOTS_FOR_PARTIAL_GUARD = 5;
-const PARTIAL_FETCH_MIN_RATIO = 0.65;
-const CLOSE_DEBOUNCE_MS = 70 * 60 * 1000; // ~2 effective poll cycles at batch cadence
+const MIN_OPEN_SLOTS_FOR_PARTIAL_GUARD = 8;
+const PARTIAL_FETCH_MIN_RATIO = 0.35;
+const CLOSE_DEBOUNCE_MS = 20 * 60 * 1000;
 
 // ── Mountain Time helpers ───────────────────────────────────────────
 
