@@ -39,6 +39,13 @@ export function formatDateShort(ymd: string) {
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+/** Compact calendar label without weekday — better for dense mobile meta. */
+export function formatDateCompact(ymd: string) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 /** Format a tee-time instant in America/Denver (matches Utah booking sites). */
 export function formatTime12h(iso: string) {
   const dt = new Date(iso);
