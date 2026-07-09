@@ -82,13 +82,12 @@ function ensureForeUpDateOnTeeSheet(
   scheduleId?: string | null,
   bookingClassId?: string | null,
 ): string {
-  let out = url.trim();
   const dateUs = foreupDateUs(params.dateYmd);
   const players = String(Math.min(Math.max(params.players || 1, 1), 4));
   const holes = String(params.holes === 9 ? 9 : 18);
 
   // Drop any existing hash; rebuild as clean #/teetimes
-  const beforeHash = out.replace(/#.*$/, '').replace(/\/$/, '');
+  const beforeHash = url.trim().replace(/#.*$/, '').replace(/\/$/, '');
 
   try {
     const u = new URL(beforeHash);
