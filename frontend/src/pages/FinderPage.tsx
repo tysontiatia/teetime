@@ -318,7 +318,7 @@ export function FinderPage() {
 
   return (
     <div className="container">
-      <div style={{ display: 'grid', gap: 0 }}>
+      <div className="finder-page">
         {catalogError ? (
           <div style={{ marginTop: 18, padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d' }}>
             <strong>Could not load courses.</strong> {catalogError}

@@ -95,12 +95,22 @@ button, input, select{ font: inherit; }
   padding-left: max(18px, env(safe-area-inset-left, 0px));
   padding-right: max(18px, env(safe-area-inset-right, 0px));
   box-sizing: border-box;
+  min-width: 0;
 }
 @media (min-width: 721px){
   .container{
     padding-left: max(32px, env(safe-area-inset-left, 0px));
     padding-right: max(32px, env(safe-area-inset-right, 0px));
   }
+}
+
+/* Constrain finder content so chip rows scroll instead of expanding the page. */
+.finder-page{
+  display: grid;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mono{ font-family: var(--font-mono); }
@@ -541,6 +551,10 @@ html[data-theme='dark'] .modal-msg.err{
   max-width: 100%;
   overflow-x: clip;
 }
+.app-main > *{
+  min-width: 0;
+  max-width: 100%;
+}
 
 /* ---------- Marketplace search pill ---------- */
 .search-zone{ padding: 34px 0 8px; }
@@ -619,11 +633,16 @@ html[data-theme='dark'] .modal-msg.err{
 .filter-row{
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   min-width: 0;
-  flex: 1;
+  max-width: 100%;
+  width: 100%;
+  flex: 1 1 auto;
+  overscroll-behavior-x: contain;
 }
 .filter-row::-webkit-scrollbar{ display: none; }
 .filter-toolbar{
@@ -633,12 +652,18 @@ html[data-theme='dark'] .modal-msg.err{
   gap: 16px;
   padding: 18px 0 8px;
   flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .filter-controls{
   display: flex;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 .seg{
   display: inline-flex;
@@ -710,6 +735,7 @@ html[data-theme='dark'] .modal-msg.err{
   align-items: center;
   gap: 7px;
   cursor: pointer;
+  flex: 0 0 auto;
 }
 .chip:hover{ border-color: var(--ink-3); }
 .chip.on{ background: var(--ink); border-color: var(--ink); color: #fff; }
@@ -961,11 +987,12 @@ html[data-theme='dark'] .modal-msg.err{
   font-weight: 700;
   font-size: 18px;
   letter-spacing: -.02em;
-  line-height: 1.2;
+  line-height: 1.25;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0,0,0,0.25);
   overflow-wrap: anywhere;
   word-break: break-word;
+  padding-bottom: 1px;
 }
 .mp-course-scrim .course-meta{
   margin-top: 4px;
@@ -1757,24 +1784,32 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
   .filter-toolbar{
     padding-top: 14px;
     gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
   }
   .filter-row{
     width: 100%;
-    padding-bottom: 2px;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
   }
   .filter-controls{
     width: 100%;
     justify-content: space-between;
     min-width: 0;
   }
+  .chip{ padding: 8px 14px; font-size: 13px; }
   .sort-control{ min-width: 0; flex: 1; }
   .sort-control select{ width: 100%; max-width: 100%; }
   .result-meta{ flex-direction: column; align-items: flex-start; gap: 6px; }
   .result-count{ white-space: normal; }
 
-  .mp-grid{ grid-template-columns: 1fr; gap: 24px; }
-  .mp-course-scrim{ padding: 48px 12px 12px; gap: 8px; }
-  .mp-course-scrim .course-name{ font-size: 16.5px; }
+  .mp-grid{ grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .mp-course{ min-width: 0; max-width: 100%; }
+  .mp-course-media{ max-width: 100%; }
+  .mp-course-scrim{ padding: 48px 12px 14px; gap: 8px; }
+  .mp-course-scrim .course-name{ font-size: 16.5px; line-height: 1.3; }
   .badge-live{
     top: 10px;
     left: 10px;
