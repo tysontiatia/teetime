@@ -23,6 +23,8 @@ export type Course = {
   bookingUrl?: string;
   /** Source platform from catalog (foreup, chronogolf_slc, membersports, …). */
   platform?: string;
+  /** Catalog hole count — 9-only courses are excluded from 18-hole finder searches. */
+  holes?: 9 | 18;
 };
 
 export type WeatherPoint = {

@@ -72,5 +72,6 @@ export function recordToCourse(record: CourseRecord, distanceMi?: number): Cours
     distanceMi,
     bookingUrl: record.booking_url,
     platform: record.platform,
+    holes: record.holes === 9 || record.holes === 18 ? record.holes : undefined,
   };
 }

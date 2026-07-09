@@ -108,13 +108,19 @@ export function FinderPage() {
 
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
 
+  /** 18-hole search: skip true 9-only courses. 9-hole search: keep everyone. */
+  const holesCompatibleCourses = useMemo(() => {
+    if (params.holes === 9) return workerCourses;
+    return workerCourses.filter((c) => c.holes !== 9);
+  }, [workerCourses, params.holes]);
+
   const timesFetchScope = useMemo(
     () =>
-      buildTimesFetchScope(workerCourses, userLocation, {
+      buildTimesFetchScope(holesCompatibleCourses, userLocation, {
         fetchAllUtah,
         locationQuery: params.locationQuery,
       }),
-    [workerCourses, userLocation, fetchAllUtah, params.locationQuery]
+    [holesCompatibleCourses, userLocation, fetchAllUtah, params.locationQuery]
   );
 
   const fetchPool = timesFetchScope.fetchPool;
@@ -123,14 +129,14 @@ export function FinderPage() {
 
   const searchPool = useMemo(() => {
     const q = locationDraft.trim();
-    let pool = workerCourses;
+    let pool = holesCompatibleCourses;
     if (q) {
       pool = pool.filter((c) => courseMatchesLocationQuery(c, q));
     } else if (!fetchAllUtah) {
       pool = pool.filter((c) => fetchSlugSet.has(c.id));
     }
     return pool;
-  }, [workerCourses, locationDraft, fetchAllUtah, fetchSlugSet]);
+  }, [holesCompatibleCourses, locationDraft, fetchAllUtah, fetchSlugSet]);
 
   const searchPendingCommit =
     locationDraft.trim() !== params.locationQuery.trim() && locationDraft.trim().length > 0;
