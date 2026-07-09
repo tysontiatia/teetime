@@ -132,7 +132,14 @@ export async function fetchSnapshotNormalizedTimes(env, course_slug, play_date, 
     return { has_poll_coverage: false, times: [] };
   }
 
-  const slots = filterSlotsForPlayers(await loadOpenSlots(env, course_slug, play_date, h), p);
+  const slotRows = await loadOpenSlots(env, course_slug, play_date, h);
+  const spots_known = slotRows.length === 0 || slotRows.every((s) => s.spots_open != null);
+  // Multi-player with unknown spots → force live fallback in alert cron.
+  if (p > 1 && !spots_known) {
+    return { has_poll_coverage: false, times: [] };
+  }
+
+  const slots = filterSlotsForPlayers(slotRows, p);
   const times = slots
     .map((slot) => ({
       rawTime: localTimeToRawTime(slot.starts_at_local),
@@ -169,6 +176,9 @@ export async function handleAvailabilityRequest(env, params) {
     loadRecentReopenedMap(env, course_slug, play_date),
   ]);
 
+  // False until chronogolf_slc multi-pass (or other platforms) write spots_open.
+  const spots_known = slotRows.length === 0 || slotRows.every((s) => s.spots_open != null);
+
   const slots = filterSlotsForPlayers(slotRows, players);
   const times = slots.map((slot) => {
     const key = slotEventKey(slot.starts_at_local, slot.holes);
@@ -187,6 +197,7 @@ export async function handleAvailabilityRequest(env, params) {
     ok: true,
     source: 'snapshot',
     has_poll_coverage: coverage.has_poll_coverage,
+    spots_known,
     last_polled_at: coverage.last_polled_at,
     course_slug,
     play_date,

@@ -9,6 +9,8 @@ type SnapshotAvailabilityResponse = {
   ok: boolean;
   source?: string;
   has_poll_coverage?: boolean;
+  /** False when open slots lack spots_open (legacy chronogolf_slc polls). */
+  spots_known?: boolean;
   last_polled_at?: string | null;
   times?: Array<{
     id: string;
@@ -169,12 +171,16 @@ async function fetchTeeTimesLive(
   }
 }
 
-function snapshotHasPlayerSpotData(
-  times: NonNullable<SnapshotAvailabilityResponse['times']>,
+function canTrustSnapshotForPlayers(
+  snapshot: SnapshotAvailabilityResponse,
   players: 1 | 2 | 3 | 4,
 ): boolean {
+  if (!snapshot.ok || !snapshot.has_poll_coverage || !Array.isArray(snapshot.times)) return false;
   if (players === 1) return true;
-  return times.every((row) => row.spots != null);
+  // Multi-player needs spot counts. Empty [].every() is vacuously true — don't trust that.
+  if (snapshot.spots_known === false) return false;
+  if (snapshot.times.length === 0) return snapshot.spots_known === true;
+  return snapshot.times.every((row) => row.spots != null);
 }
 
 export async function fetchTeeTimesForCourse(
@@ -186,14 +192,9 @@ export async function fetchTeeTimesForCourse(
 ): Promise<TeeTimeFetchResult> {
   if (course.platform && workerSupportedPlatform(course.platform)) {
     const snapshot = await fetchTeeTimesFromSnapshot(courseSlug, dateYmd, holes, players);
-    if (
-      snapshot?.ok &&
-      snapshot.has_poll_coverage &&
-      Array.isArray(snapshot.times) &&
-      snapshotHasPlayerSpotData(snapshot.times, players)
-    ) {
+    if (snapshot && canTrustSnapshotForPlayers(snapshot, players)) {
       return {
-        times: snapshotToTeeTimes(courseSlug, dateYmd, snapshot.times),
+        times: snapshotToTeeTimes(courseSlug, dateYmd, snapshot.times!),
         ok: true,
         source: 'snapshot',
       };
