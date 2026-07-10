@@ -229,6 +229,84 @@ function buildChronogolfTeeTimesUrl(
   }
 }
 
+/**
+ * MemberSports reads the tee sheet date from the `teeSheetDate` path segment on
+ * `/tee-sheet-linked/...` (not from query params on `/tee-times/...`).
+ */
+function parseMemberSportsIds(
+  url: string,
+  source: Pick<BookingSource, 'golf_club_id' | 'golf_course_id'>,
+): { clubId: string; courseId: string; configType: string } | null {
+  const fromUrl = url.match(
+    /membersports\.com\/(?:tee-times|tee-sheet-linked|book-tee-time)\/(\d+)\/(\d+)(?:\/(\d+))?/i,
+  );
+  const clubId =
+    source.golf_club_id != null && String(source.golf_club_id).trim()
+      ? String(source.golf_club_id).trim()
+      : fromUrl?.[1] ?? '';
+  const courseId =
+    source.golf_course_id != null && String(source.golf_course_id).trim()
+      ? String(source.golf_course_id).trim()
+      : fromUrl?.[2] ?? '';
+  const configType = fromUrl?.[3] ?? '0';
+  if (!clubId || !courseId) return null;
+  return { clubId, courseId, configType };
+}
+
+function buildMemberSportsTeeTimesUrl(
+  source: BookingSource,
+  params: BookingLinkParams,
+): string | null {
+  const bookingUrl = (source.booking_url || source.bookingUrl || '').trim();
+  const ids = parseMemberSportsIds(bookingUrl, source);
+  if (!ids) return bookingUrl || null;
+  return `https://app.membersports.com/tee-sheet-linked/${ids.clubId}/${ids.courseId}/${ids.configType}/0/false/${params.dateYmd}`;
+}
+
+function buildTruteeBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const orgSlug =
+    source.trutee_org_slug != null && String(source.trutee_org_slug).trim()
+      ? String(source.trutee_org_slug).trim()
+      : '';
+  const courseKey =
+    source.trutee_course_id != null && String(source.trutee_course_id).trim()
+      ? String(source.trutee_course_id).trim()
+      : '';
+  let base = (source.booking_url || source.bookingUrl || '').trim();
+  if (!base && orgSlug && courseKey) {
+    base = `https://trutee.app/courses/o/${orgSlug}?course=${encodeURIComponent(courseKey)}`;
+  }
+  if (!base) return null;
+
+  const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  const holes = String(params.holes === 9 ? 9 : 18);
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    if (courseKey && !u.searchParams.get('course')) u.searchParams.set('course', courseKey);
+    u.searchParams.set('date', params.dateYmd);
+    u.searchParams.set('players', players);
+    u.searchParams.set('holes', holes);
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
+function buildGolfPayBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const base = (source.booking_url || source.bookingUrl || '').trim();
+  if (!base) return null;
+  const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    u.searchParams.set('date', params.dateYmd);
+    u.searchParams.set('players', players);
+    if (!u.searchParams.has('sort')) u.searchParams.set('sort', 'lowest_price');
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 function defaultTemplate(
   record: Pick<CourseRecord, 'platform' | 'booking_url'>,
 ): string | null {
@@ -246,6 +324,9 @@ export type BookingSource = {
   booking_class_id?: string | number | null;
   course_id?: string | number | null;
   golf_course_id?: string | number | null;
+  golf_club_id?: string | number | null;
+  trutee_org_slug?: string | null;
+  trutee_course_id?: string | null;
 };
 
 /**
@@ -278,6 +359,16 @@ export function buildBookingUrl(
     'golf_course_id' in source && source.golf_course_id != null
       ? String(source.golf_course_id)
       : null;
+  const golfClubId =
+    'golf_club_id' in source && source.golf_club_id != null ? String(source.golf_club_id) : null;
+  const truteeOrgSlug =
+    'trutee_org_slug' in source && source.trutee_org_slug != null
+      ? String(source.trutee_org_slug)
+      : null;
+  const truteeCourseId =
+    'trutee_course_id' in source && source.trutee_course_id != null
+      ? String(source.trutee_course_id)
+      : null;
 
   const bookingSource: BookingSource = {
     booking_url: bookingUrl,
@@ -287,6 +378,9 @@ export function buildBookingUrl(
     booking_class_id: bookingClassId,
     course_id: courseId,
     golf_course_id: golfCourseId,
+    golf_club_id: golfClubId,
+    trutee_org_slug: truteeOrgSlug,
+    trutee_course_id: truteeCourseId,
   };
 
   if (platform === 'foreup' || platform === 'foreup_login') {
@@ -295,6 +389,18 @@ export function buildBookingUrl(
 
   if (platform === 'chronogolf' || platform === 'chronogolf_slc') {
     return buildChronogolfTeeTimesUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'membersports') {
+    return buildMemberSportsTeeTimesUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'trutee') {
+    return buildTruteeBookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'golfpay') {
+    return buildGolfPayBookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;

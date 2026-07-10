@@ -839,15 +839,86 @@ function buildChronogolfTeeTimesUrl(course, date, holes, players) {
   }
 }
 
+function parseMemberSportsIds(url, course) {
+  const fromUrl = String(url || '').match(
+    /membersports\.com\/(?:tee-times|tee-sheet-linked|book-tee-time)\/(\d+)\/(\d+)(?:\/(\d+))?/i,
+  );
+  const clubId =
+    course.golf_club_id != null && String(course.golf_club_id).trim()
+      ? String(course.golf_club_id).trim()
+      : fromUrl?.[1] ?? '';
+  const courseId =
+    course.golf_course_id != null && String(course.golf_course_id).trim()
+      ? String(course.golf_course_id).trim()
+      : fromUrl?.[2] ?? '';
+  const configType = fromUrl?.[3] ?? '0';
+  if (!clubId || !courseId) return null;
+  return { clubId, courseId, configType };
+}
+
+function buildMemberSportsTeeTimesUrl(course, date) {
+  const bookingUrl = String(course.booking_url || '').trim();
+  const ids = parseMemberSportsIds(bookingUrl, course);
+  if (!ids) return bookingUrl || null;
+  return `https://app.membersports.com/tee-sheet-linked/${ids.clubId}/${ids.courseId}/${ids.configType}/0/false/${date}`;
+}
+
+function buildTruteeBookingUrl(course, date, holes, players) {
+  const orgSlug =
+    course.trutee_org_slug != null && String(course.trutee_org_slug).trim()
+      ? String(course.trutee_org_slug).trim()
+      : '';
+  const courseKey =
+    course.trutee_course_id != null && String(course.trutee_course_id).trim()
+      ? String(course.trutee_course_id).trim()
+      : '';
+  let base = String(course.booking_url || '').trim();
+  if (!base && orgSlug && courseKey) {
+    base = `https://trutee.app/courses/o/${orgSlug}?course=${encodeURIComponent(courseKey)}`;
+  }
+  if (!base) return null;
+
+  const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
+  const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    if (courseKey && !u.searchParams.get('course')) u.searchParams.set('course', courseKey);
+    u.searchParams.set('date', date);
+    u.searchParams.set('players', playersStr);
+    u.searchParams.set('holes', holesStr);
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
+function buildGolfPayBookingUrl(course, date, players) {
+  const base = String(course.booking_url || '').trim();
+  if (!base) return null;
+  const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    u.searchParams.set('date', date);
+    u.searchParams.set('players', playersStr);
+    if (!u.searchParams.has('sort')) u.searchParams.set('sort', 'lowest_price');
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 function buildBookingUrlWorker(course, date, holes, players) {
   const base = course.booking_url;
-  if (
-    !base &&
-    course.platform !== 'foreup' &&
-    course.platform !== 'foreup_login' &&
-    course.platform !== 'chronogolf' &&
-    course.platform !== 'chronogolf_slc'
-  ) {
+  const supported = [
+    'foreup',
+    'foreup_login',
+    'chronogolf',
+    'chronogolf_slc',
+    'membersports',
+    'trutee',
+    'golfpay',
+  ];
+  if (!base && !supported.includes(course.platform)) {
     return 'https://tee-time.io';
   }
 
@@ -857,6 +928,18 @@ function buildBookingUrlWorker(course, date, holes, players) {
 
   if (course.platform === 'chronogolf' || course.platform === 'chronogolf_slc') {
     return buildChronogolfTeeTimesUrl(course, date, holes, players) || base || 'https://tee-time.io';
+  }
+
+  if (course.platform === 'membersports') {
+    return buildMemberSportsTeeTimesUrl(course, date) || base || 'https://tee-time.io';
+  }
+
+  if (course.platform === 'trutee') {
+    return buildTruteeBookingUrl(course, date, holes, players) || base || 'https://tee-time.io';
+  }
+
+  if (course.platform === 'golfpay') {
+    return buildGolfPayBookingUrl(course, date, players) || base || 'https://tee-time.io';
   }
 
   const templateOverride = String(course.booking_url_template || '').trim();
