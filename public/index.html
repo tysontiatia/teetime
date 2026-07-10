@@ -31,6 +31,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://utah-tee-times.tysontiatia.workers.dev" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <script type="application/ld+json">
   {
@@ -62,6 +63,7 @@
       --pine-deep: #143528;
       --fairway: #B7EA3C;
       --fairway-ink: #2A4405;
+      --green-soft: #F0FADB;
       --sand: #EFECE3;
       --line: #E4E2DA;
       --card: #FFFFFF;
@@ -89,6 +91,7 @@
       --pine-deep: #1E4620;
       --fairway: #C9F542;
       --fairway-ink: #1E4620;
+      --green-soft: #24352C;
       --sand: #131A10;
       --line: #26301D;
       --card: #131A10;
@@ -283,18 +286,33 @@
     }
     .course:hover { border-color: var(--border-strong); transform: translateY(-2px); }
     .course .photo {
-      height: 132px; position: relative; overflow: hidden;
+      display: block;
+      height: 140px;
+      position: relative;
+      overflow: hidden;
       background: linear-gradient(160deg, #2E4A22 0%, #1C3318 55%, #14230F 100%);
     }
-    .course .photo img {
-      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    .course .photo-link {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 0;
     }
-    .course .photo::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(180deg, transparent 40%, rgba(12,16,11,.55) 100%);
+    .course .photo-link img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .course .photo-link img.is-broken { display: none; }
+    .photo-scrim {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(12,16,11,0.04) 0%, rgba(12,16,11,0.55) 100%);
     }
     .badge {
-      position: absolute; top: 12px; left: 12px; z-index: 1;
+      position: absolute; top: 12px; left: 12px; z-index: 2;
       display: inline-flex; align-items: center; gap: 7px;
       background: rgba(12,16,11,.82); border-radius: 999px; padding: 5px 12px;
       font-family: var(--font-mono); font-size: 12px; color: #fff;
@@ -303,7 +321,7 @@
     .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
     .badge.sold .dot { background: #E0653A; }
     .bell {
-      position: absolute; top: 10px; right: 12px; z-index: 1;
+      position: absolute; top: 10px; right: 12px; z-index: 2;
       width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
       background: rgba(12,16,11,.82); color: #fff;
       display: flex; align-items: center; justify-content: center;
@@ -318,6 +336,8 @@
       font-family: var(--font-display); font-size: 18px;
       font-weight: 700; letter-spacing: -0.01em; min-width: 0;
     }
+    .course h3 a:hover { color: var(--pine-deep); }
+    html[data-theme='dark'] .course h3 a:hover { color: var(--accent); }
     .course .price { font-family: var(--font-display); font-size: 18px; font-weight: 700; flex-shrink: 0; }
     .course .facts { padding: 0 16px 10px; font-size: 13px; color: var(--ink-2); }
     .course .facts .star { color: var(--accent); }
@@ -349,6 +369,8 @@
 
     /* Bands */
     section.band { padding: 72px 0; }
+    section.band.band--flush { padding-top: 0; }
+    section.band.band--tight { padding-top: 24px; }
     .kicker {
       font-family: var(--font-mono); font-size: 12px;
       letter-spacing: 0.12em; text-transform: uppercase;
@@ -374,7 +396,7 @@
       background: var(--pine-deep); display: flex;
       align-items: center; justify-content: center; margin-bottom: 16px;
     }
-    html:not([data-theme='dark']) .pillar .icon { background: var(--green-soft, #F0FADB); }
+    html:not([data-theme='dark']) .pillar .icon { background: var(--green-soft); }
     html:not([data-theme='dark']) .pillar .icon svg { stroke: var(--pine-deep); }
     .pillar .icon svg { width: 22px; height: 22px; stroke: var(--accent); }
     .pillar h3 { font-family: var(--font-display); font-size: 19px; font-weight: 700; margin-bottom: 8px; }
@@ -461,6 +483,13 @@
     footer li { margin-bottom: 8px; font-size: 14px; color: var(--ink-2); }
     footer li a:hover { color: var(--pine-deep); }
     html[data-theme='dark'] footer li a:hover { color: var(--accent); }
+    .foot-tagline { color: var(--ink-3); font-size: 14px; max-width: 260px; margin-top: 10px; line-height: 1.5; }
+    .foot-auth-btn {
+      background: none; border: none; padding: 0; font: inherit;
+      font-size: 14px; color: var(--ink-2); cursor: pointer; text-align: left;
+    }
+    .foot-auth-btn:hover { color: var(--pine-deep); }
+    html[data-theme='dark'] .foot-auth-btn:hover { color: var(--accent); }
     .foot-note {
       margin-top: 36px; display: flex; justify-content: space-between;
       gap: 16px; flex-wrap: wrap; color: var(--ink-3); font-size: 13px;
@@ -665,7 +694,7 @@
       </div>
     </section>
 
-    <section class="band wrap" id="how" style="padding-top: 0;">
+    <section class="band wrap band--flush" id="how">
       <p class="kicker">How it works</p>
       <h2>Three steps to the first tee.</h2>
       <div class="steps">
@@ -687,7 +716,7 @@
       </div>
     </section>
 
-    <section class="band wrap" id="alerts" style="padding-top: 12px;">
+    <section class="band wrap band--tight" id="alerts">
       <div class="alert-cta">
         <div>
           <p class="kicker">Tee time alerts</p>
@@ -709,7 +738,7 @@
       </div>
     </section>
 
-    <section class="band wrap" id="states" style="padding-top: 24px;">
+    <section class="band wrap band--tight" id="states">
       <p class="kicker">Where we're live</p>
       <h2>Starting where the golf is underrated.</h2>
       <p class="lede">Utah is live with <span id="stateCourseCount">67</span> public courses tracked. More states are on the way — tell us where to go next.</p>
@@ -722,7 +751,7 @@
       </div>
     </section>
 
-    <section class="band wrap" style="padding-top: 24px;">
+    <section class="band wrap band--tight">
       <div class="founder">
         <p class="quote">"I'm walking all 113 of Utah's public courses — 84 down. I built Tee-Time because checking six tee sheets before sunrise is a bad way to start a Saturday."</p>
         <p class="who"><b>Tyson</b> · Founder · <a href="https://instagram.com/tyson_golf" target="_blank" rel="noopener noreferrer">@tyson_golf</a> · Every Course. Every Step.</p>
@@ -768,7 +797,7 @@
             <img class="logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="28" height="28" />
             <span>Tee-Time<span class="io">.io</span></span>
           </a>
-          <p style="color: var(--ink-3); font-size: 14px; max-width: 260px; margin-top: 10px;">Live tee times from every course, in one search. Book direct — no markups.</p>
+          <p class="foot-tagline">Live tee times from every course, in one search. Book direct — no markups.</p>
         </div>
         <div>
           <h4>Popular courses</h4>
@@ -787,8 +816,8 @@
         <div>
           <h4>Account</h4>
           <ul>
-            <li><a href="#" onclick="openAuthModal('signin'); return false;">Sign in</a></li>
-            <li><a href="#" onclick="openAuthModal('signup'); return false;">Create account</a></li>
+            <li><button type="button" class="foot-auth-btn" onclick="openAuthModal('signin')">Sign in</button></li>
+            <li><button type="button" class="foot-auth-btn" onclick="openAuthModal('signup')">Create account</button></li>
             <li><a href="#states">Request your state</a></li>
           </ul>
         </div>
@@ -821,11 +850,16 @@
       return v.charAt(0).toUpperCase() + v.slice(1) + ' walk';
     }
     function placePhotoUrl(reference) {
-      const url = new URL(WORKER_URL + '/place-photo');
-      url.searchParams.set('reference', reference);
-      url.searchParams.set('maxwidth', '800');
-      return url.toString();
+      return WORKER_URL + '/place-photo?reference=' + encodeURIComponent(reference) + '&maxwidth=800';
     }
+
+    const FEATURED = [
+      { name: 'Glendale (SLC)', badge: '5 tee times', price: 42, times: [['6:24 AM', 42], ['6:33 AM', 42], ['7:09 AM', 42]], soldOut: false },
+      { name: 'Stonebridge (West Valley City)', badge: '8 tee times', price: 55, times: [['10:21 AM', 55], ['10:30 AM', 55], ['11:51 AM', 55]], soldOut: false },
+      { name: 'Rose Park (SLC)', badge: '46 tee times', price: 38, times: [['6:10 AM', 38], ['6:30 AM', 38], ['7:10 AM', 38]], soldOut: false },
+      { name: 'Bonneville (SLC)', badge: 'Full today', price: 50, times: [], soldOut: true },
+    ];
+
     function appUrl(extra) {
       const p = new URLSearchParams();
       const q = (document.getElementById('heroQ')?.value || '').trim();
@@ -836,63 +870,123 @@
       p.set('players', players);
       p.set('holes', '18');
       if (activeTod && activeTod !== 'any') p.set('tod', activeTod);
-      if (extra) Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v); });
+      if (extra) Object.entries(extra).forEach(function (entry) { if (entry[1]) p.set(entry[0], entry[1]); });
       const qs = p.toString();
       return '/app/' + (qs ? '?' + qs : '');
     }
 
-    const FEATURED = [
-      { name: 'Glendale (SLC)', badge: '5 tee times', price: 42, times: [['6:24 AM', 42], ['6:33 AM', 42], ['7:09 AM', 42]], soldOut: false },
-      { name: 'Stonebridge (West Valley City)', badge: '8 tee times', price: 55, times: [['10:21 AM', 55], ['10:30 AM', 55], ['11:51 AM', 55]], soldOut: false },
-      { name: 'Rose Park (SLC)', badge: '46 tee times', price: 38, times: [['6:10 AM', 38], ['6:30 AM', 38], ['7:10 AM', 38]], soldOut: false },
-      { name: 'Bonneville (SLC)', badge: 'Full today', price: 50, times: [], soldOut: true },
-    ];
-
-    function renderCourseCard(course, featured) {
+    function buildCourseCard(course, featured, eagerPhoto) {
       const slug = slugFromName(course.name);
       const title = displayName(course.name);
       const city = cityFromName(course.name);
       const walk = walkLabel(course.walkability);
-      const rating = course.rating ? course.rating.toFixed(1) : '';
-      const reviews = course.review_count || '';
-      const facts = [
-        rating ? '<span class="star">★</span> ' + rating + (reviews ? ' (' + reviews + ')' : '') : '',
-        city,
-        walk,
-      ].filter(Boolean).join(' · ');
-      const photo = course.photo_reference
-        ? '<img src="' + placePhotoUrl(course.photo_reference) + '" alt="' + title + ' Golf Course" loading="lazy" />'
-        : '';
-      const badgeClass = featured.soldOut ? 'badge sold' : 'badge';
-      let body = '';
-      if (featured.soldOut) {
-        body = '<div class="soldout"><span>Booked solid — it happens to the good ones.</span><a href="#alerts">Text me if a spot opens →</a></div>';
-      } else {
-        body = '<div class="times">' + featured.times.map(function (t, i) {
-          return '<button type="button" class="slot' + (i === 0 ? ' hot' : '') + '" data-href="' + appUrl({ q: title }) + '">' + t[0] + '<small>$' + t[1] + '</small></button>';
-        }).join('') + '</div>';
+      const courseHref = '/app/course/' + slug;
+
+      const article = document.createElement('article');
+      article.className = 'course';
+
+      const photo = document.createElement('div');
+      photo.className = 'photo';
+
+      const link = document.createElement('a');
+      link.className = 'photo-link';
+      link.href = courseHref;
+      link.setAttribute('aria-label', title + ' course page');
+
+      if (course.photo_reference) {
+        const img = document.createElement('img');
+        img.alt = title + ' Golf Course';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.loading = eagerPhoto ? 'eager' : 'lazy';
+        if (eagerPhoto) img.fetchPriority = 'high';
+        img.addEventListener('error', function () { img.classList.add('is-broken'); });
+        img.src = placePhotoUrl(course.photo_reference);
+        link.appendChild(img);
       }
-      return (
-        '<article class="course">' +
-          '<a href="/app/course/' + slug + '" class="photo">' + photo +
-            '<span class="' + badgeClass + '"><span class="dot"></span>' + featured.badge + '</span>' +
-            '<button type="button" class="bell" aria-label="Set alert for ' + title + '" onclick="event.preventDefault(); event.stopPropagation(); openAuthModal(\'signin\')">' +
-              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>' +
-            '</button>' +
-          '</a>' +
-          '<div class="meta"><h3>' + title + '</h3><span class="price">$' + featured.price + '</span></div>' +
-          '<div class="facts">' + facts + '</div>' + body +
-        '</article>'
-      );
+
+      const scrim = document.createElement('span');
+      scrim.className = 'photo-scrim';
+      scrim.setAttribute('aria-hidden', 'true');
+      link.appendChild(scrim);
+      photo.appendChild(link);
+
+      const badge = document.createElement('span');
+      badge.className = featured.soldOut ? 'badge sold' : 'badge';
+      badge.innerHTML = '<span class="dot"></span>' + featured.badge;
+      photo.appendChild(badge);
+
+      const bell = document.createElement('button');
+      bell.type = 'button';
+      bell.className = 'bell';
+      bell.setAttribute('aria-label', 'Set alert for ' + title);
+      bell.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>';
+      bell.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openAuthModal('signin');
+      });
+      photo.appendChild(bell);
+      article.appendChild(photo);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const heading = document.createElement('h3');
+      const titleLink = document.createElement('a');
+      titleLink.href = courseHref;
+      titleLink.textContent = title;
+      heading.appendChild(titleLink);
+      meta.appendChild(heading);
+      const price = document.createElement('span');
+      price.className = 'price';
+      price.textContent = '$' + featured.price;
+      meta.appendChild(price);
+      article.appendChild(meta);
+
+      const facts = document.createElement('div');
+      facts.className = 'facts';
+      const factParts = [];
+      if (course.rating) {
+        factParts.push('<span class="star">★</span> ' + course.rating.toFixed(1) + (course.review_count ? ' (' + course.review_count + ')' : ''));
+      }
+      if (city) factParts.push(city);
+      if (walk) factParts.push(walk);
+      facts.innerHTML = factParts.join(' · ');
+      article.appendChild(facts);
+
+      if (featured.soldOut) {
+        const soldout = document.createElement('div');
+        soldout.className = 'soldout';
+        soldout.innerHTML = '<span>Booked solid — it happens to the good ones.</span><a href="#alerts">Text me if a spot opens →</a>';
+        article.appendChild(soldout);
+      } else {
+        const times = document.createElement('div');
+        times.className = 'times';
+        featured.times.forEach(function (t, i) {
+          const slot = document.createElement('button');
+          slot.type = 'button';
+          slot.className = 'slot' + (i === 0 ? ' hot' : '');
+          slot.innerHTML = t[0] + '<small>$' + t[1] + '</small>';
+          slot.addEventListener('click', function () {
+            window.location.href = appUrl({ q: title });
+          });
+          times.appendChild(slot);
+        });
+        article.appendChild(times);
+      }
+
+      return article;
     }
 
     function setCatalogCount(n) {
-      ['catalogEyebrow', 'courseCountStat', 'stateCourseCount', 'statePillCount'].forEach(function (id) {
+      const text = n + ' courses in Utah · live now';
+      const eyebrow = document.getElementById('catalogEyebrow');
+      if (eyebrow) eyebrow.textContent = text;
+      const stat = document.getElementById('courseCountStat');
+      if (stat) stat.textContent = String(n);
+      ['stateCourseCount', 'statePillCount'].forEach(function (id) {
         const el = document.getElementById(id);
-        if (!el) return;
-        if (id === 'catalogEyebrow') el.textContent = n + ' courses in Utah · live now';
-        else if (id === 'courseCountStat') el.textContent = String(n);
-        else el.textContent = String(n);
+        if (el) el.textContent = String(n);
       });
       const seeAll = document.getElementById('seeAllLink');
       if (seeAll) seeAll.textContent = 'See all ' + n + ' courses';
@@ -906,28 +1000,35 @@
           setCatalogCount(courses.length);
           const byName = {};
           courses.forEach(function (c) { byName[c.name] = c; });
+
           const grid = document.getElementById('courseGrid');
           if (!grid) return;
-          grid.innerHTML = FEATURED.map(function (f) {
+          grid.replaceChildren();
+          FEATURED.forEach(function (f, index) {
             const c = byName[f.name];
-            return c ? renderCourseCard(c, f) : '';
-          }).join('');
-          grid.querySelectorAll('.slot').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-              window.location.href = btn.getAttribute('data-href') || '/app/';
-            });
+            if (!c) return;
+            grid.appendChild(buildCourseCard(c, f, index < 2));
           });
+
           const footer = document.getElementById('footerCourses');
-          if (footer) {
-            const links = FEATURED.filter(function (f) { return !f.soldOut; }).slice(0, 4).map(function (f) {
-              const c = byName[f.name];
-              if (!c) return '';
-              const title = displayName(c.name);
-              const slug = slugFromName(c.name);
-              return '<li><a href="/app/course/' + slug + '">' + title + ' tee times</a></li>';
-            }).join('');
-            footer.innerHTML = links + '<li><a href="/app/">All ' + courses.length + ' courses →</a></li>';
-          }
+          if (!footer) return;
+          footer.replaceChildren();
+          FEATURED.filter(function (f) { return !f.soldOut; }).slice(0, 4).forEach(function (f) {
+            const c = byName[f.name];
+            if (!c) return;
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = '/app/course/' + slugFromName(c.name);
+            a.textContent = displayName(c.name) + ' tee times';
+            li.appendChild(a);
+            footer.appendChild(li);
+          });
+          const allLi = document.createElement('li');
+          const allA = document.createElement('a');
+          allA.href = '/app/';
+          allA.textContent = 'All ' + courses.length + ' courses →';
+          allLi.appendChild(allA);
+          footer.appendChild(allLi);
         })
         .catch(function () {});
     }
