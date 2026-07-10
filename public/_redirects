@@ -13,6 +13,7 @@
 /app/round/:slug         /app/round/:slug/          302
 /app/course/:courseId    /app/course/:courseId/     302
 /app/account             /app/account/              302
+/app/feed                /app/feed/                 302
 /app/admin               /app/admin/                302
 /app/admin/courses       /app/admin/courses/        302
 /app/admin/courses/:slug /app/admin/courses/:slug/  302
@@ -24,6 +25,7 @@
 /app/round/*/            /app/                     200
 /app/course/*/           /app/                     200
 /app/account/            /app/                     200
+/app/feed/               /app/                     200
 /app/admin/              /app/                     200
 /app/admin/courses/      /app/                     200
 /app/admin/courses/*/    /app/                     200

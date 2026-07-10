@@ -81,6 +81,20 @@ export function UserMenu({ open, onClose, initial }: UserMenuProps) {
         </div>
 
         <nav className="user-menu-nav">
+          <Link to="/feed" className="user-menu-item" role="menuitem" onClick={onClose}>
+            <MenuIcon>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 11h16M4 7h10M4 15h14M4 19h8"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                />
+                <circle cx="18" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.9" />
+              </svg>
+            </MenuIcon>
+            <span className="user-menu-item-label">Recent openings</span>
+          </Link>
           <Link to="/plan" className="user-menu-item" role="menuitem" onClick={onClose}>
             <MenuIcon>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">

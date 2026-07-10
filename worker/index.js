@@ -2,6 +2,7 @@ import { handleAvailabilityPoll } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest } from './availabilityRead.js';
 import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
+import { handleFeedRequest } from './feedRead.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -980,13 +981,23 @@ async function sendSms(env, toPhone, body) {
       body: form.toString(),
     },
   );
+  const detail = await res.text();
+  let data;
+  try {
+    data = JSON.parse(detail);
+  } catch {
+    data = { raw: detail.slice(0, 300) };
+  }
   if (!res.ok) {
-    const detail = await res.text();
     console.error(
       `[notifications] Twilio SMS failed HTTP ${res.status}: ${detail.slice(0, 800)}`,
     );
+    return false;
   }
-  return res.ok;
+  console.log(
+    `[notifications] Twilio SMS queued to=${toPhone} sid=${data.sid || '?'} status=${data.status || '?'}`,
+  );
+  return true;
 }
 
 function normalizePhone(phone) {
@@ -1009,8 +1020,13 @@ function buildAlertSms(course, times, date, players) {
   return `⛳ ${times.length} tee time${times.length !== 1 ? 's' : ''} at ${course.name} on ${dateFormatted}\n${top}${more}\nBook: ${bookingUrl}`;
 }
 
+function resendConfigured(env) {
+  return Boolean(env.RESEND_API_KEY);
+}
+
 // ── Send email via Resend ────────────────────────────────────────────
 async function sendEmail(env, to, subject, html) {
+  if (!resendConfigured(env)) return false;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -1024,7 +1040,21 @@ async function sendEmail(env, to, subject, html) {
       html,
     }),
   });
-  return res.ok;
+  const detail = await res.text();
+  let data;
+  try {
+    data = JSON.parse(detail);
+  } catch {
+    data = { raw: detail.slice(0, 300) };
+  }
+  if (!res.ok) {
+    console.error(
+      `[notifications] Resend email failed HTTP ${res.status} to=${to}: ${detail.slice(0, 800)}`,
+    );
+    return false;
+  }
+  console.log(`[notifications] Resend email queued to=${to} id=${data.id || '?'}`);
+  return true;
 }
 
 // ── Build notification email ─────────────────────────────────────────
@@ -1247,6 +1277,7 @@ function createAlertContext(env, courses) {
     courses,
     sendSms,
     sendEmail,
+    resendConfigured,
     buildAlertSms,
     buildAlertEmail,
     findCourseByCatalogId,
@@ -1307,6 +1338,11 @@ export default {
 
     if (path === '/v1/courses' && request.method === 'GET') {
       return courseAdmin.handlePublicCourses(env);
+    }
+
+    if (path === '/v1/feed' && request.method === 'GET') {
+      const params = Object.fromEntries(url.searchParams.entries());
+      return handleFeedRequest(env, params);
     }
 
     if (path === '/v1/availability' && request.method === 'GET') {

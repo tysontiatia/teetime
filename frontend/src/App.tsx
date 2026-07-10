@@ -8,6 +8,7 @@ import { PlanPage } from './pages/PlanPage';
 import { SharePage } from './pages/SharePage';
 import { RoundPage } from './pages/RoundPage';
 import { AccountPage } from './pages/AccountPage';
+import { FeedPage } from './pages/FeedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminCoursesListPage } from './pages/admin/AdminCoursesListPage';
 import { AdminCourseEditPage } from './pages/admin/AdminCourseEditPage';
@@ -27,6 +28,7 @@ function RoutedApp() {
           <Route path="/share" element={<SharePage />} />
           <Route path="/round/:slug" element={<RoundPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/feed" element={<FeedPage />} />
           <Route element={<AdminGuard />}>
             <Route path="/admin/courses" element={<AdminCoursesListPage />} />
             <Route path="/admin/courses/:slug" element={<AdminCourseEditPage />} />

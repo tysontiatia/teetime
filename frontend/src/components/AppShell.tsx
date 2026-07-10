@@ -38,6 +38,8 @@ export function AppShell() {
       document.title = 'Tee-Time — Share';
     } else if (p === '/account') {
       document.title = 'Tee-Time — Account';
+    } else if (p === '/feed') {
+      document.title = 'Tee-Time — Openings';
     } else if (p.startsWith('/round/')) {
       document.title = 'Tee-Time — Vote';
     } else if (p.startsWith('/course/')) {
@@ -54,7 +56,11 @@ export function AppShell() {
     location.pathname === '/plan' ||
     location.pathname.startsWith('/plan/') ||
     location.pathname === '/account' ||
-    location.pathname.startsWith('/account/');
+    location.pathname.startsWith('/account/') ||
+    location.pathname === '/feed' ||
+    location.pathname.startsWith('/feed/');
+
+  const feedActive = location.pathname === '/feed' || location.pathname.startsWith('/feed/');
 
   return (
     <div>
@@ -66,6 +72,12 @@ export function AppShell() {
               Tee-Time<span className="app-header-logo-tld">.io</span>
             </span>
           </Link>
+
+          <nav className="app-header-nav" aria-label="Main">
+            <Link to="/feed" className={`app-header-nav-link${feedActive ? ' is-active' : ''}`}>
+              Openings
+            </Link>
+          </nav>
 
           <div className="app-header-trailing">
             {loading ? (

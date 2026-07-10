@@ -156,9 +156,15 @@ async function loadRecentLogs(env, userIds, logSinceStr) {
     `${env.SUPABASE_URL}/rest/v1/notification_log?user_id=in.(${userIds.join(',')})` +
     `&sent_at=gte.${logSinceStr}&order=sent_at.desc`;
   let res = await fetch(
-    `${base}&select=user_id,course_id,target_date,channel,sent_at,notified_slot_keys`,
+    `${base}&select=user_id,course_id,target_date,channel,sent_at,notified_slot_keys,notify_reason`,
     { headers: sbHeaders(env) },
   );
+  if (!res.ok) {
+    res = await fetch(
+      `${base}&select=user_id,course_id,target_date,channel,sent_at,notified_slot_keys`,
+      { headers: sbHeaders(env) },
+    );
+  }
   if (!res.ok) {
     res = await fetch(
       `${base}&select=user_id,course_id,target_date,channel,sent_at`,
@@ -200,27 +206,53 @@ function recentlyNotifiedKeys(logs, userId, courseId, playDate, channel, withinM
   return keys;
 }
 
-function filterSlotsForNotify(slots, pref, logs, playDate, { eventMode }) {
+function filterSlotsForNotify(slots, pref, logs, playDate, { eventMode, channel }) {
   const out = [];
   for (const slot of slots) {
     if (!slotMatchesPref(pref, slot)) continue;
 
     if (eventMode) {
-      const lastAt = slotLastNotifiedAt(logs, pref.user_id, pref.course_id, playDate, 'sms', slot.slotKey);
+      const lastAt = slotLastNotifiedAt(logs, pref.user_id, pref.course_id, playDate, channel, slot.slotKey);
       const cooldown = slot.event_type === 'reopened' ? SLOT_REOPEN_COOLDOWN_MS : SLOT_OPEN_COOLDOWN_MS;
       if (lastAt && Date.now() - lastAt < cooldown) continue;
       // Reopened: allow even if in 24h set, as long as reopen cooldown passed
       if (slot.event_type !== 'reopened') {
-        const recent = recentlyNotifiedKeys(logs, pref.user_id, pref.course_id, playDate, 'sms', SLOT_OPEN_COOLDOWN_MS);
+        const recent = recentlyNotifiedKeys(
+          logs, pref.user_id, pref.course_id, playDate, channel, SLOT_OPEN_COOLDOWN_MS,
+        );
         if (recent.has(slot.slotKey)) continue;
       }
     } else {
-      const recent = recentlyNotifiedKeys(logs, pref.user_id, pref.course_id, playDate, 'sms', BACKSTOP_LOOKBACK_MS);
+      const recent = recentlyNotifiedKeys(
+        logs, pref.user_id, pref.course_id, playDate, channel, BACKSTOP_LOOKBACK_MS,
+      );
       if (recent.has(slot.slotKey)) continue;
     }
     out.push(slot);
   }
   return out;
+}
+
+/** Max backstop SMS per user per hour — avoids carrier/Twilio throttling after poll bursts. */
+const MAX_BACKSTOP_SMS_PER_HOUR = 2;
+
+function backstopSmsRateLimited(logs, userId) {
+  const cutoff = Date.now() - 60 * 60 * 1000;
+  let count = 0;
+  for (const log of logs) {
+    if (log.user_id !== userId || log.channel !== 'sms' || log.notify_reason !== 'backstop') continue;
+    const ts = new Date(log.sent_at).getTime();
+    if (Number.isFinite(ts) && ts > cutoff) count++;
+  }
+  return count >= MAX_BACKSTOP_SMS_PER_HOUR;
+}
+
+function slotsForAlertEmail(slots) {
+  return slots.map((s) => ({
+    rawTime: s.rawTime,
+    price: s.price,
+    spots: s.spots_open ?? s.spots ?? null,
+  }));
 }
 
 async function loadUserAndProfile(env, userId) {
@@ -289,42 +321,59 @@ async function deliverToUser(ctx, {
   const course = ctx.findCourseByCatalogId(ctx.courses, pref.course_id);
   if (!course) return;
 
+  const eventMode = notifyReason === 'event';
+
   if (wantEmail && user.email) {
-    const recent = recentlyNotifiedKeys(logs, pref.user_id, pref.course_id, playDate, 'email', BACKSTOP_LOOKBACK_MS);
-    const emailSlots = slots.filter((s) => !recent.has(s.slotKey));
-    if (emailSlots.length) {
-      const subject = buildOpeningEmailSubject(course, emailSlots, primaryEvent);
-      const html = ctx.buildAlertEmail(course, emailSlots, playDate, players);
-      const sent = await ctx.sendEmail(env, user.email, subject, html);
-      if (sent) {
-        await writeNotificationLog(env, {
-          user_id: pref.user_id,
-          course_id: pref.course_id,
-          target_date: playDate,
-          channel: 'email',
-          times_found: emailSlots.length,
-          notified_slot_keys: emailSlots.map((s) => s.slotKey),
-          notify_reason: notifyReason,
-        });
-        appendLog(logs, {
-          user_id: pref.user_id,
-          course_id: pref.course_id,
-          target_date: playDate,
-          channel: 'email',
-          notified_slot_keys: emailSlots.map((s) => s.slotKey),
-        });
+    if (!ctx.resendConfigured?.(env)) {
+      if (!ctx._warnedResendMissing) {
+        console.warn('[notifications] RESEND_API_KEY missing; email alerts skipped');
+        ctx._warnedResendMissing = true;
+      }
+    } else {
+      const emailSlots = filterSlotsForNotify(slots, pref, logs, playDate, {
+        eventMode,
+        channel: 'email',
+      });
+      if (emailSlots.length) {
+        const subject = buildOpeningEmailSubject(course, emailSlots, primaryEvent);
+        const html = ctx.buildAlertEmail(course, slotsForAlertEmail(emailSlots), playDate, players);
+        const sent = await ctx.sendEmail(env, user.email, subject, html);
+        if (sent) {
+          await writeNotificationLog(env, {
+            user_id: pref.user_id,
+            course_id: pref.course_id,
+            target_date: playDate,
+            channel: 'email',
+            times_found: emailSlots.length,
+            notified_slot_keys: emailSlots.map((s) => s.slotKey),
+            notify_reason: notifyReason,
+          });
+          appendLog(logs, {
+            user_id: pref.user_id,
+            course_id: pref.course_id,
+            target_date: playDate,
+            channel: 'email',
+            notified_slot_keys: emailSlots.map((s) => s.slotKey),
+            notify_reason: notifyReason,
+          });
+        }
       }
     }
   }
 
   if (wantSms) {
     if (!twilioConfigured(env)) return;
+    if (!eventMode && backstopSmsRateLimited(logs, pref.user_id)) {
+      console.warn(`[notifications] backstop SMS rate limit for user ${pref.user_id}`);
+      return;
+    }
     const smsSlots = filterSlotsForNotify(slots, pref, logs, playDate, {
-      eventMode: notifyReason === 'event',
+      eventMode,
+      channel: 'sms',
     });
     if (!smsSlots.length) return;
 
-    const body = notifyReason === 'event'
+    const body = eventMode
       ? buildOpeningSms(ctx, course, smsSlots, playDate, players, primaryEvent)
       : ctx.buildAlertSms(course, smsSlots, playDate, String(players));
 
@@ -339,13 +388,14 @@ async function deliverToUser(ctx, {
         notified_slot_keys: smsSlots.map((s) => s.slotKey),
         notify_reason: notifyReason,
       });
-      appendLog(logs, {
-        user_id: pref.user_id,
-        course_id: pref.course_id,
-        target_date: playDate,
-        channel: 'sms',
-        notified_slot_keys: smsSlots.map((s) => s.slotKey),
-      });
+        appendLog(logs, {
+          user_id: pref.user_id,
+          course_id: pref.course_id,
+          target_date: playDate,
+          channel: 'sms',
+          notified_slot_keys: smsSlots.map((s) => s.slotKey),
+          notify_reason: notifyReason,
+        });
     }
   }
 }

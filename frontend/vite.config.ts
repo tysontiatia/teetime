@@ -21,6 +21,10 @@ function repoPublicDevAssets(): Plugin {
           return sendRepoFile(path.join(repoPublicDir, 'courses.json'), res)
         }
 
+        if (urlPath === '/privacy.html' || urlPath === '/terms.html') {
+          return sendRepoFile(path.join(repoPublicDir, urlPath.slice(1)), res)
+        }
+
         const brandAsset = urlPath.replace(/^\//, '')
         if (
           brandAsset === 'favicon.svg' ||

@@ -74,6 +74,11 @@ export function AccountPage() {
   const [profilePhoneE164, setProfilePhoneE164] = useState<string | null>(null);
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyBusy, setVerifyBusy] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false);
+  const [smsConsentAt, setSmsConsentAt] = useState<string | null>(null);
+
+  const wantsSmsChannel = notifyVia === 'sms' || notifyVia === 'both';
+  const hasSmsConsentOnRecord = Boolean(smsConsentAt);
 
   const loadPrefs = useCallback(async (uid: string) => {
     const { data, error } = await supabase
@@ -90,11 +95,14 @@ export function AccountPage() {
     phone: string | null;
     notify_via: string | null;
     phone_verified_at: string | null;
+    sms_consent_at?: string | null;
   }) => {
     setPhone(prof.phone ? formatPhoneDisplay(prof.phone.replace(/^\+1/, '')) : '');
     setNotifyVia((prof.notify_via as NotifyVia) || 'email');
     setPhoneVerifiedAt(prof.phone_verified_at ?? null);
     setProfilePhoneE164(prof.phone ?? null);
+    setSmsConsentAt(prof.sms_consent_at ?? null);
+    setSmsConsent(Boolean(prof.sms_consent_at));
   }, []);
 
   useEffect(() => {
@@ -103,7 +111,7 @@ export function AccountPage() {
     (async () => {
       const { data: prof } = await supabase
         .from('profiles')
-        .select('phone, notify_via, phone_verified_at')
+        .select('phone, notify_via, phone_verified_at, sms_consent_at')
         .eq('id', user.id)
         .single();
       if (cancelled) return;
@@ -174,11 +182,27 @@ export function AccountPage() {
       return;
     }
 
+    if (wantsSmsChannel && !smsConsent && !hasSmsConsentOnRecord) {
+      setMessage({
+        type: 'err',
+        text: 'Check the SMS consent box below to enable text alerts.',
+      });
+      return;
+    }
+
     setSaving(true);
     const phoneE164 = phone ? (toE164(phone) ?? null) : null;
+    const profilePatch: {
+      phone: string | null;
+      notify_via: NotifyVia;
+      sms_consent_at?: string;
+    } = { phone: phoneE164, notify_via: notifyVia };
+    if (wantsSmsChannel && smsConsent && !hasSmsConsentOnRecord) {
+      profilePatch.sms_consent_at = new Date().toISOString();
+    }
     const { error } = await supabase
       .from('profiles')
-      .update({ phone: phoneE164, notify_via: notifyVia })
+      .update(profilePatch)
       .eq('id', user.id);
     setSaving(false);
 
@@ -187,7 +211,7 @@ export function AccountPage() {
     } else {
       const { data: prof } = await supabase
         .from('profiles')
-        .select('phone, notify_via, phone_verified_at')
+        .select('phone, notify_via, phone_verified_at, sms_consent_at')
         .eq('id', user.id)
         .single();
       if (prof) applyProfile(prof);
@@ -236,11 +260,16 @@ export function AccountPage() {
     setVerifyCode('');
     const { data: prof } = await supabase
       .from('profiles')
-      .select('phone, notify_via, phone_verified_at')
+      .select('phone, notify_via, phone_verified_at, sms_consent_at')
       .eq('id', user.id)
       .single();
     if (prof) applyProfile(prof);
-    setMessage({ type: 'ok', text: 'Phone verified. SMS alerts can be delivered to this number.' });
+    const viaLabel = notifyVia === 'both' ? 'Email and SMS' : 'SMS';
+    setMessage({
+      type: 'ok',
+      text:
+        `${viaLabel} alerts enabled for this number. Msg frequency varies with your alerts. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`,
+    });
   };
 
   const labelStyle = 'account-label';
@@ -321,6 +350,32 @@ export function AccountPage() {
             </div>
           </div>
 
+          {wantsSmsChannel ? (
+            <div className="account-sms-consent" id="sms-opt-in">
+              <label className="account-sms-consent-label">
+                <input
+                  type="checkbox"
+                  checked={smsConsent || hasSmsConsentOnRecord}
+                  disabled={hasSmsConsentOnRecord}
+                  onChange={(e) => setSmsConsent(e.target.checked)}
+                />
+                <span>
+                  I agree to receive <strong>transactional SMS alerts</strong> from Tee-Time.io when tee times
+                  matching my saved alerts open or reopen. Message frequency varies (typically a few per week per
+                  active alert). Message &amp; data rates may apply. Reply <strong>STOP</strong> to opt out,{' '}
+                  <strong>HELP</strong> for help. Not marketing.
+                </span>
+              </label>
+              <p className="account-sms-consent-meta">
+                {hasSmsConsentOnRecord ? (
+                  <>SMS consent recorded {new Date(smsConsentAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.</>
+                ) : (
+                  <>Required to enable SMS. See our <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms</a>.</>
+                )}
+              </p>
+            </div>
+          ) : null}
+
           {message ? (
             <div className={`account-msg${message.type === 'ok' ? ' is-ok' : ' is-err'}`}>{message.text}</div>
           ) : null}
@@ -338,7 +393,7 @@ export function AccountPage() {
           <div className="account-prefs-section">
             <h2 className="account-prefs-title">Tee time alerts</h2>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.45 }}>
-              Active alerts you set from the finder (🔔). We scan about every 15 minutes when times match your filters.
+              Active alerts you set from the finder (🔔). We check courses every few minutes when times match your filters.
             </p>
             {prefs.length === 0 ? (
               <p style={{ fontSize: 14, color: 'var(--muted)' }}>
@@ -408,6 +463,12 @@ export function AccountPage() {
       <button type="button" className="btn account-sign-out" onClick={() => void signOut()}>
         Sign out
       </button>
+
+      <p className="account-legal-links">
+        <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a>
+        <span aria-hidden> · </span>
+        <a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms</a>
+      </p>
     </div>
   );
 }

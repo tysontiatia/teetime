@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Privacy policy for Tee-Time.io — how we handle your account, alerts, and phone number." />
+  <title>Privacy Policy — Tee-Time.io</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="canonical" href="https://tee-time.io/privacy.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #FBFBF8; --ink: #141E19; --muted: #4C5A53; --line: #E4E2DA;
+      --pine: #1E4D3B; --green-soft: #F0FADB; --card: #fff;
+      --font: 'Instrument Sans', system-ui, sans-serif;
+      --font-display: 'Sora', system-ui, sans-serif;
+    }
+    html[data-theme='dark'] {
+      --paper: #0F1713; --ink: #E8EEE9; --muted: #9AABA2; --line: #243028;
+      --pine: #B7EA3C; --green-soft: #1A2E1A; --card: #141E19;
+    }
+    body { font-family: var(--font); background: var(--paper); color: var(--ink); line-height: 1.6; }
+    a { color: var(--pine); }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    .logo { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 700; text-decoration: none; color: var(--ink); margin-bottom: 28px; }
+    h1 { font-family: var(--font-display); font-size: clamp(28px, 5vw, 36px); margin-bottom: 8px; letter-spacing: -.02em; }
+    .updated { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    h2 { font-size: 18px; margin: 28px 0 10px; }
+    p, li { color: var(--muted); font-size: 15px; margin-bottom: 12px; }
+    ul { padding-left: 1.25rem; margin-bottom: 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin: 20px 0; }
+    .card strong { color: var(--ink); }
+    footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+    footer a { margin-right: 16px; }
+  </style>
+  <script>
+    (function () {
+      try {
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <a class="logo" href="/">Tee-Time.io</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: July 10, 2026</p>
+
+    <p>Tee-Time.io (“we”, “us”) helps golfers search Utah tee times and receive optional alerts when matching times open. This policy describes what we collect and how we use it.</p>
+
+    <h2>Information we collect</h2>
+    <ul>
+      <li><strong>Account:</strong> email address and display name when you sign up (Google OAuth or email/password via Supabase).</li>
+      <li><strong>Alert preferences:</strong> courses, dates, time windows, and player counts you save when creating tee time alerts.</li>
+      <li><strong>Phone number:</strong> only if you choose SMS or email+SMS alerts. We verify ownership with a one-time code (Twilio Verify).</li>
+      <li><strong>Usage:</strong> anonymous analytics (PostHog) to improve the product — not sold to third parties.</li>
+    </ul>
+
+    <h2>How we use SMS</h2>
+    <div class="card">
+      <p><strong>Transactional alerts only.</strong> If you opt in on your <a href="/app/account/">Account</a> page, we send text messages when tee times matching your saved alerts open or reopen. We do not send marketing or promotional SMS.</p>
+      <p><strong>Frequency:</strong> varies with your alert settings and tee sheet activity (typically zero to a few messages per week per active alert).</p>
+      <p><strong>Opt out:</strong> switch alert channel to Email only on Account, pause or remove alerts, or reply <strong>STOP</strong> to any message. Reply <strong>HELP</strong> for support.</p>
+      <p><strong>Cost:</strong> message and data rates may apply per your carrier.</p>
+    </div>
+
+    <h2>Email alerts</h2>
+    <p>If you enable email alerts, we send transactional messages to your account email via Resend when matching tee times are found. You can disable alerts anytime on Account.</p>
+
+    <h2>Sharing</h2>
+    <p>We use service providers to operate the product: Supabase (database/auth), Cloudflare (hosting), Resend (email), Twilio (SMS verification and delivery), and Google (Places photos). We do not sell your personal information.</p>
+
+    <h2>Data retention</h2>
+    <p>Account and alert data are kept while your account is active. You may delete alerts on Account or contact us to request account deletion.</p>
+
+    <h2>Contact</h2>
+    <p>Questions: <a href="mailto:support@tee-time.io">support@tee-time.io</a></p>
+
+    <footer>
+      <a href="/">Home</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/app/account/">Account &amp; alerts</a>
+    </footer>
+  </div>
+</body>
+</html>
