@@ -3,17 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Search Utah golf tee times across ForeUp, Chronogolf, and MemberSports in one place. Compare open slots on list or map, share vote links with your group, and book on the course site." />
+  <meta name="description" content="Search 67+ Utah golf courses across ForeUp, Chronogolf, and MemberSports in one place. Compare open slots on list or map, share vote links, set tee-time alerts, and book on the course site. More states coming soon." />
   <meta name="theme-color" content="#1E4D3B" />
+  <script>
+    (function () {
+      try {
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) {
+          document.documentElement.dataset.theme = 'dark';
+          document.documentElement.style.colorScheme = 'dark';
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', '#0F1713');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="canonical" href="https://tee-time.io/" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tee-time.io/" />
   <meta property="og:title" content="tee-time.io — Find. Plan. Book." />
-  <meta property="og:description" content="Every Utah course in one search. Share vote links, set tee-time alerts, and checkout on the course's own booking site." />
+  <meta property="og:description" content="67+ courses in Utah today — more states soon. One search across ForeUp, Chronogolf, and MemberSports. Share vote links, tee-time alerts, checkout on the course site." />
   <meta property="og:site_name" content="tee-time.io" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="tee-time.io — Find. Plan. Book." />
-  <meta name="twitter:description" content="Search Utah tee times across ForeUp, Chronogolf, and MemberSports. Plan with your group, book on the course site." />
+  <meta name="twitter:description" content="67+ Utah courses in one search — more states soon. ForeUp, Chronogolf, MemberSports. Plan with your group, book on the course site." />
   <title>tee-time.io — Find. Plan. Book.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -27,7 +40,8 @@
     "url": "https://tee-time.io",
     "applicationCategory": "SportsApplication",
     "operatingSystem": "Web",
-    "description": "Search Utah golf tee times across ForeUp, Chronogolf, and MemberSports. Share group vote links and book on the course site.",
+    "description": "Search golf tee times across ForeUp, Chronogolf, and MemberSports. Live in Utah with more states coming soon.",
+    "areaServed": { "@type": "State", "name": "Utah" },
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
@@ -58,6 +72,22 @@
       --font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
       --container: min(1240px, 100%);
       --gutter: max(18px, env(safe-area-inset-left, 0px));
+    }
+
+    html[data-theme='dark'] {
+      --paper: #0F1713;
+      --ink: #F2F5F1;
+      --ink-2: #B7C2BA;
+      --ink-3: #7E8B84;
+      --pine: #3F8F68;
+      --pine-deep: #2F6B4E;
+      --fairway: #B7EA3C;
+      --fairway-ink: #D7F58A;
+      --sand: #1A2420;
+      --line: #2A3530;
+      --card: #16201C;
+      --shadow: 0 14px 36px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.22);
+      color-scheme: dark;
     }
 
     html { scroll-behavior: smooth; scroll-padding-top: 80px; }
@@ -165,6 +195,37 @@
     }
     .site-logo-tld { color: var(--ink-3); font-weight: 400; }
     .site-nav { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .site-nav-desktop { display: flex; align-items: center; gap: 8px; }
+    .site-menu-btn {
+      display: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink-2);
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .site-menu-panel {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: max(18px, env(safe-area-inset-right, 0px));
+      min-width: 220px;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      background: var(--card);
+      box-shadow: var(--shadow);
+      z-index: 120;
+    }
+    .site-menu-panel.is-open { display: grid; gap: 4px; }
+    .site-menu-panel .btn { width: 100%; justify-content: center; }
+    .site-header-inner { position: relative; }
+    .site-nav-mobile-cta { display: none; }
 
     /* Hero */
     .hero { padding: 40px 0 32px; }
@@ -352,6 +413,11 @@
       border-color: color-mix(in srgb, var(--pine) 25%, var(--line));
       color: var(--pine-deep);
     }
+    .preview-chip-icon {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
     .preview-body { padding: 16px; display: grid; gap: 14px; }
     .preview-course {
       border: 1px solid var(--line);
@@ -362,17 +428,37 @@
     .preview-course-top {
       position: relative;
       aspect-ratio: 16/7;
-      background: linear-gradient(135deg, #2E5E43 0%, #4C8A5C 55%, #67A86B 100%);
+      min-height: 120px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #2E5E43 0%, #4C8A5C 100%);
+    }
+    .preview-course-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .preview-course-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(12,20,16,0.08) 0%, rgba(12,20,16,0.55) 48%, rgba(12,20,16,0.82) 100%);
+      pointer-events: none;
+    }
+    .preview-course-info {
+      position: relative;
+      z-index: 1;
       padding: 14px;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
+      min-height: 100%;
     }
-    .preview-course-top.is-b { background: linear-gradient(135deg, #1E4D3B 0%, #3A7358 60%, #5A9A72 100%); }
     .preview-badge {
       position: absolute;
       top: 10px;
       left: 10px;
+      z-index: 2;
       font-size: 11px;
       font-weight: 600;
       padding: 5px 10px;
@@ -395,12 +481,15 @@
       flex-wrap: wrap;
       gap: 6px;
       padding: 12px 14px 14px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .tee-chip {
       display: flex;
       flex-direction: column;
       align-items: center;
-      min-width: 62px;
+      flex: 0 0 auto;
+      min-width: 58px;
       padding: 6px 8px;
       border-radius: 10px;
       border: 1px solid var(--line);
@@ -559,7 +648,7 @@
     .submit-btn:hover:not(:disabled) { background: var(--pine-deep); transform: translateY(-1px); }
     .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .status { font-size: 13px; padding: 10px 12px; border-radius: var(--radius-sm); display: none; }
-    .status.error { display: block; background: #fff1f0; color: #9a3412; border: 1px solid #fecaca; }
+    .status.error { display: block; background: color-mix(in srgb, #fecaca 40%, var(--card)); color: #9a3412; border: 1px solid #fecaca; }
     .status.success { display: block; background: color-mix(in srgb, var(--fairway) 25%, var(--card)); color: var(--pine-deep); border: 1px solid color-mix(in srgb, var(--pine) 20%, var(--line)); }
     .access-signin { margin-top: 14px; font-size: 13px; color: var(--ink-3); }
     .access-signin a { color: var(--pine); font-weight: 600; text-decoration: none; }
@@ -686,21 +775,47 @@
     .footer-nav a:hover { color: var(--ink); }
     .footer-meta { font-size: 12px; color: var(--ink-3); text-align: right; }
 
+    html[data-theme='dark'] .preview-chip.is-on { color: var(--fairway-ink); }
+    html[data-theme='dark'] .status.error {
+      background: color-mix(in srgb, #7f1d1d 35%, var(--card));
+      color: #fecaca;
+      border-color: color-mix(in srgb, #fecaca 25%, var(--line));
+    }
+
     @media (max-width: 900px) {
       .fpb-grid, .steps { grid-template-columns: 1fr; }
       .access-card { grid-template-columns: 1fr; padding: 22px 18px; }
+      .section { padding: 44px 0; }
+      .section-title, .section-title--wide { max-width: none; }
     }
     @media (max-width: 720px) {
       .site-header-inner { height: 64px; }
       .site-logo { font-size: 17px; }
+      .site-nav-desktop { display: none; }
+      .site-nav-mobile-cta { display: inline-flex; padding: 8px 14px; font-size: 12px; }
+      .site-menu-btn { display: grid; }
       .hero { padding-top: 28px; }
       .hero h1 { max-width: none; }
+      .hero-actions .btn { flex: 1 1 calc(50% - 5px); min-width: 0; }
       .search-pill { flex-direction: column; border-radius: 22px; }
       .sp-cell { border-right: none; border-bottom: 1px solid var(--line); padding: 12px 16px; }
       .sp-cell:last-of-type { border-bottom: none; }
       .sp-go { width: calc(100% - 12px); height: 46px; border-radius: 14px; margin: 0 6px 6px; }
       .form-row { grid-template-columns: 1fr; }
       .footer-meta { text-align: left; width: 100%; }
+      .preview-toolbar { gap: 6px; }
+      .preview-date { width: 100%; margin-right: 0; margin-bottom: 4px; font-size: 13px; }
+      .cta-bar { flex-direction: column; align-items: stretch; }
+      .cta-bar-actions { width: 100%; }
+      .cta-bar-actions .btn { flex: 1; }
+      .access-section { padding-bottom: 64px; }
+      .code-row { flex-direction: column; }
+      .code-row input { border-right: 1px solid var(--line); border-radius: var(--radius-sm); }
+      .code-verify-btn { border-left: 1px solid var(--line); border-radius: var(--radius-sm); padding: 11px 16px; height: auto; }
+    }
+    @media (max-width: 380px) {
+      .hero-actions { flex-direction: column; }
+      .hero-actions .btn { width: 100%; flex: none; }
     }
   </style>
 </head>
@@ -717,9 +832,23 @@
         <span>Tee-Time<span class="site-logo-tld">.io</span></span>
       </a>
       <nav class="site-nav" aria-label="Primary">
-        <button type="button" class="btn btn-ghost nav-signin" onclick="openAuthModal('signin')">Sign in</button>
-        <a href="/app/" class="btn">Open app</a>
-        <a href="#access" class="btn btn-primary">Get early access</a>
+        <div class="site-nav-desktop">
+          <button type="button" class="btn btn-ghost nav-signin" onclick="openAuthModal('signin')">Sign in</button>
+          <a href="/app/" class="btn">Open app</a>
+          <a href="#access" class="btn btn-primary">Get early access</a>
+        </div>
+        <a href="/app/" class="btn btn-primary site-nav-mobile-cta">Open app</a>
+        <button type="button" class="site-menu-btn" id="siteMenuBtn" aria-expanded="false" aria-controls="siteMenuPanel" aria-label="Menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="site-menu-panel" id="siteMenuPanel" role="menu">
+          <button type="button" class="btn btn-ghost" role="menuitem" onclick="closeSiteMenu(); openAuthModal('signin')">Sign in</button>
+          <a href="/app/" class="btn" role="menuitem" onclick="closeSiteMenu()">Open app</a>
+          <a href="#access" class="btn btn-primary" role="menuitem" onclick="closeSiteMenu()">Get early access</a>
+          <a href="#how-it-works" class="btn btn-ghost" role="menuitem" onclick="closeSiteMenu()">How it works</a>
+        </div>
       </nav>
     </div>
   </header>
@@ -727,11 +856,11 @@
   <main>
     <section class="hero container" aria-labelledby="hero-title">
       <div class="hero-eyebrow">
-        <span class="pill">Utah · Live catalog · List &amp; map</span>
+        <span class="pill" id="catalogPill">67 courses in Utah · more states soon</span>
       </div>
       <h1 id="hero-title">Find. Plan. Book.</h1>
       <p class="hero-lede">
-        Every Utah course — ForeUp, Chronogolf, MemberSports — in one search.
+        ForeUp, Chronogolf, and MemberSports in one search — list or map, same filters.
         Pick a time on the course site; coordinate the group here.
       </p>
 
@@ -778,11 +907,11 @@
       <div class="fpb-grid">
         <article class="fpb-card">
           <h3>Find</h3>
-          <p>One set of filters across every live Utah catalog — <strong>list or map</strong>, same date, players, and holes. Courses stay visible even when a day is empty.</p>
+          <p>One set of filters across every course in your market — <strong>list or map</strong>, same date, players, and holes. Courses stay visible even when a day is empty.</p>
         </article>
         <article class="fpb-card">
           <h3>Plan</h3>
-          <p>Signed in: <strong>share links</strong> your group can vote on, <strong>tee-time alerts</strong> per course, and saved favourites that follow you.</p>
+          <p>Signed in: <strong>share links</strong> your group can vote on, <strong>tee-time alerts</strong> when slots open (email today; SMS when verified), and saved favourites.</p>
         </article>
         <article class="fpb-card">
           <h3>Book</h3>
@@ -799,14 +928,22 @@
           <span class="preview-date">Thu, Mar 26 · 4 players · 18 holes</span>
           <span class="preview-chip is-on">List</span>
           <span class="preview-chip">Map</span>
+          <span class="preview-chip preview-chip-icon" title="Tee-time alerts">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Alerts
+          </span>
           <span class="preview-chip">Near me</span>
         </div>
         <div class="preview-body">
           <div class="preview-course">
             <div class="preview-course-top">
+              <img class="preview-course-photo" id="previewPhotoRidge" alt="" loading="lazy" width="800" height="350" />
+              <div class="preview-course-scrim" aria-hidden="true"></div>
               <span class="preview-badge">8 times</span>
-              <div class="preview-course-name">Bountiful Ridge</div>
-              <div class="preview-course-meta">Bountiful · from $36</div>
+              <div class="preview-course-info">
+                <div class="preview-course-name">Bountiful Ridge</div>
+                <div class="preview-course-meta">Bountiful · from $36</div>
+              </div>
             </div>
             <div class="preview-slots">
               <div class="tee-chip"><span class="t">8:50 AM</span><span class="p">$36</span></div>
@@ -817,10 +954,14 @@
             </div>
           </div>
           <div class="preview-course">
-            <div class="preview-course-top is-b">
+            <div class="preview-course-top">
+              <img class="preview-course-photo" id="previewPhotoEagle" alt="" loading="lazy" width="800" height="350" />
+              <div class="preview-course-scrim" aria-hidden="true"></div>
               <span class="preview-badge">18 times</span>
-              <div class="preview-course-name">Eaglewood</div>
-              <div class="preview-course-meta">North Salt Lake · from $64</div>
+              <div class="preview-course-info">
+                <div class="preview-course-name">Eaglewood</div>
+                <div class="preview-course-meta">North Salt Lake · from $64</div>
+              </div>
             </div>
             <div class="preview-slots">
               <div class="tee-chip"><span class="t">8:00 AM</span><span class="p">$64</span></div>
@@ -988,13 +1129,70 @@
         </nav>
       </div>
       <div class="footer-meta">
-        <p>Utah catalog · one search · real checkout on the course</p>
-        <p style="margin-top:6px;">Built for Utah golfers · 2026</p>
+        <p>Utah live now · more states coming soon</p>
+        <p style="margin-top:6px;">One search · real checkout on the course · 2026</p>
       </div>
     </div>
   </footer>
 
   <script>
+    const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
+
+    function placePhotoUrl(reference) {
+      const url = new URL(WORKER_URL + '/place-photo');
+      url.searchParams.set('reference', reference);
+      url.searchParams.set('maxwidth', '800');
+      return url.toString();
+    }
+
+    (function initLandingMedia() {
+      const ridgeRef = 'AaVGc3nmjekNsjg-4vGssxdELzt1DZRX4q5WPElsO_ixs9J5dvhNXPTfZNwMYgKl6l6EnWac9w5aUR3jQuzGTfKFLhpsYkwBt7V0Qyyib0xF_zk3-Smn32HDgP0LXtCtynFtTWmvIXlY9OMHddhfbIYMxt5Cj1T4Mq7S0HV9YopMDna2fk3Qq8DIfPRDraUlE1c08fnMYiuuiQRysEoaiLWKxNCrcBW-O4kLm39cAVYeQFVbRnB-N-OcgOScPAoc_PnRB5vFFe3xtoKApLaErTmoABengxrQWrNWrPj-NhXGvCWtfYYImJPHUL2vEi7rFDWAUktj5fqyk-AyOlU9Y42gnWoX9gjKlMv6-aVqYRYRK2mp_2yjq8x86EgetvSRpOsLYSz6xnZp-mlaNyJ7ryFzna4xY1PfcqIhcRchEeZl1LQ_bg';
+      const eagleRef = 'AWCwydiRWQXLO6AyA9hTT3W2BLrHBuocXXSkYd8Zn_Om6dQ2cumNN4hvUiorVOuYJsiN3oPprIfSWvuYEPGIzIQAOi5mUv8lcWunhNqbAvidBjm6Lq8IycHd-lbDfRvplq6NyjlifbLYVbKRoOBOiocVTLuKQ0Z5ewTiejNLCjcyAS6tDWilja6LDMYZBcaRj8syk0b3M2V6dM2NADj7zngzWKcfCkDknCDk89fr2S_-OcCGkJBdN6RAnGJO1WeOOUJ3s5kJrdLDd5CGM--2-F7-Qr2AWErTTnrF_c_SubfgHh3QiEO9kImnTQI5IA3Ec3ljGXT_z3zhd4QZsm5EYvAKfC85_ljsD_legCJRqD8qsAeQrLmlTrCP_2Q30q_zDj307YXNyiHRpqERMJHhgU3JKpncaWr2_T5XvkFSkHU1T--P23Bb';
+      const ridgeImg = document.getElementById('previewPhotoRidge');
+      const eagleImg = document.getElementById('previewPhotoEagle');
+      if (ridgeImg) {
+        ridgeImg.src = placePhotoUrl(ridgeRef);
+        ridgeImg.alt = 'Bountiful Ridge Golf Course';
+      }
+      if (eagleImg) {
+        eagleImg.src = placePhotoUrl(eagleRef);
+        eagleImg.alt = 'Eaglewood Golf Course';
+      }
+
+      const pill = document.getElementById('catalogPill');
+      if (pill) {
+        fetch('/courses.json')
+          .then((r) => (r.ok ? r.json() : null))
+          .then((courses) => {
+            if (!Array.isArray(courses) || courses.length === 0) return;
+            pill.textContent = courses.length + ' courses in Utah · more states soon';
+          })
+          .catch(() => {});
+      }
+    })();
+
+    (function initSiteMenu() {
+      const btn = document.getElementById('siteMenuBtn');
+      const panel = document.getElementById('siteMenuPanel');
+      if (!btn || !panel) return;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = panel.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', (e) => {
+        if (!panel.classList.contains('is-open')) return;
+        if (panel.contains(e.target) || btn.contains(e.target)) return;
+        closeSiteMenu();
+      });
+    })();
+    function closeSiteMenu() {
+      const btn = document.getElementById('siteMenuBtn');
+      const panel = document.getElementById('siteMenuPanel');
+      if (panel) panel.classList.remove('is-open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
     (function () {
       var form = document.getElementById('heroSearchForm');
       var dateInput = document.getElementById('heroDate');
