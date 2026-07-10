@@ -9,13 +9,11 @@ import {
 } from '../lib/platformRegistry';
 import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
-import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsApi';
-import { copyTextToClipboard } from '../lib/clipboard';
-import { absoluteRoundUrl } from '../lib/shareUrl';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 const MapView = lazy(() => import('../components/MapView').then((m) => ({ default: m.MapView })));
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInToShareModal } from '../components/SignInToShareModal';
+import { PlanRoundModal } from '../components/PlanRoundModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
@@ -53,6 +51,12 @@ function parseParams(sp: URLSearchParams): SearchParams {
 
 /** Worker refetch only when date or party size changes — not text search, sort, or time-of-day. */
 const FETCH_PARAM_KEYS = new Set(['date', 'holes', 'players']);
+
+type PlanRoundTarget = {
+  course: Course;
+  times: TeeTime[];
+  initialSelectedId: string | null;
+};
 
 export function FinderPage() {
   const nav = useNavigate();
@@ -215,10 +219,13 @@ export function FinderPage() {
   );
 
   const [showBookingOnly, setShowBookingOnly] = useState(true);
-  const [shareBusyCourseId, setShareBusyCourseId] = useState<string | null>(null);
-  const [shareFinderErr, setShareFinderErr] = useState<string | null>(null);
+  const [planRound, setPlanRound] = useState<PlanRoundTarget | null>(null);
+  const [planAfterSignIn, setPlanAfterSignIn] = useState<PlanRoundTarget | null>(null);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
-  const closeSignInToShare = useCallback(() => setSignInToShareOpen(false), []);
+  const closeSignInToShare = useCallback(() => {
+    setSignInToShareOpen(false);
+    setPlanAfterSignIn(null);
+  }, []);
 
   const updatedLabel = useMemo(() => {
     const m = minutesSince(lastUpdatedAt);
@@ -227,49 +234,30 @@ export function FinderPage() {
     return `Updated ${m}m ago`;
   }, [lastUpdatedAt]);
 
-  const shareCourseRound = useCallback(
-    async (course: Course, courseTimes: TeeTime[]) => {
+  useEffect(() => {
+    if (user?.id && planAfterSignIn) {
+      setPlanRound(planAfterSignIn);
+      setPlanAfterSignIn(null);
+      setSignInToShareOpen(false);
+    }
+  }, [user?.id, planAfterSignIn]);
+
+  const requestShareRound = useCallback(
+    (course: Course, courseTimes: TeeTime[]) => {
       if (courseTimes.length === 0) return;
-      const uid = user?.id;
-      if (!uid) {
+      const target: PlanRoundTarget = {
+        course,
+        times: courseTimes,
+        initialSelectedId: courseTimes[0]?.id ?? null,
+      };
+      if (!user?.id) {
+        setPlanAfterSignIn(target);
         setSignInToShareOpen(true);
         return;
       }
-      setShareBusyCourseId(course.id);
-      setShareFinderErr(null);
-      const planPayload = planFromCourseVisibleTimes(
-        course,
-        params.date,
-        courseTimes,
-        params.players,
-        undefined,
-        recordsBySlug.get(course.id),
-      );
-      const host =
-        (user?.user_metadata?.full_name as string | undefined) ||
-        (user?.user_metadata?.name as string | undefined) ||
-        user?.email?.split('@')[0] ||
-        null;
-      const res = await publishRoundFromPlan({
-        plan: planPayload,
-        coursesById,
-        organizerId: uid,
-        hostPublicName: host,
-        recordsBySlug,
-      });
-      setShareBusyCourseId(null);
-      if ('error' in res) {
-        setShareFinderErr(res.error);
-        return;
-      }
-      const url = absoluteRoundUrl(res.slug);
-      const copied = await copyTextToClipboard(url);
-      if (!copied) {
-        setShareFinderErr('Vote page created — copy the link from the address bar on the next screen.');
-      }
-      nav(`/round/${res.slug}`);
+      setPlanRound(target);
     },
-    [coursesById, nav, params.date, params.players, recordsBySlug, user],
+    [user?.id],
   );
 
   const setParam = useCallback(
@@ -350,12 +338,6 @@ export function FinderPage() {
                 Try again
               </button>
             </div>
-          </div>
-        ) : null}
-
-        {shareFinderErr ? (
-          <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d', fontSize: 14 }}>
-            {shareFinderErr}
           </div>
         ) : null}
 
@@ -573,8 +555,7 @@ export function FinderPage() {
                     holes={params.holes}
                     onAlert={() => setNotifCourseId(course.id)}
                     onSearchAllUtah={() => setFetchScope('all')}
-                    onShare={() => void shareCourseRound(course, times)}
-                    shareBusy={shareBusyCourseId === course.id}
+                    onShare={() => requestShareRound(course, times)}
                     shareDisabled={times.length === 0 || timesPending || authLoading}
                   />
                 );
@@ -625,13 +606,28 @@ export function FinderPage() {
         <div className="finder-help">
           <div className="finder-help-title">Planning with a group?</div>
           <p>
-            Open a course, then use <strong>Share times</strong> or <strong>Plan a round</strong> to send matching tee times
-            as a vote link. Find past links under Shared rounds in the nav.
+            Tap <strong>Share times</strong> on any course to pick tee times and get a vote link — or open a course for
+            the full list. Past links live under <strong>Shared rounds</strong> in the nav.
           </p>
         </div>
       </div>
 
       <SignInToShareModal open={signInToShareOpen} onClose={closeSignInToShare} />
+      {planRound ? (
+        <PlanRoundModal
+          open
+          onClose={() => setPlanRound(null)}
+          course={planRound.course}
+          record={recordsBySlug.get(planRound.course.id)}
+          dateYmd={params.date}
+          players={params.players}
+          holes={params.holes}
+          times={planRound.times}
+          initialSelectedId={planRound.initialSelectedId}
+          coursesById={coursesById}
+          recordsBySlug={recordsBySlug}
+        />
+      ) : null}
 
       <NotificationModal
         open={notifCourseId != null}

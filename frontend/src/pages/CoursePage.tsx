@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { formatDateCompact, formatDateShort, formatReopenedAgo, formatTime12h, matchesPreset, toYmd } from '../lib/time';
 import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { formatDateShort, formatReopenedAgo, formatTime12h, matchesPreset, toYmd } from '../lib/time';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
@@ -9,12 +9,11 @@ import { WeatherStrip } from '../components/WeatherStrip';
 import { CoursePhoto } from '../components/CoursePhoto';
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInToShareModal } from '../components/SignInToShareModal';
+import { PlanRoundModal } from '../components/PlanRoundModal';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 import { useAuth } from '../state/AuthContext';
-import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsApi';
-import { copyTextToClipboard } from '../lib/clipboard';
 import { courseDetailQueryString } from '../lib/finderUrl';
-import { absoluteRoundUrl } from '../lib/shareUrl';
+import { buildBookingUrl } from '../lib/bookingUrl';
 import { CourseDetailPanel } from '../components/CourseDetailPanel';
 import { CourseReviewsSection } from '../components/CourseReviewsSection';
 import {
@@ -24,7 +23,6 @@ import {
   type CourseRatesExpanded,
 } from '../lib/courseCatalogApi';
 import { fetchPlaceReviews, type PlaceReview } from '../lib/placeReviews';
-import { buildBookingUrl } from '../lib/bookingUrl';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -40,9 +38,8 @@ function clampHoles(n: number): 9 | 18 {
 const RAIL_SLOT_PREVIEW = 9;
 
 export function CoursePage() {
-  const nav = useNavigate();
   const { courseId } = useParams();
-  const [sp] = useSearchParams();
+  const [sp, setSp] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
@@ -52,6 +49,16 @@ export function CoursePage() {
   const holes = clampHoles(Number(sp.get('holes') || 18));
   const tod = ((sp.get('tod') as TimeOfDayPreset) || 'any') satisfies TimeOfDayPreset;
   const sort = ((sp.get('sort') as SortBy) || 'soonest') satisfies SortBy;
+
+  const setParam = useCallback(
+    (key: string, value: string) => {
+      const next = new URLSearchParams(sp);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      setSp(next, { replace: true });
+    },
+    [sp, setSp],
+  );
 
   const finderBackSearch = useMemo(() => {
     const finderParams: SearchParams = {
@@ -74,10 +81,13 @@ export function CoursePage() {
   const [loadingTimes, setLoadingTimes] = useState(false);
   const [teeTimesFetchFailed, setTeeTimesFetchFailed] = useState(false);
   const [timesRetryNonce, setTimesRetryNonce] = useState(0);
-  const [shareBusy, setShareBusy] = useState(false);
-  const [shareErr, setShareErr] = useState<string | null>(null);
+  const [planRoundOpen, setPlanRoundOpen] = useState(false);
+  const [planAfterSignIn, setPlanAfterSignIn] = useState(false);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
-  const closeSignInToShare = useCallback(() => setSignInToShareOpen(false), []);
+  const closeSignInToShare = useCallback(() => {
+    setSignInToShareOpen(false);
+    setPlanAfterSignIn(false);
+  }, []);
   const [ratesExpanded, setRatesExpanded] = useState<CourseRatesExpanded | null>(null);
   const [catalogMeta, setCatalogMeta] = useState<CourseCatalogMeta | null>(null);
   const [catalogDetailLoading, setCatalogDetailLoading] = useState(false);
@@ -210,6 +220,14 @@ export function CoursePage() {
     }
   }, [times, selectedSlotId]);
 
+  useEffect(() => {
+    if (user?.id && planAfterSignIn) {
+      setPlanAfterSignIn(false);
+      setSignInToShareOpen(false);
+      setPlanRoundOpen(true);
+    }
+  }, [user?.id, planAfterSignIn]);
+
   if (catalogLoading && !course) {
     return (
       <div className="container">
@@ -238,41 +256,17 @@ export function CoursePage() {
   const hiddenSlotCount = Math.max(0, times.length - RAIL_SLOT_PREVIEW);
   const railSlots = slotsExpanded || hiddenSlotCount === 0 ? times : times.slice(0, RAIL_SLOT_PREVIEW);
 
-  const onShareTimes = async () => {
+  const onShareTimes = () => {
     if (unsupported || times.length === 0) return;
-    const uid = user?.id;
-    if (!uid) {
+    if (!user?.id) {
+      setPlanAfterSignIn(true);
       setSignInToShareOpen(true);
       return;
     }
-    setShareBusy(true);
-    setShareErr(null);
-    const planPayload = planFromCourseVisibleTimes(course, date, times, players, undefined, record);
-    const host =
-      (user?.user_metadata?.full_name as string | undefined) ||
-      (user?.user_metadata?.name as string | undefined) ||
-      user?.email?.split('@')[0] ||
-      null;
-    const res = await publishRoundFromPlan({
-      plan: planPayload,
-      coursesById,
-      organizerId: uid,
-      hostPublicName: host,
-      recordsBySlug,
-    });
-    setShareBusy(false);
-    if ('error' in res) {
-      setShareErr(res.error);
-      return;
-    }
-    const url = absoluteRoundUrl(res.slug);
-    const copied = await copyTextToClipboard(url);
-    if (!copied) {
-      setShareErr('Vote page created, but the link could not be copied automatically — copy it from the address bar.');
-    }
-    nav(`/round/${res.slug}`);
+    setPlanRoundOpen(true);
   };
 
+  const playersHolesValue = `${players}-${holes}`;
   const platformName = platformDisplayName(record?.platform);
   const bookingHref = buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
     dateYmd: date,
@@ -311,7 +305,6 @@ export function CoursePage() {
         </Link>
       </div>
 
-      {shareErr ? <p className="detail-share-err">{shareErr}</p> : null}
 
       <div className="detail-hero">
         {course.photoUrl ? (
@@ -367,8 +360,8 @@ export function CoursePage() {
             className="mp-icon-btn"
             aria-label={`Share vote link for ${course.name}`}
             title="Share times"
-            disabled={!canShare || shareBusy || authLoading}
-            onClick={() => void onShareTimes()}
+            disabled={!canShare || authLoading}
+            onClick={onShareTimes}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path
@@ -434,18 +427,42 @@ export function CoursePage() {
             <div className="rp-row">
               <div className="rp-cell">
                 <div className="k">Date</div>
-                <div className="v">{formatDateShort(date)}</div>
+                <span className="sp-date rp-date">
+                  <span className="sp-date-label" aria-hidden>
+                    {formatDateCompact(date)}
+                  </span>
+                  <input
+                    type="date"
+                    value={date}
+                    aria-label="Date"
+                    onChange={(e) => setParam('date', e.target.value)}
+                  />
+                </span>
               </div>
               <div className="rp-cell">
-                <div className="k">Players</div>
-                <div className="v">
-                  {players} golfer{players === 1 ? '' : 's'}
-                </div>
+                <div className="k">Players · holes</div>
+                <select
+                  className="rp-select"
+                  aria-label="Players and holes"
+                  value={playersHolesValue}
+                  onChange={(e) => {
+                    const [p, h] = e.target.value.split('-');
+                    const next = new URLSearchParams(sp);
+                    if (p) next.set('players', p);
+                    if (h) next.set('holes', h);
+                    setSp(next, { replace: true });
+                  }}
+                >
+                  <option value="1-18">1 · 18 holes</option>
+                  <option value="2-18">2 · 18 holes</option>
+                  <option value="3-18">3 · 18 holes</option>
+                  <option value="4-18">4 · 18 holes</option>
+                  <option value="1-9">1 · 9 holes</option>
+                  <option value="2-9">2 · 9 holes</option>
+                  <option value="3-9">3 · 9 holes</option>
+                  <option value="4-9">4 · 9 holes</option>
+                </select>
               </div>
-            </div>
-            <div className="rp-cell">
-              <div className="k">Holes</div>
-              <div className="v">{holes} holes</div>
             </div>
           </div>
 
@@ -543,13 +560,13 @@ export function CoursePage() {
             </span>
             <span className="txt">
               <strong>Playing with a group?</strong>
-              Send these times to a vote.
+              Pick times to vote on, then share a link.
             </span>
             <button
               type="button"
               className="go"
-              disabled={!canShare || shareBusy || authLoading}
-              onClick={() => void onShareTimes()}
+              disabled={!canShare || authLoading}
+              onClick={onShareTimes}
             >
               Plan a round
             </button>
@@ -558,6 +575,19 @@ export function CoursePage() {
       </div>
 
       <SignInToShareModal open={signInToShareOpen} onClose={closeSignInToShare} />
+      <PlanRoundModal
+        open={planRoundOpen}
+        onClose={() => setPlanRoundOpen(false)}
+        course={course}
+        record={record}
+        dateYmd={date}
+        players={players}
+        holes={holes}
+        times={times}
+        initialSelectedId={selectedSlotId}
+        coursesById={coursesById}
+        recordsBySlug={recordsBySlug}
+      />
       <NotificationModal open={notifOpen} onClose={() => setNotifOpen(false)} course={course} defaultDate={date} />
     </div>
   );

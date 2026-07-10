@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
@@ -61,7 +61,7 @@ function toE164(raw: string): string | null {
 }
 
 export function AccountPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { courses } = useCourseCatalog();
   const [phone, setPhone] = useState('');
   const [notifyVia, setNotifyVia] = useState<NotifyVia>('email');
@@ -243,39 +243,19 @@ export function AccountPage() {
     setMessage({ type: 'ok', text: 'Phone verified. SMS alerts can be delivered to this number.' });
   };
 
-  const labelStyle: CSSProperties = {
-    display: 'block',
-    fontSize: 12,
-    fontWeight: 900,
-    color: 'var(--subtle)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    marginBottom: 6,
-  };
-
-  const channelBtnStyle = (active: boolean): CSSProperties => ({
-    flex: 1,
-    padding: '10px 8px',
-    borderRadius: 10,
-    fontWeight: 700,
-    fontSize: 14,
-    border: `1px solid ${active ? 'rgba(45,122,58,0.35)' : 'var(--border)'}`,
-    background: active ? 'var(--green-soft)' : '#fff',
-    color: active ? 'var(--green-2)' : 'var(--muted)',
-    cursor: 'pointer',
-  });
+  const labelStyle = 'account-label';
 
   return (
-    <div className="container" style={{ maxWidth: 560, paddingTop: 24 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 950, marginBottom: 4 }}>Account</h1>
-      <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 24 }}>{user.email}</p>
+    <div className="container account-page">
+      <h1 className="account-page-title">Account</h1>
+      <p className="account-page-email">{user.email}</p>
 
       {loading ? (
         <p style={{ color: 'var(--muted)', fontSize: 14 }}>Loading…</p>
       ) : (
         <div style={{ display: 'grid', gap: 24 }}>
           <div>
-            <label style={labelStyle}>Phone number</label>
+            <label className={labelStyle}>Phone number</label>
             <input
               className="input"
               type="tel"
@@ -326,13 +306,13 @@ export function AccountPage() {
           </div>
 
           <div>
-            <label style={labelStyle}>Alert channel</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <label className={labelStyle}>Alert channel</label>
+            <div className="account-channel-row">
               {(['email', 'sms', 'both'] as NotifyVia[]).map((v) => (
                 <button
                   key={v}
                   type="button"
-                  style={channelBtnStyle(notifyVia === v)}
+                  className={`account-channel-btn${notifyVia === v ? ' is-on' : ''}`}
                   onClick={() => setNotifyVia(v)}
                 >
                   {v === 'email' ? 'Email' : v === 'sms' ? 'SMS' : 'Both'}
@@ -341,20 +321,9 @@ export function AccountPage() {
             </div>
           </div>
 
-          {message && (
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 10,
-                border: `1px solid ${message.type === 'ok' ? 'rgba(45,122,58,0.35)' : 'rgba(180,60,60,0.35)'}`,
-                background: message.type === 'ok' ? 'rgba(233,245,234,0.85)' : 'rgba(254,242,242,0.9)',
-                color: message.type === 'ok' ? 'var(--green-2)' : '#7f1d1d',
-                fontSize: 14,
-              }}
-            >
-              {message.text}
-            </div>
-          )}
+          {message ? (
+            <div className={`account-msg${message.type === 'ok' ? ' is-ok' : ' is-err'}`}>{message.text}</div>
+          ) : null}
 
           <button
             className="btn btn-primary"
@@ -366,8 +335,8 @@ export function AccountPage() {
             {saving ? 'Saving…' : 'Save'}
           </button>
 
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 950, marginBottom: 4 }}>Tee time alerts</h2>
+          <div className="account-prefs-section">
+            <h2 className="account-prefs-title">Tee time alerts</h2>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.45 }}>
               Active alerts you set from the finder (🔔). We scan about every 15 minutes when times match your filters.
             </p>
@@ -387,15 +356,9 @@ export function AccountPage() {
                   return (
                     <li
                       key={p.id}
-                      style={{
-                        border: '1px solid var(--border)',
-                        borderRadius: 12,
-                        padding: 12,
-                        background: p.active ? '#fff' : 'rgba(0,0,0,0.03)',
-                        opacity: p.active ? 1 : 0.92,
-                      }}
+                      className={`account-pref-item${p.active ? '' : ' is-paused'}`}
                     >
-                      <div style={{ fontWeight: 850, fontSize: 15, marginBottom: 4 }}>{title}</div>
+                      <div className="account-pref-title">{title}</div>
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>{summarizePref(p)}</div>
                       <div style={{ fontSize: 12, color: 'var(--subtle)' }}>
                         {formatHm(p.earliest_time)}–{formatHm(p.latest_time)} · {p.players} player{p.players !== 1 ? 's' : ''} · min
@@ -425,10 +388,10 @@ export function AccountPage() {
                         )}
                         <button
                           type="button"
-                          className="btn"
+                          className="btn account-pref-remove"
                           disabled={busy}
                           onClick={() => void removePref(p.id)}
-                          style={{ padding: '6px 12px', fontSize: 13, color: '#7f1d1d', borderColor: 'rgba(180,60,60,0.35)' }}
+                          style={{ padding: '6px 12px', fontSize: 13 }}
                         >
                           {busy ? '…' : 'Remove'}
                         </button>
@@ -441,6 +404,10 @@ export function AccountPage() {
           </div>
         </div>
       )}
+
+      <button type="button" className="btn account-sign-out" onClick={() => void signOut()}>
+        Sign out
+      </button>
     </div>
   );
 }

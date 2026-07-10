@@ -47,123 +47,57 @@ export function PlanPage() {
   };
 
   return (
-    <div className="container">
-      <div style={{ padding: 18, borderRadius: 18, border: '1px solid var(--border)', background: 'rgba(255,255,255,0.8)' }}>
+    <div className="container plan-page">
+      <div className="plan-page-card">
         <div className="pill">Shared rounds</div>
-        <h2
-          style={{
-            margin: '12px 0 6px',
-            fontFamily: 'var(--font-display)',
-            fontSize: 'clamp(22px, 6vw, 34px)',
-            letterSpacing: '-0.03em',
-            lineHeight: 1.1,
-          }}
-        >
-          Your vote links
-        </h2>
-        <p style={{ color: 'var(--muted)', maxWidth: 640, lineHeight: 1.55 }}>
-          Rounds you <strong style={{ color: 'var(--ink)' }}>host</strong> (Share on the finder or course page) and rounds you <strong style={{ color: 'var(--ink)' }}>join</strong> while signed in appear here. Anyone with the link can vote — guests don’t need an account.
+        <h2 className="plan-page-title">Your vote links</h2>
+        <p className="plan-page-lede">
+          Rounds you <strong style={{ color: 'var(--ink)' }}>host</strong> (Share on the finder or course page) and rounds you{' '}
+          <strong style={{ color: 'var(--ink)' }}>join</strong> while signed in appear here. Anyone with the link can vote — guests don’t need an account.
         </p>
 
         {authLoading ? (
-          <p style={{ marginTop: 14, color: 'var(--muted)' }}>Loading account…</p>
+          <p className="plan-page-status">Loading account…</p>
         ) : !user ? (
-          <p style={{ marginTop: 14, color: 'var(--muted)' }}>
+          <p className="plan-page-status">
             <strong style={{ color: 'var(--ink)' }}>Sign in</strong> with Google in the header to create share links and see them listed here.
           </p>
         ) : loading ? (
-          <p style={{ marginTop: 14, color: 'var(--muted)' }}>Loading your rounds…</p>
+          <p className="plan-page-status">Loading your rounds…</p>
         ) : loadErr ? (
-          <p style={{ marginTop: 14, color: '#9a3412', fontSize: 14 }}>{loadErr}</p>
-        ) : rounds.length === 0 ? (
-          <p style={{ marginTop: 14, color: 'var(--muted)' }}>
-            No rounds here yet. Host one from the finder, or open a friend’s vote link while signed in to save it to this list.
+          <p className="plan-page-err" style={{ marginTop: 14 }}>
+            {loadErr}
           </p>
+        ) : rounds.length === 0 ? (
+          <p className="plan-page-status">No rounds here yet. Host one from the finder, or open a friend’s vote link while signed in to save it to this list.</p>
         ) : (
-          <ul style={{ margin: '18px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
+          <ul className="plan-round-list">
             {rounds.map((r) => {
               const slug = r.share_slug?.trim();
               if (!slug) return null;
               const title = r.title?.trim() || 'Golf round';
               const dateLabel = r.play_date ? formatDateShort(r.play_date) : '—';
               const voteUrl = absoluteRoundUrl(slug);
+              const hosted = r.organizer_id === user.id;
               return (
-                <li
-                  key={r.id}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'stretch',
-                    gap: 12,
-                    padding: 14,
-                    borderRadius: 14,
-                    border: '1px solid var(--border)',
-                    background: '#fff',
-                  }}
-                >
+                <li key={r.id} className="plan-round-item">
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.25 }}>{title}</div>
-                      <span
-                        className="pill"
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 800,
-                          background: r.organizer_id === user.id ? 'rgba(233,245,234,0.95)' : 'rgba(248,250,248,0.95)',
-                          color: r.organizer_id === user.id ? 'var(--green-2)' : 'var(--muted)',
-                        }}
-                      >
-                        {r.organizer_id === user.id ? 'You hosted' : 'You joined'}
+                      <div className="plan-round-item-title">{title}</div>
+                      <span className={`pill${hosted ? ' plan-pill-hosted' : ' plan-pill-joined'}`}>
+                        {hosted ? 'You hosted' : 'You joined'}
                       </span>
                     </div>
-                    <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6 }}>Play {dateLabel}</div>
-                    <div
-                      title={voteUrl}
-                      style={{
-                        marginTop: 6,
-                        fontSize: 11,
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                        color: 'var(--subtle)',
-                        lineHeight: 1.45,
-                        overflowWrap: 'anywhere',
-                        wordBreak: 'break-word',
-                      }}
-                    >
+                    <div className="plan-round-item-meta">Play {dateLabel}</div>
+                    <div className="plan-round-item-url" title={voteUrl}>
                       {voteUrl}
                     </div>
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                      gap: 8,
-                      alignItems: 'stretch',
-                    }}
-                  >
-                    <Link
-                      className="btn btn-primary"
-                      to={`/round/${slug}`}
-                      style={{
-                        padding: '10px 14px',
-                        flex: '1 1 140px',
-                        textAlign: 'center',
-                        justifyContent: 'center',
-                        display: 'inline-flex',
-                      }}
-                    >
+                  <div className="plan-round-item-actions">
+                    <Link className="btn btn-primary" to={`/round/${slug}`} style={{ padding: '10px 14px' }}>
                       Open vote
                     </Link>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => void onCopy(slug, r.id)}
-                      style={{
-                        padding: '10px 14px',
-                        flex: '1 1 140px',
-                        textAlign: 'center',
-                      }}
-                    >
+                    <button className="btn" type="button" onClick={() => void onCopy(slug, r.id)} style={{ padding: '10px 14px' }}>
                       {copyId === r.id ? 'Copied' : 'Copy link'}
                     </button>
                   </div>
@@ -173,9 +107,7 @@ export function PlanPage() {
           </ul>
         )}
 
-        {copyErr ? (
-          <p style={{ marginTop: 12, color: '#9a3412', fontSize: 14 }}>{copyErr}</p>
-        ) : null}
+        {copyErr ? <p className="plan-page-err">{copyErr}</p> : null}
 
         <Link to="/" className="btn btn-ghost" style={{ marginTop: 18 }}>
           Browse tee times →
