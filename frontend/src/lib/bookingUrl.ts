@@ -158,6 +158,29 @@ function buildForeUpTeeSheetUrl(
 }
 
 /**
+ * Numeric `/club/{id}` URLs 308 to a slug and drop the query string, so
+ * deep-link params never arrive. Prefer catalog slug URLs; remap known IDs.
+ */
+const CHRONOGOLF_CLUB_SLUGS: Record<string, string> = {
+  '14158': 'bonneville-golf-course',
+  '14180': 'forest-dale-golf-course',
+  '14185': 'glendale-golf-course',
+  '14203': 'mountain-dell-golf-club',
+  '14207': 'nibley-park-golf-course',
+  '14222': 'rose-park-golf-course',
+  '14225': 'sand-hollow-resort',
+  '14257': 'the-ledges-golf-club',
+};
+
+function chronogolfClubBase(url: string): string {
+  const cleaned = url.replace(/[?#].*$/, '').replace(/\/$/, '');
+  const m = cleaned.match(/^(https?:\/\/(?:www\.)?chronogolf\.com\/club\/)(\d+)$/i);
+  if (!m) return cleaned;
+  const slug = CHRONOGOLF_CLUB_SLUGS[m[2]!];
+  return slug ? `${m[1]}${slug}` : cleaned;
+}
+
+/**
  * Chronogolf's club overview ignores date/players alone. Jump to the tee sheet
  * with step=teetimes (+ holes / groupSize) the way the booking SPA expects.
  */
@@ -173,7 +196,7 @@ function buildChronogolfTeeTimesUrl(
     return applyTemplate(templateOverride, params);
   }
 
-  const base = (bookingUrl || templateOverride).replace(/[?#].*$/, '').replace(/\/$/, '');
+  const base = chronogolfClubBase(bookingUrl || templateOverride);
   if (!base) return null;
 
   const players = String(Math.min(Math.max(params.players || 1, 1), 4));
