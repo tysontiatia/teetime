@@ -1,9 +1,10 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { Course } from '../types';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { formatDateShort, formatTime12h } from '../lib/time';
 import { copyTextToClipboard } from '../lib/clipboard';
+import { buildBookingUrl } from '../lib/bookingUrl';
 
 type ShareOption = {
   startsAt: string;
@@ -21,6 +22,8 @@ type SharePayload = {
   date: string;
   options: ShareOption[];
 };
+
+type LocalVote = 'in' | 'maybe' | 'out';
 
 function decodeHash(hash: string): SharePayload | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
@@ -53,12 +56,43 @@ function normalizeSnapshot(payload: SharePayload): Array<ShareOption & { courseI
   return merged as Array<ShareOption & { courseId: string }>;
 }
 
+function optionKey(o: ShareOption & { courseId: string }): string {
+  return `${o.courseId}:${o.startsAt}`;
+}
+
+function courseDetailHref(courseId: string, date: string, players: number, holes: number): string {
+  const q = new URLSearchParams({
+    date,
+    players: String(players),
+    holes: String(holes),
+  });
+  return `/course/${courseId}?${q.toString()}`;
+}
+
+function readLocalVotes(storageKey: string): Record<string, LocalVote> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, LocalVote>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 export function SharePage() {
   const loc = useLocation();
-  const { courses } = useCourseCatalog();
+  const { courses, recordsBySlug } = useCourseCatalog();
   const payload = useMemo(() => decodeHash(loc.hash), [loc.hash]);
   const coursesById = useMemo(() => new Map<string, Course>(courses.map((c) => [c.id, c])), [courses]);
   const [copyHint, setCopyHint] = useState<'idle' | 'ok' | 'fail'>('idle');
+
+  const hashKey = loc.hash || '';
+  const voteStorageKey = hashKey ? `tt-snapshot-votes:${hashKey}` : '';
+  const [localVotes, setLocalVotes] = useState<Record<string, LocalVote>>(() =>
+    voteStorageKey ? readLocalVotes(voteStorageKey) : {},
+  );
 
   const normalized = useMemo(() => (payload ? normalizeSnapshot(payload) : null), [payload]);
 
@@ -69,20 +103,41 @@ export function SharePage() {
     window.setTimeout(() => setCopyHint('idle'), 2200);
   }, []);
 
+  const setVote = useCallback(
+    (key: string, status: LocalVote) => {
+      setLocalVotes((prev) => {
+        const next = { ...prev, [key]: status };
+        if (voteStorageKey) {
+          try {
+            window.localStorage.setItem(voteStorageKey, JSON.stringify(next));
+          } catch {
+            /* quota / private mode */
+          }
+        }
+        return next;
+      });
+    },
+    [voteStorageKey],
+  );
+
   if (!payload || !normalized) {
     return (
-      <div className="container">
-        <div style={{ padding: 18, borderRadius: 18, border: '1px solid var(--border)', background: 'rgba(255,255,255,0.8)' }}>
-          <div className="pill">Share</div>
-          <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
-            Invalid or empty link
-          </h2>
-          <p style={{ color: 'var(--muted)' }}>
-            Open a plan link from Tee-Time (or ask the host to send it again). Multi-course snapshots need each time to include a course id (newer links).
+      <div className="container share-page">
+        <div className="share-card">
+          <div className="pill">Archived link</div>
+          <h2 className="share-title share-title-sm">Could not open this snapshot</h2>
+          <p style={{ color: 'var(--muted)', lineHeight: 1.55, maxWidth: 640 }}>
+            This URL is missing data or uses an old format. New vote links look like{' '}
+            <code className="share-code">/round/your-link</code> and save everyone&apos;s votes in real time.
           </p>
-          <Link to="/" className="btn btn-primary" style={{ marginTop: 14 }}>
-            Back to finder →
-          </Link>
+          <div className="share-upgrade-actions" style={{ marginTop: 14 }}>
+            <Link to="/" className="btn btn-primary">
+              Browse tee times →
+            </Link>
+            <Link to="/plan" className="btn btn-ghost">
+              Shared rounds
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -95,90 +150,120 @@ export function SharePage() {
     titleNames.length > 2
       ? `${titleNames.slice(0, 2).join(' · ')} +${titleNames.length - 2}`
       : titleNames.join(' · ');
+  const primaryCourse = courseIds.length === 1 ? coursesById.get(courseIds[0]!) ?? null : null;
 
   return (
-    <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+    <div className="container share-page">
+      <div className="share-header">
         <div style={{ minWidth: 0 }}>
-          <div className="pill">Legacy snapshot</div>
-          <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em' }}>
-            {title}
-          </h2>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Link to="/" className="pill">
+            ← Tee times
+          </Link>
+          <h2 className="share-title">{title}</h2>
+          <div className="share-meta">
+            <span className="pill">Archived snapshot</span>
             <span className="pill">{formatDateShort(payload.date)}</span>
             <span className="pill">
               {courseIds.length} course{courseIds.length === 1 ? '' : 's'} · {options.length} time{options.length === 1 ? '' : 's'}
             </span>
-            {payload.snapshotAt ? <span className="pill">Snapshot · {formatSnapshot(payload.snapshotAt)}</span> : null}
+            {payload.snapshotAt ? <span className="pill">Saved {formatSnapshot(payload.snapshotAt)}</span> : null}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn" type="button" onClick={() => void onCopyThisLink()}>
+        <div className="share-actions">
+          <button className="btn btn-ghost" type="button" onClick={() => void onCopyThisLink()}>
             {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
           </button>
-          <Link to="/plan" className="btn btn-primary">
-            How sharing works →
-          </Link>
         </div>
       </div>
 
-      <p
-        style={{
-          marginTop: 12,
-          padding: '12px 14px',
-          borderRadius: 14,
-          border: '1px solid var(--border)',
-          background: 'rgba(255,255,255,0.65)',
-          color: 'var(--muted)',
-          fontSize: 14,
-          lineHeight: 1.5,
-          maxWidth: 900,
-        }}
-      >
-        <strong style={{ color: 'var(--ink)' }}>Votes here are a lightweight mock</strong> (not saved). Treat this page as a frozen shortlist — confirm times are still open before booking.
+      <p className="share-note">
+        <strong style={{ color: 'var(--ink)' }}>This is an older snapshot link.</strong> Times were frozen when the host
+        shared it — confirm availability before booking. Votes you tap below are saved <em>on this device only</em>; your
+        group won&apos;t see them unless you create a live vote link.
       </p>
 
-      <div style={{ marginTop: 14, border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.85)', overflow: 'hidden' }}>
-        <div style={{ padding: 14, borderBottom: '1px solid var(--border)', fontWeight: 900 }}>Vote (mock)</div>
-        <div style={{ padding: 14, display: 'grid', gap: 10 }}>
+      {primaryCourse ? (
+        <div className="share-hero-wrap round-panel">
+          <div
+            className={`round-hero${primaryCourse.photoUrl ? ' has-photo' : ''}`}
+            style={primaryCourse.photoUrl ? { backgroundImage: `url(${primaryCourse.photoUrl})` } : undefined}
+          >
+            {primaryCourse.photoUrl ? <div className="round-hero-scrim" aria-hidden /> : null}
+            <div className="round-hero-body">
+              <div className="round-hero-name">{primaryCourse.name}</div>
+              {primaryCourse.city ? <div className="round-hero-city">{primaryCourse.city}</div> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="share-panel">
+        <div className="share-panel-head">
+          <div>
+            <div className="share-panel-title">Times in this snapshot</div>
+            <p className="share-panel-sub">Mark what works for you locally, or open a course to check live inventory.</p>
+          </div>
+        </div>
+        <div className="share-options">
           {options.map((o, idx) => {
-            const cname = coursesById.get(o.courseId)?.name ?? o.courseId;
+            const key = optionKey(o);
+            const mine = localVotes[key];
+            const selected = mine === 'in';
+            const course = coursesById.get(o.courseId);
+            const record = recordsBySlug.get(o.courseId);
+            const cname = course?.name ?? o.courseId;
+            const detailHref = courseDetailHref(o.courseId, payload.date, o.players, o.holes);
+            const bookingHref = buildBookingUrl(
+              record ?? { bookingUrl: course?.bookingUrl ?? null, platform: course?.platform ?? null },
+              {
+                dateYmd: payload.date,
+                players: o.players,
+                holes: o.holes,
+                startsAtIso: o.startsAt,
+              },
+            );
+
             return (
-              <div key={`${o.courseId}-${o.startsAt}-${idx}`} style={{ border: '1px solid rgba(26,46,26,0.12)', borderRadius: 16, padding: 12, background: '#fff' }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--green-2)', marginBottom: 4 }}>{cname}</div>
-                <div style={{ fontWeight: 950, letterSpacing: '-0.02em' }}>
-                  {formatTime12h(o.startsAt)}{' '}
-                  <span style={{ color: 'var(--muted)', fontWeight: 800 }}>
-                    · {o.players}p · {o.holes}h{typeof o.price === 'number' ? ` · $${o.price}` : ''}
-                  </span>
+              <div key={`${key}-${idx}`} className={`share-option round-option${selected ? ' is-selected' : ''}`}>
+                {courseIds.length > 1 ? <div className="share-option-course">{cname}</div> : null}
+                <div className="share-option-head">
+                  <div>
+                    <div className="share-option-time">{formatTime12h(o.startsAt)}</div>
+                    <div className="share-option-meta">
+                      {o.players} player{o.players === 1 ? '' : 's'} · {o.holes} holes
+                      {typeof o.price === 'number' ? ` · $${o.price}` : ''}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="share-option-links">
+                  <Link className="btn" to={detailHref}>
+                    Course details
+                  </Link>
+                  {bookingHref ? (
+                    <a className="btn btn-primary" href={bookingHref} target="_blank" rel="noreferrer">
+                      Book →
+                    </a>
+                  ) : null}
+                </div>
+                <div className="round-vote-actions" style={{ marginTop: 12 }}>
                   <button
-                    className="btn"
+                    className={`btn round-vote-btn round-vote-btn-in${mine === 'in' ? ' is-on' : ''}`}
                     type="button"
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 999,
-                      background: 'rgba(45,122,58,0.10)',
-                      borderColor: 'rgba(45,122,58,0.18)',
-                      color: 'var(--green-2)',
-                    }}
+                    onClick={() => setVote(key, 'in')}
                   >
                     In
                   </button>
-                  <button className="btn" type="button" style={{ padding: '8px 10px', borderRadius: 999 }}>
+                  <button
+                    className={`btn round-vote-btn round-vote-btn-maybe${mine === 'maybe' ? ' is-on' : ''}`}
+                    type="button"
+                    onClick={() => setVote(key, 'maybe')}
+                  >
                     If needed
                   </button>
                   <button
-                    className="btn"
+                    className={`btn round-vote-btn round-vote-btn-out${mine === 'out' ? ' is-on' : ''}`}
                     type="button"
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 999,
-                      background: 'rgba(234,88,12,0.10)',
-                      borderColor: 'rgba(234,88,12,0.18)',
-                      color: '#9a3412',
-                    }}
+                    onClick={() => setVote(key, 'out')}
                   >
                     Out
                   </button>
@@ -189,11 +274,21 @@ export function SharePage() {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, padding: 14, border: '1px solid var(--border)', borderRadius: 18, background: 'rgba(255,255,255,0.7)' }}>
-        <div style={{ fontWeight: 900 }}>Prefer a live shared round?</div>
-        <p style={{ color: 'var(--muted)', marginTop: 6 }}>
-          This page is a frozen snapshot. For a live vote link everyone can use, sign in, go to the tee times finder, and use <strong style={{ color: 'var(--ink)' }}>Share</strong> on a course — that opens <code style={{ fontSize: 13 }}>/round/…</code> with saved votes.
+      <div className="share-upgrade">
+        <div className="share-upgrade-title">Want everyone to vote together?</div>
+        <p className="share-upgrade-copy">
+          Create a <strong style={{ color: 'var(--ink)' }}>live vote link</strong> from the finder or a course page —
+          friends pick times, votes sync in real time, and links show up under Shared rounds when you&apos;re signed in.
+          Live links use <code className="share-code">/round/…</code>, not this archived format.
         </p>
+        <div className="share-upgrade-actions">
+          <Link to="/" className="btn btn-primary">
+            Browse tee times →
+          </Link>
+          <Link to="/plan" className="btn btn-ghost">
+            Shared rounds
+          </Link>
+        </div>
       </div>
     </div>
   );

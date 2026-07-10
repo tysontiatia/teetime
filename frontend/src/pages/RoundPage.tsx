@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
@@ -26,8 +25,55 @@ import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { supabase } from '../lib/supabase';
 
-/** Avatar chips — stay in the green brand range (no rainbow). */
-const AVATAR_BG = ['var(--green-2)', 'var(--green)', '#2f5a36', '#3d7348'];
+/** Avatar chip tones — CSS variables only for theme safety. */
+const AVATAR_BG = ['var(--green-2)', 'var(--green)', 'var(--pine-deep)', 'var(--green-3)'];
+
+function computeLeading(
+  options: DbRoundOption[],
+  countsByOption: Map<string, { in: number; maybe: number; out: number }>,
+): { option: DbRoundOption; in: number; maybe: number } | null {
+  let best: { option: DbRoundOption; in: number; maybe: number } | null = null;
+  for (const o of options) {
+    const c = countsByOption.get(o.id) ?? { in: 0, maybe: 0, out: 0 };
+    if (c.in === 0 && c.maybe === 0) continue;
+    const t = o.starts_at ? new Date(o.starts_at).getTime() : Number.POSITIVE_INFINITY;
+    const bestT = best?.option.starts_at ? new Date(best.option.starts_at).getTime() : Number.POSITIVE_INFINITY;
+    if (
+      !best ||
+      c.in > best.in ||
+      (c.in === best.in && c.maybe > best.maybe) ||
+      (c.in === best.in && c.maybe === best.maybe && t < bestT)
+    ) {
+      best = { option: o, in: c.in, maybe: c.maybe };
+    }
+  }
+  return best;
+}
+
+function bookingUrlForOption(
+  o: DbRoundOption,
+  playDate: string | null,
+  coursesById: Map<string, { bookingUrl?: string | null; platform?: string | null }>,
+  recordsBySlug: Map<string, { bookingUrl?: string | null; platform?: string | null }>,
+): string | null {
+  const cid = o.course_id;
+  if (!cid) return o.booking_url ?? null;
+  const c = coursesById.get(cid);
+  const record = recordsBySlug.get(cid);
+  const enriched = buildBookingUrl(
+    record ?? {
+      bookingUrl: o.booking_url ?? c?.bookingUrl ?? null,
+      platform: c?.platform ?? null,
+    },
+    {
+      dateYmd: o.date || playDate || '',
+      players: o.players || 2,
+      holes: o.holes || 18,
+      startsAtIso: o.starts_at,
+    },
+  );
+  return enriched ?? o.booking_url ?? c?.bookingUrl ?? null;
+}
 
 function initialLetter(name: string): string {
   const t = name.trim();
@@ -44,15 +90,6 @@ function votersInForOption(votes: DbRoundVote[], optionId: string, nameByKey: Ma
     out.push({ key: v.voter_key, name: nameByKey.get(v.voter_key) ?? 'Someone' });
   }
   return out;
-}
-
-function panelStyle(): CSSProperties {
-  return {
-    border: '1px solid var(--border)',
-    borderRadius: 18,
-    background: 'rgba(255,255,255,0.88)',
-    overflow: 'hidden',
-  };
 }
 
 export function RoundPage() {
@@ -193,6 +230,13 @@ export function RoundPage() {
     return names;
   }, [voters]);
 
+  const voterCount = useMemo(() => new Set(voters.map((v) => v.voter_key)).size, [voters]);
+
+  const leading = useMemo(
+    () => computeLeading(sortedOptions, countsByOption),
+    [sortedOptions, countsByOption],
+  );
+
   const onVote = async (optionId: string, status: 'in' | 'maybe' | 'out') => {
     if (!roundId) return;
     if (!(await ensureSignedInDisplay())) return;
@@ -259,59 +303,28 @@ export function RoundPage() {
     window.setTimeout(() => setCopyHint('idle'), 2200);
   };
 
-  const bookingUrls = useMemo(() => {
-    const u = new Map<string, string>();
-    for (const o of options) {
-      const cid = o.course_id;
-      if (!cid) continue;
-      const c = coursesById.get(cid);
-      const record = recordsBySlug.get(cid);
-      const enriched = buildBookingUrl(
-        record ?? {
-          bookingUrl: o.booking_url ?? c?.bookingUrl ?? null,
-          platform: c?.platform ?? null,
-        },
-        {
-          dateYmd: o.date || playDate || '',
-          players: o.players || 2,
-          holes: o.holes || 18,
-          startsAtIso: o.starts_at,
-        },
-      );
-      if (enriched) u.set(cid, enriched);
-      else if (o.booking_url) u.set(cid, o.booking_url);
-      else if (c?.bookingUrl) u.set(cid, c.bookingUrl);
-    }
-    return [...u.entries()];
-  }, [options, coursesById, recordsBySlug, playDate]);
-
-  const cardShell = {
-    padding: 18,
-    borderRadius: 18,
-    border: '1px solid var(--border)',
-    background: 'rgba(255,255,255,0.92)',
-    textAlign: 'center' as const,
-    color: 'var(--muted)',
-  };
-
   if (loading) {
     return (
-      <div className="container" style={{ padding: '24px 0' }}>
-        <div style={cardShell}>Loading vote page…</div>
+      <div className="container round-page">
+        <div className="round-page-card">
+          <div className="round-card">Loading vote page…</div>
+        </div>
       </div>
     );
   }
 
   if (err && !roundId) {
     return (
-      <div className="container" style={{ padding: '24px 0' }}>
-        <div style={{ ...cardShell, textAlign: 'left' }}>
-          <div className="pill">Shared round</div>
-          <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.03em' }}>Could not open link</h2>
-          <p style={{ color: 'var(--muted)' }}>{err}</p>
-          <Link to="/" className="btn btn-primary" style={{ marginTop: 14 }}>
-            Back to finder →
-          </Link>
+      <div className="container round-page">
+        <div className="round-page-card">
+          <div className="round-card is-left">
+            <div className="pill">Shared round</div>
+            <h2 className="round-title round-title-sm">Could not open link</h2>
+            <p style={{ color: 'var(--muted)' }}>{err}</p>
+            <Link to="/" className="btn btn-primary" style={{ marginTop: 14 }}>
+              Back to finder →
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -319,211 +332,136 @@ export function RoundPage() {
 
   const dateBadge = playDate ? formatDateShort(playDate) : '';
   const holesLabel = sortedOptions[0] ? `${sortedOptions[0]!.holes} holes` : null;
+  const playersCount = sortedOptions[0] && typeof sortedOptions[0]!.players === 'number' ? sortedOptions[0]!.players : null;
+
+  const contextMeta = [
+    dateBadge,
+    playersCount != null ? `${playersCount} player${playersCount === 1 ? '' : 's'}` : null,
+    holesLabel,
+    heroCity || null,
+    voterCount > 0 ? `${voterCount} in group` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const guestDisplayName = nameByKey.get(voterKey)?.trim() ?? '';
 
   return (
-    <div className="container" style={{ padding: '18px 0 48px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <Link to="/" className="pill">
-            ← Tee times
-          </Link>
-          <h2 style={{ margin: '12px 0 6px', fontFamily: 'var(--font-display)', fontSize: 34, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-            {heroName}
-            {heroCity ? (
-              <span style={{ color: 'var(--muted)', fontWeight: 700 }}>
-                {' '}
-                ({heroCity})
-              </span>
-            ) : null}
-          </h2>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="pill">Shared round</span>
-            {dateBadge ? <span className="pill">{dateBadge}</span> : null}
-            {holesLabel ? <span className="pill">{holesLabel}</span> : null}
-            {sortedOptions[0] && typeof sortedOptions[0]!.players === 'number' ? (
-              <span className="pill">
-                {sortedOptions[0]!.players} player{sortedOptions[0]!.players === 1 ? '' : 's'}
-              </span>
-            ) : null}
-          </div>
-          <p style={{ marginTop: 10, fontSize: 14, color: 'var(--muted)', maxWidth: 640 }}>
-            {hostPublicName ? (
-              <>
-                <strong style={{ color: 'var(--ink)' }}>{hostPublicName}</strong> shared these tee times
-                {user?.id ? (
-                  <> — you’re signed in; we use your Google account name for your votes.</>
-                ) : (
-                  <> — add your name and save it, then you can vote.</>
-                )}
-              </>
-            ) : user?.id ? (
-              <>You’re signed in — we use your Google account name for your votes. Pick a time.</>
-            ) : (
-              <>Add your name and save it so the group knows who voted — then you can vote.</>
-            )}
-          </p>
-        </div>
-        <button className="btn btn-ghost" type="button" onClick={() => void onCopy()} style={{ padding: '8px 14px', flexShrink: 0 }}>
-          {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
+    <div className="container round-page">
+      <div className="round-page-card">
+      <div className="round-topbar">
+        <Link to="/" className="pill round-back">
+          ← Tee times
+        </Link>
+        <button
+          type="button"
+          className={`round-copy-btn app-header-icon-btn${copyHint === 'ok' ? ' is-active' : ''}`}
+          aria-label={copyHint === 'ok' ? 'Link copied' : copyHint === 'fail' ? 'Copy failed' : 'Copy round link'}
+          title={copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed' : 'Copy link'}
+          onClick={() => void onCopy()}
+        >
+          {copyHint === 'ok' ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.9" />
+              <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+            </svg>
+          )}
         </button>
       </div>
 
-      <div className="split-two" style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'minmax(0, 1.08fr) minmax(0, 1fr)', gap: 14 }}>
-        <div style={panelStyle()}>
-          <div
-            style={{
-              position: 'relative',
-              minHeight: 220,
-              background: heroPhoto
-                ? `url(${heroPhoto}) center/cover`
-                : 'linear-gradient(145deg, var(--green) 0%, var(--green-2) 55%, var(--green-3) 100%)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'flex-end',
-              padding: 16,
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: heroPhoto ? 'linear-gradient(to bottom, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.52) 100%)' : undefined,
-              }}
-            />
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              {dateBadge ? (
-                <div style={{ marginBottom: 8 }}>
-                  <span className="pill" style={{ background: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.35)', color: '#fff' }}>
-                    {dateBadge}
-                  </span>
-                </div>
-              ) : null}
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>{heroName}</div>
-              {heroCity ? <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.82)', marginTop: 4 }}>{heroCity}</div> : null}
-            </div>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '14px 16px',
-              borderTop: '1px solid var(--border)',
-              background: '#fff',
-            }}
-          >
-            <div style={{ display: 'flex' }}>
-              {inviteAvatars.length === 0 ? (
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: 'var(--green-soft)',
-                    border: '2px solid #fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: 'var(--green-2)',
-                  }}
-                >
-                  ·
-                </div>
-              ) : (
-                inviteAvatars.map((n, i) => (
-                  <div
-                    key={`${n}-${i}`}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      marginLeft: i === 0 ? 0 : -8,
-                      background: AVATAR_BG[i % AVATAR_BG.length],
-                      border: '2px solid #fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: '#fff',
-                    }}
-                  >
-                    {initialLetter(n)}
-                  </div>
-                ))
-              )}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', flex: 1, lineHeight: 1.4 }}>
-              {inviteAvatars.length === 0 ? 'Be the first to join this vote.' : `${inviteAvatars.length} in the group so far`}
-            </div>
-          </div>
-        </div>
+      <header className="round-context">
+        <span className="pill">Shared round</span>
+        <h1 className="round-context-title">{heroName}</h1>
+        {contextMeta ? <p className="round-context-meta">{contextMeta}</p> : null}
+        <p className="round-lede round-lede-short">
+          {hostPublicName ? (
+            <>
+              <strong style={{ color: 'var(--ink)' }}>{hostPublicName}</strong> shared these tee times.
+              {user?.id ? ' Pick a time — your account name shows on your votes.' : ' Add your name, then vote.'}
+            </>
+          ) : user?.id ? (
+            <>Pick a time — your account name shows on your votes.</>
+          ) : (
+            <>Add your name so the group knows who voted, then pick a time.</>
+          )}
+        </p>
+      </header>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-          {!user?.id ? (
-            <div style={{ padding: 16, ...panelStyle(), background: '#fff' }}>
-              <div style={{ fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>Your name</div>
-              <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.45 }}>
-                Required before you vote — shown next to your picks so friends recognize you.
-              </p>
+      <div className={`round-leading${leading ? ' has-leader' : ''}`} aria-live="polite">
+        {leading ? (
+          <>
+            <div className="round-leading-main">
+              <span className="round-leading-label">Leading</span>
+              <span className="round-leading-time">
+                {leading.option.starts_at
+                  ? formatTime12h(leading.option.starts_at)
+                  : leading.option.time_display ?? 'TBD'}
+              </span>
+            </div>
+            <div className="round-leading-counts">
+              {leading.in} in · {leading.maybe} maybe
+            </div>
+          </>
+        ) : (
+          <p className="round-leading-empty">No votes yet — be the first to pick a time.</p>
+        )}
+      </div>
+
+      {!user?.id ? (
+        hasGuestSavedName ? (
+          <div className="round-guest-banner is-saved">
+            Voting as <strong>{guestDisplayName}</strong>
+          </div>
+        ) : (
+          <div className="round-guest-banner">
+            <div className="round-guest-banner-row">
               <input
-                className="input"
+                className="input round-guest-input"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="First name or nickname"
+                placeholder="Your name"
                 maxLength={60}
                 required
                 aria-required
+                aria-label="Your name"
               />
               <button
-                className="btn btn-primary"
+                className="btn btn-primary round-guest-save"
                 type="button"
                 disabled={nameBusy || !nameInput.trim()}
                 onClick={() => void onSaveName()}
-                style={{ width: '100%', marginTop: 10, padding: 12, borderRadius: 12 }}
               >
-                {nameBusy ? 'Saving…' : 'Save name'}
+                {nameBusy ? '…' : 'Save'}
               </button>
-              {nameMsg ? (
-                <p style={{ marginTop: 8, fontSize: 13, color: nameMsg === 'Saved' ? 'var(--green-2)' : '#9a3412' }}>{nameMsg}</p>
-              ) : null}
             </div>
-          ) : null}
+            {nameMsg ? (
+              <p className={`round-name-msg${nameMsg === 'Saved' ? ' is-ok' : ' is-err'}`}>{nameMsg}</p>
+            ) : null}
+          </div>
+        )
+      ) : null}
 
-          <div
-            style={{
-              padding: '12px 14px',
-              borderRadius: 14,
-              border: '1px solid rgba(180,130,40,0.28)',
-              background: 'rgba(255,251,235,0.95)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#92400e', lineHeight: 1.45 }}>
-              <span aria-hidden>⏰</span>
-              Times go fast — double-check availability before you book.
-            </div>
+      <div className="round-split">
+        <div className="round-main">
+          <div className="round-alert round-alert-compact">
+            <span aria-hidden>⏰</span>
+            <span>Times go fast — double-check availability before you book.</span>
           </div>
 
-          <div style={{ padding: 16, borderRadius: 18, border: '1px solid var(--border)', background: 'rgba(248,250,248,0.75)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Pick your time
-              </span>
-            </div>
+          <div className="round-vote-panel">
+            <div className="round-vote-heading">Pick your time</div>
 
-            {err ? (
-              <p style={{ color: '#9a3412', fontSize: 13, marginBottom: 10 }}>{err}</p>
-            ) : null}
+            {err ? <p className="round-err">{err}</p> : null}
 
             {guestVoteLocked ? (
-              <p style={{ color: '#92400e', fontSize: 13, marginBottom: 10, lineHeight: 1.45 }}>
-                Save your name above before you can vote on times.
-              </p>
+              <p className="round-warn">Save your name above before you can vote.</p>
             ) : null}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="round-options">
               {sortedOptions.map((o) => {
                 const c = countsByOption.get(o.id) ?? { in: 0, maybe: 0, out: 0 };
                 const mine = myVotes.get(o.id);
@@ -534,132 +472,98 @@ export function RoundPage() {
                 const busy = (s: string) => voteBusy === o.id + s;
                 const playersNeeded = typeof o.players === 'number' && o.players > 0 ? o.players : null;
                 const quorumMet = playersNeeded != null && inVoters.length >= playersNeeded;
+                const bookHref = quorumMet
+                  ? bookingUrlForOption(o, playDate, coursesById, recordsBySlug)
+                  : null;
 
                 return (
-                  <div
-                    key={o.id}
-                    style={{
-                      background: '#fff',
-                      border: selected ? '2px solid var(--green-2)' : '1px solid var(--border)',
-                      borderRadius: 14,
-                      padding: '14px 16px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: selected ? 'var(--green-2)' : 'var(--ink)', fontFamily: 'var(--font-display)' }}>{timeLabel}</div>
-                      <div style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 700 }}>{o.price ? `$${o.price}` : '—'}</div>
+                  <div key={o.id} className={`round-option${selected ? ' is-selected' : ''}`}>
+                    <div className="round-option-head">
+                      <div className="round-option-time">{timeLabel}</div>
+                      <div className="round-option-price">{o.price ? `$${o.price}` : '—'}</div>
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    <div className="round-option-tags">
                       {typeof o.players === 'number' ? (
-                        <span className="pill" style={{ fontSize: 11, background: 'rgba(233,245,234,0.9)', color: 'var(--green-2)' }}>
-                          {o.players} players
-                        </span>
+                        <span className="pill round-pill-players">{o.players} players</span>
                       ) : null}
                       <span className="pill" style={{ fontSize: 11 }}>
                         {o.holes} holes
                       </span>
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                    <div className="round-option-voters">
                       {inVoters.length === 0 ? (
                         <span style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>No “in” votes yet</span>
                       ) : (
                         inVoters.map(({ key, name }, idx) => (
-                          <div
-                            key={key}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              background: key === voterKey ? 'rgba(233,245,234,0.95)' : 'rgba(248,250,248,0.95)',
-                              borderRadius: 20,
-                              padding: '3px 8px 3px 4px',
-                              border: key === voterKey ? '1px solid rgba(45,122,58,0.35)' : '1px solid var(--border)',
-                            }}
-                          >
+                          <div key={key} className={`round-voter-chip${key === voterKey ? ' is-self' : ''}`}>
                             <div
-                              style={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: '50%',
-                                background: AVATAR_BG[idx % AVATAR_BG.length],
-                                color: '#fff',
-                                fontSize: 9,
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
+                              className="round-avatar round-avatar-sm"
+                              style={{ background: AVATAR_BG[idx % AVATAR_BG.length] }}
                             >
                               {initialLetter(name)}
                             </div>
-                            <span style={{ fontSize: 11, color: key === voterKey ? 'var(--green-2)' : 'var(--muted)', fontWeight: key === voterKey ? 700 : 600 }}>
-                              {key === voterKey ? 'You' : name}
-                            </span>
+                            <span className="round-voter-name">{key === voterKey ? 'You' : name}</span>
                           </div>
                         ))
                       )}
                     </div>
                     {quorumMet ? (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          padding: '10px 12px',
-                          borderRadius: 12,
-                          border: '1px solid rgba(45,122,58,0.28)',
-                          background: 'rgba(233,245,234,0.95)',
-                          fontSize: 13,
-                          lineHeight: 1.45,
-                          color: 'var(--green-2)',
-                          fontWeight: 700,
-                        }}
-                      >
-                        {inVoters.length} of {playersNeeded} in — enough to fill this tee time. Have{' '}
-                        <strong style={{ color: 'var(--ink)' }}>one person book</strong> on the course site (especially if it’s prepaid), then everyone else joins that booking.
+                      <div className="round-quorum">
+                        <p className="round-quorum-copy">
+                          {inVoters.length} of {playersNeeded} in — enough to fill this tee time. Have{' '}
+                          <strong style={{ color: 'var(--ink)' }}>one person book</strong> on the course site, then everyone else joins that booking.
+                        </p>
+                        {bookHref ? (
+                          <a
+                            className="btn btn-primary round-quorum-book"
+                            href={bookHref}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Book this time →
+                          </a>
+                        ) : null}
                       </div>
                     ) : null}
-                    <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <div className="round-vote-actions">
                       <button
-                        className="btn"
+                        className={`btn round-vote-btn round-vote-btn-in${mine === 'in' ? ' is-on' : ''}`}
                         type="button"
                         disabled={!!voteBusy || guestVoteLocked}
                         onClick={() => void onVote(o.id, 'in')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 999,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          background: mine === 'in' ? 'rgba(45,122,58,0.22)' : 'rgba(45,122,58,0.10)',
-                          borderColor: 'rgba(45,122,58,0.25)',
-                          color: 'var(--green-2)',
-                        }}
                       >
-                        {busy('in') ? '…' : `In (${c.in})`}
+                        {busy('in') ? '…' : (
+                          <>
+                            In
+                            {c.in > 0 ? <span className="round-vote-count">{c.in}</span> : null}
+                          </>
+                        )}
                       </button>
                       <button
-                        className="btn"
+                        className={`btn round-vote-btn round-vote-btn-maybe${mine === 'maybe' ? ' is-on' : ''}`}
                         type="button"
                         disabled={!!voteBusy || guestVoteLocked}
                         onClick={() => void onVote(o.id, 'maybe')}
-                        style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: mine === 'maybe' ? 800 : 600 }}
                       >
-                        {busy('maybe') ? '…' : `If needed (${c.maybe})`}
+                        {busy('maybe') ? '…' : (
+                          <>
+                            Maybe
+                            {c.maybe > 0 ? <span className="round-vote-count">{c.maybe}</span> : null}
+                          </>
+                        )}
                       </button>
                       <button
-                        className="btn"
+                        className={`btn round-vote-btn round-vote-btn-out${mine === 'out' ? ' is-on' : ''}`}
                         type="button"
                         disabled={!!voteBusy || guestVoteLocked}
                         onClick={() => void onVote(o.id, 'out')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 999,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          background: mine === 'out' ? 'rgba(234,88,12,0.18)' : 'rgba(234,88,12,0.08)',
-                          borderColor: 'rgba(234,88,12,0.22)',
-                          color: '#9a3412',
-                        }}
                       >
-                        {busy('out') ? '…' : `Out (${c.out})`}
+                        {busy('out') ? '…' : (
+                          <>
+                            Out
+                            {c.out > 0 ? <span className="round-vote-count">{c.out}</span> : null}
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -669,44 +573,62 @@ export function RoundPage() {
 
             <button
               type="button"
-              className="btn"
+              className="btn round-cant-btn"
               disabled={voteBusy === 'CANT' || options.length === 0 || guestVoteLocked}
               onClick={() => void onCantMakeRound()}
-              style={{
-                width: '100%',
-                marginTop: 12,
-                padding: '12px 16px',
-                borderRadius: 14,
-                background: '#fff',
-                border: '1px solid var(--border)',
-                textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
             >
               <span style={{ fontSize: 14, color: 'var(--muted)' }}>Can’t make it this round</span>
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{voteBusy === 'CANT' ? '…' : 'Mark out on all times'}</span>
             </button>
           </div>
 
-          {bookingUrls.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {bookingUrls.map(([cid, url]) => {
-                const c = coursesById.get(cid);
-                return (
-                  <a key={cid} className="btn btn-primary" href={url} target="_blank" rel="noreferrer" style={{ width: '100%', textAlign: 'center', padding: '12px 16px' }}>
-                    Book {c?.name ?? 'course'} →
-                  </a>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <Link to="/" className="btn btn-ghost" style={{ textAlign: 'center', fontSize: 14 }}>
+          <Link to="/" className="btn btn-ghost round-share-another">
             Share another round →
           </Link>
         </div>
+
+        <aside className="round-aside" aria-label="Round details">
+          <div className="round-panel">
+            <div
+              className={`round-hero${heroPhoto ? ' has-photo' : ''}`}
+              style={heroPhoto ? { backgroundImage: `url(${heroPhoto})` } : undefined}
+            >
+              {heroPhoto ? <div className="round-hero-scrim" aria-hidden /> : null}
+              <div className="round-hero-body">
+                {dateBadge ? (
+                  <div style={{ marginBottom: 8 }}>
+                    <span className="pill round-hero-pill">{dateBadge}</span>
+                  </div>
+                ) : null}
+                <div className="round-hero-name">{heroName}</div>
+                {heroCity ? <div className="round-hero-city">{heroCity}</div> : null}
+              </div>
+            </div>
+            <div className="round-invite-bar">
+              <div className="round-avatar-stack">
+                {inviteAvatars.length === 0 ? (
+                  <div className="round-avatar is-empty" aria-hidden>
+                    ·
+                  </div>
+                ) : (
+                  inviteAvatars.map((n, i) => (
+                    <div
+                      key={`${n}-${i}`}
+                      className="round-avatar"
+                      style={{ background: AVATAR_BG[i % AVATAR_BG.length], marginLeft: i === 0 ? 0 : undefined }}
+                    >
+                      {initialLetter(n)}
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="round-invite-copy">
+                {inviteAvatars.length === 0 ? 'Be the first to join this vote.' : `${voterCount} in the group`}
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
       </div>
     </div>
   );
