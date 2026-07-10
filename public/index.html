@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Search Utah golf courses across ForeUp, Chronogolf, and MemberSports in one place. Compare open slots on list or map, share vote links, set tee-time alerts, and book on the course site. More states coming soon." />
-  <meta name="theme-color" content="#1E4D3B" />
+  <meta name="description" content="Search live tee times across every Utah golf course in one place. Compare times and prices, plan rounds with your group, and get a text when a slot opens. More states coming soon." />
+  <meta name="theme-color" content="#FBFBF8" />
   <script>
     (function () {
       try {
@@ -21,13 +21,13 @@
   <link rel="canonical" href="https://tee-time.io/" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tee-time.io/" />
-  <meta property="og:title" content="tee-time.io — Find. Plan. Book." />
-  <meta property="og:description" content="67+ courses in Utah today — more states soon. One search across ForeUp, Chronogolf, and MemberSports." />
+  <meta property="og:title" content="tee-time.io — Every tee time. One search." />
+  <meta property="og:description" content="Live tee times across Utah golf courses — ForeUp, Chronogolf, MemberSports, and more in one search." />
   <meta property="og:site_name" content="tee-time.io" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="tee-time.io — Find. Plan. Book." />
-  <meta name="twitter:description" content="67+ Utah courses in one search — more states soon. ForeUp, Chronogolf, MemberSports." />
-  <title>tee-time.io — Find. Plan. Book.</title>
+  <meta name="twitter:title" content="tee-time.io — Every tee time. One search." />
+  <meta name="twitter:description" content="67+ Utah courses in one search. Plan with your group. Get alerted when slots open." />
+  <title>tee-time.io — Every tee time. One search.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -62,10 +62,14 @@
       --pine-deep: #143528;
       --fairway: #B7EA3C;
       --fairway-ink: #2A4405;
-      --green-soft: #F0FADB;
       --sand: #EFECE3;
       --line: #E4E2DA;
       --card: #FFFFFF;
+      --card-2: #F5F4EF;
+      --border-strong: #D4D1C8;
+      --accent: var(--fairway);
+      --accent-ink: var(--fairway-ink);
+      --accent-hover: #C8F04A;
       --shadow: 0 12px 32px rgba(20,30,25,.10), 0 2px 8px rgba(20,30,25,.06);
       --radius: 18px;
       --radius-sm: 12px;
@@ -73,516 +77,408 @@
       --font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
       --font-mono: 'Spline Sans Mono', ui-monospace, monospace;
       --gutter: max(18px, env(safe-area-inset-left, 0px));
+      color-scheme: light;
     }
 
     html[data-theme='dark'] {
-      --paper: #0F1713;
-      --ink: #F2F5F1;
-      --ink-2: #B7C2BA;
-      --ink-3: #7E8B84;
+      --paper: #0C100B;
+      --ink: #F2F5EA;
+      --ink-2: #97A38D;
+      --ink-3: #6B755F;
       --pine: #3F8F68;
-      --pine-deep: #2F6B4E;
-      --fairway: #B7EA3C;
-      --fairway-ink: #D7F58A;
-      --green-soft: #24352C;
-      --sand: #1A2420;
-      --line: #2A3530;
-      --card: #16201C;
+      --pine-deep: #1E4620;
+      --fairway: #C9F542;
+      --fairway-ink: #1E4620;
+      --sand: #131A10;
+      --line: #26301D;
+      --card: #131A10;
+      --card-2: #172012;
+      --border-strong: #37452B;
+      --accent: #C9F542;
+      --accent-ink: #1E4620;
+      --accent-hover: #D6FF5C;
       --shadow: 0 14px 36px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.22);
       color-scheme: dark;
     }
 
-    html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      * { animation: none !important; transition: none !important; }
+    }
+
     body {
       font-family: var(--font);
       color: var(--ink);
       background: var(--paper);
-      line-height: 1.55;
+      line-height: 1.6;
       min-height: 100vh;
       overflow-x: clip;
       -webkit-font-smoothing: antialiased;
     }
 
-    .container {
-      width: min(1240px, 100%);
+    .wrap {
+      width: min(1180px, 100%);
       margin: 0 auto;
       padding-left: var(--gutter);
       padding-right: max(18px, env(safe-area-inset-right, 0px));
     }
     @media (min-width: 721px) {
-      :root { --gutter: max(32px, env(safe-area-inset-left, 0px)); }
+      :root { --gutter: max(24px, env(safe-area-inset-left, 0px)); }
     }
 
     a { color: inherit; text-decoration: none; }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--sand);
-      color: var(--ink-2);
-      font-size: 12.5px;
-      font-weight: 500;
-    }
+    button { font: inherit; }
 
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 10px 16px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--card);
-      color: var(--ink);
-      font-family: var(--font);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border: none; cursor: pointer;
+      font-size: 15px; font-weight: 600;
+      border-radius: 999px; padding: 10px 22px;
+      background: var(--accent); color: var(--accent-ink);
       transition: background .15s, border-color .15s, color .15s;
     }
-    .btn:hover { border-color: var(--ink-3); background: var(--sand); }
-    .btn-primary { background: var(--pine); border-color: var(--pine); color: #fff; }
-    .btn-primary:hover { background: var(--pine-deep); border-color: var(--pine-deep); color: #fff; }
-    .btn-ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
-    .btn-ghost:hover { background: var(--sand); border-color: var(--line); color: var(--ink); }
+    .btn:hover { background: var(--accent-hover); }
+    .btn-ghost {
+      background: transparent; color: var(--ink);
+      border: 1px solid var(--border-strong);
+    }
+    .btn-ghost:hover { background: var(--card-2); border-color: var(--ink-3); }
 
-    .site-header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      padding-top: env(safe-area-inset-top, 0px);
-      background: color-mix(in srgb, var(--paper) 88%, transparent);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid var(--line);
+    /* Nav */
+    .site-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 20px 0; position: relative;
     }
-    .site-header-inner {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      height: 72px;
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-display); font-weight: 700;
+      font-size: 20px; letter-spacing: -0.02em; min-width: 0;
     }
-    .site-logo {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 19px;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-      min-width: 0;
-    }
-    .site-logo-mark { width: 26px; height: 26px; flex-shrink: 0; line-height: 0; }
-    .site-logo-img { width: 26px; height: 26px; display: block; border-radius: 6px; }
-    .site-logo-img.is-dark { display: none; }
-    html[data-theme='dark'] .site-logo-img.is-light { display: none; }
-    html[data-theme='dark'] .site-logo-img.is-dark { display: block; }
-    .site-logo-tld { color: #4C7A22; font-weight: 400; }
-    html[data-theme='dark'] .site-logo-tld { color: var(--ink-3); }
+    .logo-img { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+    .logo-img.is-dark { display: none; }
+    html[data-theme='dark'] .logo-img.is-light { display: none; }
+    html[data-theme='dark'] .logo-img.is-dark { display: block; }
+    .logo .io { color: #4C7A22; font-weight: 400; }
+    html[data-theme='dark'] .logo .io { color: var(--accent); }
 
-    .site-nav { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-    .site-nav-desktop { display: flex; align-items: center; gap: 8px; }
-    .site-nav-mobile-cta { display: none; }
-    .site-menu-btn {
-      display: none;
-      width: 40px; height: 40px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--card);
-      color: var(--ink-2);
-      place-items: center;
-      cursor: pointer;
-      padding: 0;
+    .nav-links { display: flex; gap: 24px; font-size: 15px; color: var(--ink-2); }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .nav-actions-desktop { display: flex; gap: 8px; }
+    .nav-search-mobile { display: none; }
+    .menu-btn {
+      display: none; width: 40px; height: 40px; border-radius: 999px;
+      border: 1px solid var(--border-strong); background: var(--card);
+      color: var(--ink-2); place-items: center; cursor: pointer; padding: 0;
     }
-    .site-menu-panel {
-      display: none;
-      position: absolute;
-      top: calc(100% + 8px);
+    .menu-panel {
+      display: none; position: absolute; top: calc(100% + 6px);
       right: max(18px, env(safe-area-inset-right, 0px));
-      min-width: 220px;
-      padding: 8px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--line);
-      background: var(--card);
-      box-shadow: var(--shadow);
-      z-index: 120;
-      gap: 4px;
+      min-width: 220px; padding: 8px; border-radius: var(--radius-sm);
+      border: 1px solid var(--line); background: var(--card);
+      box-shadow: var(--shadow); z-index: 120; gap: 4px;
     }
-    .site-menu-panel.is-open { display: grid; }
-    .site-menu-panel .btn { width: 100%; justify-content: center; }
+    .menu-panel.is-open { display: grid; }
+    .menu-panel .btn, .menu-panel a.btn { width: 100%; justify-content: center; text-align: center; }
+    .menu-panel a.nav-anchor {
+      display: block; padding: 10px 14px; border-radius: 8px;
+      font-size: 14px; color: var(--ink-2); text-align: center;
+    }
+    .menu-panel a.nav-anchor:hover { background: var(--card-2); color: var(--ink); }
 
-    .hero { padding: 48px 0 24px; }
-    .hero-inner { max-width: 860px; }
+    /* Hero */
+    .hero { padding: 56px 0 32px; text-align: center; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--ink-2);
+      border: 1px solid var(--line); border-radius: 999px;
+      padding: 6px 14px; margin-bottom: 24px;
+      background: color-mix(in srgb, var(--card) 80%, var(--paper));
+    }
+    .eyebrow .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent); animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
     .hero h1 {
-      margin-top: 14px;
-      font-family: var(--font-display);
-      font-size: clamp(2.1rem, 5.8vw, 3.25rem);
-      font-weight: 700;
-      letter-spacing: -0.035em;
-      line-height: 1.06;
+      font-family: var(--font-display); font-weight: 700;
+      font-size: clamp(2.35rem, 6vw, 4.25rem);
+      line-height: 1.04; letter-spacing: -0.03em; margin-bottom: 18px;
     }
-    .hero-lede {
-      margin-top: 12px;
-      max-width: 48ch;
-      font-size: 1.05rem;
-      color: var(--ink-2);
-      line-height: 1.6;
+    .hero h1 .accent { color: var(--accent); }
+    html:not([data-theme='dark']) .hero h1 .accent { color: var(--pine-deep); }
+    .hero .sub {
+      max-width: 38rem; margin: 0 auto 36px;
+      color: var(--ink-2); font-size: 1.1rem; line-height: 1.6;
     }
-    .hero-search-zone { margin-top: 28px; }
-    .search-pill {
-      width: 100%;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      display: flex;
-      align-items: stretch;
+    .hero .sub strong { color: var(--ink); font-weight: 600; }
+
+    .search {
+      max-width: 860px; margin: 0 auto;
+      display: flex; align-items: stretch;
+      background: var(--card); border: 1px solid var(--border-strong);
+      border-radius: 999px; padding: 8px; text-align: left;
       box-shadow: 0 1px 3px rgba(20,30,25,.05);
-      min-width: 0;
-      transition: box-shadow .2s;
     }
-    .search-pill:focus-within { box-shadow: var(--shadow); }
-    .sp-cell {
-      flex: 1;
-      padding: 14px 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      border-right: 1px solid var(--line);
-      min-width: 0;
+    .search:focus-within { box-shadow: var(--shadow); }
+    .search .field {
+      flex: 1; padding: 10px 20px;
+      border-right: 1px solid var(--line); min-width: 0;
     }
-    .sp-label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: var(--ink-3);
+    .search .field:last-of-type { border-right: none; }
+    .search label {
+      display: block; font-size: 11px; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--ink-3); font-weight: 600;
     }
-    .sp-value input {
-      border: none;
-      outline: none;
-      font: inherit;
-      font-weight: 500;
-      font-size: 15px;
-      background: none;
-      width: 100%;
-      color: var(--ink);
-      min-width: 0;
+    .search input, .search select {
+      width: 100%; border: none; background: transparent; color: var(--ink);
+      font-family: var(--font); font-size: 15px; font-weight: 500;
+      outline: none; min-width: 0;
     }
-    .sp-value input::placeholder { color: var(--ink-3); font-weight: 400; }
-    .sp-go {
-      align-self: center;
-      margin: 6px;
-      background: var(--pine);
-      color: #fff;
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      flex-shrink: 0;
-      border: none;
-      cursor: pointer;
+    .search input::placeholder { color: var(--ink-3); font-weight: 400; }
+    .search select { cursor: pointer; padding-right: 4px; }
+    .search .go {
+      flex: none; width: 54px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+      display: grid; place-items: center; margin: 2px;
       transition: background .15s, transform .15s;
     }
-    .sp-go:hover { background: var(--pine-deep); transform: scale(1.03); }
-    .hero-note {
-      margin-top: 12px;
-      font-size: 13px;
-      color: var(--ink-3);
-      line-height: 1.5;
+    .search .go:hover { background: var(--accent-hover); transform: scale(1.03); }
+    .search .go svg { stroke: var(--accent-ink); }
+
+    .chips {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+      margin-top: 16px;
     }
-    .platform-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      margin-top: 20px;
-      font-size: 13px;
-      color: var(--ink-3);
+    .chip {
+      font-size: 14px; color: var(--ink-2); cursor: pointer;
+      border: 1px solid var(--line); border-radius: 999px;
+      padding: 7px 16px; background: transparent;
+      transition: background .15s, color .15s, border-color .15s;
     }
-    .platform-chip {
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--card);
-      color: var(--ink-2);
-      font-size: 12px;
-      font-weight: 600;
+    .chip:hover, .chip.active {
+      color: var(--accent-ink); background: var(--accent); border-color: var(--accent);
     }
 
-    .page-section { padding: 20px 0 32px; }
-    .surface {
-      padding: 22px 20px;
-      border-radius: var(--radius);
-      border: 1px solid var(--line);
-      background: color-mix(in srgb, var(--card) 92%, var(--paper));
-      box-shadow: 0 1px 2px rgba(20,30,25,.04);
+    .live-strip {
+      margin-top: 36px;
+      display: flex; justify-content: center; gap: 10px 24px; flex-wrap: wrap;
+      font-family: var(--font-mono); font-size: 13px; color: var(--ink-2);
     }
-    @media (min-width: 721px) { .surface { padding: 24px; } }
+    .live-strip b { color: var(--pine-deep); font-weight: 600; }
+    html[data-theme='dark'] .live-strip b { color: var(--accent); }
 
-    .section-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-      margin-bottom: 8px;
-    }
-    .section-title {
-      font-family: var(--font-display);
-      font-size: clamp(1.35rem, 3vw, 1.75rem);
-      font-weight: 700;
-      letter-spacing: -0.025em;
-      line-height: 1.15;
-      margin-bottom: 18px;
-    }
-
-    .fpb-grid {
+    /* Inventory */
+    .inventory { padding: 28px 0 16px; }
+    .grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(262px, 1fr));
+      gap: 16px;
     }
-    .fpb-card {
-      padding: 16px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--line);
-      background: var(--card);
+    .course {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); overflow: hidden;
+      transition: border-color .15s, transform .15s;
     }
-    .fpb-card h3 {
-      font-family: var(--font-display);
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 6px;
+    .course:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+    .course .photo {
+      height: 132px; position: relative; overflow: hidden;
+      background: linear-gradient(160deg, #2E4A22 0%, #1C3318 55%, #14230F 100%);
     }
-    .fpb-card p { font-size: 14px; color: var(--ink-2); line-height: 1.55; }
-    .fpb-card strong { color: var(--ink); font-weight: 600; }
-
-    .preview-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--line);
+    .course .photo img {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
     }
-    .preview-date {
-      font-family: var(--font-display);
-      font-weight: 600;
-      font-size: 14px;
-      margin-right: auto;
+    .course .photo::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, transparent 40%, rgba(12,16,11,.55) 100%);
     }
-    .preview-chip {
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--card);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ink-2);
-    }
-    .preview-chip.is-on {
-      background: color-mix(in srgb, var(--fairway) 35%, var(--card));
-      border-color: color-mix(in srgb, var(--pine) 25%, var(--line));
-      color: var(--pine-deep);
-    }
-    html[data-theme='dark'] .preview-chip.is-on { color: var(--fairway-ink); }
-    .preview-chip-icon { display: inline-flex; align-items: center; gap: 5px; }
-
-    .preview-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-    .preview-course {
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      background: var(--card);
-    }
-    .preview-photo-wrap {
-      position: relative;
-      aspect-ratio: 4/3;
-      overflow: hidden;
-      background: linear-gradient(135deg, #2E5E43, #4C8A5C);
-    }
-    .preview-photo {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .preview-scrim {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(12,20,16,0.06) 0%, rgba(12,20,16,0.55) 48%, rgba(12,20,16,0.82) 100%);
-      pointer-events: none;
-    }
-    .preview-badge {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 2;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 500;
-      padding: 5px 10px;
-      border-radius: 999px;
-      background: rgba(20,30,25,.72);
-      color: #fff;
+    .badge {
+      position: absolute; top: 12px; left: 12px; z-index: 1;
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(12,16,11,.82); border-radius: 999px; padding: 5px 12px;
+      font-family: var(--font-mono); font-size: 12px; color: #fff;
       backdrop-filter: blur(6px);
     }
-    .preview-course-info {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      z-index: 1;
-      padding: 12px 14px 14px;
+    .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .badge.sold .dot { background: #E0653A; }
+    .bell {
+      position: absolute; top: 10px; right: 12px; z-index: 1;
+      width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+      background: rgba(12,16,11,.82); color: #fff;
+      display: flex; align-items: center; justify-content: center;
     }
-    .preview-course-name {
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 17px;
-      color: #fff;
-      letter-spacing: -0.02em;
-      text-shadow: 0 1px 2px rgba(0,0,0,.2);
+    .bell:hover { background: var(--accent); color: var(--accent-ink); }
+    .bell svg { width: 17px; height: 17px; }
+    .course .meta {
+      padding: 14px 16px 4px;
+      display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
     }
-    .preview-course-meta { font-size: 12px; color: rgba(255,255,255,.88); margin-top: 3px; }
-    .tee-strip {
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 6px;
-      padding: 12px 14px 14px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      background: color-mix(in srgb, var(--sand) 72%, var(--card));
-      border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+    .course h3 {
+      font-family: var(--font-display); font-size: 18px;
+      font-weight: 700; letter-spacing: -0.01em; min-width: 0;
     }
-    .tee-chip {
-      flex: 0 0 auto;
-      min-width: 58px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid transparent;
-      background: color-mix(in srgb, var(--card) 88%, var(--sand));
-      text-align: center;
+    .course .price { font-family: var(--font-display); font-size: 18px; font-weight: 700; flex-shrink: 0; }
+    .course .facts { padding: 0 16px 10px; font-size: 13px; color: var(--ink-2); }
+    .course .facts .star { color: var(--accent); }
+    html:not([data-theme='dark']) .course .facts .star { color: var(--pine); }
+    .times { display: flex; gap: 8px; padding: 0 16px 16px; }
+    .slot {
+      flex: 1; text-align: center; padding: 9px 4px 7px;
+      border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+      font-family: var(--font-mono); font-size: 12px; background: var(--card-2);
+      color: var(--ink); transition: border-color .15s;
     }
-    .tee-chip .t {
-      display: block;
-      font-family: var(--font-mono);
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--ink);
-      letter-spacing: -.01em;
-    }
-    .tee-chip .p {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--ink-3);
-      margin-top: 1px;
-    }
-    .tee-chip.more {
-      display: grid;
-      place-items: center;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ink-2);
-      background: transparent;
-      min-height: 44px;
-    }
-
-    .cta-final {
-      margin-top: 8px;
-      padding: 28px 24px;
-      border-radius: var(--radius);
-      background: linear-gradient(145deg, var(--pine-deep), var(--pine));
-      color: #fff;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-    .cta-final h2 {
-      font-family: var(--font-display);
-      font-size: clamp(1.25rem, 3vw, 1.6rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
-    }
-    .cta-final p {
-      margin-top: 6px;
-      font-size: 14px;
-      color: rgba(255,255,255,.78);
-      max-width: 42ch;
-      line-height: 1.5;
-    }
-    .cta-final-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .cta-final .btn { border-color: rgba(255,255,255,.2); }
-    .cta-final .btn-primary {
-      background: #fff;
-      border-color: #fff;
+    .slot small { display: block; color: var(--ink-3); font-size: 11px; margin-top: 1px; }
+    .slot:hover { border-color: var(--accent); }
+    .slot.hot {
+      background: color-mix(in srgb, var(--accent) 14%, var(--card-2));
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
       color: var(--pine-deep);
     }
-    .cta-final .btn-primary:hover { background: var(--fairway); border-color: var(--fairway); color: var(--pine-deep); }
-    .cta-final .btn-ghost { color: rgba(255,255,255,.9); }
-    .cta-final .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: #fff; }
+    html[data-theme='dark'] .slot.hot { color: var(--accent); }
+    .soldout {
+      margin: 0 16px 16px; padding: 12px 14px;
+      border: 1px dashed var(--border-strong); border-radius: 10px;
+      font-size: 13px; color: var(--ink-2);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .soldout a { color: var(--pine-deep); font-weight: 600; white-space: nowrap; }
+    html[data-theme='dark'] .soldout a { color: var(--accent); }
+    .inventory .more { text-align: center; margin-top: 24px; }
 
-    .site-footer {
+    /* Bands */
+    section.band { padding: 72px 0; }
+    .kicker {
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--pine-deep); margin-bottom: 12px;
+    }
+    html[data-theme='dark'] .kicker { color: var(--accent); }
+    .band h2 {
+      font-family: var(--font-display); font-weight: 700;
+      font-size: clamp(1.75rem, 4vw, 2.75rem);
+      letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 12px;
+    }
+    .band .lede { color: var(--ink-2); max-width: 36rem; font-size: 17px; line-height: 1.55; }
+    .pillars {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px; margin-top: 36px;
+    }
+    .pillar {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 26px 24px;
+    }
+    .pillar .icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--pine-deep); display: flex;
+      align-items: center; justify-content: center; margin-bottom: 16px;
+    }
+    html:not([data-theme='dark']) .pillar .icon { background: var(--green-soft, #F0FADB); }
+    html:not([data-theme='dark']) .pillar .icon svg { stroke: var(--pine-deep); }
+    .pillar .icon svg { width: 22px; height: 22px; stroke: var(--accent); }
+    .pillar h3 { font-family: var(--font-display); font-size: 19px; font-weight: 700; margin-bottom: 8px; }
+    .pillar p { color: var(--ink-2); font-size: 15px; line-height: 1.55; }
+
+    .steps {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px; margin-top: 36px;
+    }
+    .step { border-top: 1px solid var(--border-strong); padding-top: 18px; }
+    .step .n { font-family: var(--font-mono); color: var(--pine-deep); font-size: 13px; margin-bottom: 8px; }
+    html[data-theme='dark'] .step .n { color: var(--accent); }
+    .step h3 { font-family: var(--font-display); font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .step p { color: var(--ink-2); font-size: 15px; line-height: 1.55; }
+
+    .alert-cta {
+      background: var(--card); border: 1px solid var(--line); border-radius: 24px;
+      display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 36px; align-items: center;
+      padding: 48px; overflow: hidden;
+    }
+    .alert-cta form { display: flex; gap: 10px; margin-top: 22px; max-width: 420px; flex-wrap: wrap; }
+    .alert-cta input {
+      flex: 1; min-width: 180px;
+      background: var(--paper); border: 1px solid var(--border-strong);
+      border-radius: 999px; padding: 12px 18px;
+      color: var(--ink); font-family: var(--font); font-size: 15px; outline: none;
+    }
+    .alert-cta input:focus { border-color: var(--pine); }
+    html[data-theme='dark'] .alert-cta input:focus { border-color: var(--accent); }
+    .phone {
+      background: var(--paper); border: 1px solid var(--border-strong);
+      border-radius: 26px; padding: 22px 18px; max-width: 320px; margin: 0 auto; width: 100%;
+    }
+    .phone .ph-head { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: center; margin-bottom: 14px; }
+    .sms {
+      background: var(--card-2); border: 1px solid var(--line);
+      border-radius: 16px 16px 16px 4px; padding: 14px 16px;
+      font-size: 14px; line-height: 1.55;
+    }
+    .sms b { color: var(--pine-deep); font-weight: 600; }
+    html[data-theme='dark'] .sms b { color: var(--accent); }
+    .sms .link { color: var(--pine-deep); text-decoration: underline; }
+    html[data-theme='dark'] .sms .link { color: var(--accent); }
+    .sms-time { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-top: 8px; }
+
+    .states { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .state {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid var(--line); border-radius: 999px; padding: 9px 18px;
+      font-size: 14px; color: var(--ink-2);
+    }
+    .state.live { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); color: var(--ink); }
+    .state .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+    .state.live .dot { background: var(--accent); }
+    .state.waitlist { border-style: dashed; cursor: pointer; background: transparent; font: inherit; }
+    .state.waitlist:hover { color: var(--pine-deep); border-color: var(--accent); }
+    html[data-theme='dark'] .state.waitlist:hover { color: var(--accent); }
+
+    .founder {
+      border-left: 3px solid var(--accent); padding: 6px 0 6px 24px; max-width: 40rem;
+    }
+    .founder .quote {
+      font-family: var(--font-display); font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+      font-weight: 500; line-height: 1.45; letter-spacing: -0.01em;
+    }
+    .founder .who { margin-top: 14px; color: var(--ink-2); font-size: 15px; }
+    .founder .who b { color: var(--ink); font-weight: 600; }
+    .founder .who a { color: var(--pine-deep); font-weight: 500; }
+    html[data-theme='dark'] .founder .who a { color: var(--accent); }
+
+    /* Footer */
+    footer {
       border-top: 1px solid var(--line);
-      padding: 28px 0 calc(28px + env(safe-area-inset-bottom, 0px));
-      background: color-mix(in srgb, var(--sand) 40%, var(--paper));
+      padding: 48px 0 calc(40px + env(safe-area-inset-bottom, 0px));
+      margin-top: 24px;
+      background: color-mix(in srgb, var(--sand) 50%, var(--paper));
     }
-    .site-footer-inner {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
+    .foot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 28px; }
+    footer h4 {
+      font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ink-3); margin-bottom: 12px; font-weight: 600;
     }
-    .footer-logo {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 16px;
+    footer ul { list-style: none; }
+    footer li { margin-bottom: 8px; font-size: 14px; color: var(--ink-2); }
+    footer li a:hover { color: var(--pine-deep); }
+    html[data-theme='dark'] footer li a:hover { color: var(--accent); }
+    .foot-note {
+      margin-top: 36px; display: flex; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; color: var(--ink-3); font-size: 13px;
     }
-    .footer-logo-img { width: 26px; height: 26px; border-radius: 6px; }
-    .footer-logo-img.is-dark { display: none; }
-    html[data-theme='dark'] .footer-logo-img.is-light { display: none; }
-    html[data-theme='dark'] .footer-logo-img.is-dark { display: block; }
-    .footer-nav { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; margin-top: 10px; }
-    .footer-nav a { color: var(--ink-2); }
-    .footer-nav a:hover { color: var(--ink); }
-    .footer-meta { font-size: 12px; color: var(--ink-3); text-align: right; }
 
+    /* Auth modal */
     .modal-backdrop {
       position: fixed; inset: 0; z-index: 500;
       background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
       display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none; transition: opacity 0.2s;
-      padding: 16px;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s; padding: 16px;
     }
     .modal-backdrop.open { opacity: 1; pointer-events: auto; }
     .modal-box {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 28px 24px;
-      width: min(420px, 100%);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      transform: translateY(8px);
-      transition: transform 0.2s;
-      position: relative;
+      background: var(--card); border-radius: var(--radius);
+      padding: 28px 24px; width: min(420px, 100%);
+      border: 1px solid var(--line); box-shadow: var(--shadow);
+      transform: translateY(8px); transition: transform 0.2s; position: relative;
     }
     .modal-backdrop.open .modal-box { transform: translateY(0); }
     .modal-close {
@@ -591,245 +487,245 @@
       cursor: pointer; line-height: 1; padding: 4px 8px;
     }
     .modal-title {
-      font-family: var(--font-display);
-      font-size: 1.35rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 6px;
+      font-family: var(--font-display); font-size: 1.35rem;
+      font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px;
     }
     .modal-sub { font-size: 14px; color: var(--ink-2); margin-bottom: 20px; }
     .oauth-btn {
-      width: 100%;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: var(--card);
-      color: var(--ink);
-      font: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      padding: 11px 18px;
-      cursor: pointer;
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: var(--card); color: var(--ink);
+      font-size: 14px; font-weight: 600; padding: 11px 18px; cursor: pointer;
     }
-    .oauth-btn:hover { background: var(--sand); }
+    .oauth-btn:hover { background: var(--card-2); }
     .auth-divider {
       display: flex; align-items: center; gap: 12px;
       font-size: 12px; color: var(--ink-3); margin: 16px 0;
     }
     .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
     .auth-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
-    .auth-field label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); }
+    .auth-field label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--ink-3);
+    }
     .auth-field input {
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-      font: inherit;
-      font-size: 14px;
-      outline: none;
-      background: var(--paper);
-      color: var(--ink);
+      border: 1px solid var(--line); border-radius: var(--radius-sm);
+      padding: 10px 14px; font: inherit; font-size: 14px;
+      outline: none; background: var(--paper); color: var(--ink);
     }
     .auth-field input:focus { border-color: color-mix(in srgb, var(--pine) 40%, var(--line)); }
     .auth-submit {
-      width: 100%;
-      background: var(--pine);
-      color: #fff;
-      border: none;
-      border-radius: 999px;
-      padding: 12px;
-      font: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
+      width: 100%; background: var(--pine); color: #fff; border: none;
+      border-radius: 999px; padding: 12px; font: inherit;
+      font-size: 14px; font-weight: 600; cursor: pointer;
     }
-    .auth-submit:hover { background: var(--pine-deep); }
+    html[data-theme='dark'] .auth-submit { background: var(--accent); color: var(--accent-ink); }
+    .auth-submit:hover { filter: brightness(1.05); }
     .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
     .auth-error { font-size: 13px; color: #9a3412; margin-top: 10px; text-align: center; min-height: 1.2em; }
     html[data-theme='dark'] .auth-error { color: #fecaca; }
     .modal-toggle { font-size: 13px; color: var(--ink-2); margin-top: 16px; text-align: center; }
     .modal-toggle a { color: var(--pine); font-weight: 600; cursor: pointer; }
+    html[data-theme='dark'] .modal-toggle a { color: var(--accent); }
 
-    @media (max-width: 900px) {
-      .fpb-grid { grid-template-columns: 1fr; }
-      .preview-grid { grid-template-columns: 1fr; }
+    @media (max-width: 860px) {
+      .alert-cta { grid-template-columns: 1fr; padding: 32px 24px; }
+      .foot-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 720px) {
-      .site-header-inner { height: 64px; }
-      .site-logo { font-size: 17px; }
-      .site-nav-desktop { display: none; }
-      .site-nav-mobile-cta { display: inline-flex; padding: 8px 14px; font-size: 12px; }
-      .site-menu-btn { display: grid; }
-      .hero { padding-top: 32px; }
-      .search-pill { flex-direction: column; border-radius: 22px; }
-      .sp-cell { border-right: none; border-bottom: 1px solid var(--line); padding: 12px 16px; }
-      .sp-cell:last-of-type { border-bottom: none; }
-      .sp-go { width: calc(100% - 12px); height: 46px; border-radius: 14px; margin: 0 6px 6px; }
-      .preview-toolbar { gap: 6px; }
-      .preview-date { width: 100%; margin-right: 0; font-size: 13px; }
-      .cta-final { flex-direction: column; align-items: stretch; }
-      .cta-final-actions { width: 100%; }
-      .cta-final-actions .btn { flex: 1; }
-      .footer-meta { text-align: left; width: 100%; }
+      .nav-links, .nav-actions-desktop { display: none; }
+      .nav-search-mobile { display: inline-flex; padding: 8px 14px; font-size: 13px; }
+      .menu-btn { display: grid; }
+      .hero { padding-top: 36px; }
+      .search { flex-direction: column; border-radius: 22px; gap: 2px; }
+      .search .field { border-right: none; border-bottom: 1px solid var(--line); padding: 12px 16px; }
+      .search .field:last-of-type { border-bottom: none; }
+      .search .go { width: calc(100% - 8px); height: 48px; border-radius: 14px; margin: 4px; }
+      section.band { padding: 52px 0; }
     }
   </style>
 </head>
 <body>
 
-  <header class="site-header">
-    <div class="container site-header-inner">
-      <a href="/" class="site-logo" aria-label="tee-time.io home">
-        <span class="site-logo-mark" aria-hidden="true">
-          <img class="site-logo-img is-light" src="/logo-icon-light.svg" alt="" width="26" height="26" />
-          <img class="site-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="26" height="26" />
-        </span>
-        <span>Tee-Time<span class="site-logo-tld">.io</span></span>
+  <div class="wrap">
+    <nav class="site-nav" aria-label="Primary">
+      <a class="logo" href="/">
+        <img class="logo-img is-light" src="/logo-icon-light.svg" alt="" width="32" height="32" />
+        <img class="logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="32" height="32" />
+        <span>Tee-Time<span class="io">.io</span></span>
       </a>
-      <nav class="site-nav" aria-label="Primary">
-        <div class="site-nav-desktop">
+      <div class="nav-links" aria-label="Sections">
+        <a href="#how">How it works</a>
+        <a href="#plan">Plan a round</a>
+        <a href="#alerts">Alerts</a>
+        <a href="#states">Where we're live</a>
+      </div>
+      <div class="nav-actions">
+        <div class="nav-actions-desktop">
           <button type="button" class="btn btn-ghost" onclick="openAuthModal('signin')">Sign in</button>
-          <a href="/app/" class="btn btn-primary">Search tee times</a>
+          <a href="/app/" class="btn">Search tee times</a>
         </div>
-        <a href="/app/" class="btn btn-primary site-nav-mobile-cta">Search</a>
-        <button type="button" class="site-menu-btn" id="siteMenuBtn" aria-expanded="false" aria-controls="siteMenuPanel" aria-label="Menu">
+        <a href="/app/" class="btn nav-search-mobile">Search</a>
+        <button type="button" class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="menuPanel" aria-label="Menu">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
-        <div class="site-menu-panel" id="siteMenuPanel" role="menu">
-          <a href="/app/" class="btn btn-primary" role="menuitem" onclick="closeSiteMenu()">Search tee times</a>
-          <button type="button" class="btn btn-ghost" role="menuitem" onclick="closeSiteMenu(); openAuthModal('signin')">Sign in</button>
-          <button type="button" class="btn btn-ghost" role="menuitem" onclick="closeSiteMenu(); openAuthModal('signup')">Create account</button>
+        <div class="menu-panel" id="menuPanel" role="menu">
+          <a href="#how" class="nav-anchor" role="menuitem" onclick="closeMenu()">How it works</a>
+          <a href="#plan" class="nav-anchor" role="menuitem" onclick="closeMenu()">Plan a round</a>
+          <a href="#alerts" class="nav-anchor" role="menuitem" onclick="closeMenu()">Alerts</a>
+          <a href="#states" class="nav-anchor" role="menuitem" onclick="closeMenu()">Where we're live</a>
+          <a href="/app/" class="btn" role="menuitem" onclick="closeMenu()">Search tee times</a>
+          <button type="button" class="btn btn-ghost" role="menuitem" onclick="closeMenu(); openAuthModal('signin')">Sign in</button>
         </div>
-      </nav>
+      </div>
+    </nav>
+  </div>
+
+  <header class="hero wrap">
+    <div class="eyebrow"><span class="dot" aria-hidden="true"></span><span id="catalogEyebrow">67 courses in Utah · live now</span></div>
+    <h1>Every tee time.<br><span class="accent">One search.</span></h1>
+    <p class="sub">
+      Stop checking six booking sites before sunrise. Tee-Time searches <strong>live availability across every course</strong> —
+      compare times and prices, plan a round with your group, and get a text the second a slot opens.
+    </p>
+
+    <form class="search" id="heroSearchForm" aria-label="Search tee times">
+      <div class="field">
+        <label for="heroQ">Where</label>
+        <input id="heroQ" name="q" type="search" placeholder="Course, city, or zip" autocomplete="off" maxlength="120" />
+      </div>
+      <div class="field">
+        <label for="heroDate">When</label>
+        <input id="heroDate" name="date" type="date" />
+      </div>
+      <div class="field">
+        <label for="heroPlayers">Players</label>
+        <select id="heroPlayers" name="players" aria-label="Players">
+          <option value="1">1 player · 18 holes</option>
+          <option value="2" selected>2 players · 18 holes</option>
+          <option value="3">3 players · 18 holes</option>
+          <option value="4">4 players · 18 holes</option>
+        </select>
+      </div>
+      <button type="submit" class="go" aria-label="Search">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+        </svg>
+      </button>
+    </form>
+
+    <div class="chips" id="filterChips" aria-label="Quick filters">
+      <button type="button" class="chip active" data-tod="any">Any time</button>
+      <button type="button" class="chip" data-tod="morning">Morning</button>
+      <button type="button" class="chip" data-tod="afternoon">Afternoon</button>
+      <button type="button" class="chip" data-tod="evening">Twilight</button>
+    </div>
+
+    <div class="live-strip">
+      <span><b id="courseCountStat">67</b> courses tracked</span>
+      <span>ForeUp · Chronogolf · MemberSports</span>
+      <span>refreshed every few minutes</span>
     </div>
   </header>
 
   <main>
-    <section class="hero container" aria-labelledby="hero-title">
-      <div class="hero-inner">
-        <span class="pill" id="catalogPill">67 courses in Utah · more states soon</span>
-        <h1 id="hero-title">Find. Plan. Book.</h1>
-        <p class="hero-lede">
-          ForeUp, Chronogolf, and MemberSports in one search — list or map, same filters.
-          Checkout on the course site; coordinate your group here.
-        </p>
+    <section class="inventory wrap" aria-label="Featured courses">
+      <div class="grid" id="courseGrid"></div>
+      <div class="more"><a class="btn btn-ghost" href="/app/" id="seeAllLink">See all courses with times today</a></div>
+    </section>
 
-        <div class="hero-search-zone">
-          <form class="search-pill" id="heroSearchForm" action="/app/" method="get" aria-label="Search tee times">
-            <div class="sp-cell">
-              <span class="sp-label">Where</span>
-              <div class="sp-value">
-                <input type="search" id="heroQ" name="q" autocomplete="off" placeholder="City, course, or zip" maxlength="120" />
-              </div>
-            </div>
-            <div class="sp-cell">
-              <span class="sp-label">When</span>
-              <div class="sp-value">
-                <input type="date" id="heroDate" name="date" />
-              </div>
-            </div>
-            <button type="submit" class="sp-go" aria-label="Search">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
-                <path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
-          </form>
-          <p class="hero-note">Free to search. Sign in for alerts, share links, and saved courses.</p>
-        </div>
-
-        <div class="platform-row" aria-label="Supported booking platforms">
-          <span>Live feeds from</span>
-          <span class="platform-chip">ForeUp</span>
-          <span class="platform-chip">Chronogolf</span>
-          <span class="platform-chip">MemberSports</span>
-        </div>
+    <section class="band wrap" id="plan">
+      <p class="kicker">Why Tee-Time</p>
+      <h2>Built for how golfers<br>actually book.</h2>
+      <p class="lede">One search instead of six tabs. One link instead of forty group texts. One alert instead of refreshing a tee sheet at 6am.</p>
+      <div class="pillars">
+        <article class="pillar">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          </div>
+          <h3>Find times now</h3>
+          <p>Every course's tee sheet in one place, refreshed every few minutes. Compare times, prices, and walkability — then book direct with the course. No markups, ever.</p>
+        </article>
+        <article class="pillar">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M15.5 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <h3>Plan it with your group</h3>
+          <p>Share a round link, let everyone vote on times that work, and lock it in — one link replaces the group-chat chaos.</p>
+        </article>
+        <article class="pillar">
+          <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          </div>
+          <h3>Never miss an opening</h3>
+          <p>Set an alert for a course, a day, or a price. When a slot opens — a cancellation, a new release — we text you within minutes.</p>
+        </article>
       </div>
     </section>
 
-    <section class="page-section container" aria-labelledby="fpb-title">
-      <div class="surface">
-        <p class="section-label">How it works</p>
-        <h2 class="section-title" id="fpb-title">Search once. Stay organized after.</h2>
-        <div class="fpb-grid">
-          <article class="fpb-card">
-            <h3>Find</h3>
-            <p>One search across every course in your market — <strong>list or map</strong>, same date, players, and holes.</p>
-          </article>
-          <article class="fpb-card">
-            <h3>Plan</h3>
-            <p><strong>Share links</strong> your group votes on, <strong>tee-time alerts</strong> when slots open, and saved favourites.</p>
-          </article>
-          <article class="fpb-card">
-            <h3>Book</h3>
-            <p>Tap through to the course tee sheet when you&rsquo;re ready. We never sit in the payment path.</p>
-          </article>
-        </div>
+    <section class="band wrap" id="how" style="padding-top: 0;">
+      <p class="kicker">How it works</p>
+      <h2>Three steps to the first tee.</h2>
+      <div class="steps">
+        <article class="step">
+          <p class="n">01</p>
+          <h3>Search once</h3>
+          <p>Tell us where, when, and how many. We check every course at the same time — including the ones you forgot exist.</p>
+        </article>
+        <article class="step">
+          <p class="n">02</p>
+          <h3>Compare everything</h3>
+          <p>Times, prices, ratings, distance, and whether it's a pleasant walk or a cart-only slog. Side by side, no tabs.</p>
+        </article>
+        <article class="step">
+          <p class="n">03</p>
+          <h3>Book direct</h3>
+          <p>One tap sends you to the course's own booking page. Same price as calling the pro shop, minus the hold music.</p>
+        </article>
       </div>
     </section>
 
-    <section class="page-section container" aria-labelledby="preview-title">
-      <div class="surface">
-        <p class="section-label">The finder</p>
-        <h2 class="section-title" id="preview-title">Real courses. Real tee times.</h2>
-        <div class="preview-toolbar">
-          <span class="preview-date">Thu, Mar 26 · 4 players · 18 holes</span>
-          <span class="preview-chip is-on">List</span>
-          <span class="preview-chip">Map</span>
-          <span class="preview-chip preview-chip-icon">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Alerts
-          </span>
-        </div>
-        <div class="preview-grid">
-          <article class="preview-course">
-            <div class="preview-photo-wrap">
-              <img class="preview-photo" id="previewPhotoRidge" alt="" loading="lazy" width="800" height="600" />
-              <div class="preview-scrim" aria-hidden="true"></div>
-              <span class="preview-badge">8 times</span>
-              <div class="preview-course-info">
-                <div class="preview-course-name">Bountiful Ridge</div>
-                <div class="preview-course-meta">Bountiful · from $36</div>
-              </div>
-            </div>
-            <div class="tee-strip">
-              <div class="tee-chip"><span class="t">8:50 AM</span><span class="p">$36</span></div>
-              <div class="tee-chip"><span class="t">10:50 AM</span><span class="p">$36</span></div>
-              <div class="tee-chip"><span class="t">11:30 AM</span><span class="p">$36</span></div>
-              <div class="tee-chip more">+5 more</div>
-            </div>
-          </article>
-          <article class="preview-course">
-            <div class="preview-photo-wrap">
-              <img class="preview-photo" id="previewPhotoEagle" alt="" loading="lazy" width="800" height="600" />
-              <div class="preview-scrim" aria-hidden="true"></div>
-              <span class="preview-badge">18 times</span>
-              <div class="preview-course-info">
-                <div class="preview-course-name">Eaglewood</div>
-                <div class="preview-course-meta">North Salt Lake · from $64</div>
-              </div>
-            </div>
-            <div class="tee-strip">
-              <div class="tee-chip"><span class="t">8:00 AM</span><span class="p">$64</span></div>
-              <div class="tee-chip"><span class="t">8:10 AM</span><span class="p">$64</span></div>
-              <div class="tee-chip"><span class="t">8:50 AM</span><span class="p">$64</span></div>
-              <div class="tee-chip more">+15 more</div>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="page-section container">
-      <div class="cta-final">
+    <section class="band wrap" id="alerts" style="padding-top: 12px;">
+      <div class="alert-cta">
         <div>
-          <h2>Ready to find a tee time?</h2>
-          <p>Search as a guest, or sign in for alerts, group vote links, and saved courses.</p>
+          <p class="kicker">Tee time alerts</p>
+          <h2>The good times get taken. Get them back.</h2>
+          <p class="lede">Tell us the course and the window you want. The moment a slot opens up, it's in your texts — usually while everyone else is still refreshing.</p>
+          <form id="alertForm">
+            <input type="tel" id="alertPhone" placeholder="Your phone number" aria-label="Phone number" />
+            <button type="submit" class="btn">Start free alerts</button>
+          </form>
         </div>
-        <div class="cta-final-actions">
-          <a href="/app/" class="btn btn-primary">Search tee times</a>
-          <button type="button" class="btn btn-ghost" onclick="openAuthModal('signin')">Sign in</button>
+        <div class="phone" aria-hidden="true">
+          <p class="ph-head">Messages · Today 7:02 AM</p>
+          <div class="sms">
+            <b>Tee-Time.io:</b> A 7:30am just opened at Bonneville — 4 players, $50.
+            <span class="link">Book it before someone's brother-in-law does.</span>
+            <p class="sms-time">Delivered 40 seconds after it opened</p>
+          </div>
         </div>
+      </div>
+    </section>
+
+    <section class="band wrap" id="states" style="padding-top: 24px;">
+      <p class="kicker">Where we're live</p>
+      <h2>Starting where the golf is underrated.</h2>
+      <p class="lede">Utah is live with <span id="stateCourseCount">67</span> public courses tracked. More states are on the way — tell us where to go next.</p>
+      <div class="states">
+        <span class="state live"><span class="dot"></span>Utah — <span id="statePillCount">67</span> courses live</span>
+        <span class="state"><span class="dot"></span>Idaho — coming soon</span>
+        <span class="state"><span class="dot"></span>Arizona — coming soon</span>
+        <span class="state"><span class="dot"></span>Colorado — coming soon</span>
+        <button type="button" class="state waitlist" onclick="openAuthModal('signup')">+ Your state? Create an account</button>
+      </div>
+    </section>
+
+    <section class="band wrap" style="padding-top: 24px;">
+      <div class="founder">
+        <p class="quote">"I'm walking all 113 of Utah's public courses — 84 down. I built Tee-Time because checking six tee sheets before sunrise is a bad way to start a Saturday."</p>
+        <p class="who"><b>Tyson</b> · Founder · <a href="https://instagram.com/tyson_golf" target="_blank" rel="noopener noreferrer">@tyson_golf</a> · Every Course. Every Step.</p>
       </div>
     </section>
   </main>
@@ -839,7 +735,6 @@
       <button class="modal-close" id="authModalClose" aria-label="Close">&times;</button>
       <h2 class="modal-title" id="authTitle">Welcome back</h2>
       <p class="modal-sub" id="authSub">Sign in for the finder, saved courses, tee-time alerts, and share links.</p>
-
       <button class="oauth-btn" id="googleBtn" type="button">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
           <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -849,9 +744,7 @@
         </svg>
         Continue with Google
       </button>
-
       <div class="auth-divider">or</div>
-
       <div class="auth-field">
         <label for="authEmail">Email</label>
         <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
@@ -860,112 +753,235 @@
         <label for="authPassword">Password</label>
         <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password" />
       </div>
-
       <button class="auth-submit" id="authSubmit" type="button">Sign in</button>
       <p class="auth-error" id="authError"></p>
-
-      <p class="modal-toggle" id="authToggle">
-        No account? <a id="authSwitchLink">Create one</a>
-      </p>
+      <p class="modal-toggle" id="authToggle">No account? <a id="authSwitchLink">Create one</a></p>
     </div>
   </div>
 
-  <footer class="site-footer">
-    <div class="container site-footer-inner">
-      <div>
-        <div class="footer-logo">
-          <img class="footer-logo-img is-light" src="/logo-icon-light.svg" alt="" width="26" height="26" />
-          <img class="footer-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="26" height="26" />
-          <span>tee-time.io</span>
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div>
+          <a class="logo" href="/" style="font-size: 17px; margin-bottom: 12px;">
+            <img class="logo-img is-light" src="/logo-icon-light.svg" alt="" width="28" height="28" />
+            <img class="logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="28" height="28" />
+            <span>Tee-Time<span class="io">.io</span></span>
+          </a>
+          <p style="color: var(--ink-3); font-size: 14px; max-width: 260px; margin-top: 10px;">Live tee times from every course, in one search. Book direct — no markups.</p>
         </div>
-        <nav class="footer-nav" aria-label="Footer">
-          <a href="/app/">Search tee times</a>
-          <button type="button" class="btn btn-ghost" style="padding:0;border:none;font-size:13px;font-weight:500;" onclick="openAuthModal('signin')">Sign in</button>
-        </nav>
+        <div>
+          <h4>Popular courses</h4>
+          <ul id="footerCourses">
+            <li><a href="/app/">Search all courses</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#alerts">Tee time alerts</a></li>
+            <li><a href="#plan">Plan a round</a></li>
+            <li><a href="/app/">Search tee times</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Account</h4>
+          <ul>
+            <li><a href="#" onclick="openAuthModal('signin'); return false;">Sign in</a></li>
+            <li><a href="#" onclick="openAuthModal('signup'); return false;">Create account</a></li>
+            <li><a href="#states">Request your state</a></li>
+          </ul>
+        </div>
       </div>
-      <div class="footer-meta">
-        <p>Utah live now · more states coming soon</p>
-        <p style="margin-top:6px;">One search · real checkout on the course · 2026</p>
+      <div class="foot-note">
+        <span>© 2026 Tee-Time.io · Made in Salt Lake City</span>
+        <span>Not affiliated with any booking provider. We just find the times.</span>
       </div>
     </div>
   </footer>
 
   <script>
     const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
+    let activeTod = 'any';
 
+    function slugFromName(name) {
+      return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+    function displayName(name) {
+      const i = name.indexOf(' (');
+      return i > 0 ? name.slice(0, i) : name;
+    }
+    function cityFromName(name) {
+      const m = name.match(/\(([^)]+)\)/);
+      return m ? m[1] : '';
+    }
+    function walkLabel(v) {
+      if (!v) return '';
+      if (v === 'carts only') return 'Carts only';
+      return v.charAt(0).toUpperCase() + v.slice(1) + ' walk';
+    }
     function placePhotoUrl(reference) {
       const url = new URL(WORKER_URL + '/place-photo');
       url.searchParams.set('reference', reference);
       url.searchParams.set('maxwidth', '800');
       return url.toString();
     }
+    function appUrl(extra) {
+      const p = new URLSearchParams();
+      const q = (document.getElementById('heroQ')?.value || '').trim();
+      const dt = document.getElementById('heroDate')?.value || '';
+      const players = document.getElementById('heroPlayers')?.value || '2';
+      if (q) p.set('q', q);
+      if (dt) p.set('date', dt);
+      p.set('players', players);
+      p.set('holes', '18');
+      if (activeTod && activeTod !== 'any') p.set('tod', activeTod);
+      if (extra) Object.entries(extra).forEach(([k, v]) => { if (v) p.set(k, v); });
+      const qs = p.toString();
+      return '/app/' + (qs ? '?' + qs : '');
+    }
 
-    (function initLandingMedia() {
-      const ridgeRef = 'AaVGc3nmjekNsjg-4vGssxdELzt1DZRX4q5WPElsO_ixs9J5dvhNXPTfZNwMYgKl6l6EnWac9w5aUR3jQuzGTfKFLhpsYkwBt7V0Qyyib0xF_zk3-Smn32HDgP0LXtCtynFtTWmvIXlY9OMHddhfbIYMxt5Cj1T4Mq7S0HV9YopMDna2fk3Qq8DIfPRDraUlE1c08fnMYiuuiQRysEoaiLWKxNCrcBW-O4kLm39cAVYeQFVbRnB-N-OcgOScPAoc_PnRB5vFFe3xtoKApLaErTmoABengxrQWrNWrPj-NhXGvCWtfYYImJPHUL2vEi7rFDWAUktj5fqyk-AyOlU9Y42gnWoX9gjKlMv6-aVqYRYRK2mp_2yjq8x86EgetvSRpOsLYSz6xnZp-mlaNyJ7ryFzna4xY1PfcqIhcRchEeZl1LQ_bg';
-      const eagleRef = 'AWCwydiRWQXLO6AyA9hTT3W2BLrHBuocXXSkYd8Zn_Om6dQ2cumNN4hvUiorVOuYJsiN3oPprIfSWvuYEPGIzIQAOi5mUv8lcWunhNqbAvidBjm6Lq8IycHd-lbDfRvplq6NyjlifbLYVbKRoOBOiocVTLuKQ0Z5ewTiejNLCjcyAS6tDWilja6LDMYZBcaRj8syk0b3M2V6dM2NADj7zngzWKcfCkDknCDk89fr2S_-OcCGkJBdN6RAnGJO1WeOOUJ3s5kJrdLDd5CGM--2-F7-Qr2AWErTTnrF_c_SubfgHh3QiEO9kImnTQI5IA3Ec3ljGXT_z3zhd4QZsm5EYvAKfC85_ljsD_legCJRqD8qsAeQrLmlTrCP_2Q30q_zDj307YXNyiHRpqERMJHhgU3JKpncaWr2_T5XvkFSkHU1T--P23Bb';
-      const ridgeImg = document.getElementById('previewPhotoRidge');
-      const eagleImg = document.getElementById('previewPhotoEagle');
-      if (ridgeImg) {
-        ridgeImg.src = placePhotoUrl(ridgeRef);
-        ridgeImg.alt = 'Bountiful Ridge Golf Course';
-      }
-      if (eagleImg) {
-        eagleImg.src = placePhotoUrl(eagleRef);
-        eagleImg.alt = 'Eaglewood Golf Course';
-      }
-      const pill = document.getElementById('catalogPill');
-      if (pill) {
-        fetch('/courses.json')
-          .then((r) => (r.ok ? r.json() : null))
-          .then((courses) => {
-            if (!Array.isArray(courses) || courses.length === 0) return;
-            pill.textContent = courses.length + ' courses in Utah · more states soon';
-          })
-          .catch(() => {});
-      }
-    })();
+    const FEATURED = [
+      { name: 'Glendale (SLC)', badge: '5 tee times', price: 42, times: [['6:24 AM', 42], ['6:33 AM', 42], ['7:09 AM', 42]], soldOut: false },
+      { name: 'Stonebridge (West Valley City)', badge: '8 tee times', price: 55, times: [['10:21 AM', 55], ['10:30 AM', 55], ['11:51 AM', 55]], soldOut: false },
+      { name: 'Rose Park (SLC)', badge: '46 tee times', price: 38, times: [['6:10 AM', 38], ['6:30 AM', 38], ['7:10 AM', 38]], soldOut: false },
+      { name: 'Bonneville (SLC)', badge: 'Full today', price: 50, times: [], soldOut: true },
+    ];
 
-    (function initSiteMenu() {
-      const btn = document.getElementById('siteMenuBtn');
-      const panel = document.getElementById('siteMenuPanel');
-      if (!btn || !panel) return;
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const open = panel.classList.toggle('is-open');
-        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    function renderCourseCard(course, featured) {
+      const slug = slugFromName(course.name);
+      const title = displayName(course.name);
+      const city = cityFromName(course.name);
+      const walk = walkLabel(course.walkability);
+      const rating = course.rating ? course.rating.toFixed(1) : '';
+      const reviews = course.review_count || '';
+      const facts = [
+        rating ? '<span class="star">★</span> ' + rating + (reviews ? ' (' + reviews + ')' : '') : '',
+        city,
+        walk,
+      ].filter(Boolean).join(' · ');
+      const photo = course.photo_reference
+        ? '<img src="' + placePhotoUrl(course.photo_reference) + '" alt="' + title + ' Golf Course" loading="lazy" />'
+        : '';
+      const badgeClass = featured.soldOut ? 'badge sold' : 'badge';
+      let body = '';
+      if (featured.soldOut) {
+        body = '<div class="soldout"><span>Booked solid — it happens to the good ones.</span><a href="#alerts">Text me if a spot opens →</a></div>';
+      } else {
+        body = '<div class="times">' + featured.times.map(function (t, i) {
+          return '<button type="button" class="slot' + (i === 0 ? ' hot' : '') + '" data-href="' + appUrl({ q: title }) + '">' + t[0] + '<small>$' + t[1] + '</small></button>';
+        }).join('') + '</div>';
+      }
+      return (
+        '<article class="course">' +
+          '<a href="/app/course/' + slug + '" class="photo">' + photo +
+            '<span class="' + badgeClass + '"><span class="dot"></span>' + featured.badge + '</span>' +
+            '<button type="button" class="bell" aria-label="Set alert for ' + title + '" onclick="event.preventDefault(); event.stopPropagation(); openAuthModal(\'signin\')">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>' +
+            '</button>' +
+          '</a>' +
+          '<div class="meta"><h3>' + title + '</h3><span class="price">$' + featured.price + '</span></div>' +
+          '<div class="facts">' + facts + '</div>' + body +
+        '</article>'
+      );
+    }
+
+    function setCatalogCount(n) {
+      ['catalogEyebrow', 'courseCountStat', 'stateCourseCount', 'statePillCount'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === 'catalogEyebrow') el.textContent = n + ' courses in Utah · live now';
+        else if (id === 'courseCountStat') el.textContent = String(n);
+        else el.textContent = String(n);
       });
-      document.addEventListener('click', (e) => {
-        if (!panel.classList.contains('is-open')) return;
-        if (panel.contains(e.target) || btn.contains(e.target)) return;
-        closeSiteMenu();
-      });
-    })();
-    function closeSiteMenu() {
-      const btn = document.getElementById('siteMenuBtn');
-      const panel = document.getElementById('siteMenuPanel');
-      if (panel) panel.classList.remove('is-open');
-      if (btn) btn.setAttribute('aria-expanded', 'false');
+      const seeAll = document.getElementById('seeAllLink');
+      if (seeAll) seeAll.textContent = 'See all ' + n + ' courses';
+    }
+
+    function initCourses() {
+      fetch('/courses.json')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (courses) {
+          if (!Array.isArray(courses)) return;
+          setCatalogCount(courses.length);
+          const byName = {};
+          courses.forEach(function (c) { byName[c.name] = c; });
+          const grid = document.getElementById('courseGrid');
+          if (!grid) return;
+          grid.innerHTML = FEATURED.map(function (f) {
+            const c = byName[f.name];
+            return c ? renderCourseCard(c, f) : '';
+          }).join('');
+          grid.querySelectorAll('.slot').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              window.location.href = btn.getAttribute('data-href') || '/app/';
+            });
+          });
+          const footer = document.getElementById('footerCourses');
+          if (footer) {
+            const links = FEATURED.filter(function (f) { return !f.soldOut; }).slice(0, 4).map(function (f) {
+              const c = byName[f.name];
+              if (!c) return '';
+              const title = displayName(c.name);
+              const slug = slugFromName(c.name);
+              return '<li><a href="/app/course/' + slug + '">' + title + ' tee times</a></li>';
+            }).join('');
+            footer.innerHTML = links + '<li><a href="/app/">All ' + courses.length + ' courses →</a></li>';
+          }
+        })
+        .catch(function () {});
     }
 
     (function initHeroSearch() {
-      const form = document.getElementById('heroSearchForm');
       const dateInput = document.getElementById('heroDate');
       if (dateInput && !dateInput.value) {
         const y = new Date();
         dateInput.value = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
       }
-      if (!form) return;
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const q = (document.getElementById('heroQ')?.value || '').trim();
-        const dt = dateInput?.value || '';
-        const p = new URLSearchParams();
-        if (q) p.set('q', q);
-        if (dt) p.set('date', dt);
-        const qs = p.toString();
-        window.location.href = '/app/' + (qs ? '?' + qs : '');
+      const form = document.getElementById('heroSearchForm');
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          window.location.href = appUrl();
+        });
+      }
+      document.querySelectorAll('#filterChips .chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          document.querySelectorAll('#filterChips .chip').forEach(function (x) { x.classList.remove('active'); });
+          chip.classList.add('active');
+          activeTod = chip.getAttribute('data-tod') || 'any';
+        });
       });
     })();
+
+    document.getElementById('alertForm')?.addEventListener('submit', function (e) {
+      e.preventDefault();
+      openAuthModal('signup');
+    });
+
+    (function initMenu() {
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if (!btn || !panel) return;
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const open = panel.classList.toggle('is-open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (e) {
+        if (!panel.classList.contains('is-open')) return;
+        if (panel.contains(e.target) || btn.contains(e.target)) return;
+        closeMenu();
+      });
+    })();
+    function closeMenu() {
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if (panel) panel.classList.remove('is-open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    initCourses();
 
     const SUPABASE_URL = 'https://nmwlebcvezybfwertlzs.supabase.co';
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
@@ -973,7 +989,7 @@
       auth: { persistSession: true, detectSessionInUrl: true },
     });
 
-    sb.auth.getSession().then(({ data: { session } }) => {
+    sb.auth.getSession().then(function ({ data: { session } }) {
       if (session) window.location.replace('/app/');
     });
 
@@ -991,13 +1007,12 @@
     function openAuthModal(mode) {
       setAuthMode(mode || 'signin');
       authModal.classList.add('open');
-      setTimeout(() => authEmailEl.focus(), 150);
+      setTimeout(function () { authEmailEl.focus(); }, 150);
     }
     function closeAuthModal() {
       authModal.classList.remove('open');
       authError.textContent = '';
     }
-
     function setAuthMode(mode) {
       authMode = mode;
       if (mode === 'signin') {
@@ -1009,7 +1024,7 @@
         authPasswordEl.autocomplete = 'current-password';
       } else {
         authTitle.textContent = 'Create account';
-        authSub.textContent = 'Join tee-time.io — it\'s free.';
+        authSub.textContent = "Join tee-time.io — it's free.";
         authSubmit.textContent = 'Create account';
         authSwitchLink.textContent = 'Sign in instead';
         authToggle.firstChild.textContent = 'Already have an account? ';
@@ -1020,11 +1035,11 @@
     }
 
     document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
-    authModal.addEventListener('click', (e) => { if (e.target === authModal) closeAuthModal(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAuthModal(); });
-    authSwitchLink.addEventListener('click', () => setAuthMode(authMode === 'signin' ? 'signup' : 'signin'));
+    authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAuthModal(); });
+    authSwitchLink.addEventListener('click', function () { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); });
 
-    document.getElementById('googleBtn').addEventListener('click', async () => {
+    document.getElementById('googleBtn').addEventListener('click', async function () {
       authError.textContent = '';
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
@@ -1033,7 +1048,7 @@
       if (error) authError.textContent = error.message;
     });
 
-    authSubmit.addEventListener('click', async () => {
+    authSubmit.addEventListener('click', async function () {
       const email = authEmailEl.value.trim();
       const password = authPasswordEl.value;
       if (!email || !password) {
@@ -1043,31 +1058,26 @@
       authSubmit.disabled = true;
       authSubmit.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
       authError.textContent = '';
-
       const result = authMode === 'signin'
         ? await sb.auth.signInWithPassword({ email, password })
         : await sb.auth.signUp({ email, password });
-
       authSubmit.disabled = false;
       authSubmit.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
-
       if (result.error) {
         authError.textContent = result.error.message;
         return;
       }
-
       if (authMode === 'signup' && !result.data?.session) {
         authError.style.color = 'var(--pine)';
         authError.textContent = 'Check your email to confirm your account, then sign in.';
         setAuthMode('signin');
         return;
       }
-
       window.location.replace('/app/');
     });
 
-    authPasswordEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') authSubmit.click(); });
-    authEmailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') authPasswordEl.focus(); });
+    authPasswordEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') authSubmit.click(); });
+    authEmailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') authPasswordEl.focus(); });
   </script>
 </body>
 </html>
