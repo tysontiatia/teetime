@@ -201,12 +201,9 @@ function buildChronogolfTeeTimesUrl(
 
   const players = String(Math.min(Math.max(params.players || 1, 1), 4));
   const holes = String(params.holes === 9 ? 9 : 18);
-  const courseId =
-    source.course_id != null && String(source.course_id).trim()
-      ? String(source.course_id).trim()
-      : source.golf_course_id != null && String(source.golf_course_id).trim()
-        ? String(source.golf_course_id).trim()
-        : '';
+  // Keep coursesIds empty. Filling catalog course_id (e.g. Rose Park 16310)
+  // makes Chronogolf show "released shortly" instead of the live sheet.
+  const courseId = '';
 
   try {
     const u = new URL(base);
