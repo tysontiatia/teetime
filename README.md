@@ -40,10 +40,7 @@ Live at **[tee-time.io](https://tee-time.io)**
 
 ## Auth & Access
 
-The app is behind a two-step gate:
-
-1. **Early access code** — users enter a code + survey answers on the landing page
-2. **Supabase account** — after the code is verified, the auth modal opens (Google OAuth or email/password). The signup toggle is hidden unless the user came through the access code flow (prevents direct signup bypass).
+Search works without an account. Sign in (Google OAuth or email/password) for alerts, share links, and saved courses. The landing page auth modal supports both sign-in and create-account.
 
 Returning users with an active session are auto-redirected from the landing page to the app.
 
@@ -205,7 +202,7 @@ Events tracked:
 ```
 tee-time/
 ├── public/
-│   ├── index.html            ← Landing page (early access form + auth modal)
+│   ├── index.html            ← Landing page (search + auth modal)
 │   ├── app.html              ← Redirect to `/app/` (legacy `/app.html` URLs)
 │   ├── _redirects            ← Cloudflare Pages SPA rules for `/app/*`
 │   ├── _headers              ← Security headers (Pages)

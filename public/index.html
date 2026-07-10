@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Search 67+ Utah golf courses across ForeUp, Chronogolf, and MemberSports in one place. Compare open slots on list or map, share vote links, set tee-time alerts, and book on the course site. More states coming soon." />
+  <meta name="description" content="Search Utah golf courses across ForeUp, Chronogolf, and MemberSports in one place. Compare open slots on list or map, share vote links, set tee-time alerts, and book on the course site. More states coming soon." />
   <meta name="theme-color" content="#1E4D3B" />
   <script>
     (function () {
@@ -22,16 +22,16 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tee-time.io/" />
   <meta property="og:title" content="tee-time.io — Find. Plan. Book." />
-  <meta property="og:description" content="67+ courses in Utah today — more states soon. One search across ForeUp, Chronogolf, and MemberSports. Share vote links, tee-time alerts, checkout on the course site." />
+  <meta property="og:description" content="67+ courses in Utah today — more states soon. One search across ForeUp, Chronogolf, and MemberSports." />
   <meta property="og:site_name" content="tee-time.io" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="tee-time.io — Find. Plan. Book." />
-  <meta name="twitter:description" content="67+ Utah courses in one search — more states soon. ForeUp, Chronogolf, MemberSports. Plan with your group, book on the course site." />
+  <meta name="twitter:description" content="67+ Utah courses in one search — more states soon. ForeUp, Chronogolf, MemberSports." />
   <title>tee-time.io — Find. Plan. Book.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -62,6 +62,7 @@
       --pine-deep: #143528;
       --fairway: #B7EA3C;
       --fairway-ink: #2A4405;
+      --green-soft: #F0FADB;
       --sand: #EFECE3;
       --line: #E4E2DA;
       --card: #FFFFFF;
@@ -70,7 +71,7 @@
       --radius-sm: 12px;
       --font: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
       --font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
-      --container: min(1240px, 100%);
+      --font-mono: 'Spline Sans Mono', ui-monospace, monospace;
       --gutter: max(18px, env(safe-area-inset-left, 0px));
     }
 
@@ -83,6 +84,7 @@
       --pine-deep: #2F6B4E;
       --fairway: #B7EA3C;
       --fairway-ink: #D7F58A;
+      --green-soft: #24352C;
       --sand: #1A2420;
       --line: #2A3530;
       --card: #16201C;
@@ -102,7 +104,7 @@
     }
 
     .container {
-      width: var(--container);
+      width: min(1240px, 100%);
       margin: 0 auto;
       padding-left: var(--gutter);
       padding-right: max(18px, env(safe-area-inset-right, 0px));
@@ -111,7 +113,7 @@
       :root { --gutter: max(32px, env(safe-area-inset-left, 0px)); }
     }
 
-    a { color: inherit; }
+    a { color: inherit; text-decoration: none; }
 
     .pill {
       display: inline-flex;
@@ -124,8 +126,6 @@
       color: var(--ink-2);
       font-size: 12.5px;
       font-weight: 500;
-      letter-spacing: 0.02em;
-      text-decoration: none;
     }
 
     .btn {
@@ -141,21 +141,15 @@
       font-family: var(--font);
       font-size: 13px;
       font-weight: 600;
-      text-decoration: none;
       cursor: pointer;
-      transition: background .15s, border-color .15s, color .15s, transform .15s;
+      transition: background .15s, border-color .15s, color .15s;
     }
     .btn:hover { border-color: var(--ink-3); background: var(--sand); }
-    .btn-primary {
-      background: var(--pine);
-      border-color: var(--pine);
-      color: #fff;
-    }
+    .btn-primary { background: var(--pine); border-color: var(--pine); color: #fff; }
     .btn-primary:hover { background: var(--pine-deep); border-color: var(--pine-deep); color: #fff; }
     .btn-ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
     .btn-ghost:hover { background: var(--sand); border-color: var(--line); color: var(--ink); }
 
-    /* Header */
     .site-header {
       position: sticky;
       top: 0;
@@ -166,6 +160,7 @@
       border-bottom: 1px solid var(--line);
     }
     .site-header-inner {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -176,7 +171,6 @@
       display: flex;
       align-items: center;
       gap: 9px;
-      text-decoration: none;
       font-family: var(--font-display);
       font-weight: 700;
       font-size: 19px;
@@ -184,26 +178,20 @@
       color: var(--ink);
       min-width: 0;
     }
-    .site-logo-flag {
-      width: 26px;
-      height: 26px;
-      flex-shrink: 0;
-      display: block;
-      line-height: 0;
-      border-radius: 6px;
-    }
+    .site-logo-mark { width: 26px; height: 26px; flex-shrink: 0; line-height: 0; }
     .site-logo-img { width: 26px; height: 26px; display: block; border-radius: 6px; }
     .site-logo-img.is-dark { display: none; }
     html[data-theme='dark'] .site-logo-img.is-light { display: none; }
     html[data-theme='dark'] .site-logo-img.is-dark { display: block; }
     .site-logo-tld { color: #4C7A22; font-weight: 400; }
     html[data-theme='dark'] .site-logo-tld { color: var(--ink-3); }
+
     .site-nav { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .site-nav-desktop { display: flex; align-items: center; gap: 8px; }
+    .site-nav-mobile-cta { display: none; }
     .site-menu-btn {
       display: none;
-      width: 40px;
-      height: 40px;
+      width: 40px; height: 40px;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: var(--card);
@@ -211,7 +199,6 @@
       place-items: center;
       cursor: pointer;
       padding: 0;
-      flex-shrink: 0;
     }
     .site-menu-panel {
       display: none;
@@ -225,31 +212,29 @@
       background: var(--card);
       box-shadow: var(--shadow);
       z-index: 120;
+      gap: 4px;
     }
-    .site-menu-panel.is-open { display: grid; gap: 4px; }
+    .site-menu-panel.is-open { display: grid; }
     .site-menu-panel .btn { width: 100%; justify-content: center; }
-    .site-header-inner { position: relative; }
-    .site-nav-mobile-cta { display: none; }
 
-    /* Hero */
-    .hero { padding: 40px 0 32px; }
-    .hero-eyebrow { margin-bottom: 14px; }
+    .hero { padding: 48px 0 24px; }
+    .hero-inner { max-width: 860px; }
     .hero h1 {
+      margin-top: 14px;
       font-family: var(--font-display);
-      font-size: clamp(2rem, 5.5vw, 3.1rem);
+      font-size: clamp(2.1rem, 5.8vw, 3.25rem);
       font-weight: 700;
-      letter-spacing: -0.03em;
-      line-height: 1.08;
-      max-width: 14ch;
+      letter-spacing: -0.035em;
+      line-height: 1.06;
     }
     .hero-lede {
-      margin-top: 14px;
-      max-width: 52ch;
+      margin-top: 12px;
+      max-width: 48ch;
       font-size: 1.05rem;
       color: var(--ink-2);
       line-height: 1.6;
     }
-    .hero-search-zone { margin-top: 28px; max-width: 860px; }
+    .hero-search-zone { margin-top: 28px; }
     .search-pill {
       width: 100%;
       background: var(--card);
@@ -259,6 +244,7 @@
       align-items: stretch;
       box-shadow: 0 1px 3px rgba(20,30,25,.05);
       min-width: 0;
+      transition: box-shadow .2s;
     }
     .search-pill:focus-within { box-shadow: var(--shadow); }
     .sp-cell {
@@ -310,21 +296,13 @@
       font-size: 13px;
       color: var(--ink-3);
       line-height: 1.5;
-      max-width: 52ch;
-    }
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 20px;
-      align-items: center;
     }
     .platform-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      margin-top: 22px;
+      margin-top: 20px;
       font-size: 13px;
       color: var(--ink-3);
     }
@@ -338,64 +316,62 @@
       font-weight: 600;
     }
 
-    /* Sections */
-    .section { padding: 56px 0; }
+    .page-section { padding: 20px 0 32px; }
+    .surface {
+      padding: 22px 20px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--card) 92%, var(--paper));
+      box-shadow: 0 1px 2px rgba(20,30,25,.04);
+    }
+    @media (min-width: 721px) { .surface { padding: 24px; } }
+
     .section-label {
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--ink-3);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .section-title {
       font-family: var(--font-display);
-      font-size: clamp(1.5rem, 3.5vw, 2rem);
+      font-size: clamp(1.35rem, 3vw, 1.75rem);
       font-weight: 700;
       letter-spacing: -0.025em;
       line-height: 1.15;
-      margin-bottom: 24px;
-      max-width: 22ch;
+      margin-bottom: 18px;
     }
-    .section-title--wide { max-width: 28ch; }
 
     .fpb-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
+      gap: 12px;
     }
     .fpb-card {
-      padding: 20px 18px;
-      border-radius: var(--radius);
+      padding: 16px;
+      border-radius: var(--radius-sm);
       border: 1px solid var(--line);
       background: var(--card);
     }
     .fpb-card h3 {
       font-family: var(--font-display);
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 700;
       letter-spacing: -0.02em;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .fpb-card p { font-size: 14px; color: var(--ink-2); line-height: 1.55; }
     .fpb-card strong { color: var(--ink); font-weight: 600; }
 
-    /* Product preview */
-    .preview-wrap {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--card);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-    }
     .preview-toolbar {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--line);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 8px;
-      background: color-mix(in srgb, var(--sand) 50%, var(--card));
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
     }
     .preview-date {
       font-family: var(--font-display);
@@ -417,59 +393,58 @@
       border-color: color-mix(in srgb, var(--pine) 25%, var(--line));
       color: var(--pine-deep);
     }
-    .preview-chip-icon {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
+    html[data-theme='dark'] .preview-chip.is-on { color: var(--fairway-ink); }
+    .preview-chip-icon { display: inline-flex; align-items: center; gap: 5px; }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
     }
-    .preview-body { padding: 16px; display: grid; gap: 14px; }
     .preview-course {
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
       overflow: hidden;
       background: var(--card);
     }
-    .preview-course-top {
+    .preview-photo-wrap {
       position: relative;
-      aspect-ratio: 16/7;
-      min-height: 120px;
+      aspect-ratio: 4/3;
       overflow: hidden;
-      background: linear-gradient(135deg, #2E5E43 0%, #4C8A5C 100%);
+      background: linear-gradient(135deg, #2E5E43, #4C8A5C);
     }
-    .preview-course-photo {
+    .preview-photo {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .preview-course-scrim {
+    .preview-scrim {
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(12,20,16,0.08) 0%, rgba(12,20,16,0.55) 48%, rgba(12,20,16,0.82) 100%);
+      background: linear-gradient(180deg, rgba(12,20,16,0.06) 0%, rgba(12,20,16,0.55) 48%, rgba(12,20,16,0.82) 100%);
       pointer-events: none;
-    }
-    .preview-course-info {
-      position: relative;
-      z-index: 1;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      min-height: 100%;
     }
     .preview-badge {
       position: absolute;
       top: 10px;
       left: 10px;
       z-index: 2;
+      font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 500;
       padding: 5px 10px;
       border-radius: 999px;
       background: rgba(20,30,25,.72);
       color: #fff;
       backdrop-filter: blur(6px);
+    }
+    .preview-course-info {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      padding: 12px 14px 14px;
     }
     .preview-course-name {
       font-family: var(--font-display);
@@ -479,186 +454,117 @@
       letter-spacing: -0.02em;
       text-shadow: 0 1px 2px rgba(0,0,0,.2);
     }
-    .preview-course-meta { font-size: 12px; color: rgba(255,255,255,.85); margin-top: 3px; }
-    .preview-slots {
+    .preview-course-meta { font-size: 12px; color: rgba(255,255,255,.88); margin-top: 3px; }
+    .tee-strip {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 6px;
       padding: 12px 14px 14px;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      background: color-mix(in srgb, var(--sand) 72%, var(--card));
+      border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
     }
     .tee-chip {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
       flex: 0 0 auto;
       min-width: 58px;
-      padding: 6px 8px;
+      padding: 8px 10px;
       border-radius: 10px;
-      border: 1px solid var(--line);
-      background: var(--sand);
+      border: 1px solid transparent;
+      background: color-mix(in srgb, var(--card) 88%, var(--sand));
+      text-align: center;
     }
-    .tee-chip .t { font-size: 12px; font-weight: 700; color: var(--pine); }
-    .tee-chip .p { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+    .tee-chip .t {
+      display: block;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--ink);
+      letter-spacing: -.01em;
+    }
+    .tee-chip .p {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-3);
+      margin-top: 1px;
+    }
     .tee-chip.more {
-      justify-content: center;
-      color: var(--pine);
+      display: grid;
+      place-items: center;
       font-size: 12px;
       font-weight: 600;
+      color: var(--ink-2);
+      background: transparent;
       min-height: 44px;
     }
 
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-    }
-    .step {
-      padding: 22px 18px;
-      border-radius: var(--radius);
-      border: 1px solid var(--line);
-      background: var(--card);
-    }
-    .step-num {
-      font-family: var(--font-display);
-      font-size: 2rem;
-      font-weight: 700;
-      color: color-mix(in srgb, var(--pine) 18%, var(--line));
-      line-height: 1;
-      margin-bottom: 12px;
-    }
-    .step h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; }
-    .step p { font-size: 14px; color: var(--ink-2); line-height: 1.55; }
-
-    .cta-bar {
+    .cta-final {
       margin-top: 8px;
-      padding: 18px 20px;
+      padding: 28px 24px;
       border-radius: var(--radius);
-      border: 1px solid var(--line);
-      background: var(--card);
+      background: linear-gradient(145deg, var(--pine-deep), var(--pine));
+      color: #fff;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 14px;
+      gap: 16px;
     }
-    .cta-bar p { font-size: 14px; color: var(--ink-2); max-width: 46ch; margin: 0; }
-    .cta-bar strong { color: var(--ink); }
-    .cta-bar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-    /* Early access */
-    .access-section { padding: 56px 0 80px; }
-    .access-card {
-      display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
-      gap: 32px;
-      padding: 28px;
-      border-radius: var(--radius);
-      border: 1px solid var(--line);
-      background: var(--card);
-      box-shadow: var(--shadow);
-    }
-    .access-card h2 {
+    .cta-final h2 {
       font-family: var(--font-display);
-      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-size: clamp(1.25rem, 3vw, 1.6rem);
       font-weight: 700;
-      letter-spacing: -0.025em;
-      line-height: 1.12;
-      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
     }
-    .access-card .sub { font-size: 14px; color: var(--ink-2); line-height: 1.6; margin-bottom: 16px; }
-    .access-perks {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .access-perks li {
-      font-size: 13px;
-      color: var(--ink-2);
-      padding-left: 18px;
-      position: relative;
-      line-height: 1.45;
-    }
-    .access-perks li::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0.55em;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--pine);
-    }
-    .form { display: flex; flex-direction: column; gap: 14px; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .field { display: flex; flex-direction: column; gap: 6px; }
-    .field label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-    }
-    .field input, .field select {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      padding: 11px 14px;
-      font: inherit;
+    .cta-final p {
+      margin-top: 6px;
       font-size: 14px;
-      color: var(--ink);
-      background: var(--paper);
-      outline: none;
-      transition: border-color .15s, box-shadow .15s;
+      color: rgba(255,255,255,.78);
+      max-width: 42ch;
+      line-height: 1.5;
     }
-    .field input:focus, .field select:focus {
-      border-color: color-mix(in srgb, var(--pine) 40%, var(--line));
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--pine) 12%, transparent);
+    .cta-final-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cta-final .btn { border-color: rgba(255,255,255,.2); }
+    .cta-final .btn-primary {
+      background: #fff;
+      border-color: #fff;
+      color: var(--pine-deep);
     }
-    .code-row { display: flex; }
-    .code-row input { border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
-    .code-verify-btn {
-      border: 1px solid var(--line);
-      border-left: none;
-      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-      background: var(--sand);
-      color: var(--ink);
-      font: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      padding: 0 16px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .code-verify-btn:hover { background: var(--line); }
-    .code-verified { display: none; align-items: center; gap: 6px; font-size: 13px; color: var(--pine); font-weight: 600; }
-    .code-verified.show { display: flex; }
-    .submit-btn {
-      align-self: flex-start;
-      margin-top: 4px;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 999px;
-      background: var(--pine);
-      color: #fff;
-      font: inherit;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s, transform .15s;
-    }
-    .submit-btn:hover:not(:disabled) { background: var(--pine-deep); transform: translateY(-1px); }
-    .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .status { font-size: 13px; padding: 10px 12px; border-radius: var(--radius-sm); display: none; }
-    .status.error { display: block; background: color-mix(in srgb, #fecaca 40%, var(--card)); color: #9a3412; border: 1px solid #fecaca; }
-    .status.success { display: block; background: color-mix(in srgb, var(--fairway) 25%, var(--card)); color: var(--pine-deep); border: 1px solid color-mix(in srgb, var(--pine) 20%, var(--line)); }
-    .access-signin { margin-top: 14px; font-size: 13px; color: var(--ink-3); }
-    .access-signin a { color: var(--pine); font-weight: 600; text-decoration: none; }
-    .access-signin a:hover { text-decoration: underline; }
+    .cta-final .btn-primary:hover { background: var(--fairway); border-color: var(--fairway); color: var(--pine-deep); }
+    .cta-final .btn-ghost { color: rgba(255,255,255,.9); }
+    .cta-final .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: #fff; }
 
-    /* Modal */
+    .site-footer {
+      border-top: 1px solid var(--line);
+      padding: 28px 0 calc(28px + env(safe-area-inset-bottom, 0px));
+      background: color-mix(in srgb, var(--sand) 40%, var(--paper));
+    }
+    .site-footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .footer-logo-img { width: 26px; height: 26px; border-radius: 6px; }
+    .footer-logo-img.is-dark { display: none; }
+    html[data-theme='dark'] .footer-logo-img.is-light { display: none; }
+    html[data-theme='dark'] .footer-logo-img.is-dark { display: block; }
+    .footer-nav { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; margin-top: 10px; }
+    .footer-nav a { color: var(--ink-2); }
+    .footer-nav a:hover { color: var(--ink); }
+    .footer-meta { font-size: 12px; color: var(--ink-3); text-align: right; }
+
     .modal-backdrop {
       position: fixed; inset: 0; z-index: 500;
       background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
@@ -720,6 +626,8 @@
       font: inherit;
       font-size: 14px;
       outline: none;
+      background: var(--paper);
+      color: var(--ink);
     }
     .auth-field input:focus { border-color: color-mix(in srgb, var(--pine) 40%, var(--line)); }
     .auth-submit {
@@ -737,63 +645,13 @@
     .auth-submit:hover { background: var(--pine-deep); }
     .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
     .auth-error { font-size: 13px; color: #9a3412; margin-top: 10px; text-align: center; min-height: 1.2em; }
+    html[data-theme='dark'] .auth-error { color: #fecaca; }
     .modal-toggle { font-size: 13px; color: var(--ink-2); margin-top: 16px; text-align: center; }
-    .modal-toggle a { color: var(--pine); font-weight: 600; cursor: pointer; text-decoration: none; }
-
-    /* Footer */
-    .site-footer {
-      border-top: 1px solid var(--line);
-      padding: 32px 0 calc(32px + env(safe-area-inset-bottom, 0px));
-      background: color-mix(in srgb, var(--sand) 40%, var(--paper));
-    }
-    .site-footer-inner {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 20px;
-    }
-    .footer-logo {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 16px;
-      color: var(--ink);
-    }
-    .footer-flag {
-      width: 26px; height: 26px;
-      display: block;
-      line-height: 0;
-      flex-shrink: 0;
-    }
-    .footer-logo-img { width: 26px; height: 26px; display: block; border-radius: 6px; }
-    .footer-logo-img.is-dark { display: none; }
-    html[data-theme='dark'] .footer-logo-img.is-light { display: none; }
-    html[data-theme='dark'] .footer-logo-img.is-dark { display: block; }
-    .footer-nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 18px;
-      font-size: 13px;
-    }
-    .footer-nav a { color: var(--ink-2); text-decoration: none; }
-    .footer-nav a:hover { color: var(--ink); }
-    .footer-meta { font-size: 12px; color: var(--ink-3); text-align: right; }
-
-    html[data-theme='dark'] .preview-chip.is-on { color: var(--fairway-ink); }
-    html[data-theme='dark'] .status.error {
-      background: color-mix(in srgb, #7f1d1d 35%, var(--card));
-      color: #fecaca;
-      border-color: color-mix(in srgb, #fecaca 25%, var(--line));
-    }
+    .modal-toggle a { color: var(--pine); font-weight: 600; cursor: pointer; }
 
     @media (max-width: 900px) {
-      .fpb-grid, .steps { grid-template-columns: 1fr; }
-      .access-card { grid-template-columns: 1fr; padding: 22px 18px; }
-      .section { padding: 44px 0; }
-      .section-title, .section-title--wide { max-width: none; }
+      .fpb-grid { grid-template-columns: 1fr; }
+      .preview-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
       .site-header-inner { height: 64px; }
@@ -801,28 +659,17 @@
       .site-nav-desktop { display: none; }
       .site-nav-mobile-cta { display: inline-flex; padding: 8px 14px; font-size: 12px; }
       .site-menu-btn { display: grid; }
-      .hero { padding-top: 28px; }
-      .hero h1 { max-width: none; }
-      .hero-actions .btn { flex: 1 1 calc(50% - 5px); min-width: 0; }
+      .hero { padding-top: 32px; }
       .search-pill { flex-direction: column; border-radius: 22px; }
       .sp-cell { border-right: none; border-bottom: 1px solid var(--line); padding: 12px 16px; }
       .sp-cell:last-of-type { border-bottom: none; }
       .sp-go { width: calc(100% - 12px); height: 46px; border-radius: 14px; margin: 0 6px 6px; }
-      .form-row { grid-template-columns: 1fr; }
-      .footer-meta { text-align: left; width: 100%; }
       .preview-toolbar { gap: 6px; }
-      .preview-date { width: 100%; margin-right: 0; margin-bottom: 4px; font-size: 13px; }
-      .cta-bar { flex-direction: column; align-items: stretch; }
-      .cta-bar-actions { width: 100%; }
-      .cta-bar-actions .btn { flex: 1; }
-      .access-section { padding-bottom: 64px; }
-      .code-row { flex-direction: column; }
-      .code-row input { border-right: 1px solid var(--line); border-radius: var(--radius-sm); }
-      .code-verify-btn { border-left: 1px solid var(--line); border-radius: var(--radius-sm); padding: 11px 16px; height: auto; }
-    }
-    @media (max-width: 380px) {
-      .hero-actions { flex-direction: column; }
-      .hero-actions .btn { width: 100%; flex: none; }
+      .preview-date { width: 100%; margin-right: 0; font-size: 13px; }
+      .cta-final { flex-direction: column; align-items: stretch; }
+      .cta-final-actions { width: 100%; }
+      .cta-final-actions .btn { flex: 1; }
+      .footer-meta { text-align: left; width: 100%; }
     }
   </style>
 </head>
@@ -831,7 +678,7 @@
   <header class="site-header">
     <div class="container site-header-inner">
       <a href="/" class="site-logo" aria-label="tee-time.io home">
-        <span class="site-logo-flag" aria-hidden="true">
+        <span class="site-logo-mark" aria-hidden="true">
           <img class="site-logo-img is-light" src="/logo-icon-light.svg" alt="" width="26" height="26" />
           <img class="site-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="26" height="26" />
         </span>
@@ -839,21 +686,19 @@
       </a>
       <nav class="site-nav" aria-label="Primary">
         <div class="site-nav-desktop">
-          <button type="button" class="btn btn-ghost nav-signin" onclick="openAuthModal('signin')">Sign in</button>
-          <a href="/app/" class="btn">Open app</a>
-          <a href="#access" class="btn btn-primary">Get early access</a>
+          <button type="button" class="btn btn-ghost" onclick="openAuthModal('signin')">Sign in</button>
+          <a href="/app/" class="btn btn-primary">Search tee times</a>
         </div>
-        <a href="/app/" class="btn btn-primary site-nav-mobile-cta">Open app</a>
+        <a href="/app/" class="btn btn-primary site-nav-mobile-cta">Search</a>
         <button type="button" class="site-menu-btn" id="siteMenuBtn" aria-expanded="false" aria-controls="siteMenuPanel" aria-label="Menu">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
         <div class="site-menu-panel" id="siteMenuPanel" role="menu">
+          <a href="/app/" class="btn btn-primary" role="menuitem" onclick="closeSiteMenu()">Search tee times</a>
           <button type="button" class="btn btn-ghost" role="menuitem" onclick="closeSiteMenu(); openAuthModal('signin')">Sign in</button>
-          <a href="/app/" class="btn" role="menuitem" onclick="closeSiteMenu()">Open app</a>
-          <a href="#access" class="btn btn-primary" role="menuitem" onclick="closeSiteMenu()">Get early access</a>
-          <a href="#how-it-works" class="btn btn-ghost" role="menuitem" onclick="closeSiteMenu()">How it works</a>
+          <button type="button" class="btn btn-ghost" role="menuitem" onclick="closeSiteMenu(); openAuthModal('signup')">Create account</button>
         </div>
       </nav>
     </div>
@@ -861,221 +706,129 @@
 
   <main>
     <section class="hero container" aria-labelledby="hero-title">
-      <div class="hero-eyebrow">
+      <div class="hero-inner">
         <span class="pill" id="catalogPill">67 courses in Utah · more states soon</span>
-      </div>
-      <h1 id="hero-title">Find. Plan. Book.</h1>
-      <p class="hero-lede">
-        ForeUp, Chronogolf, and MemberSports in one search — list or map, same filters.
-        Pick a time on the course site; coordinate the group here.
-      </p>
+        <h1 id="hero-title">Find. Plan. Book.</h1>
+        <p class="hero-lede">
+          ForeUp, Chronogolf, and MemberSports in one search — list or map, same filters.
+          Checkout on the course site; coordinate your group here.
+        </p>
 
-      <div class="hero-search-zone">
-        <form class="search-pill" id="heroSearchForm" action="/app/" method="get" aria-label="Search tee times">
-          <div class="sp-cell">
-            <span class="sp-label">Where</span>
-            <div class="sp-value">
-              <input type="search" id="heroQ" name="q" autocomplete="off" placeholder="City, course, or zip" maxlength="120" />
+        <div class="hero-search-zone">
+          <form class="search-pill" id="heroSearchForm" action="/app/" method="get" aria-label="Search tee times">
+            <div class="sp-cell">
+              <span class="sp-label">Where</span>
+              <div class="sp-value">
+                <input type="search" id="heroQ" name="q" autocomplete="off" placeholder="City, course, or zip" maxlength="120" />
+              </div>
             </div>
-          </div>
-          <div class="sp-cell">
-            <span class="sp-label">When</span>
-            <div class="sp-value">
-              <input type="date" id="heroDate" name="date" />
+            <div class="sp-cell">
+              <span class="sp-label">When</span>
+              <div class="sp-value">
+                <input type="date" id="heroDate" name="date" />
+              </div>
             </div>
-          </div>
-          <button type="submit" class="sp-go" aria-label="Search">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
-              <path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </form>
-        <p class="hero-note">Opens the app with your filters. Checkout always happens on the course&rsquo;s own tee sheet — we never take payment.</p>
-      </div>
+            <button type="submit" class="sp-go" aria-label="Search">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+                <path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </form>
+          <p class="hero-note">Free to search. Sign in for alerts, share links, and saved courses.</p>
+        </div>
 
-      <div class="hero-actions">
-        <a href="/app/" class="btn btn-primary">Open app</a>
-        <a href="#access" class="btn">Get early access</a>
-      </div>
-
-      <div class="platform-row" aria-label="Supported booking platforms">
-        <span>Live feeds from</span>
-        <span class="platform-chip">ForeUp</span>
-        <span class="platform-chip">Chronogolf</span>
-        <span class="platform-chip">MemberSports</span>
+        <div class="platform-row" aria-label="Supported booking platforms">
+          <span>Live feeds from</span>
+          <span class="platform-chip">ForeUp</span>
+          <span class="platform-chip">Chronogolf</span>
+          <span class="platform-chip">MemberSports</span>
+        </div>
       </div>
     </section>
 
-    <section class="section container" aria-labelledby="fpb-title">
-      <p class="section-label">How Tee-Time helps</p>
-      <h2 class="section-title section-title--wide" id="fpb-title">Search once. Stay organized after.</h2>
-      <div class="fpb-grid">
-        <article class="fpb-card">
-          <h3>Find</h3>
-          <p>One set of filters across every course in your market — <strong>list or map</strong>, same date, players, and holes. Courses stay visible even when a day is empty.</p>
-        </article>
-        <article class="fpb-card">
-          <h3>Plan</h3>
-          <p>Signed in: <strong>share links</strong> your group can vote on, <strong>tee-time alerts</strong> when slots open (email today; SMS when verified), and saved favourites.</p>
-        </article>
-        <article class="fpb-card">
-          <h3>Book</h3>
-          <p>Tap through to the real tee sheet when you&rsquo;re ready to pay the pro shop. Tee-Time aggregates inventory — it doesn&rsquo;t sit in the payment path.</p>
-        </article>
+    <section class="page-section container" aria-labelledby="fpb-title">
+      <div class="surface">
+        <p class="section-label">How it works</p>
+        <h2 class="section-title" id="fpb-title">Search once. Stay organized after.</h2>
+        <div class="fpb-grid">
+          <article class="fpb-card">
+            <h3>Find</h3>
+            <p>One search across every course in your market — <strong>list or map</strong>, same date, players, and holes.</p>
+          </article>
+          <article class="fpb-card">
+            <h3>Plan</h3>
+            <p><strong>Share links</strong> your group votes on, <strong>tee-time alerts</strong> when slots open, and saved favourites.</p>
+          </article>
+          <article class="fpb-card">
+            <h3>Book</h3>
+            <p>Tap through to the course tee sheet when you&rsquo;re ready. We never sit in the payment path.</p>
+          </article>
+        </div>
       </div>
     </section>
 
-    <section class="section container" aria-labelledby="preview-title">
-      <p class="section-label">The finder</p>
-      <h2 class="section-title" id="preview-title">What you see in the app</h2>
-      <div class="preview-wrap" role="img" aria-label="Preview of Tee-Time finder showing course cards with tee time chips">
+    <section class="page-section container" aria-labelledby="preview-title">
+      <div class="surface">
+        <p class="section-label">The finder</p>
+        <h2 class="section-title" id="preview-title">Real courses. Real tee times.</h2>
         <div class="preview-toolbar">
           <span class="preview-date">Thu, Mar 26 · 4 players · 18 holes</span>
           <span class="preview-chip is-on">List</span>
           <span class="preview-chip">Map</span>
-          <span class="preview-chip preview-chip-icon" title="Tee-time alerts">
+          <span class="preview-chip preview-chip-icon">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Alerts
           </span>
-          <span class="preview-chip">Near me</span>
         </div>
-        <div class="preview-body">
-          <div class="preview-course">
-            <div class="preview-course-top">
-              <img class="preview-course-photo" id="previewPhotoRidge" alt="" loading="lazy" width="800" height="350" />
-              <div class="preview-course-scrim" aria-hidden="true"></div>
+        <div class="preview-grid">
+          <article class="preview-course">
+            <div class="preview-photo-wrap">
+              <img class="preview-photo" id="previewPhotoRidge" alt="" loading="lazy" width="800" height="600" />
+              <div class="preview-scrim" aria-hidden="true"></div>
               <span class="preview-badge">8 times</span>
               <div class="preview-course-info">
                 <div class="preview-course-name">Bountiful Ridge</div>
                 <div class="preview-course-meta">Bountiful · from $36</div>
               </div>
             </div>
-            <div class="preview-slots">
+            <div class="tee-strip">
               <div class="tee-chip"><span class="t">8:50 AM</span><span class="p">$36</span></div>
               <div class="tee-chip"><span class="t">10:50 AM</span><span class="p">$36</span></div>
               <div class="tee-chip"><span class="t">11:30 AM</span><span class="p">$36</span></div>
-              <div class="tee-chip"><span class="t">12:20 PM</span><span class="p">$36</span></div>
-              <div class="tee-chip more">+4 more</div>
+              <div class="tee-chip more">+5 more</div>
             </div>
-          </div>
-          <div class="preview-course">
-            <div class="preview-course-top">
-              <img class="preview-course-photo" id="previewPhotoEagle" alt="" loading="lazy" width="800" height="350" />
-              <div class="preview-course-scrim" aria-hidden="true"></div>
+          </article>
+          <article class="preview-course">
+            <div class="preview-photo-wrap">
+              <img class="preview-photo" id="previewPhotoEagle" alt="" loading="lazy" width="800" height="600" />
+              <div class="preview-scrim" aria-hidden="true"></div>
               <span class="preview-badge">18 times</span>
               <div class="preview-course-info">
                 <div class="preview-course-name">Eaglewood</div>
                 <div class="preview-course-meta">North Salt Lake · from $64</div>
               </div>
             </div>
-            <div class="preview-slots">
+            <div class="tee-strip">
               <div class="tee-chip"><span class="t">8:00 AM</span><span class="p">$64</span></div>
               <div class="tee-chip"><span class="t">8:10 AM</span><span class="p">$64</span></div>
               <div class="tee-chip"><span class="t">8:50 AM</span><span class="p">$64</span></div>
-              <div class="tee-chip"><span class="t">10:20 AM</span><span class="p">$64</span></div>
-              <div class="tee-chip more">+14 more</div>
+              <div class="tee-chip more">+15 more</div>
             </div>
-          </div>
+          </article>
         </div>
       </div>
     </section>
 
-    <section class="section container" id="how-it-works" aria-labelledby="how-title">
-      <p class="section-label">How it works</p>
-      <h2 class="section-title section-title--wide" id="how-title">From &ldquo;who&rsquo;s free when?&rdquo; to a booked tee sheet</h2>
-      <div class="steps">
-        <article class="step">
-          <div class="step-num">01</div>
-          <h3>Set your search once</h3>
-          <p>Date, players, holes, and optional location. Browse as a guest; sign in for alerts, saved courses, and group vote links.</p>
-        </article>
-        <article class="step">
-          <div class="step-num">02</div>
-          <h3>Every live course, one grid</h3>
-          <p>We pull open slots from ForeUp, Chronogolf, and MemberSports together. Empty days still show the course — set an alert instead of guessing.</p>
-        </article>
-        <article class="step">
-          <div class="step-num">03</div>
-          <h3>Book on the course site</h3>
-          <p>Checkout on the pro shop&rsquo;s tee sheet. Use <strong>Share</strong> for a vote link and <strong>Alerts</strong> so nobody babysits the calendar.</p>
-        </article>
-      </div>
-
-      <div class="cta-bar">
-        <p>Browsing is free. <strong>Sign in</strong> for tee-time alerts, share links your group can vote on, and saved courses.</p>
-        <div class="cta-bar-actions">
-          <a href="/app/" class="btn">Open app</a>
-          <a href="#access" class="btn btn-primary">Get early access</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="access-section container" id="access" aria-labelledby="access-title">
-      <div class="access-card">
-        <div class="access-copy">
-          <p class="section-label">Early access</p>
-          <h2 id="access-title">Got a code?<br>Unlock the full workflow.</h2>
-          <p class="sub">Enter your code below. Two quick questions help us tune the product — then you&rsquo;ll create an account and land in the app.</p>
-          <ul class="access-perks" aria-label="What you get with an account">
-            <li>Tee-time alerts per course — single day or recurring window</li>
-            <li>Share links so your group votes on real slots, not screenshots</li>
-            <li>Saved courses and one set of filters on list and map</li>
-          </ul>
-        </div>
-
+    <section class="page-section container">
+      <div class="cta-final">
         <div>
-          <div class="form" id="accessForm">
-            <div class="field">
-              <label for="codeInput">Access code</label>
-              <div class="code-row">
-                <input type="text" id="codeInput" placeholder="Enter your code" maxlength="20" />
-                <button class="code-verify-btn" id="verifyBtn" type="button">Verify</button>
-              </div>
-              <div class="code-verified" id="codeVerified">Code accepted</div>
-            </div>
-            <div class="field">
-              <label for="discoveryInput">How do you currently find tee times?</label>
-              <select id="discoveryInput">
-                <option value="" disabled selected>Select one</option>
-                <option value="google">Google each course individually</option>
-                <option value="direct">Go directly to ForeUp / Chronogolf</option>
-                <option value="call">Call the pro shop</option>
-                <option value="someone-else">Someone else books for me</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <div class="field">
-                <label for="frequencyInput">Rounds per month</label>
-                <select id="frequencyInput">
-                  <option value="" disabled selected>How often?</option>
-                  <option value="1">1 round / month</option>
-                  <option value="2-4">2&ndash;4 rounds / month</option>
-                  <option value="5-8">5&ndash;8 rounds / month</option>
-                  <option value="9+">9+ rounds / month</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="wtpInput">What feels fair?</label>
-                <select id="wtpInput">
-                  <option value="" disabled selected>Pick one</option>
-                  <option value="free">I&rsquo;d only use it if it&rsquo;s free</option>
-                  <option value="1-3">$1&ndash;3 / month sounds reasonable</option>
-                  <option value="4-6">$4&ndash;6 / month, sure</option>
-                  <option value="7-10">$7&ndash;10 / month for real value</option>
-                  <option value="one-time">One-time purchase, not a sub</option>
-                </select>
-              </div>
-            </div>
-            <div class="status" id="statusMsg"></div>
-            <button class="submit-btn" id="submitBtn" type="button" disabled>Request access &rarr;</button>
-          </div>
-
-          <div id="successState" style="display:none;">
-            <p style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">You&rsquo;re in. One last step&hellip;</p>
-            <p style="color:var(--ink-2);font-size:14px;line-height:1.6;">Create your account to start searching tee times.</p>
-          </div>
-          <p class="access-signin">Already have an account? <a href="#" onclick="event.preventDefault();openAuthModal('signin')">Sign in</a></p>
+          <h2>Ready to find a tee time?</h2>
+          <p>Search as a guest, or sign in for alerts, group vote links, and saved courses.</p>
+        </div>
+        <div class="cta-final-actions">
+          <a href="/app/" class="btn btn-primary">Search tee times</a>
+          <button type="button" class="btn btn-ghost" onclick="openAuthModal('signin')">Sign in</button>
         </div>
       </div>
     </section>
@@ -1121,16 +874,13 @@
     <div class="container site-footer-inner">
       <div>
         <div class="footer-logo">
-          <span class="footer-flag" aria-hidden="true">
-            <img class="footer-logo-img is-light" src="/logo-icon-light.svg" alt="" width="26" height="26" />
-            <img class="footer-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="26" height="26" />
-          </span>
+          <img class="footer-logo-img is-light" src="/logo-icon-light.svg" alt="" width="26" height="26" />
+          <img class="footer-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="26" height="26" />
           <span>tee-time.io</span>
         </div>
-        <nav class="footer-nav" aria-label="Footer" style="margin-top:12px;">
-          <a href="/app/">Open app</a>
-          <a href="#access">Early access</a>
-          <a href="#how-it-works">How it works</a>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="/app/">Search tee times</a>
+          <button type="button" class="btn btn-ghost" style="padding:0;border:none;font-size:13px;font-weight:500;" onclick="openAuthModal('signin')">Sign in</button>
         </nav>
       </div>
       <div class="footer-meta">
@@ -1163,7 +913,6 @@
         eagleImg.src = placePhotoUrl(eagleRef);
         eagleImg.alt = 'Eaglewood Golf Course';
       }
-
       const pill = document.getElementById('catalogPill');
       if (pill) {
         fetch('/courses.json')
@@ -1198,100 +947,27 @@
       if (btn) btn.setAttribute('aria-expanded', 'false');
     }
 
-    (function () {
-      var form = document.getElementById('heroSearchForm');
-      var dateInput = document.getElementById('heroDate');
+    (function initHeroSearch() {
+      const form = document.getElementById('heroSearchForm');
+      const dateInput = document.getElementById('heroDate');
       if (dateInput && !dateInput.value) {
-        var y = new Date();
-        dateInput.value =
-          y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
+        const y = new Date();
+        dateInput.value = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
       }
-      if (form) {
-        form.addEventListener('submit', function (e) {
-          e.preventDefault();
-          var qEl = document.getElementById('heroQ');
-          var q = qEl ? qEl.value.trim() : '';
-          var dt = dateInput ? dateInput.value : '';
-          var p = new URLSearchParams();
-          if (q) p.set('q', q);
-          if (dt) p.set('date', dt);
-          var qs = p.toString();
-          window.location.href = '/app/' + (qs ? '?' + qs : '');
-        });
-      }
+      if (!form) return;
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const q = (document.getElementById('heroQ')?.value || '').trim();
+        const dt = dateInput?.value || '';
+        const p = new URLSearchParams();
+        if (q) p.set('q', q);
+        if (dt) p.set('date', dt);
+        const qs = p.toString();
+        window.location.href = '/app/' + (qs ? '?' + qs : '');
+      });
     })();
 
-    const VALID_CODES = ['golf2026', 'teetime', 'earlybird', 'utahgolf'];
-
-    const codeInput      = document.getElementById('codeInput');
-    const verifyBtn      = document.getElementById('verifyBtn');
-    const codeVerified   = document.getElementById('codeVerified');
-    const discoveryInput = document.getElementById('discoveryInput');
-    const frequencyInput = document.getElementById('frequencyInput');
-    const wtpInput       = document.getElementById('wtpInput');
-    const submitBtn      = document.getElementById('submitBtn');
-    const statusMsg      = document.getElementById('statusMsg');
-    const accessForm     = document.getElementById('accessForm');
-    const successState   = document.getElementById('successState');
-    let codeIsValid = false;
-
-    verifyBtn.addEventListener('click', () => {
-      const code = codeInput.value.trim().toLowerCase();
-      if (!code) { showStatus('Please enter your access code.', 'error'); return; }
-      if (VALID_CODES.includes(code)) {
-        codeIsValid = true;
-        codeVerified.classList.add('show');
-        codeInput.style.borderColor = 'var(--pine)';
-        verifyBtn.textContent = '\u2713';
-        hideStatus(); checkReady();
-      } else {
-        codeIsValid = false;
-        codeVerified.classList.remove('show');
-        showStatus("That code doesn't look right. Check the post and try again.", 'error');
-        checkReady();
-      }
-    });
-
-    codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') verifyBtn.click(); });
-    codeInput.addEventListener('input', () => {
-      if (codeIsValid) {
-        codeIsValid = false; codeVerified.classList.remove('show');
-        codeInput.style.borderColor = ''; verifyBtn.textContent = 'Verify';
-        checkReady();
-      }
-    });
-
-    [discoveryInput, frequencyInput, wtpInput].forEach(el => {
-      el.addEventListener('change', checkReady); el.addEventListener('input', checkReady);
-    });
-
-    function checkReady() {
-      submitBtn.disabled = !(codeIsValid && discoveryInput.value && frequencyInput.value && wtpInput.value);
-    }
-
-    submitBtn.addEventListener('click', () => {
-      if (!codeIsValid) { showStatus('Please verify your code first.', 'error'); return; }
-      const payload = { code: codeInput.value.trim().toUpperCase(), discovery: discoveryInput.value, frequency: frequencyInput.value, wtp: wtpInput.value, ts: Date.now() };
-      trackEvent('early_access_signup', payload);
-      const subs = JSON.parse(localStorage.getItem('tt_submissions') || '[]');
-      subs.push(payload); localStorage.setItem('tt_submissions', JSON.stringify(subs));
-      submitBtn.disabled = true; submitBtn.textContent = 'Sending\u2026';
-      setTimeout(() => {
-        accessForm.style.display = 'none'; successState.style.display = 'block';
-        localStorage.setItem('tt_access', 'granted');
-        allowSignup = true;
-        setTimeout(() => openAuthModal('signup'), 1200);
-      }, 800);
-    });
-
-    function showStatus(msg, type) { statusMsg.textContent = msg; statusMsg.className = 'status ' + type; }
-    function hideStatus() { statusMsg.className = 'status'; statusMsg.textContent = ''; }
-
-    function trackEvent(name, props) {
-      if (window.posthog) window.posthog.capture(name, props);
-    }
-
-    const SUPABASE_URL  = 'https://nmwlebcvezybfwertlzs.supabase.co';
+    const SUPABASE_URL = 'https://nmwlebcvezybfwertlzs.supabase.co';
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
       auth: { persistSession: true, detectSessionInUrl: true },
@@ -1302,21 +978,18 @@
     });
 
     let authMode = 'signin';
-    const authModal    = document.getElementById('authModal');
-    const authTitle    = document.getElementById('authTitle');
-    const authSub      = document.getElementById('authSub');
-    const authSubmit   = document.getElementById('authSubmit');
-    const authToggle   = document.getElementById('authToggle');
+    const authModal = document.getElementById('authModal');
+    const authTitle = document.getElementById('authTitle');
+    const authSub = document.getElementById('authSub');
+    const authSubmit = document.getElementById('authSubmit');
+    const authToggle = document.getElementById('authToggle');
     const authSwitchLink = document.getElementById('authSwitchLink');
-    const authError    = document.getElementById('authError');
-    const authEmailEl  = document.getElementById('authEmail');
+    const authError = document.getElementById('authError');
+    const authEmailEl = document.getElementById('authEmail');
     const authPasswordEl = document.getElementById('authPassword');
-
-    let allowSignup = false;
 
     function openAuthModal(mode) {
       setAuthMode(mode || 'signin');
-      authToggle.style.display = allowSignup ? '' : 'none';
       authModal.classList.add('open');
       setTimeout(() => authEmailEl.focus(), 150);
     }
@@ -1347,8 +1020,8 @@
     }
 
     document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
-    authModal.addEventListener('click', e => { if (e.target === authModal) closeAuthModal(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuthModal(); });
+    authModal.addEventListener('click', (e) => { if (e.target === authModal) closeAuthModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAuthModal(); });
     authSwitchLink.addEventListener('click', () => setAuthMode(authMode === 'signin' ? 'signup' : 'signin'));
 
     document.getElementById('googleBtn').addEventListener('click', async () => {
@@ -1361,20 +1034,19 @@
     });
 
     authSubmit.addEventListener('click', async () => {
-      const email    = authEmailEl.value.trim();
+      const email = authEmailEl.value.trim();
       const password = authPasswordEl.value;
-      if (!email || !password) { authError.textContent = 'Please fill in both fields.'; return; }
-
+      if (!email || !password) {
+        authError.textContent = 'Please fill in both fields.';
+        return;
+      }
       authSubmit.disabled = true;
       authSubmit.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
       authError.textContent = '';
 
-      let result;
-      if (authMode === 'signin') {
-        result = await sb.auth.signInWithPassword({ email, password });
-      } else {
-        result = await sb.auth.signUp({ email, password });
-      }
+      const result = authMode === 'signin'
+        ? await sb.auth.signInWithPassword({ email, password })
+        : await sb.auth.signUp({ email, password });
 
       authSubmit.disabled = false;
       authSubmit.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
@@ -1394,8 +1066,8 @@
       window.location.replace('/app/');
     });
 
-    authPasswordEl.addEventListener('keydown', e => { if (e.key === 'Enter') authSubmit.click(); });
-    authEmailEl.addEventListener('keydown', e => { if (e.key === 'Enter') authPasswordEl.focus(); });
+    authPasswordEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') authSubmit.click(); });
+    authEmailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') authPasswordEl.focus(); });
   </script>
 </body>
 </html>
