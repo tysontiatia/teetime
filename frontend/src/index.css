@@ -428,18 +428,28 @@ html[data-theme='dark'] .modal-msg.err{
   color: var(--ink);
   min-width: 0;
 }
-.app-header-logo-flag{
+.app-header-logo-mark{
   width: 26px;
   height: 26px;
   flex-shrink: 0;
-  background: var(--pine);
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
+  display: block;
+  line-height: 0;
 }
+.app-header-logo-img{
+  width: 26px;
+  height: 26px;
+  display: block;
+  border-radius: 6px;
+}
+.app-header-logo-img.is-dark{ display: none; }
+html[data-theme='dark'] .app-header-logo-img.is-light{ display: none; }
+html[data-theme='dark'] .app-header-logo-img.is-dark{ display: block; }
 .app-header-logo-tld{
-  color: var(--ink-3);
+  color: #4C7A22;
   font-weight: 400;
+}
+html[data-theme='dark'] .app-header-logo-tld{
+  color: var(--ink-3);
 }
 .app-header-trailing{
   display: flex;
@@ -2727,7 +2737,8 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 720px){
   .app-header-inner{ height: 64px; gap: 10px; }
   .app-header-logo{ font-size: 17px; }
-  .app-header-logo-flag{ width: 24px; height: 24px; border-radius: 7px; }
+  .app-header-logo-mark,
+  .app-header-logo-img{ width: 24px; height: 24px; }
 
   .search-zone{ padding: 18px 0 4px; }
   .sp-desktop-only{ display: none !important; }
