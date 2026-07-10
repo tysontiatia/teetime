@@ -9,18 +9,11 @@ function AvatarChip({ avatar, initial }: { avatar?: string; initial: string }) {
   return <UserAvatar src={avatar} initial={initial} size={34} className="app-header-avatar-chip" />;
 }
 
-function FlagMark() {
+function LogoMark() {
   return (
-    <span className="app-header-logo-flag" aria-hidden>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M6 21V4M6 4l11 3.5L6 11"
-          stroke="#B7EA3C"
-          strokeWidth="2.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+    <span className="app-header-logo-mark" aria-hidden>
+      <img className="app-header-logo-img is-light" src="/logo-icon-light.svg" alt="" width={26} height={26} />
+      <img className="app-header-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width={26} height={26} />
     </span>
   );
 }
@@ -68,7 +61,7 @@ export function AppShell() {
       <header className="app-header">
         <div className="container app-header-inner">
           <Link to="/" className="app-header-logo">
-            <FlagMark />
+            <LogoMark />
             <span>
               Tee-Time<span className="app-header-logo-tld">.io</span>
             </span>

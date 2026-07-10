@@ -21,6 +21,16 @@ function repoPublicDevAssets(): Plugin {
           return sendRepoFile(path.join(repoPublicDir, 'courses.json'), res)
         }
 
+        const brandAsset = urlPath.replace(/^\//, '')
+        if (
+          brandAsset === 'favicon.svg' ||
+          brandAsset === 'logo-icon-light.svg' ||
+          brandAsset === 'logo-icon-dark.svg' ||
+          brandAsset === 'logo-glyph.svg'
+        ) {
+          return sendRepoFile(path.join(repoPublicDir, brandAsset), res)
+        }
+
         if (urlPath.startsWith('/auth/')) {
           const rel = urlPath.slice('/auth/'.length)
           if (!rel || rel.includes('..')) return next()
@@ -46,6 +56,7 @@ function sendRepoFile(filePath: string, res: import('node:http').ServerResponse)
   const types: Record<string, string> = {
     '.html': 'text/html; charset=utf-8',
     '.json': 'application/json; charset=utf-8',
+    '.svg': 'image/svg+xml',
   }
   res.setHeader('Content-Type', types[ext] ?? 'application/octet-stream')
   res.statusCode = 200

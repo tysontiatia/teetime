@@ -188,12 +188,16 @@
       width: 26px;
       height: 26px;
       flex-shrink: 0;
-      background: var(--pine);
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
+      display: block;
+      line-height: 0;
+      border-radius: 6px;
     }
-    .site-logo-tld { color: var(--ink-3); font-weight: 400; }
+    .site-logo-img { width: 26px; height: 26px; display: block; border-radius: 6px; }
+    .site-logo-img.is-dark { display: none; }
+    html[data-theme='dark'] .site-logo-img.is-light { display: none; }
+    html[data-theme='dark'] .site-logo-img.is-dark { display: block; }
+    .site-logo-tld { color: #4C7A22; font-weight: 400; }
+    html[data-theme='dark'] .site-logo-tld { color: var(--ink-3); }
     .site-nav { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .site-nav-desktop { display: flex; align-items: center; gap: 8px; }
     .site-menu-btn {
@@ -760,11 +764,14 @@
     }
     .footer-flag {
       width: 26px; height: 26px;
-      background: var(--pine);
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
+      display: block;
+      line-height: 0;
+      flex-shrink: 0;
     }
+    .footer-logo-img { width: 26px; height: 26px; display: block; border-radius: 6px; }
+    .footer-logo-img.is-dark { display: none; }
+    html[data-theme='dark'] .footer-logo-img.is-light { display: none; }
+    html[data-theme='dark'] .footer-logo-img.is-dark { display: block; }
     .footer-nav {
       display: flex;
       flex-wrap: wrap;
@@ -825,9 +832,8 @@
     <div class="container site-header-inner">
       <a href="/" class="site-logo" aria-label="tee-time.io home">
         <span class="site-logo-flag" aria-hidden="true">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-            <path d="M6 21V4M6 4l11 3.5L6 11" stroke="#B7EA3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <img class="site-logo-img is-light" src="/logo-icon-light.svg" alt="" width="26" height="26" />
+          <img class="site-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="26" height="26" />
         </span>
         <span>Tee-Time<span class="site-logo-tld">.io</span></span>
       </a>
@@ -1116,9 +1122,8 @@
       <div>
         <div class="footer-logo">
           <span class="footer-flag" aria-hidden="true">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-              <path d="M6 21V4M6 4l11 3.5L6 11" stroke="#B7EA3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <img class="footer-logo-img is-light" src="/logo-icon-light.svg" alt="" width="26" height="26" />
+            <img class="footer-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="26" height="26" />
           </span>
           <span>tee-time.io</span>
         </div>
