@@ -812,12 +812,8 @@ function buildChronogolfTeeTimesUrl(course, date, holes, players) {
 
   const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
   const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
-  const courseId =
-    course.course_id != null && String(course.course_id).trim()
-      ? String(course.course_id).trim()
-      : course.golf_course_id != null && String(course.golf_course_id).trim()
-        ? String(course.golf_course_id).trim()
-        : '';
+  // Empty coursesIds — catalog course_id can make Chronogolf show "released shortly".
+  const courseId = '';
 
   try {
     const u = new URL(base);
