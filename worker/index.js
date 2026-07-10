@@ -779,6 +779,26 @@ function buildForeUpTeeSheetUrl(course, date, holes, players) {
   return bookingUrl || null;
 }
 
+/** Numeric /club/{id} 308s to a slug and drops query params — remap known IDs. */
+const CHRONOGOLF_CLUB_SLUGS = {
+  '14158': 'bonneville-golf-course',
+  '14180': 'forest-dale-golf-course',
+  '14185': 'glendale-golf-course',
+  '14203': 'mountain-dell-golf-club',
+  '14207': 'nibley-park-golf-course',
+  '14222': 'rose-park-golf-course',
+  '14225': 'sand-hollow-resort',
+  '14257': 'the-ledges-golf-club',
+};
+
+function chronogolfClubBase(url) {
+  const cleaned = String(url || '').replace(/[?#].*$/, '').replace(/\/$/, '');
+  const m = cleaned.match(/^(https?:\/\/(?:www\.)?chronogolf\.com\/club\/)(\d+)$/i);
+  if (!m) return cleaned;
+  const slug = CHRONOGOLF_CLUB_SLUGS[m[2]];
+  return slug ? `${m[1]}${slug}` : cleaned;
+}
+
 function buildChronogolfTeeTimesUrl(course, date, holes, players) {
   const bookingUrl = String(course.booking_url || '').trim();
   const templateOverride = String(course.booking_url_template || '').trim();
@@ -787,7 +807,7 @@ function buildChronogolfTeeTimesUrl(course, date, holes, players) {
     return applyBookingTemplate(templateOverride, date, holes, players);
   }
 
-  const base = (bookingUrl || templateOverride).replace(/[?#].*$/, '').replace(/\/$/, '');
+  const base = chronogolfClubBase(bookingUrl || templateOverride);
   if (!base) return null;
 
   const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
