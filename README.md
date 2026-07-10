@@ -83,20 +83,22 @@ All tables have RLS enabled — users can only read/write their own rows.
 
 ## Notification system
 
-Signed-in users set an alert from the 🔔 modal: **specific date** (one play day) or **weekly** (a weekday + time window, scanning `look_ahead_days` ahead, default 14). When the Worker cron finds matching inventory, it sends **email** (Resend) and/or **SMS** (Twilio) from the user’s profile **`notify_via`** / **`phone`**, and writes **`notification_log`** per channel.
+Signed-in users set an alert from the 🔔 modal: **specific date** (one play day) or **weekly** (a weekday + time window, scanning `look_ahead_days` ahead, default 14). When matching tee times **open or reopen**, the Worker sends **email** (Resend) and/or **SMS** (Twilio) from the user’s profile **`notify_via`** / **`phone`**, and writes **`notification_log`** with per-slot keys so users can be re-notified when a cancelled slot comes back.
 
 ### Flow
 
 1. User taps 🔔 on a course card → modal opens (`NotificationModal`)
 2. User chooses **Specific date** or **Weekly**, time window, players → row in `notification_preferences`
-3. Cron on the **Worker** runs every **15 min** (6 AM–11 PM UTC): `*/15 6-23 * * *` in `worker/wrangler.toml`
-4. Worker loads prefs: **`target_date` set and ≥ today** (within 14 days), **or** **`target_date` null** with **`look_ahead_days` set** (weekly / open-ended)
-5. For weekly prefs, each run evaluates calendar dates in the lookahead window whose weekday is in `days_of_week`
-6. Work is grouped by **`course_id` + calendar date** so tee times are fetched once per group (18 holes; `players` = max needed in that group for APIs that require it)
-7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
-8. If there are matches: skip if **specific** and a log row already exists for that user+course+date **and channel**; skip if **weekly** and a log row for that triple exists with **`sent_at` within 24h**; otherwise send **email** when enabled; send **SMS** only when `profiles.phone_verified_at` is set (Twilio Verify on Account). Then **insert `notification_log`** (always with the **calendar `target_date`** evaluated, even for weekly prefs)
+3. **Availability poller** runs every **5 min** (`*/5 * * * *`): snapshots vendor sheets, diffs into `tee_time_slots` / `tee_time_slot_events`
+4. **Event-driven alerts** fire immediately after poll diff detects **`opened`** or **`reopened`** slots that match an active alert (typically within ~5–20 min depending on poll cadence; alert courses are prioritized in the poll queue)
+5. **Backstop cron** every **15 min** (6 AM–11 PM UTC): `*/15 6-23 * * *` — catches anything the event path missed
+6. Dedupe is **per tee time slot** (`HH:MM:SS|holes` in `notification_log.notified_slot_keys`), not per calendar date forever — a **reopened** slot can alert again after a **15 min** anti-spam window
+7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`; SMS requires `profiles.phone_verified_at` (Twilio Verify on Account)
+8. Single-slot event SMS uses copy like *“7:30 AM just reopened at …”*; multi-slot alerts list up to 5 times
 
-**Deploy:** changing `worker/index.js` requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker.
+**Honest latency:** vendor APIs are polled, not streamed — a book-then-cancel test may take up to one poll cycle plus the **20 min close debounce** before a reopen is detected. Phantom-churn guards suppress false closes on flaky API responses.
+
+**Deploy:** changing worker code requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker. Apply new Supabase migrations with **`supabase db push`** (slot dedupe columns + alert-prioritized poll claim).
 
 ### Empty state CTAs
 

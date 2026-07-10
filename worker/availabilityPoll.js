@@ -390,6 +390,8 @@ async function applyPollDiff(env, {
   const seen = new Set();
   let slotsWritten = 0;
   let eventsWritten = 0;
+  /** @type {{ event_type: string, starts_at_local: string, holes: number, price_cents: number|null, spots_open: number|null }[]} */
+  const notifyEvents = [];
 
   for (const row of normalizedRows) {
     if (!row.rawTime) continue;
@@ -431,7 +433,16 @@ async function applyPollDiff(env, {
           price_cents,
           spots_open,
           poll_run_id,
-        })) eventsWritten++;
+        })) {
+          eventsWritten++;
+          notifyEvents.push({
+            event_type: 'opened',
+            starts_at_local: startsAtLocal,
+            holes,
+            price_cents,
+            spots_open,
+          });
+        }
       }
       continue;
     }
@@ -456,7 +467,16 @@ async function applyPollDiff(env, {
         price_cents,
         spots_open,
         poll_run_id,
-      })) eventsWritten++;
+      })) {
+        eventsWritten++;
+        notifyEvents.push({
+          event_type: 'reopened',
+          starts_at_local: startsAtLocal,
+          holes,
+          price_cents,
+          spots_open,
+        });
+      }
       continue;
     }
 
@@ -548,6 +568,7 @@ async function applyPollDiff(env, {
   return {
     slotsWritten,
     eventsWritten,
+    notifyEvents,
     diffMeta: {
       partialFetch,
       closesSkippedDebounce,
@@ -619,7 +640,7 @@ async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesFor
     };
   }
 
-  const { slotsWritten, eventsWritten, diffMeta } = await applyPollDiff(env, {
+  const { slotsWritten, eventsWritten, notifyEvents, diffMeta } = await applyPollDiff(env, {
     course,
     play_date,
     normalizedRows: rows,
@@ -635,6 +656,7 @@ async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesFor
     status: 'ok',
     slots_written: slotsWritten,
     events_written: eventsWritten,
+    notify_events: notifyEvents,
     latency_ms: Date.now() - started,
     error_message: partialGuard
       ? `churn_guard:partial=${diffMeta?.partialFetch ?? false},` +
@@ -711,6 +733,7 @@ async function pollOneClaimedCourse(env, {
   todayMt,
   fetchTimesForCourse,
   normalizeTimesWorker,
+  onPollNotifyEvents,
 }) {
   const started = Date.now();
   const baseRow = {
@@ -743,6 +766,19 @@ async function pollOneClaimedCourse(env, {
         (b) => b.slug === row.course_slug && b.play_date === row.play_date,
       );
       if (burst) await markBurstPollDone(env, burst.course, todayMt);
+
+      if (result.notify_events?.length && onPollNotifyEvents) {
+        try {
+          await onPollNotifyEvents({
+            course,
+            playDate: row.play_date,
+            notifyEvents: result.notify_events,
+            todayMt,
+          });
+        } catch (notifyErr) {
+          console.error(`[poll] notify failed ${row.course_slug} ${row.play_date}:`, notifyErr);
+        }
+      }
     }
 
     return result;
@@ -768,7 +804,7 @@ async function pollOneClaimedCourse(env, {
 }
 
 export async function handleAvailabilityPoll(env, deps) {
-  const { loadCourses, fetchTimesForCourse, normalizeTimesWorker } = deps;
+  const { loadCourses, fetchTimesForCourse, normalizeTimesWorker, onPollNotifyEvents } = deps;
 
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
     console.error('[poll] missing Supabase credentials');
@@ -861,6 +897,7 @@ export async function handleAvailabilityPoll(env, deps) {
         todayMt,
         fetchTimesForCourse,
         normalizeTimesWorker,
+        onPollNotifyEvents,
       });
 
       if (result.status === 'ok') {

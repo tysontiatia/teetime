@@ -1,6 +1,7 @@
 import { handleAvailabilityPoll } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest } from './availabilityRead.js';
+import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -1240,201 +1241,38 @@ async function handlePhoneVerifyCheck(request, env) {
   return corsResponse({ ok: true, phone: phoneE164, phone_verified_at: verifiedAt });
 }
 
-/** One-time per calendar date + channel (specific-date alerts). */
-function wasAlreadySent(pref, evalDate, channel, logs) {
-  return logs.some(
-    (l) => l.user_id === pref.user_id && l.course_id === pref.course_id && l.target_date === evalDate && l.channel === channel,
-  );
+function createAlertContext(env, courses) {
+  return {
+    env,
+    courses,
+    sendSms,
+    sendEmail,
+    buildAlertSms,
+    buildAlertEmail,
+    findCourseByCatalogId,
+    buildBookingUrlWorker,
+  };
 }
 
-/** Weekly / open-ended: same course+date+channel can re-notify after 24h. */
-function wasInCooldown(pref, evalDate, channel, logs) {
-  const threshold = Date.now() - 24 * 3600 * 1000;
-  return logs.some((l) => {
-    if (l.user_id !== pref.user_id || l.course_id !== pref.course_id || l.target_date !== evalDate || l.channel !== channel) return false;
-    const ts = new Date(l.sent_at).getTime();
-    return Number.isFinite(ts) && ts > threshold;
+// ── Cron handler: backstop alerts (event path runs from poller) ───────
+async function handleScheduled(env) {
+  const courses = await loadCourses(env);
+  await runNotificationBackstop(createAlertContext(env, courses), {
+    fetchSnapshotNormalizedTimes,
+    fetchTimesForCourse,
+    normalizeTimesWorker,
   });
 }
 
-function appendSyntheticLog(logs, row) {
-  logs.push({ ...row, sent_at: new Date().toISOString() });
-}
-
-// ── Cron handler: check alerts and send notifications ────────────────
-async function handleScheduled(env) {
+async function handlePollWithAlerts(env) {
   const courses = await loadCourses(env);
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  const cutoffStr = addDaysToYmd(todayStr, 14);
-  const logSinceStr = addDaysToYmd(todayStr, -45);
-
-  const [specRes, openRes] = await Promise.all([
-    fetch(
-      `${env.SUPABASE_URL}/rest/v1/notification_preferences?active=eq.true&target_date=not.is.null&target_date=gte.${todayStr}&select=*`,
-      { headers: sbHeaders(env) },
-    ),
-    fetch(
-      `${env.SUPABASE_URL}/rest/v1/notification_preferences?active=eq.true&target_date=is.null&look_ahead_days=not.is.null&select=*`,
-      { headers: sbHeaders(env) },
-    ),
-  ]);
-
-  const specificPrefs = specRes.ok ? await specRes.json() : [];
-  const openPrefs = openRes.ok ? await openRes.json() : [];
-
-  const activeSpecific = specificPrefs.filter((p) => p.target_date && p.target_date <= cutoffStr);
-
-  /** @type {{ type: 'specific' | 'open', pref: object, evalDate: string }[]} */
-  const work = [];
-  for (const pref of activeSpecific) {
-    work.push({ type: 'specific', pref, evalDate: pref.target_date });
-  }
-  for (const pref of openPrefs) {
-    const horizon = Math.min(Math.max(Number(pref.look_ahead_days) || 14, 1), 60);
-    const dowAllow = Array.isArray(pref.days_of_week) && pref.days_of_week.length ? pref.days_of_week : [0, 1, 2, 3, 4, 5, 6];
-    for (let d = 0; d < horizon; d++) {
-      const evalDate = addDaysToYmd(todayStr, d);
-      if (evalDate < todayStr) continue;
-      if (!dowAllow.includes(ymdUtcWeekday(evalDate))) continue;
-      work.push({ type: 'open', pref, evalDate });
-    }
-  }
-
-  if (!work.length) return;
-
-  const userIds = [...new Set(work.map((w) => w.pref.user_id))];
-  const logRes = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/notification_log?user_id=in.(${userIds.join(',')})&sent_at=gte.${logSinceStr}&select=user_id,course_id,target_date,channel,sent_at&order=sent_at.desc`,
-    { headers: sbHeaders(env) },
-  );
-  const logs = logRes.ok ? await logRes.json() : [];
-
-  let warnedTwilioMissing = false;
-  const groups = {};
-  for (const item of work) {
-    const k = `${item.pref.course_id}||${item.evalDate}`;
-    if (!groups[k]) {
-      groups[k] = {
-        course_id: item.pref.course_id,
-        evalDate: item.evalDate,
-        items: [],
-      };
-    }
-    groups[k].items.push(item);
-  }
-
-  for (const group of Object.values(groups)) {
-    const course = findCourseByCatalogId(courses, group.course_id);
-    if (!course) continue;
-
-    const maxPlayers = Math.min(
-      4,
-      Math.max(1, ...group.items.map((it) => Number(it.pref.players || it.pref.min_spots || 1))),
-    );
-    const playersStr = String(maxPlayers);
-
-    const courseSlug = slugFromCourseName(course.name);
-    const snapshot = await fetchSnapshotNormalizedTimes(
-      env,
-      courseSlug,
-      group.evalDate,
-      '18',
-      maxPlayers,
-    );
-
-    let allTimes;
-    if (snapshot.has_poll_coverage) {
-      allTimes = snapshot.times;
-    } else {
-      const data = await fetchTimesForCourse(course, group.evalDate, '18', playersStr);
-      if (!data) continue;
-      allTimes = normalizeTimesWorker(course, data, '18');
-    }
-    if (!allTimes.length) continue;
-
-    for (const item of group.items) {
-      const { pref, type, evalDate } = item;
-
-      const earliest = pref.earliest_time?.slice(0, 5) || '00:00';
-      const latest = pref.latest_time?.slice(0, 5) || '23:59';
-      const minSpots = pref.min_spots || pref.players || 1;
-
-      const matching = allTimes.filter((t) => {
-        if (t.rawTime < earliest || t.rawTime > latest) return false;
-        if (t.spots != null && t.spots < minSpots) return false;
-        return true;
-      });
-
-      if (!matching.length) continue;
-
-      const [userRes, profileRes] = await Promise.all([
-        fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${pref.user_id}`, { headers: sbHeaders(env) }),
-        fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${pref.user_id}&select=phone,notify_via,phone_verified_at`, { headers: sbHeaders(env) }),
-      ]);
-      if (!userRes.ok) continue;
-      const user = await userRes.json();
-      const profiles = profileRes.ok ? await profileRes.json() : [];
-      const profile = profiles[0] || {};
-
-      const notifyVia = profile.notify_via || 'email';
-      const wantEmail = notifyVia === 'email' || notifyVia === 'both';
-      const phoneOk = Boolean(profile.phone && normalizePhone(profile.phone));
-      const smsVerified = Boolean(profile.phone_verified_at);
-      const wantSms =
-        (notifyVia === 'sms' || notifyVia === 'both') &&
-        phoneOk &&
-        smsVerified;
-      const phoneE164 = wantSms ? normalizePhone(profile.phone) : null;
-      const playersStr = String(pref.players || 1);
-
-      if (wantEmail && user.email) {
-        const alreadyBlocked = type === 'specific'
-          ? wasAlreadySent(pref, evalDate, 'email', logs)
-          : wasInCooldown(pref, evalDate, 'email', logs);
-        if (!alreadyBlocked) {
-          const subject = `⛳ ${matching.length} tee time${matching.length !== 1 ? 's' : ''} at ${course.name}`;
-          const html = buildAlertEmail(course, matching, evalDate, pref.players || 1);
-          const sent = await sendEmail(env, user.email, subject, html);
-          if (sent) {
-            await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
-              method: 'POST',
-              headers: sbHeaders(env, true),
-              body: JSON.stringify({ user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'email', times_found: matching.length }),
-            });
-            appendSyntheticLog(logs, { user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'email' });
-          }
-        }
-      }
-
-      if (wantSms && phoneE164) {
-        if (!twilioConfigured(env)) {
-          if (!warnedTwilioMissing) {
-            console.warn(
-              '[notifications] Twilio secrets incomplete (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER); SMS skipped',
-            );
-            warnedTwilioMissing = true;
-          }
-        } else {
-          const alreadyBlocked = type === 'specific'
-            ? wasAlreadySent(pref, evalDate, 'sms', logs)
-            : wasInCooldown(pref, evalDate, 'sms', logs);
-          if (!alreadyBlocked) {
-            const body = buildAlertSms(course, matching, evalDate, playersStr);
-            const sent = await sendSms(env, phoneE164, body);
-            if (sent) {
-              await fetch(`${env.SUPABASE_URL}/rest/v1/notification_log`, {
-                method: 'POST',
-                headers: sbHeaders(env, true),
-                body: JSON.stringify({ user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms', times_found: matching.length }),
-              });
-              appendSyntheticLog(logs, { user_id: pref.user_id, course_id: pref.course_id, target_date: evalDate, channel: 'sms' });
-            }
-          }
-        }
-      }
-    }
-  }
+  const ctx = createAlertContext(env, courses);
+  await handleAvailabilityPoll(env, {
+    loadCourses: async () => courses,
+    fetchTimesForCourse,
+    normalizeTimesWorker,
+    onPollNotifyEvents: (payload) => notifyOnPollEvents(ctx, payload),
+  });
 }
 
 export default {
@@ -1519,13 +1357,7 @@ export default {
   async scheduled(event, env, ctx) {
     const cron = event.cron || '';
     if (cron === '*/5 * * * *') {
-      ctx.waitUntil(
-        handleAvailabilityPoll(env, {
-          loadCourses,
-          fetchTimesForCourse,
-          normalizeTimesWorker,
-        }),
-      );
+      ctx.waitUntil(handlePollWithAlerts(env));
     }
     if (cron === '*/15 6-23 * * *') {
       ctx.waitUntil(handleScheduled(env));
