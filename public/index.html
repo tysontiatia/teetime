@@ -535,18 +535,6 @@
     .state.waitlist:hover { color: var(--pine-deep); border-color: var(--accent); }
     html[data-theme='dark'] .state.waitlist:hover { color: var(--accent); }
 
-    .founder {
-      border-left: 3px solid var(--accent); padding: 6px 0 6px 24px; max-width: 40rem;
-    }
-    .founder .quote {
-      font-family: var(--font-display); font-size: clamp(1.15rem, 2.4vw, 1.45rem);
-      font-weight: 500; line-height: 1.45; letter-spacing: -0.01em;
-    }
-    .founder .who { margin-top: 14px; color: var(--ink-2); font-size: 15px; }
-    .founder .who b { color: var(--ink); font-weight: 600; }
-    .founder .who a { color: var(--pine-deep); font-weight: 500; }
-    html[data-theme='dark'] .founder .who a { color: var(--accent); }
-
     /* Footer */
     footer {
       border-top: 1px solid var(--line);
@@ -743,13 +731,6 @@
 
       .states { justify-content: center; gap: 10px; margin-top: 24px; }
       .state { font-size: 13px; padding: 9px 16px; }
-
-      .founder {
-        text-align: center; border-left: none;
-        border-top: 3px solid var(--accent);
-        padding: 24px 8px 0; margin: 0 auto; max-width: 24rem;
-      }
-      .founder .quote { font-size: clamp(1.1rem, 4.5vw, 1.3rem); }
 
       footer { text-align: center; padding-top: 40px; }
       .foot-grid { grid-template-columns: 1fr; gap: 28px; }
@@ -951,13 +932,6 @@
         <span class="state"><span class="dot"></span>Arizona — coming soon</span>
         <span class="state"><span class="dot"></span>Colorado — coming soon</span>
         <button type="button" class="state waitlist" onclick="openAuthModal('signup')">+ Your state? Create an account</button>
-      </div>
-    </section>
-
-    <section class="band wrap band--tight">
-      <div class="founder">
-        <p class="quote">"I'm walking all 113 of Utah's public courses — 84 down. I built Tee-Time because checking six tee sheets before sunrise is a bad way to start a Saturday."</p>
-        <p class="who"><b>Tyson</b> · Founder · <a href="https://instagram.com/tyson_golf" target="_blank" rel="noopener noreferrer">@tyson_golf</a> · Every Course. Every Step.</p>
       </div>
     </section>
   </main>
