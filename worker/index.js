@@ -1058,46 +1058,157 @@ async function sendEmail(env, to, subject, html) {
 }
 
 // ── Build notification email ─────────────────────────────────────────
-function buildAlertEmail(course, times, date, players) {
-  const dateFormatted = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+
+const EMAIL_BRAND = {
+  paper: '#FBFBF8',
+  card: '#FFFFFF',
+  ink: '#141E19',
+  muted: '#4C5A53',
+  subtle: '#8A958F',
+  pine: '#1E4D3B',
+  pineDeep: '#143528',
+  fairway: '#B7EA3C',
+  fairwayInk: '#2A4405',
+  greenSoft: '#F0FADB',
+  line: '#E4E2DA',
+  sand: '#EFECE3',
+  logoUrl: 'https://tee-time.io/logo-icon-light.svg',
+  siteUrl: 'https://tee-time.io',
+  accountUrl: 'https://tee-time.io/app/account/',
+};
+
+function displayCourseNameEmail(name) {
+  const i = String(name || '').indexOf(' (');
+  return i > 0 ? name.slice(0, i) : name;
+}
+
+function buildAlertEmail(course, times, date, players, options = {}) {
+  const { eventType, alertPrefLine } = options;
+  const dateFormatted = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'America/Denver',
   });
-  const bookingUrl = buildBookingUrlWorker(course, date, '18', players);
+  const bookingUrl = buildBookingUrlWorker(course, date, '18', String(players));
+  const courseLabel = displayCourseNameEmail(course.name);
+  const b = EMAIL_BRAND;
 
-  const timeRows = times.slice(0, 12).map(t => {
+  const isSingle = times.length === 1;
+  const headline = isSingle && eventType === 'reopened'
+    ? `${formatTime12h(times[0].rawTime)} just reopened`
+    : isSingle && eventType === 'opened'
+      ? `${formatTime12h(times[0].rawTime)} just opened`
+      : isSingle
+        ? 'Tee time available'
+        : `${times.length} tee times available`;
+
+  const badge = eventType === 'reopened' ? 'Reopened' : eventType === 'opened' ? 'New' : 'Alert';
+
+  let timesBlock;
+  if (isSingle) {
+    const t = times[0];
     const time = formatTime12h(t.rawTime);
-    const price = t.price || '';
-    const spots = t.spots != null ? `${t.spots} spot${t.spots !== 1 ? 's' : ''}` : '';
-    return `<tr><td style="padding:8px 16px;border-bottom:1px solid #f0f0f0;font-size:15px">${time}</td><td style="padding:8px 16px;border-bottom:1px solid #f0f0f0;font-size:15px;color:#666">${price}</td><td style="padding:8px 16px;border-bottom:1px solid #f0f0f0;font-size:15px;color:#666">${spots}</td></tr>`;
-  }).join('');
+    const price = t.price || '—';
+    const spots = t.spots != null ? `${t.spots} spot${t.spots !== 1 ? 's' : ''}` : '—';
+    timesBlock = `
+      <div style="background:${b.greenSoft};border:1px solid ${b.line};border-radius:14px;padding:18px 20px;margin:18px 0 4px">
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${b.pine};margin-bottom:8px">${badge}</div>
+        <div style="font-size:28px;font-weight:700;color:${b.ink};line-height:1.15;margin-bottom:6px">${time}</div>
+        <div style="font-size:15px;color:${b.muted}">${price}${price !== '—' && spots !== '—' ? ' · ' : ''}${spots !== '—' ? spots : ''}</div>
+      </div>`;
+  } else {
+    const timeRows = times.slice(0, 12).map((t) => {
+      const time = formatTime12h(t.rawTime);
+      const price = t.price || '—';
+      const spots = t.spots != null ? `${t.spots} spot${t.spots !== 1 ? 's' : ''}` : '—';
+      return `<tr>
+        <td style="padding:12px 16px;border-bottom:1px solid ${b.line};font-size:15px;color:${b.ink};font-weight:600">${time}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid ${b.line};font-size:15px;color:${b.muted}">${price}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid ${b.line};font-size:15px;color:${b.muted}">${spots}</td>
+      </tr>`;
+    }).join('');
+    const moreText = times.length > 12
+      ? `<p style="color:${b.subtle};font-size:13px;margin:12px 0 0">+ ${times.length - 12} more times available</p>`
+      : '';
+    timesBlock = `
+      <table role="presentation" style="width:100%;border-collapse:collapse;margin:18px 0 4px;border:1px solid ${b.line};border-radius:14px;overflow:hidden">
+        <thead>
+          <tr style="background:${b.sand}">
+            <th style="padding:10px 16px;text-align:left;font-size:11px;color:${b.subtle};font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Time</th>
+            <th style="padding:10px 16px;text-align:left;font-size:11px;color:${b.subtle};font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Price</th>
+            <th style="padding:10px 16px;text-align:left;font-size:11px;color:${b.subtle};font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Spots</th>
+          </tr>
+        </thead>
+        <tbody>${timeRows}</tbody>
+      </table>
+      ${moreText}`;
+  }
 
-  const moreText = times.length > 12 ? `<p style="color:#888;font-size:13px;margin-top:8px">+ ${times.length - 12} more times available</p>` : '';
-
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f6f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-<div style="max-width:520px;margin:0 auto;padding:24px">
-  <div style="background:#1A2E1A;border-radius:12px 12px 0 0;padding:20px 24px">
-    <h1 style="margin:0;color:#fff;font-size:18px;font-weight:600">⛳ Tee Times Available!</h1>
-  </div>
-  <div style="background:#fff;padding:24px;border-radius:0 0 12px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-    <h2 style="margin:0 0 4px;font-size:17px;color:#111">${course.name}</h2>
-    <p style="margin:0 0 16px;color:#666;font-size:14px">${dateFormatted} · ${players} player${players !== 1 ? 's' : ''}</p>
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="background:#f8faf8">
-        <th style="padding:8px 16px;text-align:left;font-size:12px;color:#888;font-weight:600;text-transform:uppercase">Time</th>
-        <th style="padding:8px 16px;text-align:left;font-size:12px;color:#888;font-weight:600;text-transform:uppercase">Price</th>
-        <th style="padding:8px 16px;text-align:left;font-size:12px;color:#888;font-weight:600;text-transform:uppercase">Spots</th>
-      </tr></thead>
-      <tbody>${timeRows}</tbody>
-    </table>
-    ${moreText}
-    <a href="${bookingUrl}" style="display:block;text-align:center;background:#2D7A3A;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin-top:20px">Book Now →</a>
-    <p style="color:#aaa;font-size:12px;text-align:center;margin-top:16px">You received this because you set a tee time alert on <a href="https://tee-time.io" style="color:#2D7A3A">tee-time.io</a>.</p>
-  </div>
-</div>
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Tee-Time.io alert</title>
+</head>
+<body style="margin:0;padding:0;background:${b.paper};font-family:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">${headline} at ${courseLabel} on ${dateFormatted}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${b.paper};padding:32px 16px">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px">
+          <tr>
+            <td style="background:${b.pineDeep};border-radius:18px 18px 0 0;padding:22px 24px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="vertical-align:middle;width:40px">
+                    <img src="${b.logoUrl}" width="36" height="36" alt="" style="display:block;border-radius:9px">
+                  </td>
+                  <td style="vertical-align:middle;padding-left:12px">
+                    <div style="font-size:18px;font-weight:700;color:#FFFFFF;letter-spacing:-0.02em;font-family:'Sora',-apple-system,BlinkMacSystemFont,sans-serif">
+                      Tee-Time<span style="color:${b.fairway}">.io</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:${b.card};border:1px solid ${b.line};border-top:none;border-radius:0 0 18px 18px;padding:24px;box-shadow:0 12px 32px rgba(20,30,25,0.08)">
+              <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${b.pine};margin-bottom:8px">Tee time alert</div>
+              <h1 style="margin:0 0 6px;font-size:24px;line-height:1.2;color:${b.ink};font-weight:700;font-family:'Sora',-apple-system,BlinkMacSystemFont,sans-serif">${headline}</h1>
+              <h2 style="margin:0 0 4px;font-size:17px;color:${b.ink};font-weight:600">${courseLabel}</h2>
+              ${alertPrefLine ? `<p style="margin:0 0 6px;color:${b.pine};font-size:13px;font-weight:600;line-height:1.4">${alertPrefLine}</p>` : ''}
+              <p style="margin:0 0 4px;color:${b.muted};font-size:14px;line-height:1.5">${dateFormatted} · ${players} player${players !== 1 ? 's' : ''}</p>
+              ${timesBlock}
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:22px">
+                <tr>
+                  <td align="center">
+                    <a href="${bookingUrl}" style="display:inline-block;background:${b.pine};color:#FFFFFF;padding:14px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px">Book now →</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="color:${b.subtle};font-size:12px;text-align:center;line-height:1.55;margin:20px 0 0">
+                You received this because you set a tee time alert on
+                <a href="${b.siteUrl}" style="color:${b.pine};font-weight:600;text-decoration:none">tee-time.io</a>.
+                <a href="${b.accountUrl}" style="color:${b.pine};font-weight:600;text-decoration:none">Manage alerts</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 8px 0;text-align:center;font-size:11px;color:${b.subtle};line-height:1.5">
+              Tee-Time.io · Every tee time. One search.<br>
+              Not affiliated with any booking provider.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 }

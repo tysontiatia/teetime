@@ -76,6 +76,29 @@ function displayCourseName(name) {
   return i > 0 ? name.slice(0, i) : name;
 }
 
+const DOW_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+const DOW_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function formatAlertPrefLine(pref) {
+  if (pref.target_date) {
+    const label = new Date(`${pref.target_date}T12:00:00`).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: MT,
+    });
+    return `Alert for ${label}`;
+  }
+  const days = (Array.isArray(pref.days_of_week) ? pref.days_of_week : [])
+    .slice()
+    .sort((a, b) => a - b);
+  if (days.length === 1) {
+    return `Weekly alert · ${DOW_PLURAL[days[0]] ?? '—'}`;
+  }
+  const dayLabels = days.map((i) => DOW_FULL[i] ?? '?').join(', ');
+  return `Weekly alert · ${dayLabels || '—'}`;
+}
+
 function prefAppliesOnDate(pref, playDate, todayMt) {
   if (pref.target_date) return pref.target_date === playDate;
   if (pref.target_date != null || pref.look_ahead_days == null) return false;
@@ -336,7 +359,11 @@ async function deliverToUser(ctx, {
       });
       if (emailSlots.length) {
         const subject = buildOpeningEmailSubject(course, emailSlots, primaryEvent);
-        const html = ctx.buildAlertEmail(course, slotsForAlertEmail(emailSlots), playDate, players);
+        const alertPrefLine = formatAlertPrefLine(pref);
+        const html = ctx.buildAlertEmail(course, slotsForAlertEmail(emailSlots), playDate, players, {
+          eventType: primaryEvent,
+          alertPrefLine,
+        });
         const sent = await ctx.sendEmail(env, user.email, subject, html);
         if (sent) {
           await writeNotificationLog(env, {
@@ -373,9 +400,11 @@ async function deliverToUser(ctx, {
     });
     if (!smsSlots.length) return;
 
-    const body = eventMode
+    const alertPrefLine = formatAlertPrefLine(pref);
+    let body = eventMode
       ? buildOpeningSms(ctx, course, smsSlots, playDate, players, primaryEvent)
       : ctx.buildAlertSms(course, smsSlots, playDate, String(players));
+    if (alertPrefLine) body = `${alertPrefLine}\n${body}`;
 
     const sent = await ctx.sendSms(env, phoneE164, body);
     if (sent) {
