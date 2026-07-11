@@ -693,8 +693,25 @@
         text-align: left; padding: 24px 22px;
       }
       .pillar .icon { margin-inline: auto; margin-bottom: 18px; }
-      .steps { margin-top: 32px; gap: 20px; }
-      .step { text-align: left; padding-top: 16px; }
+      .steps {
+        margin-top: 32px;
+        gap: 14px;
+        grid-template-columns: 1fr;
+        max-width: 22rem;
+        margin-inline: auto;
+        width: 100%;
+      }
+      .step {
+        text-align: center;
+        border-top: none;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 22px 20px;
+      }
+      .step .n { margin-bottom: 10px; }
+      .step h3 { margin-bottom: 8px; }
+      .step p { max-width: 18rem; margin-inline: auto; line-height: 1.6; }
 
       .alert-cta { padding: 28px 22px; border-radius: 22px; text-align: center; }
       .alert-cta .lede { max-width: 22rem; margin-inline: auto; }
