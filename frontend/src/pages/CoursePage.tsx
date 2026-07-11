@@ -184,7 +184,7 @@ export function CoursePage() {
   useEffect(() => {
     if (!course) return;
     const short = course.name.length > 42 ? `${course.name.slice(0, 40)}…` : course.name;
-    document.title = `${short} — Tee-Time`;
+    document.title = `${short} · Tee-Time`;
   }, [course]);
 
   const times = useMemo(() => {
@@ -280,7 +280,7 @@ export function CoursePage() {
       : `Open ${platformName} →`
     : 'No booking link';
   const bookNote = selected
-    ? `Opens ${platformName} with ${formatDateShort(date)} · ${players} · ${holes} holes — confirm ${formatTime12h(selected.startsAt)} there. No markup, ever.`
+    ? `Opens ${platformName} with ${formatDateShort(date)} · ${players} · ${holes} holes. Confirm ${formatTime12h(selected.startsAt)} there. No markup, ever.`
     : 'Opens the course’s booking site with your date and party when supported. No markup, ever.';
 
   const heroMeta = [
@@ -470,7 +470,7 @@ export function CoursePage() {
           {unsupported ? (
             <div className="rail-empty">
               <p>
-                <strong>{platformDisplayName(record?.platform)}</strong> — {capabilityHint(cap)}.
+                <strong>{platformDisplayName(record?.platform)}</strong>. {capabilityHint(cap)}.
               </p>
               <button type="button" className="tee-empty-action" onClick={() => setNotifOpen(true)}>
                 Notify me

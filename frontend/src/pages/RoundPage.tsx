@@ -381,10 +381,10 @@ export function RoundPage() {
           {hostPublicName ? (
             <>
               <strong style={{ color: 'var(--ink)' }}>{hostPublicName}</strong> shared these tee times.
-              {user?.id ? ' Pick a time — your account name shows on your votes.' : ' Add your name, then vote.'}
+              {user?.id ? '. Pick a time. Your account name shows on your votes.' : ' Add your name, then vote.'}
             </>
           ) : user?.id ? (
-            <>Pick a time — your account name shows on your votes.</>
+            <>Pick a time. Your account name shows on your votes.</>
           ) : (
             <>Add your name so the group knows who voted, then pick a time.</>
           )}
@@ -407,7 +407,7 @@ export function RoundPage() {
             </div>
           </>
         ) : (
-          <p className="round-leading-empty">No votes yet — be the first to pick a time.</p>
+          <p className="round-leading-empty">No votes yet. Be the first to pick a time.</p>
         )}
       </div>
 
@@ -449,7 +449,7 @@ export function RoundPage() {
         <div className="round-main">
           <div className="round-alert round-alert-compact">
             <span aria-hidden>⏰</span>
-            <span>Times go fast — double-check availability before you book.</span>
+            <span>Times go fast. Double-check availability before you book.</span>
           </div>
 
           <div className="round-vote-panel">
@@ -510,7 +510,7 @@ export function RoundPage() {
                     {quorumMet ? (
                       <div className="round-quorum">
                         <p className="round-quorum-copy">
-                          {inVoters.length} of {playersNeeded} in — enough to fill this tee time. Have{' '}
+                          {inVoters.length} of {playersNeeded} in. Enough to fill this tee time. Have{' '}
                           <strong style={{ color: 'var(--ink)' }}>one person book</strong> on the course site, then everyone else joins that booking.
                         </p>
                         {bookHref ? (

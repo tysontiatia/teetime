@@ -150,7 +150,7 @@ export function PlanRoundModal({
                 <>Share this link with your group. They can vote on the times you picked.</>
               ) : (
                 <>
-                  {formatDateShort(dateYmd)} · {players} player{players === 1 ? '' : 's'} · {holes} holes — choose
+                  {formatDateShort(dateYmd)} · {players} player{players === 1 ? '' : 's'} · {holes} holes. Choose
                   which tee times to include.
                 </>
               )}
@@ -165,7 +165,7 @@ export function PlanRoundModal({
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <input className="input" readOnly value={shareUrl} aria-label="Vote link" onFocus={(e) => e.target.select()} />
             <button className="btn btn-primary" type="button" onClick={() => void onCopy()} style={{ padding: '12px 16px' }}>
-              {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed — select and copy' : 'Copy link'}
+              {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed. Select and copy.' : 'Copy link'}
             </button>
             <a
               className="btn btn-ghost"

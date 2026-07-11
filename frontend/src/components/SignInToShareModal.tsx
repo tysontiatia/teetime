@@ -38,7 +38,7 @@ export function SignInToShareModal({ open, onClose }: { open: boolean; onClose: 
             </h2>
             <p className="modal-header-sub" style={{ fontSize: 14, color: 'var(--ink-2)' }}>
               Create a live vote link your group can open in one tap. If you don’t have an account yet, Google sign-in
-              sets one up for free — your links also appear under <strong style={{ color: 'var(--ink)' }}>Shared rounds</strong>.
+              sets one up for free. Your links also appear under <strong style={{ color: 'var(--ink)' }}>Shared rounds</strong>.
             </p>
           </div>
           <button className="btn btn-ghost" type="button" onClick={onClose} aria-label="Close">

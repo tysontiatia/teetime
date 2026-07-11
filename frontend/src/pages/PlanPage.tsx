@@ -43,7 +43,7 @@ export function PlanPage() {
     const ok = await copyTextToClipboard(url);
     setCopyId(id);
     window.setTimeout(() => setCopyId((c) => (c === id ? null : c)), 2000);
-    if (!ok) setCopyErr('Clipboard blocked — open the vote page and copy from the address bar.');
+    if (!ok) setCopyErr('Clipboard blocked. Open the vote page and copy from the address bar.');
   };
 
   return (
@@ -53,7 +53,7 @@ export function PlanPage() {
         <h2 className="plan-page-title">Your vote links</h2>
         <p className="plan-page-lede">
           Rounds you <strong style={{ color: 'var(--ink)' }}>host</strong> (Share on the finder or course page) and rounds you{' '}
-          <strong style={{ color: 'var(--ink)' }}>join</strong> while signed in appear here. Anyone with the link can vote — guests don’t need an account.
+          <strong style={{ color: 'var(--ink)' }}>join</strong> while signed in appear here. Anyone with the link can vote. Guests don&apos;t need an account.
         </p>
 
         {authLoading ? (

@@ -293,7 +293,7 @@ export function AccountPage() {
               onChange={(e) => setPhone(formatPhoneDisplay(e.target.value))}
             />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              US numbers only. SMS uses Twilio Verify — send a code to confirm this number before alerts are texted.
+              US numbers only. SMS uses Twilio Verify. Send a code to confirm this number before alerts are texted.
             </p>
             {phoneMatchesVerified ? (
               <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--green-2)', marginTop: 10 }}>

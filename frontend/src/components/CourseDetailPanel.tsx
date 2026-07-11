@@ -143,7 +143,7 @@ export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: 
 
       <div className="section">
         <h2>Green fees</h2>
-        <p className="rate-fine rate-fine-lead">Published green fees — not live tee-time prices.</p>
+        <p className="rate-fine rate-fine-lead">Published green fees, not live tee-time prices.</p>
         {ratesLoading ? (
           <p className="section-muted">Loading rates…</p>
         ) : rateRows.length === 0 ? (

@@ -4,6 +4,7 @@ import { useAuth } from '../state/AuthContext';
 import { profileAvatarUrlFromUser } from '../lib/profileAvatar';
 import { UserAvatar } from './UserAvatar';
 import { UserMenu } from './UserMenu';
+import { OpeningsPreviewProvider } from '../state/OpeningsPreviewContext';
 
 function AvatarChip({ avatar, initial }: { avatar?: string; initial: string }) {
   return <UserAvatar src={avatar} initial={initial} size={34} className="app-header-avatar-chip" />;
@@ -31,19 +32,19 @@ export function AppShell() {
   useEffect(() => {
     const p = location.pathname.replace(/\/$/, '') || '/';
     if (p === '/' || p === '') {
-      document.title = 'Tee-Time — Search';
+      document.title = 'Tee-Time · Search';
     } else if (p === '/plan') {
-      document.title = 'Tee-Time — Plan';
+      document.title = 'Tee-Time · Plan';
     } else if (p === '/share') {
-      document.title = 'Tee-Time — Share';
+      document.title = 'Tee-Time · Share';
     } else if (p === '/account') {
-      document.title = 'Tee-Time — Account';
+      document.title = 'Tee-Time · Account';
     } else if (p === '/feed') {
-      document.title = 'Tee-Time — Openings';
+      document.title = 'Tee-Time · Openings';
     } else if (p.startsWith('/round/')) {
-      document.title = 'Tee-Time — Vote';
+      document.title = 'Tee-Time · Vote';
     } else if (p.startsWith('/course/')) {
-      document.title = 'Tee-Time — Course';
+      document.title = 'Tee-Time · Course';
     } else {
       document.title = 'Tee-Time';
     }
@@ -56,13 +57,10 @@ export function AppShell() {
     location.pathname === '/plan' ||
     location.pathname.startsWith('/plan/') ||
     location.pathname === '/account' ||
-    location.pathname.startsWith('/account/') ||
-    location.pathname === '/feed' ||
-    location.pathname.startsWith('/feed/');
-
-  const feedActive = location.pathname === '/feed' || location.pathname.startsWith('/feed/');
+    location.pathname.startsWith('/account/');
 
   return (
+    <OpeningsPreviewProvider>
     <div>
       <header className="app-header">
         <div className="container app-header-inner">
@@ -72,12 +70,6 @@ export function AppShell() {
               Tee-Time<span className="app-header-logo-tld">.io</span>
             </span>
           </Link>
-
-          <nav className="app-header-nav" aria-label="Main">
-            <Link to="/feed" className={`app-header-nav-link${feedActive ? ' is-active' : ''}`}>
-              Openings
-            </Link>
-          </nav>
 
           <div className="app-header-trailing">
             {loading ? (
@@ -113,6 +105,11 @@ export function AppShell() {
       <main className="app-main">
         <Outlet />
       </main>
+
+      <footer className="app-footer">
+        <p className="app-footer-note">Made with ❤️ in Salt Lake City</p>
+      </footer>
     </div>
+    </OpeningsPreviewProvider>
   );
 }

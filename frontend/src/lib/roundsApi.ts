@@ -110,10 +110,10 @@ export async function publishRoundFromPlan(params: {
   const names = courseIds.map((id) => coursesById.get(id)?.name ?? id);
   const title =
     courseIds.length > 2
-      ? `${names.slice(0, 2).join(' · ')} +${courseIds.length - 2} — ${formatDateShort(plan.date)}`
+      ? `${names.slice(0, 2).join(' · ')} +${courseIds.length - 2} · ${formatDateShort(plan.date)}`
       : courseIds.length === 2
-        ? `${names.join(' · ')} — ${formatDateShort(plan.date)}`
-        : `${names[0] ?? 'Round'} — ${formatDateShort(plan.date)}`;
+        ? `${names.join(' · ')} · ${formatDateShort(plan.date)}`
+        : `${names[0] ?? 'Round'} · ${formatDateShort(plan.date)}`;
 
   const hostTrimmed =
     typeof hostPublicName === 'string' && hostPublicName.trim() ? hostPublicName.trim().slice(0, 60) : null;

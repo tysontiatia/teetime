@@ -178,7 +178,7 @@ export function SharePage() {
 
       <p className="share-note">
         <strong style={{ color: 'var(--ink)' }}>This is an older snapshot link.</strong> Times were frozen when the host
-        shared it — confirm availability before booking. Votes you tap below are saved <em>on this device only</em>; your
+        shared it. Confirm availability before booking. Votes you tap below are saved <em>on this device only</em>; your
         group won&apos;t see them unless you create a live vote link.
       </p>
 
@@ -277,8 +277,8 @@ export function SharePage() {
       <div className="share-upgrade">
         <div className="share-upgrade-title">Want everyone to vote together?</div>
         <p className="share-upgrade-copy">
-          Create a <strong style={{ color: 'var(--ink)' }}>live vote link</strong> from the finder or a course page —
-          friends pick times, votes sync in real time, and links show up under Shared rounds when you&apos;re signed in.
+          Create a <strong style={{ color: 'var(--ink)' }}>live vote link</strong> from the finder or a course page.
+          Friends pick times, votes sync in real time, and links show up under Shared rounds when you&apos;re signed in.
           Live links use <code className="share-code">/round/…</code>, not this archived format.
         </p>
         <div className="share-upgrade-actions">

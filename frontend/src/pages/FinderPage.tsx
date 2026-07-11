@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatDateShort, formatDateCompact } from '../lib/time';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
@@ -17,7 +17,9 @@ import { PlanRoundModal } from '../components/PlanRoundModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
-import { courseDetailQueryString } from '../lib/finderUrl';
+import { FeedTeaser } from '../components/FeedTeaser';
+import { useScopedOpenings } from '../hooks/useScopedOpenings';
+import { courseDetailQueryString, feedQueryString } from '../lib/finderUrl';
 import { buildTimesFetchScope, courseMatchesLocationQuery } from '../lib/timesFetchScope';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
@@ -84,6 +86,14 @@ export function FinderPage() {
   const [view, setView] = useState<'list' | 'map'>('list');
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const { user, loading: authLoading } = useAuth();
+  const { setMinPlayers, openCount, statewideHiddenCount } = useScopedOpenings({
+    fetchAllUtah: params.fetchScope === 'all',
+    locationQuery: params.locationQuery,
+  });
+
+  useEffect(() => {
+    setMinPlayers(params.players);
+  }, [params.players, setMinPlayers]);
 
   const {
     courses,
@@ -454,6 +464,14 @@ export function FinderPage() {
           </div>
         </div>
 
+        {view === 'list' ? (
+          <FeedTeaser
+            players={params.players}
+            fetchAllUtah={fetchAllUtah}
+            locationQuery={params.locationQuery}
+          />
+        ) : null}
+
         <div className="result-meta">
           <span className="result-count">
             <strong>{resultCountLabel}</strong>
@@ -507,6 +525,34 @@ export function FinderPage() {
                 Try tomorrow
               </button>
             </div>
+          </div>
+        ) : null}
+
+        {!catalogLoading && !loadingTimes && withTimesCount === 0 && searchPool.length > 0 && openCount > 0 ? (
+          <div className="empty-openings-hint">
+            <p>
+              No tee times match your search for <strong>{formatDateShort(params.date)}</strong>. Recent openings may still be available nearby.
+            </p>
+            <Link
+              to={`/feed?${feedQueryString({ players: params.players, locationQuery: params.locationQuery, fetchScope: params.fetchScope })}`}
+              className="btn btn-primary"
+            >
+              See {openCount} recent opening{openCount !== 1 ? 's' : ''} →
+            </Link>
+          </div>
+        ) : null}
+
+        {!catalogLoading && !loadingTimes && withTimesCount === 0 && searchPool.length > 0 && openCount === 0 && statewideHiddenCount > 0 ? (
+          <div className="empty-openings-hint">
+            <p>
+              No tee times or recent openings nearby for <strong>{formatDateShort(params.date)}</strong>.
+            </p>
+            <Link
+              to={`/feed?${feedQueryString({ players: params.players, locationQuery: params.locationQuery, fetchScope: 'all' })}`}
+              className="btn btn-primary"
+            >
+              See {statewideHiddenCount} opening{statewideHiddenCount !== 1 ? 's' : ''} statewide →
+            </Link>
           </div>
         ) : null}
 
@@ -581,7 +627,7 @@ export function FinderPage() {
             {showBookingOnly ? (
               <>
                 <p className="booking-only-blurb">
-                  These courses aren&apos;t on live inventory yet — we&apos;ll add tee times as platforms come online.
+                  These courses aren&apos;t on live inventory yet. We&apos;ll add tee times as platforms come online.
                 </p>
                 <div className="mp-grid booking-only-grid">
                   {bookingOnlySorted.map((course) => (
@@ -606,7 +652,7 @@ export function FinderPage() {
         <div className="finder-help">
           <div className="finder-help-title">Planning with a group?</div>
           <p>
-            Tap <strong>Share times</strong> on any course to pick tee times and get a vote link — or open a course for
+            Tap <strong>Share times</strong> on any course to pick tee times and get a vote link, or open a course for
             the full list. Past links live under <strong>Shared rounds</strong> in the nav.
           </p>
         </div>

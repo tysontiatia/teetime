@@ -367,7 +367,7 @@ export function AdminCourseEditPage() {
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: '#fff' }}>
           {section('Booking platform')}
-          <Field label="Booking URL" hint="Paste from course site or Google — then Parse">
+          <Field label="Booking URL" hint="Paste from course site or Google, then Parse">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <input
                 className="input"
@@ -387,7 +387,7 @@ export function AdminCourseEditPage() {
               value={record.platform}
               onChange={(e) => patchRecord({ platform: e.target.value })}
             >
-              <option value="">— select —</option>
+              <option value="">Select…</option>
               {PLATFORMS.map((p) => (
                 <option key={p} value={p}>
                   {platformDisplayName(p)}
@@ -396,7 +396,7 @@ export function AdminCourseEditPage() {
             </select>
           </Field>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
-            {platformDisplayName(record.platform)} — {capHint}
+            {platformDisplayName(record.platform)}. {capHint}
           </p>
 
           {(record.platform === 'foreup' || record.platform === 'foreup_login') && (

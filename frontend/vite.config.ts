@@ -15,7 +15,22 @@ function repoPublicDevAssets(): Plugin {
       server.middlewares.use((req, res, next) => {
         if (req.method !== 'GET' && req.method !== 'HEAD') return next()
 
-        const urlPath = (req.url ?? '').split('?')[0] ?? ''
+        const rawUrl = req.url ?? ''
+        const urlPath = rawUrl.split('?')[0] ?? ''
+
+        // Marketing homepage lives in repo-root public/ (same as production Pages at /).
+        if (urlPath === '/' || urlPath === '/index.html') {
+          return sendRepoFile(path.join(repoPublicDir, 'index.html'), res)
+        }
+
+        // Match production Pages redirect: /app → /app/ (preserve query string).
+        if (urlPath === '/app') {
+          const qs = rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?')) : ''
+          res.statusCode = 302
+          res.setHeader('Location', `/app/${qs}`)
+          res.end()
+          return
+        }
 
         if (urlPath === '/courses.json') {
           return sendRepoFile(path.join(repoPublicDir, 'courses.json'), res)

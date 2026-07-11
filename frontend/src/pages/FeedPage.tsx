@@ -1,48 +1,56 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { fetchRecentOpenings, type FeedItem } from '../lib/feedApi';
-import { parseCourseTitle } from '../lib/courseRecord';
-import { coursePhotoUrl } from '../lib/coursePhotoUrl';
-import { formatDateShort, formatReopenedAgo, formatTime12h } from '../lib/time';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { useOpeningsPreview } from '../state/OpeningsPreviewContext';
+import { FeedOpeningCard } from '../components/FeedOpeningCard';
+import { buildFeedScope, feedScopeLabel, filterFeedItems } from '../lib/feedScope';
+import { countFeedHotOpenings, feedMinutesSinceDetected, FEED_JUST_DETECTED_MINUTES, sortFeedItemsByUrgency } from '../lib/feedDisplay';
+import { courseDistanceMap } from '../lib/feedDistanceMap';
 
 type PlayersFilter = 1 | 2 | 3 | 4;
 type HoursFilter = 6 | 12 | 24;
 
-function feedTimeLabel(item: FeedItem): string {
-  if (item.play_starts_at) return formatTime12h(item.play_starts_at);
-  const m = item.starts_at_local.match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return item.starts_at_local;
-  const h = Number(m[1]);
-  const mm = m[2];
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${mm} ${ampm}`;
-}
-
-function feedDetectedLabel(item: FeedItem): string {
-  const base = formatReopenedAgo(item.detected_at);
-  if (item.event_type === 'reopened' && base.startsWith('Opened')) {
-    return base.replace(/^Opened/, 'Reopened');
-  }
-  if (item.event_type === 'reopened' && base === 'Just opened') return 'Just reopened';
-  return base;
-}
-
-function formatPrice(cents: number | null): string | null {
-  if (cents == null) return null;
-  return `$${Math.round(cents / 100)}`;
+function clampPlayers(n: number): PlayersFilter {
+  if (n <= 1) return 1;
+  if (n === 2) return 2;
+  if (n === 3) return 3;
+  return 4;
 }
 
 export function FeedPage() {
-  const { recordsBySlug } = useCourseCatalog();
+  const { recordsBySlug, courses, userLocation, loading: catalogLoading } = useCourseCatalog();
+  const { setMinPlayers: syncPreviewPlayers } = useOpeningsPreview();
+  const [sp, setSp] = useSearchParams();
+  const urlPlayers = clampPlayers(Number(sp.get('players') || 2));
+  const fetchAllUtah = sp.get('scope') === 'all';
+  const locationQuery = sp.get('q') || '';
+
   const [hours, setHours] = useState<HoursFilter>(6);
-  const [minPlayers, setMinPlayers] = useState<PlayersFilter>(2);
+  const [minPlayers, setMinPlayers] = useState<PlayersFilter>(urlPlayers);
   const [openOnly, setOpenOnly] = useState(true);
   const [items, setItems] = useState<FeedItem[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  const setFetchScope = useCallback(
+    (scope: 'nearby' | 'all') => {
+      const next = new URLSearchParams(sp);
+      if (scope === 'all') next.set('scope', 'all');
+      else next.delete('scope');
+      setSp(next, { replace: true });
+    },
+    [sp, setSp],
+  );
+
+  useEffect(() => {
+    setMinPlayers(urlPlayers);
+  }, [urlPlayers]);
+
+  useEffect(() => {
+    syncPreviewPlayers(minPlayers);
+  }, [minPlayers, syncPreviewPlayers]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,6 +60,7 @@ export function FeedPage() {
         hours,
         min_players: minPlayers,
         open_only: openOnly,
+        limit: 80,
       });
       setItems(data.items);
       setGeneratedAt(data.meta.generated_at);
@@ -72,16 +81,89 @@ export function FeedPage() {
     return () => window.clearInterval(id);
   }, [load]);
 
+  const feedScopeResult = useMemo(
+    () =>
+      buildFeedScope(courses, userLocation, {
+        fetchAllUtah,
+        locationQuery,
+      }),
+    [courses, userLocation, fetchAllUtah, locationQuery],
+  );
+
+  const scopeReady = feedScopeResult.scopeReady && !catalogLoading;
+
+  const distanceMiBySlug = useMemo(() => courseDistanceMap(courses), [courses]);
+
+  const filteredItems = useMemo(() => {
+    if (feedScopeResult.isRegional && !scopeReady) return [];
+    return filterFeedItems(items, feedScopeResult.slugAllowlist);
+  }, [items, feedScopeResult.slugAllowlist, feedScopeResult.isRegional, scopeReady]);
+
+  const scopedItems = useMemo(
+    () => sortFeedItemsByUrgency(filteredItems, distanceMiBySlug),
+    [filteredItems, distanceMiBySlug],
+  );
+
+  const hotCount = useMemo(() => countFeedHotOpenings(scopedItems), [scopedItems]);
+
+  const justDetected = useMemo(
+    () => scopedItems.filter((item) => feedMinutesSinceDetected(item) <= FEED_JUST_DETECTED_MINUTES),
+    [scopedItems],
+  );
+
+  const earlierToday = useMemo(
+    () => scopedItems.filter((item) => feedMinutesSinceDetected(item) > FEED_JUST_DETECTED_MINUTES),
+    [scopedItems],
+  );
+
+  const scopeLabel = useMemo(() => feedScopeLabel(feedScopeResult.scope), [feedScopeResult.scope]);
+  const statewideHiddenCount =
+    scopeReady && feedScopeResult.isRegional ? items.length - filteredItems.length : 0;
+
+  const partyLabel = useMemo(
+    () => `${minPlayers} player${minPlayers !== 1 ? 's' : ''}`,
+    [minPlayers],
+  );
+
   return (
     <div className="container feed-page">
       <div className="feed-page-card">
         <div className="pill">Recent openings</div>
-        <h2 className="feed-page-title">Fresh tee times</h2>
+        <h1 className="feed-page-title">Fresh tee times</h1>
         <p className="feed-page-lede">
-          Tee times we&apos;ve detected opening or reopening across Utah courses. Updated every few minutes — not a live booking feed, but the same signal that powers alerts.
+          Cancellations and new releases we&apos;ve detected. Same signal that powers alerts, usually within a few minutes of our poll cycle.
+          {' '}
+          Showing <strong>{scopeLabel.toLowerCase()}</strong> first
+          {hotCount > 0 ? (
+            <>
+              {' '}
+              with <strong>{hotCount} live</strong>.
+            </>
+          ) : (
+            '.'
+          )}
         </p>
 
         <div className="feed-filters" role="group" aria-label="Feed filters">
+          <div className="feed-filter-group">
+            <span className="feed-filter-label">Area</span>
+            <div className="seg feed-filter-seg">
+              <button
+                type="button"
+                className={!fetchAllUtah ? 'on' : ''}
+                onClick={() => setFetchScope('nearby')}
+              >
+                Nearby
+              </button>
+              <button
+                type="button"
+                className={fetchAllUtah ? 'on' : ''}
+                onClick={() => setFetchScope('all')}
+              >
+                All Utah
+              </button>
+            </div>
+          </div>
           <div className="feed-filter-group">
             <span className="feed-filter-label">Window</span>
             <div className="seg feed-filter-seg">
@@ -135,72 +217,70 @@ export function FeedPage() {
 
         {err ? <p className="feed-page-err">{err}</p> : null}
 
-        {loading && items.length === 0 && !err ? (
+        {loading && scopedItems.length === 0 && !err ? (
           <p className="feed-page-status">Loading openings…</p>
-        ) : !loading && items.length === 0 && !err ? (
-          <p className="feed-page-status">
-            No openings in the last {hours} hours matching {minPlayers} player{minPlayers !== 1 ? 's' : ''}.
-            {openOnly ? ' Try turning off “Still available only” or widen the window.' : ' Widen the window or check back after the next poll cycle.'}
-          </p>
+        ) : !loading && scopedItems.length === 0 && !err ? (
+          <div className="feed-page-status">
+            <p>
+              No openings {scopeLabel.toLowerCase()} in the last {hours} hours for {partyLabel}.
+              {openOnly ? ' Try turning off “Still available only” or widen the window.' : ' Widen the window or check back after the next poll cycle.'}
+            </p>
+            {!fetchAllUtah && statewideHiddenCount > 0 ? (
+              <button type="button" className="btn btn-primary feed-scope-expand" onClick={() => setFetchScope('all')}>
+                See {statewideHiddenCount} opening{statewideHiddenCount !== 1 ? 's' : ''} statewide →
+              </button>
+            ) : null}
+          </div>
         ) : (
-          <ul className="feed-list">
-            {items.map((item) => {
-              const record = recordsBySlug.get(item.course_slug);
-              const { short, city } = parseCourseTitle(item.course_name);
-              const photo = record ? coursePhotoUrl(record) : undefined;
-              const price = formatPrice(item.price_cents);
-              const courseHref = `/course/${item.course_slug}?date=${item.play_date}&players=${minPlayers}&holes=${item.holes}`;
+          <>
+            {justDetected.length > 0 ? (
+              <section className="feed-section">
+                <h2 className="feed-section-title">Just detected</h2>
+                <ul className="feed-opening-grid">
+                  {justDetected.map((item) => (
+                    <li key={item.id}>
+                      <FeedOpeningCard
+                        item={item}
+                        record={recordsBySlug.get(item.course_slug)}
+                        minPlayers={minPlayers}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
-              return (
-                <li key={item.id} className={`feed-item${item.still_open ? '' : ' is-gone'}`}>
-                  <Link to={courseHref} className="feed-item-link">
-                    {photo ? (
-                      <img className="feed-item-photo" src={photo} alt="" loading="lazy" />
-                    ) : (
-                      <div className="feed-item-photo feed-item-photo--placeholder" aria-hidden>
-                        ⛳
-                      </div>
-                    )}
-                    <div className="feed-item-body">
-                      <div className="feed-item-top">
-                        <span className={`feed-item-badge feed-item-badge--${item.event_type}`}>
-                          {item.event_type === 'reopened' ? 'Reopened' : 'New'}
-                        </span>
-                        <span className="feed-item-detected">{feedDetectedLabel(item)}</span>
-                      </div>
-                      <div className="feed-item-course">
-                        {short}
-                        {city ? <span className="feed-item-city"> · {city}</span> : null}
-                      </div>
-                      <div className="feed-item-detail">
-                        <strong>{feedTimeLabel(item)}</strong>
-                        <span className="feed-item-sep">·</span>
-                        {formatDateShort(item.play_date)}
-                        {price ? (
-                          <>
-                            <span className="feed-item-sep">·</span>
-                            {price}
-                          </>
-                        ) : null}
-                        {item.spots_open != null ? (
-                          <>
-                            <span className="feed-item-sep">·</span>
-                            {item.spots_open} spot{item.spots_open !== 1 ? 's' : ''}
-                          </>
-                        ) : null}
-                      </div>
-                      {!item.still_open ? (
-                        <div className="feed-item-gone">May no longer be available</div>
-                      ) : null}
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+            {earlierToday.length > 0 ? (
+              <details className="feed-section feed-section-earlier" open={justDetected.length === 0}>
+                <summary className="feed-section-title">
+                  Earlier today
+                  <span className="feed-section-count">{earlierToday.length}</span>
+                </summary>
+                <ul className="feed-opening-grid">
+                  {earlierToday.map((item) => (
+                    <li key={item.id}>
+                      <FeedOpeningCard
+                        item={item}
+                        record={recordsBySlug.get(item.course_slug)}
+                        minPlayers={minPlayers}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+
+            {!fetchAllUtah && statewideHiddenCount > 0 ? (
+              <p className="feed-scope-foot">
+                <button type="button" className="feed-teaser-link feed-scope-more-btn" onClick={() => setFetchScope('all')}>
+                  +{statewideHiddenCount} more statewide →
+                </button>
+              </p>
+            ) : null}
+          </>
         )}
 
-        <Link to="/" className="btn btn-ghost" style={{ marginTop: 18 }}>
+        <Link to="/" className="btn btn-ghost feed-page-back">
           Browse all courses →
         </Link>
       </div>

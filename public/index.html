@@ -21,13 +21,13 @@
   <link rel="canonical" href="https://tee-time.io/" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tee-time.io/" />
-  <meta property="og:title" content="tee-time.io — Every tee time. One search." />
-  <meta property="og:description" content="Live tee times across Utah golf courses — ForeUp, Chronogolf, MemberSports, and more in one search." />
+  <meta property="og:title" content="tee-time.io · Every tee time. One search." />
+  <meta property="og:description" content="Live tee times across Utah golf courses: ForeUp, Chronogolf, MemberSports, and more in one search." />
   <meta property="og:site_name" content="tee-time.io" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="tee-time.io — Every tee time. One search." />
+  <meta name="twitter:title" content="tee-time.io · Every tee time. One search." />
   <meta name="twitter:description" content="67+ Utah courses in one search. Plan with your group. Get alerted when slots open." />
-  <title>tee-time.io — Every tee time. One search.</title>
+  <title>tee-time.io · Every tee time. One search.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -296,156 +296,104 @@
     .live-strip b { color: var(--pine-deep); font-weight: 600; }
     html[data-theme='dark'] .live-strip b { color: var(--accent); }
 
-    /* Inventory — marketplace cards (matches /app finder) */
-    .inventory { padding: 28px 0 16px; }
-    .mp-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-      gap: 34px 26px;
-      padding-bottom: 8px;
+    /* Live activity — alert proof + CTA */
+    .live-activity-home {
+      padding-top: 8px;
+      padding-bottom: 56px;
+    }
+    .lah-panel {
+      padding: 28px 26px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--green-soft) 32%, var(--card));
       min-width: 0;
-      width: 100%;
     }
-    /* Featured strip: exactly three cards — one row desktop, stack on smaller screens */
-    .mp-grid--featured {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      max-width: 1080px;
-      margin: 0 auto;
+    html[data-theme='dark'] .lah-panel {
+      background: color-mix(in srgb, var(--green-soft) 14%, var(--card));
+      border-color: color-mix(in srgb, var(--fairway) 12%, var(--line));
     }
-    .mp-course { cursor: pointer; background: transparent; border: none; padding: 0; text-align: left; width: 100%; color: inherit; }
-    .mp-course-media {
-      border-radius: var(--radius);
-      overflow: hidden;
-      background: var(--sand);
-      border: 1px solid rgba(30,77,59,0.06);
-      transition: box-shadow .2s, transform .2s;
+    .live-activity-home .lah-grid[hidden],
+    .live-activity-home .lah-cta[hidden],
+    .live-activity-home .lah-link[hidden] { display: none; }
+    .lah-fallback {
+      margin-top: 20px; padding: 28px 24px; text-align: center;
+      border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--card);
     }
-    .mp-course:hover .mp-course-media { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
-    .mp-course-photo {
-      position: relative;
-      aspect-ratio: 4/3;
-      overflow: hidden;
-      margin-bottom: 0;
-      background: var(--sand);
+    .lah-fallback[hidden] { display: none; }
+    .lah-fallback .lah-cta { margin-top: 0; }
+    .lah-pill {
+      display: inline-flex; align-items: center;
+      padding: 4px 10px; border-radius: 999px;
+      background: color-mix(in srgb, #c2410c 14%, var(--card));
+      border: 1px solid color-mix(in srgb, #ea580c 28%, var(--line));
+      color: #c2410c; font-size: 10px; font-weight: 800;
+      letter-spacing: .08em; text-transform: uppercase;
     }
-    .mp-course-photo-link { display: block; height: 100%; color: inherit; text-decoration: none; }
-    .mp-course-photo img,
-    .mp-course-photo .mp-photo-fallback {
-      width: 100%; height: 100%; object-fit: cover; display: block;
+    html[data-theme='dark'] .lah-pill {
+      color: #fdba74;
+      background: color-mix(in srgb, #ea580c 18%, var(--card));
     }
-    .mp-course-photo img.is-broken { display: none; }
-    .mp-photo-fallback { background: linear-gradient(135deg, #2E5E43 0%, #4C8A5C 55%, #67A86B 100%); }
-    .mp-course-photo::before {
-      content: '';
-      position: absolute; left: 0; right: 0; top: 0; height: 88px; z-index: 1; pointer-events: none;
-      background: linear-gradient(180deg, rgba(12,20,16,0.72) 0%, rgba(12,20,16,0.28) 55%, rgba(12,20,16,0) 100%);
+    .lah-head-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; margin-top: 12px;
     }
-    .mp-course-scrim {
-      position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
-      display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
-      padding: 56px 14px 14px;
-      background: linear-gradient(180deg, rgba(12,20,16,0) 0%, rgba(12,20,16,0.55) 48%, rgba(12,20,16,0.82) 100%);
-      color: #fff; pointer-events: none;
+    .lah-head-main { min-width: 0; }
+    .lah-sub { margin-top: 8px; max-width: 40rem; }
+    .lah-link {
+      flex-shrink: 0; padding-top: 8px;
+      font-size: 14px; font-weight: 600; color: var(--pine);
+      text-decoration: none; white-space: nowrap;
     }
-    .mp-course-scrim-main { min-width: 0; flex: 1; }
-    .mp-course-scrim .course-name {
-      font-family: var(--font-display); font-weight: 700; font-size: 18px;
-      letter-spacing: -.02em; line-height: 1.25; color: #fff;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-      overflow-wrap: anywhere; word-break: break-word;
+    html[data-theme='dark'] .lah-link { color: var(--fairway); }
+    .lah-link:hover { text-decoration: underline; }
+    .lah-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px; margin-top: 24px;
     }
-    .mp-course-scrim .course-meta {
-      margin-top: 4px; font-size: 13px; color: rgba(255,255,255,0.88);
-      display: flex; flex-wrap: wrap; align-items: center; gap: 6px; line-height: 1.35;
+    .lah-card {
+      display: flex; align-items: stretch; gap: 12px;
+      min-width: 0; padding: 10px; border-radius: 14px;
+      border: 1px solid var(--line); background: var(--card);
+      text-decoration: none; color: inherit;
+      transition: border-color .15s, box-shadow .15s, transform .15s;
     }
-    .mp-course-scrim .course-rating { color: #fff; font-weight: 500; white-space: nowrap; }
-    .mp-course-scrim .course-rating > span:not(.star-gold) { color: rgba(255,255,255,0.78); font-weight: 400; }
-    .mp-course-scrim .star-gold { color: #F5C542; text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-    .mp-course-scrim .sep { color: rgba(255,255,255,0.45); }
-    .mp-course-price {
-      font-family: var(--font-display); font-weight: 700; font-size: 18px;
-      letter-spacing: -.02em; color: #fff; flex-shrink: 0;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    .lah-card:hover {
+      border-color: color-mix(in srgb, var(--pine) 28%, var(--line));
+      box-shadow: 0 6px 20px rgba(20,30,25,.08);
+      transform: translateY(-1px);
     }
-    .badge-live {
-      position: absolute; top: 12px; left: 12px; max-width: calc(100% - 96px);
-      background: rgba(20,30,25,.72); backdrop-filter: blur(6px); color: #fff;
-      font-family: var(--font-mono); font-size: 12px; font-weight: 500;
-      padding: 6px 12px; border-radius: 999px;
-      display: flex; align-items: center; gap: 7px; z-index: 2;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    .lah-card.is-hot {
+      border-color: color-mix(in srgb, var(--pine) 32%, var(--line));
     }
-    .badge-live .pulse {
-      width: 7px; height: 7px; border-radius: 50%; background: var(--fairway);
-      animation: live-pulse 2s infinite; flex-shrink: 0;
+    .lah-photo {
+      flex-shrink: 0; width: 72px; height: 72px;
+      border-radius: 10px; overflow: hidden; background: var(--sand);
     }
-    .badge-live.is-muted { background: rgba(20,30,25,.42); backdrop-filter: blur(4px); }
-    .mp-course-actions {
-      position: absolute; top: 10px; right: 10px; z-index: 2;
-      display: flex; align-items: center; gap: 6px;
+    .lah-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .lah-photo-fallback {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #2E5E43 0%, #4C8A5C 55%, #67A86B 100%);
     }
-    .mp-icon-btn {
-      width: 36px; height: 36px; border-radius: 50%; background: transparent;
-      display: grid; place-items: center; transition: transform .15s, background .15s;
-      color: #fff; border: none; cursor: pointer; padding: 0;
-      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+    .lah-body { min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+    .lah-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .lah-badge {
+      font-size: 9px; font-weight: 800; letter-spacing: .06em;
+      text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
     }
-    .mp-icon-btn:hover { transform: scale(1.08); background: rgba(255,255,255,0.16); }
-    .mp-course.is-empty .mp-course-photo img,
-    .mp-course.is-empty .mp-photo-fallback { filter: grayscale(0.4) brightness(0.9); opacity: 0.7; }
-    .mp-course.is-empty .mp-course-scrim { opacity: 0.92; }
-    .mp-course.is-empty .mp-course-media { border-color: color-mix(in srgb, var(--line) 70%, transparent); }
-    .mp-course.is-empty:hover .mp-course-media { transform: none; box-shadow: none; }
-    .tee-strip {
-      display: flex; gap: 8px; margin-top: 0; padding: 10px 10px 12px;
-      overflow-x: auto; scrollbar-width: none;
-      background: color-mix(in srgb, var(--sand) 72%, var(--card));
-      border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
-      min-height: 64px; align-items: center; box-sizing: border-box;
-    }
-    .tee-strip::-webkit-scrollbar { display: none; }
-    .tee-chip {
-      flex-shrink: 0; border: 1px solid transparent;
-      background: color-mix(in srgb, var(--card) 88%, var(--sand));
-      border-radius: 10px; padding: 8px 12px; text-align: center;
-      transition: background .15s, color .15s, box-shadow .15s;
-      line-height: 1.25; text-decoration: none; color: inherit; display: block;
-    }
-    .tee-chip:hover { background: var(--card); box-shadow: 0 1px 0 rgba(20,30,25,0.04); }
-    .tee-chip .t {
-      font-family: var(--font-mono); font-weight: 600; font-size: 13px;
-      display: block; color: var(--ink); letter-spacing: -.01em;
-    }
-    .tee-chip .p {
-      font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
-      margin-top: 1px; display: block;
-    }
-    .tee-chip.hot {
-      background: color-mix(in srgb, var(--fairway) 22%, var(--card));
-      border-color: transparent;
-    }
-    .tee-chip.hot .t { color: var(--pine-deep); }
-    .tee-chip.hot .p { color: var(--fairway-ink); }
-    .tee-strip-empty {
-      align-items: center; justify-content: space-between; gap: 12px;
-      min-height: 64px; padding: 12px 14px;
-    }
-    .tee-empty-msg { font-size: 13px; color: var(--ink-3); line-height: 1.35; min-width: 0; }
-    .tee-empty-action {
-      flex-shrink: 0; border: none; background: none; padding: 0; margin: 0;
-      font: inherit; font-size: 13px; font-weight: 600; color: var(--pine);
-      cursor: pointer; white-space: nowrap; text-decoration: none;
-    }
-    .tee-empty-action:hover {
-      color: var(--pine-deep); text-decoration: underline; text-underline-offset: 2px;
-    }
-    html[data-theme='dark'] .mp-course-media { border-color: rgba(255,255,255,0.06); }
-    html[data-theme='dark'] .tee-chip.hot { background: color-mix(in srgb, var(--fairway) 18%, var(--card)); }
-    html[data-theme='dark'] .tee-chip.hot .t { color: var(--fairway); }
-    html[data-theme='dark'] .badge-live.is-muted { background: rgba(0,0,0,.45); }
-    html[data-theme='dark'] .tee-empty-action:hover { color: var(--fairway); }
-    .inventory .more { text-align: center; margin-top: 24px; }
-    .inventory .more .btn { margin-inline: auto; }
+    .lah-badge.is-live { color: #fff; background: var(--pine); }
+    .lah-badge.is-new { color: #c2410c; background: #ffedd5; }
+    html[data-theme='dark'] .lah-badge.is-new { color: #fdba74; background: color-mix(in srgb, #ea580c 22%, var(--card)); }
+    .lah-ago { font-size: 11px; font-weight: 600; color: var(--ink-3); }
+    .lah-ago.is-hot { color: var(--pine); }
+    html[data-theme='dark'] .lah-ago.is-hot { color: var(--fairway); }
+    .lah-course { font-size: 14px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lah-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+    .lah-when { font-size: 12px; color: var(--ink-3); line-height: 1.35; min-width: 0; flex: 1; }
+    .lah-price { flex-shrink: 0; font-family: var(--font-display); font-size: 14px; font-weight: 700; }
+    .lah-cta { margin-top: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .lah-cta .btn { margin-inline: auto; }
+    .lah-link--below { padding-top: 0; font-size: 14px; }
 
     /* Bands */
     section.band { padding: 72px 0; }
@@ -628,11 +576,7 @@
     @media (max-width: 860px) {
       .alert-cta { grid-template-columns: 1fr; padding: 32px 24px; }
       .foot-grid { grid-template-columns: 1fr 1fr; }
-      .mp-grid--featured {
-        grid-template-columns: minmax(0, 1fr);
-        max-width: min(420px, 100%);
-        margin-inline: auto;
-      }
+      .lah-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 720px) {
       :root {
@@ -680,11 +624,6 @@
         margin: 28px auto 0; flex-direction: column; align-items: center;
         gap: 8px; font-size: 12px; text-align: center; max-width: 20rem;
       }
-
-      /* Featured courses — centered card column */
-      .inventory { padding: 24px 0 16px; }
-      .inventory .more { margin-top: 24px; display: flex; justify-content: center; }
-      .inventory .more .btn { width: 100%; max-width: 420px; }
 
       /* Content bands — centered intros, readable cards */
       section.band { padding: 56px 0; text-align: center; }
@@ -741,13 +680,53 @@
       }
       .foot-auth-btn { text-align: center; width: 100%; }
 
-      .mp-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-      .mp-grid--featured { max-width: min(420px, 100%); margin-inline: auto; }
-      .mp-course-scrim { padding: 48px 14px 14px; gap: 8px; }
-      .mp-course-scrim .course-name { font-size: 16.5px; line-height: 1.3; }
-      .mp-course-scrim .course-meta { font-size: 12px; }
-      .badge-live { top: 10px; left: 10px; font-size: 11px; padding: 5px 10px; max-width: calc(100% - 88px); }
-      .tee-strip-empty { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .lah-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 18px; }
+      .lah-grid .lah-card:nth-child(n+4) { display: none; }
+      .live-activity-home {
+        text-align: center;
+        padding-bottom: 40px;
+      }
+      .live-activity-home .lah-panel {
+        padding: 22px 18px;
+        border-radius: 18px;
+        text-align: center;
+      }
+      .live-activity-home h2 {
+        max-width: 18rem;
+        margin-inline: auto;
+        font-size: clamp(1.35rem, 5.2vw, 1.65rem);
+        line-height: 1.14;
+        margin-bottom: 0;
+      }
+      .live-activity-home .lah-sub {
+        max-width: 22rem;
+        margin: 8px auto 0;
+        padding: 0 2px;
+        text-align: center;
+      }
+      .live-activity-home .lah-head-row {
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+      }
+      .live-activity-home .lah-card {
+        padding: 12px;
+        gap: 10px;
+        text-align: left;
+      }
+      .live-activity-home .lah-card:hover { transform: none; box-shadow: none; }
+      .live-activity-home .lah-photo { width: 64px; height: 64px; }
+      .live-activity-home .lah-course { font-size: 13.5px; }
+      .live-activity-home .lah-top { gap: 6px; }
+      .live-activity-home .lah-meta { align-items: flex-start; gap: 4px 10px; }
+      .live-activity-home .lah-when {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .live-activity-home .lah-cta .btn { width: 100%; max-width: 420px; }
     }
     @media (max-width: 380px) {
       .logo-text-short { display: none; }
@@ -797,8 +776,8 @@
     <div class="eyebrow"><span class="dot" aria-hidden="true"></span><span id="catalogEyebrow">67 courses in Utah · live now</span></div>
     <h1>Every tee time.<br><span class="accent">One search.</span></h1>
     <p class="sub">
-      Stop checking six booking sites before sunrise. Tee-Time searches <strong>live availability across every course</strong> —
-      compare times and prices, plan a round with your group, and get a text the second a slot opens.
+      Stop checking six booking sites before sunrise. Tee-Time searches <strong>live availability across every course</strong>.
+      Compare times and prices, plan a round with your group, and get a text the second a slot opens.
     </p>
 
     <form class="search" id="heroSearchForm" aria-label="Search tee times">
@@ -844,9 +823,27 @@
   </header>
 
   <main>
-    <section class="inventory wrap" aria-label="Featured courses">
-      <div class="mp-grid mp-grid--featured" id="courseGrid"></div>
-      <div class="more"><a class="btn btn-ghost" href="/app/" id="seeAllLink">See all courses with times today</a></div>
+    <section class="band wrap live-activity-home band--tight" id="live-activity" aria-label="Tee time alert openings">
+      <div class="lah-panel">
+        <span class="lah-pill">Tee time alerts</span>
+        <div class="lah-head-row">
+          <div class="lah-head-main">
+            <h2>Openings we'd text you about</h2>
+            <p class="lede lah-sub" id="liveActivitySub">Checking for newly available tee times…</p>
+          </div>
+        </div>
+        <div class="lah-grid" id="liveActivityGrid" aria-live="polite" hidden></div>
+        <div class="lah-fallback" id="liveActivityFallback" hidden>
+          <div class="lah-cta">
+            <a class="btn" href="#alerts" id="liveActivityFallbackCta">Set up free alerts</a>
+            <a class="lah-link lah-link--below" href="/app/">Browse all courses</a>
+          </div>
+        </div>
+        <div class="lah-cta" id="liveActivityCtaWrap" hidden>
+          <a class="btn" href="#alerts" id="liveActivityCta">Set up free alerts</a>
+          <a class="lah-link lah-link--below" href="/app/feed/" id="liveActivityViewAll">View all openings →</a>
+        </div>
+      </div>
     </section>
 
     <section class="band wrap" id="plan">
@@ -859,21 +856,21 @@
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           </div>
           <h3>Find times now</h3>
-          <p>Every course's tee sheet in one place, refreshed every few minutes. Compare times, prices, and walkability — then book direct with the course. No markups, ever.</p>
+          <p>Every course's tee sheet in one place, refreshed every few minutes. Compare times, prices, and walkability, then book direct with the course. No markups, ever.</p>
         </article>
         <article class="pillar">
           <div class="icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M15.5 3.13a4 4 0 010 7.75"/></svg>
           </div>
           <h3>Plan it with your group</h3>
-          <p>Share a round link, let everyone vote on times that work, and lock it in — one link replaces the group-chat chaos.</p>
+          <p>Share a round link, let everyone vote on times that work, and lock it in. One link replaces the group-chat chaos.</p>
         </article>
         <article class="pillar">
           <div class="icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
           </div>
           <h3>Never miss an opening</h3>
-          <p>Set an alert for a course, a day, or a price. When a slot opens — a cancellation, a new release — we text you within minutes.</p>
+          <p>Set an alert for a course, a day, or a price. When a slot opens, whether it's a cancellation or a new release, we text you within minutes.</p>
         </article>
       </div>
     </section>
@@ -885,7 +882,7 @@
         <article class="step">
           <p class="n">01</p>
           <h3>Search once</h3>
-          <p>Tell us where, when, and how many. We check every course at the same time — including the ones you forgot exist.</p>
+          <p>Tell us where, when, and how many. We check every course at the same time, including the ones you forgot exist.</p>
         </article>
         <article class="step">
           <p class="n">02</p>
@@ -905,7 +902,7 @@
         <div>
           <p class="kicker">Tee time alerts</p>
           <h2>The good times get taken. Get them back.</h2>
-          <p class="lede">Tell us the course and the window you want. The moment a slot opens up, it's in your texts — usually while everyone else is still refreshing.</p>
+          <p class="lede">Tell us the course and the window you want. The moment a slot opens up, it's in your texts, usually while everyone else is still refreshing.</p>
           <form id="alertForm">
             <input type="tel" id="alertPhone" placeholder="Your phone number" aria-label="Phone number" />
             <button type="submit" class="btn">Start free alerts</button>
@@ -914,7 +911,7 @@
         <div class="phone" aria-hidden="true">
           <p class="ph-head">Messages · Today 7:02 AM</p>
           <div class="sms">
-            <b>Tee-Time.io:</b> A 7:30am just opened at Bonneville — 4 players, $50.
+            <b>Tee-Time.io:</b> A 7:30am just opened at Bonneville: 4 players, $50.
             <span class="link">Book it before someone's brother-in-law does.</span>
             <p class="sms-time">Delivered 40 seconds after it opened</p>
           </div>
@@ -925,12 +922,12 @@
     <section class="band wrap band--tight" id="states">
       <p class="kicker">Where we're live</p>
       <h2>Starting where the golf is underrated.</h2>
-      <p class="lede">Utah is live with <span id="stateCourseCount">67</span> public courses tracked. More states are on the way — tell us where to go next.</p>
+      <p class="lede">Utah is live with <span id="stateCourseCount">67</span> public courses tracked. More states are on the way. Tell us where to go next.</p>
       <div class="states">
-        <span class="state live"><span class="dot"></span>Utah — <span id="statePillCount">67</span> courses live</span>
-        <span class="state"><span class="dot"></span>Idaho — coming soon</span>
-        <span class="state"><span class="dot"></span>Arizona — coming soon</span>
-        <span class="state"><span class="dot"></span>Colorado — coming soon</span>
+        <span class="state live"><span class="dot"></span>Utah · <span id="statePillCount">67</span> courses live</span>
+        <span class="state"><span class="dot"></span>Idaho · coming soon</span>
+        <span class="state"><span class="dot"></span>Arizona · coming soon</span>
+        <span class="state"><span class="dot"></span>Colorado · coming soon</span>
         <button type="button" class="state waitlist" onclick="openAuthModal('signup')">+ Your state? Create an account</button>
       </div>
     </section>
@@ -974,7 +971,7 @@
             <img class="logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="28" height="28" />
             <span>Tee-Time<span class="io">.io</span></span>
           </a>
-          <p class="foot-tagline">Live tee times from every course, in one search. Book direct — no markups.</p>
+          <p class="foot-tagline">Live tee times from every course, in one search. Book direct. No markups.</p>
         </div>
         <div>
           <h4>Popular courses</h4>
@@ -1000,7 +997,7 @@
         </div>
       </div>
       <div class="foot-note">
-        <span>© 2026 Tee-Time.io · Made in Salt Lake City</span>
+        <span>© 2026 Tee-Time.io · Made with ❤️ in Salt Lake City</span>
         <span><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/app/account/">Alerts &amp; SMS opt-in</a></span>
         <span>Not affiliated with any booking provider. We just find the times.</span>
       </div>
@@ -1018,193 +1015,198 @@
       const i = name.indexOf(' (');
       return i > 0 ? name.slice(0, i) : name;
     }
-    function cityFromName(name) {
-      const m = name.match(/\(([^)]+)\)/);
-      return m ? m[1] : '';
-    }
-    function walkLabel(v) {
-      if (!v) return '';
-      if (v === 'carts only') return 'Carts only';
-      return v.charAt(0).toUpperCase() + v.slice(1);
-    }
-    function chipTimeLabel(label) {
-      return String(label).replace(/\s/g, '').toLowerCase();
-    }
-    function buildMetaText(course, city, walk) {
-      const parts = [];
-      if (city) parts.push(city);
-      if (course.par) parts.push('Par ' + course.par);
-      if (walk) parts.push(walk);
-      return parts.join(' · ');
-    }
-    function mpIconBtn(label, svgHtml, onClick) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'mp-icon-btn';
-      btn.setAttribute('aria-label', label);
-      btn.title = label;
-      btn.innerHTML = svgHtml;
-      btn.addEventListener('click', onClick);
-      return btn;
-    }
-    const BELL_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    const SHARE_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v11M8.5 6.5L12 3l3.5 3.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12v6.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V12" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
-    function buildCourseCard(course, featured, eagerPhoto) {
-      const slug = slugFromName(course.name);
-      const title = displayName(course.name);
-      const city = cityFromName(course.name);
-      const walk = walkLabel(course.walkability);
-      const courseHref = '/app/course/' + slug;
-      const metaText = buildMetaText(course, city, walk);
-      const soldOut = featured.soldOut;
-
-      const article = document.createElement('article');
-      article.className = 'mp-course' + (soldOut ? ' is-empty' : '');
-
-      const media = document.createElement('div');
-      media.className = 'mp-course-media';
-
-      const photo = document.createElement('div');
-      photo.className = 'mp-course-photo';
-
-      const link = document.createElement('a');
-      link.className = 'mp-course-photo-link';
-      link.href = courseHref;
-      link.setAttribute('aria-label', title + ' details');
-
-      if (course.photo_reference) {
-        const img = document.createElement('img');
-        img.alt = title + ' Golf Course';
-        img.decoding = 'async';
-        img.referrerPolicy = 'no-referrer';
-        img.loading = eagerPhoto ? 'eager' : 'lazy';
-        if (eagerPhoto) img.fetchPriority = 'high';
-        img.addEventListener('error', function () { img.classList.add('is-broken'); });
-        img.src = placePhotoUrl(course.photo_reference);
-        link.appendChild(img);
-      } else {
-        const fallback = document.createElement('div');
-        fallback.className = 'mp-photo-fallback';
-        fallback.setAttribute('aria-hidden', 'true');
-        link.appendChild(fallback);
-      }
-
-      const scrim = document.createElement('div');
-      scrim.className = 'mp-course-scrim';
-      const scrimMain = document.createElement('div');
-      scrimMain.className = 'mp-course-scrim-main';
-
-      const nameEl = document.createElement('div');
-      nameEl.className = 'course-name';
-      nameEl.textContent = title;
-      scrimMain.appendChild(nameEl);
-
-      if (course.rating || metaText) {
-        const metaEl = document.createElement('div');
-        metaEl.className = 'course-meta';
-        if (course.rating) {
-          const rating = document.createElement('span');
-          rating.className = 'course-rating';
-          const star = document.createElement('span');
-          star.className = 'star-gold';
-          star.setAttribute('aria-hidden', 'true');
-          star.textContent = '★';
-          rating.appendChild(star);
-          rating.appendChild(document.createTextNode(' ' + Number(course.rating).toFixed(1)));
-          if (course.review_count) {
-            const reviews = document.createElement('span');
-            reviews.textContent = ' (' + Number(course.review_count).toLocaleString() + ')';
-            rating.appendChild(reviews);
-          }
-          metaEl.appendChild(rating);
-        }
-        if (course.rating && metaText) {
-          const sep = document.createElement('span');
-          sep.className = 'sep';
-          sep.setAttribute('aria-hidden', 'true');
-          sep.textContent = '·';
-          metaEl.appendChild(sep);
-        }
-        if (metaText) metaEl.appendChild(document.createTextNode(metaText));
-        scrimMain.appendChild(metaEl);
-      }
-      scrim.appendChild(scrimMain);
-
-      if (!soldOut && featured.price) {
-        const priceEl = document.createElement('div');
-        priceEl.className = 'mp-course-price';
-        priceEl.textContent = '$' + featured.price;
-        scrim.appendChild(priceEl);
-      }
-      link.appendChild(scrim);
-      photo.appendChild(link);
-
-      const badge = document.createElement('span');
-      badge.className = 'badge-live' + (soldOut ? ' is-muted' : ' is-live');
-      if (!soldOut) {
-        const pulse = document.createElement('span');
-        pulse.className = 'pulse';
-        pulse.setAttribute('aria-hidden', 'true');
-        badge.appendChild(pulse);
-      }
-      badge.appendChild(document.createTextNode(featured.badge));
-      photo.appendChild(badge);
-
-      const actions = document.createElement('div');
-      actions.className = 'mp-course-actions';
-      actions.appendChild(mpIconBtn('Tee time alerts for ' + title, BELL_SVG, function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        openAuthModal('signin');
-      }));
-      actions.appendChild(mpIconBtn('Share vote link for ' + title, SHARE_SVG, function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        openAuthModal('signin');
-      }));
-      photo.appendChild(actions);
-      media.appendChild(photo);
-
-      if (soldOut) {
-        const emptyStrip = document.createElement('div');
-        emptyStrip.className = 'tee-strip tee-strip-empty';
-        const msg = document.createElement('span');
-        msg.className = 'tee-empty-msg';
-        msg.textContent = 'No tee times for these filters';
-        const notify = document.createElement('a');
-        notify.className = 'tee-empty-action';
-        notify.href = '#alerts';
-        notify.textContent = 'Notify me';
-        emptyStrip.appendChild(msg);
-        emptyStrip.appendChild(notify);
-        media.appendChild(emptyStrip);
-      } else {
-        const strip = document.createElement('div');
-        strip.className = 'tee-strip';
-        featured.times.forEach(function (t, i) {
-          const chip = document.createElement('a');
-          chip.className = 'tee-chip' + (i === 0 ? ' hot' : '');
-          chip.href = courseHref;
-          chip.innerHTML = '<span class="t">' + chipTimeLabel(t[0]) + '</span><span class="p">$' + t[1] + '</span>';
-          chip.addEventListener('click', function (e) { e.stopPropagation(); });
-          strip.appendChild(chip);
-        });
-        media.appendChild(strip);
-      }
-
-      article.appendChild(media);
-      return article;
-    }
     function placePhotoUrl(reference) {
       return WORKER_URL + '/place-photo?reference=' + encodeURIComponent(reference) + '&maxwidth=800';
     }
 
-    const FEATURED = [
-      { name: 'Glendale (SLC)', badge: '5 tee times', price: 42, times: [['6:24 AM', 42], ['6:33 AM', 42], ['7:09 AM', 42]], soldOut: false },
-      { name: 'Stonebridge (West Valley City)', badge: '8 tee times', price: 55, times: [['10:21 AM', 55], ['10:30 AM', 55], ['11:51 AM', 55]], soldOut: false },
-      { name: 'Rose Park (SLC)', badge: '46 tee times', price: 38, times: [['6:10 AM', 38], ['6:30 AM', 38], ['7:10 AM', 38]], soldOut: false },
-    ];
+    function feedMinutesSince(iso) {
+      return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+    }
+    function feedDetectedShort(iso) {
+      const mins = feedMinutesSince(iso);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return mins + 'm ago';
+      return Math.floor(mins / 60) + 'h ago';
+    }
+    function feedTimeLabel(item) {
+      if (item.play_starts_at) {
+        return new Date(item.play_starts_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      }
+      const m = String(item.starts_at_local || '').match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return item.starts_at_local || '';
+      const h = Number(m[1]);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return h12 + ':' + m[2] + ' ' + ampm;
+    }
+    function feedPlayWhen(item) {
+      const parts = item.play_date.split('-').map(Number);
+      const dt = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
+      const date = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      var when = date + ' · ' + feedTimeLabel(item);
+      if (item.spots_open != null) {
+        when += ' · ' + item.spots_open + ' spot' + (item.spots_open !== 1 ? 's' : '');
+      }
+      return when;
+    }
+    function buildLiveActivityCard(item, course) {
+      const mins = feedMinutesSince(item.detected_at);
+      const isHot = item.still_open && mins <= 60;
+      const detected = feedDetectedShort(item.detected_at);
+      const title = displayName(item.course_name || (course && course.name) || item.course_slug.replace(/-/g, ' '));
+      const href = '/app/course/' + item.course_slug + '?date=' + encodeURIComponent(item.play_date) + '&players=2&holes=' + (item.holes || 18);
+
+      const card = document.createElement('a');
+      card.className = 'lah-card' + (isHot ? ' is-hot' : '');
+      card.href = href;
+
+      const photoWrap = document.createElement('div');
+      photoWrap.className = 'lah-photo';
+      if (course && course.photo_reference) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.src = placePhotoUrl(course.photo_reference);
+        photoWrap.appendChild(img);
+      } else {
+        const fb = document.createElement('div');
+        fb.className = 'lah-photo-fallback';
+        fb.setAttribute('aria-hidden', 'true');
+        photoWrap.appendChild(fb);
+      }
+
+      const body = document.createElement('div');
+      body.className = 'lah-body';
+
+      const top = document.createElement('div');
+      top.className = 'lah-top';
+      const badge = document.createElement('span');
+      badge.className = 'lah-badge ' + (isHot ? 'is-live' : 'is-new');
+      badge.textContent = isHot ? 'Live' : 'New opening';
+      const ago = document.createElement('span');
+      ago.className = 'lah-ago' + (isHot ? ' is-hot' : '');
+      ago.textContent = detected;
+      top.appendChild(badge);
+      top.appendChild(ago);
+
+      const courseEl = document.createElement('div');
+      courseEl.className = 'lah-course';
+      courseEl.textContent = title;
+
+      const meta = document.createElement('div');
+      meta.className = 'lah-meta';
+      const when = document.createElement('span');
+      when.className = 'lah-when';
+      when.textContent = feedPlayWhen(item);
+      meta.appendChild(when);
+      if (item.price_cents != null) {
+        const price = document.createElement('span');
+        price.className = 'lah-price';
+        price.textContent = '$' + Math.round(item.price_cents / 100);
+        meta.appendChild(price);
+      }
+
+      body.appendChild(top);
+      body.appendChild(courseEl);
+      body.appendChild(meta);
+      card.appendChild(photoWrap);
+      card.appendChild(body);
+      return card;
+    }
+
+    function liveActivityCardLimit() {
+      return window.matchMedia('(max-width: 720px)').matches ? 3 : 6;
+    }
+
+    function setLiveActivityHead(title, subtext) {
+      const h2 = document.querySelector('#live-activity h2');
+      const sub = document.getElementById('liveActivitySub');
+      if (h2) h2.textContent = title;
+      if (sub) sub.textContent = subtext;
+    }
+
+    function showLiveActivityFeed(items, coursesBySlug) {
+      const grid = document.getElementById('liveActivityGrid');
+      const viewAll = document.getElementById('liveActivityViewAll');
+      const ctaWrap = document.getElementById('liveActivityCtaWrap');
+      const fallback = document.getElementById('liveActivityFallback');
+      if (!grid) return;
+
+      grid.replaceChildren();
+      items.slice(0, liveActivityCardLimit()).forEach(function (item) {
+        grid.appendChild(buildLiveActivityCard(item, coursesBySlug[item.course_slug]));
+      });
+      grid.hidden = false;
+      if (viewAll) viewAll.hidden = false;
+      if (ctaWrap) ctaWrap.hidden = false;
+      if (fallback) fallback.hidden = true;
+      setLiveActivityHead(
+        "Openings we'd text you about",
+        items.length + ' openings in Utah in the last 6 hours. Follow your courses and get a text when the next one drops.',
+      );
+    }
+
+    function showLiveActivityFallback(courseCount) {
+      const grid = document.getElementById('liveActivityGrid');
+      const viewAll = document.getElementById('liveActivityViewAll');
+      const ctaWrap = document.getElementById('liveActivityCtaWrap');
+      const fallback = document.getElementById('liveActivityFallback');
+      if (grid) grid.hidden = true;
+      if (viewAll) viewAll.hidden = true;
+      if (ctaWrap) ctaWrap.hidden = true;
+      if (fallback) fallback.hidden = false;
+      var detail = courseCount
+        ? 'Follow your favorite courses across ' + courseCount + " Utah tracks. We'll notify you when a cancellation or new release opens up."
+        : "Follow your favorite courses. We'll notify you when a cancellation or new release opens up.";
+      setLiveActivityHead('Follow your courses. Get the text.', detail);
+    }
+
+    function initLiveActivity(coursesBySlug, courseCount) {
+      const section = document.getElementById('live-activity');
+      if (!section) return;
+
+      fetch(WORKER_URL + '/v1/feed?hours=6&min_players=2&open_only=true&limit=12')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          const items = data && Array.isArray(data.items) ? data.items : [];
+          if (items.length) {
+            showLiveActivityFeed(items, coursesBySlug);
+          } else {
+            showLiveActivityFallback(courseCount);
+          }
+        })
+        .catch(function () {
+          showLiveActivityFallback(courseCount);
+        });
+    }
+
+    function initFooterCourses(courses) {
+      const footer = document.getElementById('footerCourses');
+      if (!footer) return;
+      footer.replaceChildren();
+      courses
+        .slice()
+        .sort(function (a, b) {
+          return (Number(b.review_count) || 0) - (Number(a.review_count) || 0);
+        })
+        .slice(0, 3)
+        .forEach(function (c) {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = '/app/course/' + slugFromName(c.name);
+          a.textContent = displayName(c.name) + ' tee times';
+          li.appendChild(a);
+          footer.appendChild(li);
+        });
+      const allLi = document.createElement('li');
+      const allA = document.createElement('a');
+      allA.href = '/app/';
+      allA.textContent = 'All ' + courses.length + ' courses →';
+      allLi.appendChild(allA);
+      footer.appendChild(allLi);
+    }
 
     function appUrl(extra) {
       const p = new URLSearchParams();
@@ -1231,8 +1233,6 @@
         const el = document.getElementById(id);
         if (el) el.textContent = String(n);
       });
-      const seeAll = document.getElementById('seeAllLink');
-      if (seeAll) seeAll.textContent = 'See all ' + n + ' courses';
     }
 
     function initCourses() {
@@ -1241,37 +1241,13 @@
         .then(function (courses) {
           if (!Array.isArray(courses)) return;
           setCatalogCount(courses.length);
-          const byName = {};
-          courses.forEach(function (c) { byName[c.name] = c; });
-
-          const grid = document.getElementById('courseGrid');
-          if (!grid) return;
-          grid.replaceChildren();
-          FEATURED.forEach(function (f, index) {
-            const c = byName[f.name];
-            if (!c) return;
-            grid.appendChild(buildCourseCard(c, f, index < 2));
+          const bySlug = {};
+          courses.forEach(function (c) {
+            bySlug[slugFromName(c.name)] = c;
           });
 
-          const footer = document.getElementById('footerCourses');
-          if (!footer) return;
-          footer.replaceChildren();
-          FEATURED.filter(function (f) { return !f.soldOut; }).slice(0, 3).forEach(function (f) {
-            const c = byName[f.name];
-            if (!c) return;
-            const li = document.createElement('li');
-            const a = document.createElement('a');
-            a.href = '/app/course/' + slugFromName(c.name);
-            a.textContent = displayName(c.name) + ' tee times';
-            li.appendChild(a);
-            footer.appendChild(li);
-          });
-          const allLi = document.createElement('li');
-          const allA = document.createElement('a');
-          allA.href = '/app/';
-          allA.textContent = 'All ' + courses.length + ' courses →';
-          allLi.appendChild(allA);
-          footer.appendChild(allLi);
+          initFooterCourses(courses);
+          initLiveActivity(bySlug, courses.length);
         })
         .catch(function () {});
     }
@@ -1383,7 +1359,7 @@
         authPasswordEl.autocomplete = 'current-password';
       } else {
         authTitle.textContent = 'Create account';
-        authSub.textContent = "Join tee-time.io — it's free.";
+        authSub.textContent = "Join tee-time.io. It's free.";
         authSubmit.textContent = 'Create account';
         authSwitchLink.textContent = 'Sign in instead';
         authToggle.firstChild.textContent = 'Already have an account? ';
