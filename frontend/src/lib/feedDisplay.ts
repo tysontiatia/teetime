@@ -7,9 +7,6 @@ export const FINDER_PREVIEW_HOURS = 2;
 /** Still-open slots detected within this window get “Live” treatment. */
 export const FEED_HOT_MINUTES = 60;
 
-/** “Just detected” section on full feed page. */
-export const FEED_JUST_DETECTED_MINUTES = 60;
-
 /** Recent-but-not-live tier (matches finder preview window). */
 export const FEED_WARM_MINUTES = FINDER_PREVIEW_HOURS * 60;
 
