@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
-import { confirmPhoneVerification, startPhoneVerification } from '../lib/accountPhoneVerify';
+import { SMS_ALERTS_ENABLED } from '../lib/smsAlerts';
 import { supabase } from '../lib/supabase';
-
-type NotifyVia = 'email' | 'sms' | 'both';
 
 type NotificationPreferenceRow = {
   id: string;
@@ -46,39 +44,13 @@ function summarizePref(p: NotificationPreferenceRow): string {
   return `Weekly · ${days || '—'} · ${horizon}`;
 }
 
-function formatPhoneDisplay(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 10);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
-
-function toE164(raw: string): string | null {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
-  return null;
-}
-
 export function AccountPage() {
   const { user, signOut } = useAuth();
   const { courses } = useCourseCatalog();
-  const [phone, setPhone] = useState('');
-  const [notifyVia, setNotifyVia] = useState<NotifyVia>('email');
   const [loading, setLoading] = useState(true);
   const [prefs, setPrefs] = useState<NotificationPreferenceRow[]>([]);
   const [prefsBusyId, setPrefsBusyId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  const [phoneVerifiedAt, setPhoneVerifiedAt] = useState<string | null>(null);
-  const [profilePhoneE164, setProfilePhoneE164] = useState<string | null>(null);
-  const [verifyCode, setVerifyCode] = useState('');
-  const [verifyBusy, setVerifyBusy] = useState(false);
-  const [smsConsent, setSmsConsent] = useState(false);
-  const [smsConsentAt, setSmsConsentAt] = useState<string | null>(null);
-
-  const wantsSmsChannel = notifyVia === 'sms' || notifyVia === 'both';
-  const hasSmsConsentOnRecord = Boolean(smsConsentAt);
 
   const loadPrefs = useCallback(async (uid: string) => {
     const { data, error } = await supabase
@@ -91,38 +63,28 @@ export function AccountPage() {
     if (!error && data) setPrefs(data as NotificationPreferenceRow[]);
   }, []);
 
-  const applyProfile = useCallback((prof: {
-    phone: string | null;
-    notify_via: string | null;
-    phone_verified_at: string | null;
-    sms_consent_at?: string | null;
-  }) => {
-    setPhone(prof.phone ? formatPhoneDisplay(prof.phone.replace(/^\+1/, '')) : '');
-    setNotifyVia((prof.notify_via as NotifyVia) || 'email');
-    setPhoneVerifiedAt(prof.phone_verified_at ?? null);
-    setProfilePhoneE164(prof.phone ?? null);
-    setSmsConsentAt(prof.sms_consent_at ?? null);
-    setSmsConsent(Boolean(prof.sms_consent_at));
-  }, []);
-
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('phone, notify_via, phone_verified_at, sms_consent_at')
-        .eq('id', user.id)
-        .single();
-      if (cancelled) return;
-      if (prof) applyProfile(prof);
+      // Normalize legacy SMS / both profiles to email while SMS is paused.
+      if (!SMS_ALERTS_ENABLED) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('notify_via')
+          .eq('id', user.id)
+          .single();
+        if (prof && (prof.notify_via === 'sms' || prof.notify_via === 'both')) {
+          await supabase.from('profiles').update({ notify_via: 'email' }).eq('id', user.id);
+        }
+      }
       await loadPrefs(user.id);
       if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user, loadPrefs, applyProfile]);
+  }, [user, loadPrefs]);
 
   const courseNameByCatalog = useMemo(() => {
     const m = new Map<string, string>();
@@ -160,120 +122,6 @@ export function AccountPage() {
     );
   }
 
-  const phoneMatchesVerified =
-    Boolean(phoneVerifiedAt) &&
-    Boolean(toE164(phone)) &&
-    Boolean(profilePhoneE164) &&
-    toE164(phone) === profilePhoneE164;
-
-  const save = async () => {
-    setMessage(null);
-
-    if ((notifyVia === 'sms' || notifyVia === 'both') && !toE164(phone)) {
-      setMessage({ type: 'err', text: 'Enter a valid 10-digit US phone number to enable SMS.' });
-      return;
-    }
-
-    if (notifyVia === 'sms' && toE164(phone) && !phoneMatchesVerified) {
-      setMessage({
-        type: 'err',
-        text: 'SMS-only alerts require a verified mobile number. Send a code below, then verify before saving.',
-      });
-      return;
-    }
-
-    if (wantsSmsChannel && !smsConsent && !hasSmsConsentOnRecord) {
-      setMessage({
-        type: 'err',
-        text: 'Check the SMS consent box below to enable text alerts.',
-      });
-      return;
-    }
-
-    setSaving(true);
-    const phoneE164 = phone ? (toE164(phone) ?? null) : null;
-    const profilePatch: {
-      phone: string | null;
-      notify_via: NotifyVia;
-      sms_consent_at?: string;
-    } = { phone: phoneE164, notify_via: notifyVia };
-    if (wantsSmsChannel && smsConsent && !hasSmsConsentOnRecord) {
-      profilePatch.sms_consent_at = new Date().toISOString();
-    }
-    const { error } = await supabase
-      .from('profiles')
-      .update(profilePatch)
-      .eq('id', user.id);
-    setSaving(false);
-
-    if (error) {
-      setMessage({ type: 'err', text: error.message });
-    } else {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('phone, notify_via, phone_verified_at, sms_consent_at')
-        .eq('id', user.id)
-        .single();
-      if (prof) applyProfile(prof);
-      let ok = 'Saved.';
-      if (notifyVia === 'both' && !phoneMatchesVerified) {
-        ok += ' SMS will start after you verify this number below.';
-      }
-      setMessage({ type: 'ok', text: ok });
-      if (user) void loadPrefs(user.id);
-    }
-  };
-
-  const sendVerifyCode = async () => {
-    setMessage(null);
-    const e164 = toE164(phone);
-    if (!e164) {
-      setMessage({ type: 'err', text: 'Enter a valid 10-digit US number before sending a code.' });
-      return;
-    }
-    setVerifyBusy(true);
-    const { error } = await startPhoneVerification(e164);
-    setVerifyBusy(false);
-    if (error) setMessage({ type: 'err', text: error });
-    else setMessage({ type: 'ok', text: 'Code sent. Check your phone and enter it below.' });
-  };
-
-  const submitVerifyCode = async () => {
-    setMessage(null);
-    const e164 = toE164(phone);
-    if (!e164) {
-      setMessage({ type: 'err', text: 'Enter your phone number first.' });
-      return;
-    }
-    const digits = verifyCode.replace(/\D/g, '');
-    if (digits.length < 4) {
-      setMessage({ type: 'err', text: 'Enter the verification code from the text message.' });
-      return;
-    }
-    setVerifyBusy(true);
-    const { error } = await confirmPhoneVerification(e164, digits);
-    setVerifyBusy(false);
-    if (error) {
-      setMessage({ type: 'err', text: error });
-      return;
-    }
-    setVerifyCode('');
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('phone, notify_via, phone_verified_at, sms_consent_at')
-      .eq('id', user.id)
-      .single();
-    if (prof) applyProfile(prof);
-    const viaLabel = notifyVia === 'both' ? 'Email and SMS' : 'SMS';
-    setMessage({
-      type: 'ok',
-      text:
-        `${viaLabel} alerts enabled for this number. Msg frequency varies with your alerts. Reply STOP to opt out, HELP for help. Msg & data rates may apply.`,
-    });
-  };
-
-  const labelStyle = 'account-label';
-
   return (
     <div className="container account-page">
       <h1 className="account-page-title">Account</h1>
@@ -284,116 +132,23 @@ export function AccountPage() {
       ) : (
         <div style={{ display: 'grid', gap: 24 }}>
           <div>
-            <label className={labelStyle}>Phone number</label>
-            <input
-              className="input"
-              type="tel"
-              placeholder="(801) 555-1234"
-              value={phone}
-              onChange={(e) => setPhone(formatPhoneDisplay(e.target.value))}
-            />
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              US numbers only. SMS uses Twilio Verify. Send a code to confirm this number before alerts are texted.
+            <label className="account-label">Alert channel</label>
+            <p style={{ fontSize: 14, color: 'var(--ink)', marginTop: 4, fontWeight: 600 }}>Email</p>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, lineHeight: 1.45 }}>
+              Alerts go to <strong style={{ color: 'var(--ink)' }}>{user.email}</strong>. SMS is paused for now —
+              email covers the same openings.
             </p>
-            {phoneMatchesVerified ? (
-              <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--green-2)', marginTop: 10 }}>
-                ✓ Mobile verified for SMS
-              </p>
-            ) : (
-              <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={verifyBusy || !toE164(phone)}
-                    onClick={() => void sendVerifyCode()}
-                    style={{ padding: '8px 14px', fontSize: 13 }}
-                  >
-                    {verifyBusy ? '…' : 'Send code'}
-                  </button>
-                  <input
-                    className="input"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="6-digit code"
-                    value={verifyCode}
-                    onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                    style={{ maxWidth: 140, fontSize: 15, letterSpacing: '0.12em' }}
-                  />
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={verifyBusy || verifyCode.replace(/\D/g, '').length < 4}
-                    onClick={() => void submitVerifyCode()}
-                    style={{ padding: '8px 14px', fontSize: 13 }}
-                  >
-                    Verify
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-
-          <div>
-            <label className={labelStyle}>Alert channel</label>
-            <div className="account-channel-row">
-              {(['email', 'sms', 'both'] as NotifyVia[]).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  className={`account-channel-btn${notifyVia === v ? ' is-on' : ''}`}
-                  onClick={() => setNotifyVia(v)}
-                >
-                  {v === 'email' ? 'Email' : v === 'sms' ? 'SMS' : 'Both'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {wantsSmsChannel ? (
-            <div className="account-sms-consent" id="sms-opt-in">
-              <label className="account-sms-consent-label">
-                <input
-                  type="checkbox"
-                  checked={smsConsent || hasSmsConsentOnRecord}
-                  disabled={hasSmsConsentOnRecord}
-                  onChange={(e) => setSmsConsent(e.target.checked)}
-                />
-                <span>
-                  I agree to receive <strong>transactional SMS alerts</strong> from Tee-Time.io when tee times
-                  matching my saved alerts open or reopen. Message frequency varies (typically a few per week per
-                  active alert). Message &amp; data rates may apply. Reply <strong>STOP</strong> to opt out,{' '}
-                  <strong>HELP</strong> for help. Not marketing.
-                </span>
-              </label>
-              <p className="account-sms-consent-meta">
-                {hasSmsConsentOnRecord ? (
-                  <>SMS consent recorded {new Date(smsConsentAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.</>
-                ) : (
-                  <>Required to enable SMS. See our <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms</a>.</>
-                )}
-              </p>
-            </div>
-          ) : null}
 
           {message ? (
             <div className={`account-msg${message.type === 'ok' ? ' is-ok' : ' is-err'}`}>{message.text}</div>
           ) : null}
 
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={saving}
-            onClick={() => void save()}
-            style={{ alignSelf: 'flex-start', padding: '10px 20px' }}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-
           <div className="account-prefs-section">
             <h2 className="account-prefs-title">Tee time alerts</h2>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.45 }}>
-              Active alerts you set from the finder (🔔). We check courses every few minutes when times match your filters.
+              Active alerts you set from the finder (🔔). We check courses every few minutes when times match your
+              filters.
             </p>
             {prefs.length === 0 ? (
               <p style={{ fontSize: 14, color: 'var(--muted)' }}>
@@ -409,15 +164,12 @@ export function AccountPage() {
                   const title = courseNameByCatalog.get(p.course_id) ?? p.course_id;
                   const busy = prefsBusyId === p.id;
                   return (
-                    <li
-                      key={p.id}
-                      className={`account-pref-item${p.active ? '' : ' is-paused'}`}
-                    >
+                    <li key={p.id} className={`account-pref-item${p.active ? '' : ' is-paused'}`}>
                       <div className="account-pref-title">{title}</div>
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>{summarizePref(p)}</div>
                       <div style={{ fontSize: 12, color: 'var(--subtle)' }}>
-                        {formatHm(p.earliest_time)}–{formatHm(p.latest_time)} · {p.players} player{p.players !== 1 ? 's' : ''} · min
-                        spots {p.min_spots}
+                        {formatHm(p.earliest_time)}–{formatHm(p.latest_time)} · {p.players} player
+                        {p.players !== 1 ? 's' : ''} · min spots {p.min_spots}
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                         {p.active ? (
@@ -465,9 +217,13 @@ export function AccountPage() {
       </button>
 
       <p className="account-legal-links">
-        <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a>
+        <a href="/privacy.html" target="_blank" rel="noopener noreferrer">
+          Privacy
+        </a>
         <span aria-hidden> · </span>
-        <a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms</a>
+        <a href="/terms.html" target="_blank" rel="noopener noreferrer">
+          Terms
+        </a>
       </p>
     </div>
   );

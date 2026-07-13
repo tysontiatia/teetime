@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import type { Course } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../state/AuthContext';
@@ -22,19 +21,9 @@ function windowToRange(w: 'any' | 'morning' | 'afternoon' | 'evening'): { earlie
 
 const DOW_MAP: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
-/** Profile `phone` is stored E.164; accept 10- or 11-digit US when normalized. */
-function profileHasValidUsPhone(phone: string | null | undefined): boolean {
-  if (!phone) return false;
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) return true;
-  if (digits.length === 11 && digits.startsWith('1')) return true;
-  return false;
-}
-
 type AlertMessage = {
   type: 'ok' | 'err';
   text: string;
-  showAccountLink?: boolean;
 };
 
 export function NotificationModal({
@@ -99,42 +88,6 @@ export function NotificationModal({
     };
 
     setSaving(true);
-    const { data: profile, error: profileErr } = await supabase
-      .from('profiles')
-      .select('notify_via, phone, phone_verified_at')
-      .eq('id', user.id)
-      .single();
-
-    if (profileErr) {
-      setSaving(false);
-      setMessage({ type: 'err', text: profileErr.message });
-      return;
-    }
-
-    const via = (profile?.notify_via ?? 'email') as string;
-    const hasPhone = profileHasValidUsPhone(profile?.phone);
-    const phoneVerified = Boolean(profile?.phone_verified_at);
-
-    if (via === 'sms' && !hasPhone) {
-      setSaving(false);
-      setMessage({
-        type: 'err',
-        text: 'Your alert channel is set to SMS, but there is no US mobile number on your profile yet. Add one on Account, then save this alert again.',
-        showAccountLink: true,
-      });
-      return;
-    }
-
-    if (via === 'sms' && hasPhone && !phoneVerified) {
-      setSaving(false);
-      setMessage({
-        type: 'err',
-        text: 'SMS-only alerts need a verified phone number. Open Account, send the verification code, then try again.',
-        showAccountLink: true,
-      });
-      return;
-    }
-
     const { error } = await supabase.from('notification_preferences').insert(row);
     setSaving(false);
 
@@ -143,27 +96,7 @@ export function NotificationModal({
       return;
     }
 
-    if (via === 'both' && !hasPhone) {
-      setMessage({
-        type: 'ok',
-        text: 'Alert saved. You will get email when times match. Add a phone on Account to get SMS too.',
-        showAccountLink: true,
-      });
-      return;
-    }
-
-    if (via === 'both' && hasPhone && !phoneVerified) {
-      setMessage({
-        type: 'ok',
-        text: 'Alert saved. You will get email when times match. Verify your phone on Account to get SMS too.',
-        showAccountLink: true,
-      });
-      return;
-    }
-
-    const channelLabel = via === 'both' ? 'email and SMS' : via === 'sms' ? 'SMS' : 'email';
-    const article = via === 'email' ? 'an' : 'a';
-    setMessage({ type: 'ok', text: 'Alert saved. You will get ' + article + ' ' + channelLabel + ' when times match.' });
+    setMessage({ type: 'ok', text: 'Alert saved. You will get an email when times match.' });
     setTimeout(() => onClose(), 900);
   };
 
@@ -273,13 +206,6 @@ export function NotificationModal({
           {message ? (
             <div className={`modal-msg ${message.type}`}>
               <div>{message.text}</div>
-              {message.showAccountLink ? (
-                <div style={{ marginTop: 10 }}>
-                  <Link to="/account" onClick={onClose}>
-                    Open Account →
-                  </Link>
-                </div>
-              ) : null}
             </div>
           ) : null}
         </div>

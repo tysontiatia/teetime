@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Search live tee times across every Utah golf course in one place. Compare times and prices, plan rounds with your group, and get a text when a slot opens. More states coming soon." />
+  <meta name="description" content="Search live tee times across every Utah golf course in one place. Compare times and prices, plan rounds with your group, and get an email when a slot opens. More states coming soon." />
   <meta name="theme-color" content="#FBFBF8" />
   <script>
     (function () {
@@ -777,7 +777,7 @@
     <h1>Every tee time.<br><span class="accent">One search.</span></h1>
     <p class="sub">
       Stop checking six booking sites before sunrise. Tee-Time searches <strong>live availability across every course</strong>.
-      Compare times and prices, plan a round with your group, and get a text the second a slot opens.
+      Compare times and prices, plan a round with your group, and get an email the second a slot opens.
     </p>
 
     <form class="search" id="heroSearchForm" aria-label="Search tee times">
@@ -828,7 +828,7 @@
         <span class="lah-pill">Tee time alerts</span>
         <div class="lah-head-row">
           <div class="lah-head-main">
-            <h2>Openings we'd text you about</h2>
+            <h2>Openings we'd email you about</h2>
             <p class="lede lah-sub" id="liveActivitySub">Checking for newly available tee times…</p>
           </div>
         </div>
@@ -870,7 +870,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
           </div>
           <h3>Never miss an opening</h3>
-          <p>Set an alert for a course, a day, or a price. When a slot opens, whether it's a cancellation or a new release, we text you within minutes.</p>
+          <p>Set an alert for a course, a day, or a price. When a slot opens, whether it's a cancellation or a new release, we email you within minutes.</p>
         </article>
       </div>
     </section>
@@ -902,18 +902,18 @@
         <div>
           <p class="kicker">Tee time alerts</p>
           <h2>The good times get taken. Get them back.</h2>
-          <p class="lede">Tell us the course and the window you want. The moment a slot opens up, it's in your texts, usually while everyone else is still refreshing.</p>
+          <p class="lede">Tell us the course and the window you want. The moment a slot opens up, it's in your inbox, usually while everyone else is still refreshing.</p>
           <form id="alertForm">
-            <input type="tel" id="alertPhone" placeholder="Your phone number" aria-label="Phone number" />
+            <input type="email" id="alertEmail" placeholder="Your email" aria-label="Email" autocomplete="email" />
             <button type="submit" class="btn">Start free alerts</button>
           </form>
         </div>
         <div class="phone" aria-hidden="true">
-          <p class="ph-head">Messages · Today 7:02 AM</p>
+          <p class="ph-head">Inbox · Today 7:02 AM</p>
           <div class="sms">
             <b>Tee-Time.io:</b> A 7:30am just opened at Bonneville: 4 players, $50.
             <span class="link">Book it before someone's brother-in-law does.</span>
-            <p class="sms-time">Delivered 40 seconds after it opened</p>
+            <p class="sms-time">Emailed 40 seconds after it opened</p>
           </div>
         </div>
       </div>
@@ -998,7 +998,7 @@
       </div>
       <div class="foot-note">
         <span>© 2026 Tee-Time.io · Made with ❤️ in Salt Lake City</span>
-        <span><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/app/account/">Alerts &amp; SMS opt-in</a></span>
+        <span><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/app/account/">Manage alerts</a></span>
         <span>Not affiliated with any booking provider. We just find the times.</span>
       </div>
     </div>
@@ -1143,8 +1143,8 @@
       if (ctaWrap) ctaWrap.hidden = false;
       if (fallback) fallback.hidden = true;
       setLiveActivityHead(
-        "Openings we'd text you about",
-        items.length + ' openings in Utah in the last 6 hours. Follow your courses and get a text when the next one drops.',
+        "Openings we'd email you about",
+        items.length + ' openings in Utah in the last 6 hours. Follow your courses and get an email when the next one drops.',
       );
     }
 
@@ -1160,7 +1160,7 @@
       var detail = courseCount
         ? 'Follow your favorite courses across ' + courseCount + " Utah tracks. We'll notify you when a cancellation or new release opens up."
         : "Follow your favorite courses. We'll notify you when a cancellation or new release opens up.";
-      setLiveActivityHead('Follow your courses. Get the text.', detail);
+      setLiveActivityHead('Follow your courses. Get the email.', detail);
     }
 
     function initLiveActivity(coursesBySlug, courseCount) {

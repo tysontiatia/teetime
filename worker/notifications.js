@@ -11,6 +11,8 @@ const MT = 'America/Denver';
 const SLOT_REOPEN_COOLDOWN_MS = 15 * 60 * 1000;
 const SLOT_OPEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const BACKSTOP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+/** Pause outbound alert SMS until a verified sender (e.g. 10DLC) is ready. */
+const SMS_ALERTS_ENABLED = false;
 
 function sbHeaders(env, json = false) {
   const h = {
@@ -333,10 +335,17 @@ async function deliverToUser(ctx, {
   if (!user) return;
 
   const notifyVia = profile.notify_via || 'email';
-  const wantEmail = notifyVia === 'email' || notifyVia === 'both';
+  // While SMS is paused, always email so SMS-only profiles still get alerts.
+  const wantEmail = SMS_ALERTS_ENABLED
+    ? notifyVia === 'email' || notifyVia === 'both'
+    : Boolean(user.email);
   const phoneE164 = normalizePhone(profile.phone);
   const smsVerified = Boolean(profile.phone_verified_at);
-  const wantSms = (notifyVia === 'sms' || notifyVia === 'both') && phoneE164 && smsVerified;
+  const wantSms =
+    SMS_ALERTS_ENABLED &&
+    (notifyVia === 'sms' || notifyVia === 'both') &&
+    phoneE164 &&
+    smsVerified;
   const players = pref.players || 1;
   const slotKeys = slots.map((s) => s.slotKey);
   const primaryEvent = eventType || slots[0]?.event_type || 'opened';

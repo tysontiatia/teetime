@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Privacy policy for Tee-Time.io: how we handle your account, alerts, and phone number." />
+  <meta name="description" content="Privacy policy for Tee-Time.io: how we handle your account and email alerts." />
   <title>Privacy Policy · Tee-Time.io</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="canonical" href="https://tee-time.io/privacy.html" />
@@ -50,7 +50,7 @@
   <div class="wrap">
     <a class="logo" href="/">Tee-Time.io</a>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: July 10, 2026</p>
+    <p class="updated">Last updated: July 13, 2026</p>
 
     <p>Tee-Time.io (“we”, “us”) helps golfers search Utah tee times and receive optional alerts when matching times open. This policy describes what we collect and how we use it.</p>
 
@@ -58,23 +58,17 @@
     <ul>
       <li><strong>Account:</strong> email address and display name when you sign up (Google OAuth or email/password via Supabase).</li>
       <li><strong>Alert preferences:</strong> courses, dates, time windows, and player counts you save when creating tee time alerts.</li>
-      <li><strong>Phone number:</strong> only if you choose SMS or email+SMS alerts. We verify ownership with a one-time code (Twilio Verify).</li>
       <li><strong>Usage:</strong> anonymous analytics (PostHog) to improve the product. Not sold to third parties.</li>
     </ul>
 
-    <h2>How we use SMS</h2>
-    <div class="card">
-      <p><strong>Transactional alerts only.</strong> If you opt in on your <a href="/app/account/">Account</a> page, we send text messages when tee times matching your saved alerts open or reopen. We do not send marketing or promotional SMS.</p>
-      <p><strong>Frequency:</strong> varies with your alert settings and tee sheet activity (typically zero to a few messages per week per active alert).</p>
-      <p><strong>Opt out:</strong> switch alert channel to Email only on Account, pause or remove alerts, or reply <strong>STOP</strong> to any message. Reply <strong>HELP</strong> for support.</p>
-      <p><strong>Cost:</strong> message and data rates may apply per your carrier.</p>
-    </div>
-
     <h2>Email alerts</h2>
-    <p>If you enable email alerts, we send transactional messages to your account email via Resend when matching tee times are found. You can disable alerts anytime on Account.</p>
+    <p>We send transactional alert emails to your account address via Resend when tee times matching your saved alerts open or reopen. You can pause or remove alerts anytime on <a href="/app/account/">Account</a>.</p>
+
+    <h2>SMS</h2>
+    <p>SMS alerts are currently paused. We are not collecting phone numbers for new SMS opt-ins. If we reintroduce SMS later, we will update this policy and require a fresh, explicit opt-in.</p>
 
     <h2>Sharing</h2>
-    <p>We use service providers to operate the product: Supabase (database/auth), Cloudflare (hosting), Resend (email), Twilio (SMS verification and delivery), and Google (Places photos). We do not sell your personal information.</p>
+    <p>We use service providers to operate the product: Supabase (database/auth), Cloudflare (hosting), Resend (email), and Google (Places photos). We do not sell your personal information.</p>
 
     <h2>Data retention</h2>
     <p>Account and alert data are kept while your account is active. You may delete alerts on Account or contact us to request account deletion.</p>

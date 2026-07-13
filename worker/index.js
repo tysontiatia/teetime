@@ -1433,18 +1433,14 @@ export default {
       return handleForeUpLogin(request);
     }
 
-    if (path === '/account/phone/start') {
-      if (request.method !== 'POST') {
-        return corsResponse({ error: 'method_not_allowed' }, 405);
-      }
-      return handlePhoneVerifyStart(request, env);
-    }
-
-    if (path === '/account/phone/check') {
-      if (request.method !== 'POST') {
-        return corsResponse({ error: 'method_not_allowed' }, 405);
-      }
-      return handlePhoneVerifyCheck(request, env);
+    if (path === '/account/phone/start' || path === '/account/phone/check') {
+      return corsResponse(
+        {
+          error: 'sms_paused',
+          message: 'SMS alerts are temporarily paused. Email alerts still work.',
+        },
+        503,
+      );
     }
 
     if (path === '/v1/courses' && request.method === 'GET') {

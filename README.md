@@ -83,7 +83,7 @@ All tables have RLS enabled — users can only read/write their own rows.
 
 ## Notification system
 
-Signed-in users set an alert from the 🔔 modal: **specific date** (one play day) or **weekly** (a weekday + time window, scanning `look_ahead_days` ahead, default 14). When matching tee times **open or reopen**, the Worker sends **email** (Resend) and/or **SMS** (Twilio) from the user’s profile **`notify_via`** / **`phone`**, and writes **`notification_log`** with per-slot keys so users can be re-notified when a cancelled slot comes back.
+Signed-in users set an alert from the 🔔 modal: **specific date** (one play day) or **weekly** (a weekday + time window, scanning `look_ahead_days` ahead, default 14). When matching tee times **open or reopen**, the Worker sends **email** (Resend). SMS delivery is paused until a verified Twilio sender is available.
 
 ### Flow
 
@@ -93,8 +93,8 @@ Signed-in users set an alert from the 🔔 modal: **specific date** (one play da
 4. **Event-driven alerts** fire immediately after poll diff detects **`opened`** or **`reopened`** slots that match an active alert (typically within ~5–20 min depending on poll cadence; alert courses are prioritized in the poll queue)
 5. **Backstop cron** every **15 min** (6 AM–11 PM UTC): `*/15 6-23 * * *` — catches anything the event path missed
 6. Dedupe is **per tee time slot** (`HH:MM:SS|holes` in `notification_log.notified_slot_keys`), not per calendar date forever — a **reopened** slot can alert again after a **15 min** anti-spam window
-7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`; SMS requires `profiles.phone_verified_at` (Twilio Verify on Account)
-8. Single-slot event SMS uses copy like *“7:30 AM just reopened at …”*; multi-slot alerts list up to 5 times
+7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
+8. Multi-slot alert emails list matching times (SMS copy paths remain in code but are not sent while SMS is paused)
 
 **Honest latency:** vendor APIs are polled, not streamed — a book-then-cancel test may take up to one poll cycle plus the **20 min close debounce** before a reopen is detected. Phantom-churn guards suppress false closes on flaky API responses.
 
@@ -116,7 +116,7 @@ Plaintext Worker vars in `worker/wrangler.toml` include **`SUPABASE_ANON_KEY`** 
 
 **SMS / Twilio checklist:** US A2P 10DLC or a **verified toll-free** sender is usually required for production traffic to US mobiles; check the Twilio console for registration status and error codes. After deploy, use **Workers → utah-tee-times → Logs** (or `wrangler tail`) when testing—failed sends log Twilio’s HTTP status and response body.
 
-Account UI: **`/app/account`** — phone, **Twilio Verify** (send code / verify), **Alert channel** (`email` / `sms` / `both`), and **active tee time alerts** (pause / resume / remove).
+Account UI: **`/app/account`** — manage active tee time alerts (pause / resume / remove). Alerts are delivered by **email**. SMS is paused (`SMS_ALERTS_ENABLED = false` in the worker + frontend) until a verified sender is available.
 
 ---
 
