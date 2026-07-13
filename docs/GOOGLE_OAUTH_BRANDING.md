@@ -25,21 +25,34 @@ After this, many users see the **app name** with less emphasis on the ugly host.
 
 ## Step B — Custom Auth domain (best fix for the URL)
 
-Use Supabase **Custom Domains** so the redirect host is yours, e.g. `auth.tee-time.io`.
+Use Supabase **Custom Domains** so the redirect host is yours: `auth.tee-time.io`.
 
-1. Supabase Dashboard → **Project Settings** → **Custom Domains** (requires a paid plan tier that includes this).
-2. Add `auth.tee-time.io` and follow their DNS instructions (usually a CNAME to Supabase at Cloudflare).
-3. In **Google Cloud → Credentials → OAuth 2.0 Client**:
-   - **Authorized redirect URIs** must include:  
-     `https://auth.tee-time.io/auth/v1/callback`  
-     (keep the old `https://nmwlebcvezybfwertlzs.supabase.co/auth/v1/callback` until cutover is verified).
-4. Point the app / Supabase client at the custom Auth URL if Supabase shows a new API URL (or keep Project URL if they only remap Auth — follow the dashboard copy).
-5. Update any hardcoded `https://nmwlebcvezybfwertlzs.supabase.co` in:
-   - `frontend/src/lib/env.ts` (or env vars)
-   - `public/auth/callback.html`
-   - `public/index.html` (landing auth)
-   - `worker/wrangler.toml` `SUPABASE_URL` if Auth issuer changes
-6. Smoke-test: Sign in with Google → account chooser should say **continue to auth.tee-time.io**.
+**Automated helper:** from the repo root, after logging into the Supabase CLI as the **Tee-Time project owner**:
+
+```bash
+supabase logout && supabase login   # use the Tee-Time ops account, not a personal side org
+./scripts/setup-auth-custom-domain.sh
+```
+
+That script walks: Cloudflare CNAME → `supabase domains create/reverify/activate` → Google redirect URI reminder.
+
+### Manual checklist
+
+1. Supabase Dashboard (project `nmwlebcvezybfwertlzs`) → **Settings → General → Custom Domains**  
+   Requires a **paid plan** + Custom Domains add-on. Enable the add-on if prompted.
+2. Cloudflare DNS for `tee-time.io` (DNS only / grey cloud):
+   - `CNAME auth` → `nmwlebcvezybfwertlzs.supabase.co`
+   - Plus whatever `_acme-challenge` TXT Supabase prints
+3. Google Cloud → OAuth client → **Authorized redirect URIs** add:  
+   `https://auth.tee-time.io/auth/v1/callback`  
+   (keep `https://nmwlebcvezybfwertlzs.supabase.co/auth/v1/callback`)
+4. Run activate (CLI or dashboard). Auth starts advertising `auth.tee-time.io` immediately.
+5. Optional: set app `VITE_SUPABASE_URL=https://auth.tee-time.io` (defaults can stay on the project URL; both work after activate).
+6. Smoke-test Sign in with Google → chooser should say **continue to auth.tee-time.io**.
+
+### Privilege note
+
+Custom domain CLI calls return **403** if you’re logged into a Supabase org that doesn’t own Tee-Time. Check with `supabase projects list` — you must see ref `nmwlebcvezybfwertlzs`.
 
 ## Product rules (locked)
 
