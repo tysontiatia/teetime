@@ -7,6 +7,22 @@
 - `favicon.svg` — auto-switches between the two via `prefers-color-scheme`. Drop in as-is.
 - `logo-glyph.svg` — bare tee, `fill: currentColor`. For inline use (buttons, empty states, loading marks) where it should inherit text color.
 
+## Google OAuth / Google Cloud Branding
+
+Upload a **PNG** (SVG is rejected). Use the light icon so it reads on Google’s white account picker:
+
+| File | Size | Use |
+|------|------|-----|
+| [`logo-google-oauth-120.png`](./logo-google-oauth-120.png) | 120×120 | Minimum Google branding upload |
+| [`logo-google-oauth-512.png`](./logo-google-oauth-512.png) | 512×512 | Preferred / high-res |
+
+Regenerate from the SVG:
+
+```bash
+rsvg-convert -w 120 -h 120 public/logo-icon-light.svg -o public/brand/logo-google-oauth-120.png
+rsvg-convert -w 512 -h 512 public/logo-icon-light.svg -o public/brand/logo-google-oauth-512.png
+```
+
 ## Header usage
 
 Pair the icon with the HTML wordmark:

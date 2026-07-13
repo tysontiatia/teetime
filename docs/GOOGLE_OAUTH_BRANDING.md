@@ -14,7 +14,7 @@ Google labels “continue to …” with the **OAuth redirect host** (Supabase) 
 2. Set:
    - **App name:** `Tee-Time`
    - **User support email:** your ops address (e.g. `support@tee-time.io`)
-   - **App logo:** square Tee-Time mark (≥120×120)
+   - **App logo:** square Tee-Time mark (≥120×120 PNG). Use `public/brand/logo-google-oauth-512.png` (exported from `logo-icon-light.svg`).
    - **App domain / home page:** `https://tee-time.io`
    - **Privacy / Terms:** `https://tee-time.io/privacy.html`, `https://tee-time.io/terms.html`
 3. **Authorized domains:** add `tee-time.io` (verify ownership in [Search Console](https://search.google.com/search-console) if asked). Keep the Supabase project host if listed.
