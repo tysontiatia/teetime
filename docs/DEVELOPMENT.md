@@ -67,6 +67,10 @@ If preview sign-in fails, add that preview origin’s callback URL too.
 
 **Site URL** can stay `https://tee-time.io`.
 
+### Branding (“continue to …supabase.co”)
+
+See **[GOOGLE_OAUTH_BRANDING.md](./GOOGLE_OAUTH_BRANDING.md)** — Google Cloud Branding + optional `auth.tee-time.io` custom Auth domain so the account chooser shows Tee-Time instead of the project ref.
+
 ### What works locally after setup
 
 | Feature | Local | Notes |

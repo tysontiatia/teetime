@@ -40,9 +40,11 @@ Live at **[tee-time.io](https://tee-time.io)**
 
 ## Auth & Access
 
-Search works without an account. Sign in (Google OAuth or email/password) for alerts, share links, and saved courses. The landing page auth modal supports both sign-in and create-account.
+Search works without an account (soft Worker rate limits stop scrapers). Sign in with **Google** (preferred) or email/password for alerts, share links, and saved courses. The landing page auth modal supports both sign-in and create-account.
 
 Returning users with an active session are auto-redirected from the landing page to the app.
+
+Google account-picker branding (“continue to …supabase.co”): see **[docs/GOOGLE_OAUTH_BRANDING.md](docs/GOOGLE_OAUTH_BRANDING.md)**.
 
 ### Supabase project
 
@@ -293,11 +295,10 @@ supabase db push
 
 ## Google OAuth setup
 
-1. Google Cloud Console → APIs & Services → OAuth consent screen
-   - App name: `Tee Time`
-   - Authorised domain: `tee-time.io`
+1. Google Cloud Console → Auth Platform → Branding (app name **Tee-Time**, logo, `tee-time.io`, privacy/terms). Details: [docs/GOOGLE_OAUTH_BRANDING.md](docs/GOOGLE_OAUTH_BRANDING.md).
 2. Create OAuth 2.0 Client ID (Web application)
    - Authorised redirect URI: `https://nmwlebcvezybfwertlzs.supabase.co/auth/v1/callback`
+   - After custom Auth domain: also `https://auth.tee-time.io/auth/v1/callback`
 3. Paste Client ID + Secret into Supabase → Auth → Providers → Google
 
 Supabase → Auth → URL Configuration → add `https://tee-time.io/auth/callback.html` to allowed redirect URLs.

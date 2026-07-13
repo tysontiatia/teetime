@@ -93,7 +93,7 @@ export function AppShell() {
                 type="button"
                 onClick={() => void signInWithGoogle()}
               >
-                Sign in
+                Sign in with Google
               </button>
             )}
           </div>

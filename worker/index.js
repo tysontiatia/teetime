@@ -3,6 +3,7 @@ import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses,
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest } from './availabilityRead.js';
 import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
 import { handleFeedRequest } from './feedRead.js';
+import { checkIpRateLimit, rateLimitResponse, RATE_LIMITS } from './rateLimit.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -1448,11 +1449,15 @@ export default {
     }
 
     if (path === '/v1/feed' && request.method === 'GET') {
+      const rl = await checkIpRateLimit(request, RATE_LIMITS.feed);
+      if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
       return handleFeedRequest(env, params);
     }
 
     if (path === '/v1/availability' && request.method === 'GET') {
+      const rl = await checkIpRateLimit(request, RATE_LIMITS.availability);
+      if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
       return handleAvailabilityRequest(env, params);
     }
@@ -1470,6 +1475,11 @@ export default {
     const params = Object.fromEntries(url.searchParams.entries());
     const foreupJwt = request.headers.get('foreup_jwt') || null;
 
+    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports') {
+      const rl = await checkIpRateLimit(request, RATE_LIMITS.vendorLive);
+      if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
+    }
+
     if (path === '/foreup') {
       return handleForeUp(params, foreupJwt);
     }
@@ -1484,6 +1494,11 @@ export default {
 
     if (path === '/membersports') {
       return handleMemberSports(params);
+    }
+
+    if (path === '/place-photo' || path === '/place-reviews') {
+      const rl = await checkIpRateLimit(request, RATE_LIMITS.places);
+      if (rl.limited) return rateLimitResponse(IMAGE_CORS_HEADERS, rl);
     }
 
     if (path === '/place-photo') {
