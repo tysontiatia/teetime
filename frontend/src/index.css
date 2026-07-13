@@ -2362,7 +2362,10 @@ html[data-theme='dark'] .app-header-nav-badge{
 }
 .feed-page-back{ margin-top: 22px; }
 
-.feed-page{ padding: 20px 0 48px; }
+.feed-page{
+  padding: 20px 0 48px;
+  box-sizing: border-box;
+}
 .feed-page-head{ margin-bottom: 4px; }
 .feed-page-title{
   margin: 0;
@@ -2428,16 +2431,19 @@ html[data-theme='dark'] .app-header-nav-badge{
   border: 1px solid var(--line);
   background: var(--card);
   transition: border-color .15s, background .15s;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .feed-opening-row:hover{
   border-color: color-mix(in srgb, var(--pine) 28%, var(--line));
 }
 .feed-opening-row--hot{
   border-color: color-mix(in srgb, var(--pine) 36%, var(--line));
-  box-shadow: inset 3px 0 0 var(--pine);
+  border-left: 3px solid var(--pine);
+  padding-left: 12px;
 }
 html[data-theme='dark'] .feed-opening-row--hot{
-  box-shadow: inset 3px 0 0 var(--fairway);
+  border-left-color: var(--fairway);
 }
 .feed-opening-row.is-gone{ opacity: .72; }
 .feed-opening-row-main{
@@ -3483,7 +3489,10 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
     justify-content: center;
   }
 
-  .feed-page{ padding: 16px 0 40px; }
+  .feed-page{
+    /* Restore breathing room lost when the old feed-page card went away (container is only 18px). */
+    padding: 16px 8px 40px;
+  }
   .feed-filters{
     flex-direction: column;
     align-items: stretch;
@@ -3491,19 +3500,25 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
   }
   .feed-filter-group{
     width: 100%;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
-  .feed-filter-seg{ flex: 1; justify-content: stretch; }
+  .feed-filter-seg{ width: 100%; justify-content: stretch; }
   .feed-filter-seg button{ flex: 1; }
+  .feed-opening-list{ gap: 10px; }
   .feed-opening-row{
     flex-wrap: wrap;
     align-items: flex-start;
-    padding: 12px;
+    padding: 14px;
+    gap: 10px;
   }
+  .feed-opening-row--hot{ padding-left: 12px; }
   .feed-opening-row-main{ flex: 1 1 100%; }
   .feed-opening-row-aside{
     width: 100%;
     justify-content: space-between;
+    padding-top: 2px;
   }
   .feed-opening-row-book{
     min-width: 88px;
