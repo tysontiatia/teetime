@@ -198,6 +198,7 @@ export function AdminCourseEditPage() {
         if (meta.lng != null && record.lng == null) patch.lng = meta.lng;
         if (meta.phone_number && !record.phone_number) patch.phone_number = meta.phone_number;
         if (meta.website && !record.website) patch.website = meta.website;
+        if ((meta.holes === 9 || meta.holes === 18) && record.holes == null) patch.holes = meta.holes;
       }
       patchRecord(patch);
     } catch (e) {

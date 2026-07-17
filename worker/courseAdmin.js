@@ -173,6 +173,14 @@ function parseForeUpCourseMeta(html) {
   };
 }
 
+/** Read the hole count for a specific schedule (teesheet) from the ForeUp page. */
+function parseForeUpScheduleHoles(html, scheduleId) {
+  const m = html.match(new RegExp(`"teesheet_id":"${scheduleId}"[\\s\\S]*?"holes":"(\\d+)"`));
+  if (!m) return null;
+  const n = Number(m[1]);
+  return n === 9 || n === 18 ? n : null;
+}
+
 /** True when the times API accepts this booking class publicly (not permission-gated). */
 async function foreupClassUsable(scheduleId, classId) {
   try {
@@ -246,6 +254,10 @@ async function enrichForeUpFromPage(bookingUrl, scheduleId) {
   const html = await fetchForeUpBookingPage(bookingUrl);
   if (!html) return out;
   out.meta = parseForeUpCourseMeta(html);
+  if (out.meta && scheduleId) {
+    const holes = parseForeUpScheduleHoles(html, scheduleId);
+    if (holes) out.meta.holes = holes;
+  }
   if (scheduleId) out.booking_class_id = await pickForeUpBookingClass(html, scheduleId);
   return out;
 }

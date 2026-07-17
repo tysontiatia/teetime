@@ -105,6 +105,7 @@ export type ParseBookingUrlResult = {
     lng?: number | null;
     phone_number?: string | null;
     website?: string | null;
+    holes?: number | null;
   } | null;
 };
 
