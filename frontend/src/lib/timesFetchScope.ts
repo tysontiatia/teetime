@@ -1,5 +1,6 @@
 import type { Course } from '../types';
 import { haversineMiles } from './geo';
+import { resolveZipQuery } from './zipSearch';
 
 /** Default radius for regional tee-time fetches (Wasatch Front / near-me). */
 export const DEFAULT_FETCH_RADIUS_MI = 60;
@@ -60,8 +61,8 @@ export function filterCoursesWithinRadius(courses: Course[], anchor: FetchAnchor
 export function courseMatchesLocationQuery(course: Course, query: string): boolean {
   const q = normalizeSearchText(query);
   if (!q) return false;
-  return [course.catalogName, course.name, course.city, course.area ?? ''].some((value) =>
-    normalizeSearchText(value).includes(q)
+  return [course.catalogName, course.name, course.city, course.area ?? '', course.address ?? ''].some(
+    (value) => normalizeSearchText(value).includes(q)
   );
 }
 
@@ -96,6 +97,24 @@ export function buildTimesFetchScope(
   }
 
   if (locationQuery) {
+    // ZIP search: fetch courses near the ZIP centroid instead of text-matching.
+    const zip = resolveZipQuery(locationQuery);
+    if (zip) {
+      const zipAnchor: FetchAnchor = { ...zip.anchor, source: 'default' };
+      const nearZip = filterCoursesWithinRadius(workerCourses, zipAnchor, radiusMi);
+      return {
+        anchor: zipAnchor,
+        radiusMi,
+        fetchPool: nearZip,
+        workerCourses,
+        mode: 'search',
+        searchQuery: locationQuery,
+        searchMatchCount: nearZip.length,
+        regional: true,
+        outOfScopeCount: Math.max(0, workerCourses.length - nearZip.length),
+      };
+    }
+
     const searchMatches = filterCoursesByLocationQuery(workerCourses, locationQuery);
     if (searchMatches.length > 0) {
       return {

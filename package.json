@@ -14,5 +14,8 @@
     "rates:sql": "node scripts/sheet-rates-to-sql.mjs",
     "registry:backfill": "node scripts/backfill-course-registry.mjs",
     "registry:sync": "node scripts/sync-courses-from-registry.mjs"
+  },
+  "devDependencies": {
+    "zipcodes": "^8.0.0"
   }
 }

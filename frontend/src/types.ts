@@ -11,6 +11,8 @@ export type Course = {
   catalogName: string;
   name: string;
   city: string;
+  /** Full street address from the catalog (used for city/zip text search). */
+  address?: string;
   /** Catalog region label from `courses.json` (e.g. ST. GEORGE AND SOUTHWEST). */
   area?: string;
   lat?: number;

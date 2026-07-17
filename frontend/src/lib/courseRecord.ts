@@ -56,13 +56,21 @@ export function parseCourseTitle(fullName: string): { short: string; city: strin
   return { short: fullName.trim(), city: '' };
 }
 
+/** "305 W Pleasant View Dr, Ogden, UT 84414, USA" → "Ogden" */
+export function cityFromAddress(address?: string): string {
+  if (!address) return '';
+  const m = address.match(/,\s*([^,]+?),\s*UT\b/i);
+  return m ? m[1].trim() : '';
+}
+
 export function recordToCourse(record: CourseRecord, distanceMi?: number): Course {
   const { short, city } = parseCourseTitle(record.name);
   return {
     id: slugFromCourseName(record.name),
     catalogName: record.name,
     name: short,
-    city: city || record.area || 'Utah',
+    city: city || cityFromAddress(record.address) || record.area || 'Utah',
+    address: record.address,
     area: record.area,
     lat: record.lat,
     lng: record.lng,

@@ -20,7 +20,14 @@ import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { FeedTeaser } from '../components/FeedTeaser';
 import { useScopedOpenings } from '../hooks/useScopedOpenings';
 import { courseDetailQueryString, feedQueryString } from '../lib/finderUrl';
-import { buildTimesFetchScope, courseMatchesLocationQuery } from '../lib/timesFetchScope';
+import {
+  buildTimesFetchScope,
+  courseMatchesLocationQuery,
+  distanceFromAnchor,
+  filterCoursesWithinRadius,
+  DEFAULT_FETCH_RADIUS_MI,
+} from '../lib/timesFetchScope';
+import { resolveZipQuery } from '../lib/zipSearch';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -139,16 +146,34 @@ export function FinderPage() {
 
   const fetchSlugSet = useMemo(() => new Set(fetchPool.map((c) => c.id)), [fetchPool]);
 
+  /** When the location box holds a Utah ZIP, resolve it to a centroid anchor. */
+  const zipMatch = useMemo(() => resolveZipQuery(locationDraft), [locationDraft]);
+
+  /** Filter to courses near the ZIP centroid and re-express distance from it. */
+  const coursesNearZip = useCallback(
+    (pool: Course[]) => {
+      if (!zipMatch) return pool;
+      const anchor = { ...zipMatch.anchor, source: 'default' as const };
+      return filterCoursesWithinRadius(pool, anchor, DEFAULT_FETCH_RADIUS_MI).map((c) => ({
+        ...c,
+        distanceMi: distanceFromAnchor(c, anchor) ?? undefined,
+      }));
+    },
+    [zipMatch]
+  );
+
   const searchPool = useMemo(() => {
     const q = locationDraft.trim();
     let pool = holesCompatibleCourses;
-    if (q) {
+    if (zipMatch) {
+      pool = coursesNearZip(pool);
+    } else if (q) {
       pool = pool.filter((c) => courseMatchesLocationQuery(c, q));
     } else if (!fetchAllUtah) {
       pool = pool.filter((c) => fetchSlugSet.has(c.id));
     }
     return pool;
-  }, [holesCompatibleCourses, locationDraft, fetchAllUtah, fetchSlugSet]);
+  }, [holesCompatibleCourses, locationDraft, zipMatch, coursesNearZip, fetchAllUtah, fetchSlugSet]);
 
   const searchPendingCommit =
     locationDraft.trim() !== params.locationQuery.trim() && locationDraft.trim().length > 0;
@@ -212,12 +237,13 @@ export function FinderPage() {
     !loadingTimes && failedSlugs.length > 0 && failedSlugs.length === attemptedSlugCount && attemptedSlugCount > 0;
   const workerFetchPartialFailure = !loadingTimes && failedSlugs.length > 0 && !workerFetchTotalFailure;
 
-  /** Same text search as live list, but over the full catalog (other states / platforms). */
+  /** Same search as live list, but over the full catalog (other platforms). */
   const queryAllCourses = useMemo(() => {
     const q = locationDraft.trim();
+    if (zipMatch) return coursesNearZip(courses);
     if (!q) return courses;
     return courses.filter((c) => courseMatchesLocationQuery(c, q));
-  }, [courses, locationDraft]);
+  }, [courses, locationDraft, zipMatch, coursesNearZip]);
 
   const bookingOnlyCourses = useMemo(() => {
     return queryAllCourses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
