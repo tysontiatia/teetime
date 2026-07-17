@@ -144,7 +144,9 @@ export function AdminCourseEditPage() {
   }, [dirty]);
 
   const onPlacesLookup = async () => {
-    const q = placesQuery.trim() || `${record.name} golf course`;
+    const q =
+      placesQuery.trim() ||
+      (record.address ? `${record.name}, ${record.address}` : `${record.name} golf course`);
     setBusy(true);
     setSaveError(null);
     try {
@@ -185,6 +187,18 @@ export function AdminCourseEditPage() {
       if (hints.trutee_course_id) patch.trutee_course_id = hints.trutee_course_id;
       if (hints.facility_id) patch.facility_id = hints.facility_id;
       if (hints.teeitup_alias) patch.teeitup_alias = hints.teeitup_alias;
+
+      // Prefill course metadata scraped from the vendor page, but never clobber
+      // values the user has already entered.
+      const meta = parsed.meta;
+      if (meta) {
+        if (meta.name && !record.name.trim()) patch.name = meta.name;
+        if (meta.address && !record.address) patch.address = meta.address;
+        if (meta.lat != null && record.lat == null) patch.lat = meta.lat;
+        if (meta.lng != null && record.lng == null) patch.lng = meta.lng;
+        if (meta.phone_number && !record.phone_number) patch.phone_number = meta.phone_number;
+        if (meta.website && !record.website) patch.website = meta.website;
+      }
       patchRecord(patch);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Could not parse booking URL');

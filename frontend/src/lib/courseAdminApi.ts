@@ -97,6 +97,15 @@ export type ParseBookingUrlResult = {
   booking_url: string;
   platform: string | null;
   hints: Record<string, string>;
+  /** Optional course metadata scraped from the vendor page (ForeUp). */
+  meta?: {
+    name?: string | null;
+    address?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    phone_number?: string | null;
+    website?: string | null;
+  } | null;
 };
 
 export async function parseBookingUrl(url: string): Promise<ParseBookingUrlResult> {

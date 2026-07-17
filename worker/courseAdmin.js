@@ -125,34 +125,129 @@ function stripPlatformFields(record, platform) {
   }
 }
 
-/**
- * ForeUp deep links only jump to the selected date when a booking_class_id is
- * present in the URL. The booking page embeds the class list per teesheet, so
- * fetch it once at parse time and pick the class matching the schedule. Best
- * effort — returns null on any failure so parsing never blocks on the network.
- */
-async function discoverForeUpBookingClass(bookingUrl, scheduleId) {
-  if (!bookingUrl || !scheduleId) return null;
+const FOREUP_UA = 'TeeTimeIO/1.0 (+https://tee-time.io)';
+
+async function fetchForeUpBookingPage(bookingUrl) {
   try {
     const pageUrl = bookingUrl.split('#')[0];
     const res = await fetch(pageUrl, {
-      headers: {
-        'User-Agent': 'TeeTimeIO/1.0 (+https://tee-time.io)',
-        Referer: 'https://foreupsoftware.com/',
-      },
+      headers: { 'User-Agent': FOREUP_UA, Referer: 'https://foreupsoftware.com/' },
     });
     if (!res.ok) return null;
-    const html = await res.text();
-    const re = /"booking_class_id":"(\d+)","teesheet_id":"(\d+)"/g;
-    const matches = [];
-    let m;
-    while ((m = re.exec(html))) matches.push({ classId: m[1], teesheet: m[2] });
-    if (matches.length === 0) return null;
-    const exact = matches.find((x) => x.teesheet === String(scheduleId));
-    return (exact || matches[0]).classId;
+    return await res.text();
   } catch {
     return null;
   }
+}
+
+/** Extract course metadata from the ForeUp booking page's embedded COURSE object. */
+function parseForeUpCourseMeta(html) {
+  const start = html.indexOf('COURSE = {');
+  if (start === -1) return null;
+  const slice = html.slice(start, start + 2500);
+  const pick = (key) => {
+    const m = slice.match(new RegExp(`"${key}":"([^"]*)"`));
+    if (!m || m[1] === '') return null;
+    // Embedded JSON escapes forward slashes (http:\/\/…); unescape for real values.
+    return m[1].replace(/\\\//g, '/').replace(/\\"/g, '"');
+  };
+  const num = (key) => {
+    const v = pick(key);
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const address = pick('address');
+  const city = pick('city');
+  const state = pick('state');
+  const postal = pick('postal');
+  const website = pick('website');
+  const tail = [city, [state, postal].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const fullAddress = [address, tail].filter(Boolean).join(', ');
+  return {
+    name: pick('name'),
+    address: fullAddress || address || null,
+    lat: num('latitude_centroid'),
+    lng: num('longitude_centroid') != null ? num('longitude_centroid') : num('longitude_centrod'),
+    phone_number: pick('phone'),
+    website: website ? (/^https?:\/\//i.test(website) ? website : `https://${website}`) : null,
+  };
+}
+
+/** True when the times API accepts this booking class publicly (not permission-gated). */
+async function foreupClassUsable(scheduleId, classId) {
+  try {
+    const d = new Date(Date.now() + 3 * 86400000);
+    const date = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`;
+    const u = new URL('https://foreupsoftware.com/index.php/api/booking/times');
+    u.searchParams.set('time', 'all');
+    u.searchParams.set('date', date);
+    u.searchParams.set('holes', 'all');
+    u.searchParams.set('players', '0');
+    u.searchParams.set('booking_class', String(classId));
+    u.searchParams.set('schedule_id', String(scheduleId));
+    u.searchParams.append('schedule_ids[]', String(scheduleId));
+    const res = await fetch(u.toString(), {
+      headers: {
+        'User-Agent': FOREUP_UA,
+        Referer: 'https://foreupsoftware.com/',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Array.isArray(data);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ForeUp deep links only jump to the selected date when a public booking_class_id
+ * is in the URL. A schedule can expose several classes (e.g. "Public" vs
+ * "Members" — the latter returns a permissions error). Rank public-looking
+ * classes first, then validate each against the times API and return the first
+ * that is publicly bookable.
+ */
+async function pickForeUpBookingClass(html, scheduleId) {
+  const re =
+    /"booking_class_id":"(\d+)","teesheet_id":"(\d+)","active":"(\d)","hidden":"(\d)"[^]*?"name":"([^"]*)"/g;
+  const all = [];
+  let m;
+  while ((m = re.exec(html))) {
+    all.push({ classId: m[1], teesheet: m[2], active: m[3], hidden: m[4], name: m[5] });
+  }
+  if (all.length === 0) return null;
+
+  let candidates = all.filter(
+    (c) => c.teesheet === String(scheduleId) && c.active === '1' && c.hidden === '0',
+  );
+  if (candidates.length === 0) candidates = all.filter((c) => c.active === '1' && c.hidden === '0');
+  if (candidates.length === 0) candidates = all;
+
+  const rank = (name) => {
+    const n = (name || '').toLowerCase();
+    if (/member|league|senior|junior|employee|staff/.test(n)) return 0;
+    if (/public/.test(n)) return 4;
+    if (/online|guest|non.?resident|book a tee|reservation|tee time/.test(n)) return 3;
+    return 2;
+  };
+  candidates.sort((a, b) => rank(b.name) - rank(a.name));
+
+  for (const c of candidates) {
+    if (await foreupClassUsable(scheduleId, c.classId)) return c.classId;
+  }
+  return candidates[0].classId;
+}
+
+/** Fetch the ForeUp booking page once and derive booking_class_id + course metadata. */
+async function enrichForeUpFromPage(bookingUrl, scheduleId) {
+  const out = { booking_class_id: null, meta: null };
+  if (!bookingUrl) return out;
+  const html = await fetchForeUpBookingPage(bookingUrl);
+  if (!html) return out;
+  out.meta = parseForeUpCourseMeta(html);
+  if (scheduleId) out.booking_class_id = await pickForeUpBookingClass(html, scheduleId);
+  return out;
 }
 
 function parseDollars(v) {
@@ -494,13 +589,12 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
           return corsResponse({ error: 'invalid_body' }, 400);
         }
         const parsed = parseBookingUrl(body.url);
-        if (
-          parsed.platform === 'foreup' &&
-          parsed.hints.schedule_id &&
-          !parsed.hints.booking_class_id
-        ) {
-          const bc = await discoverForeUpBookingClass(body.url, parsed.hints.schedule_id);
-          if (bc) parsed.hints.booking_class_id = bc;
+        if (parsed.platform === 'foreup' && parsed.hints.schedule_id) {
+          const enr = await enrichForeUpFromPage(body.url, parsed.hints.schedule_id);
+          if (enr.booking_class_id && !parsed.hints.booking_class_id) {
+            parsed.hints.booking_class_id = enr.booking_class_id;
+          }
+          if (enr.meta) parsed.meta = enr.meta;
         }
         return corsResponse(parsed);
       }
