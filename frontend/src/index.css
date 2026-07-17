@@ -3809,3 +3809,9 @@ html[data-theme='dark'] .mp-course.is-empty .mp-photo-fallback{
   filter: grayscale(0.45) brightness(0.75);
   opacity: 0.65;
 }
+
+/* ---------- Admin (course catalog) ---------- */
+.admin-err{ color: #9a3412; }
+html[data-theme='dark'] .admin-err{ color: #fecaca; }
+.admin-warn{ color: #92400e; }
+html[data-theme='dark'] .admin-warn{ color: #fcd34d; }

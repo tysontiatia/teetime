@@ -65,16 +65,16 @@ export function AdminCoursesListPage() {
       {loading ? (
         <p style={{ marginTop: 16, color: 'var(--muted)' }}>Loading courses…</p>
       ) : error ? (
-        <p style={{ marginTop: 16, color: '#9a3412' }}>{error}</p>
+        <p className="admin-err" style={{ marginTop: 16 }}>{error}</p>
       ) : filtered.length === 0 ? (
         <p style={{ marginTop: 16, color: 'var(--muted)' }}>
           No courses in registry yet. Run the backfill script, or add a new course.
         </p>
       ) : (
-        <div style={{ marginTop: 16, border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
+        <div style={{ marginTop: 16, border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: 'var(--card)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
-              <tr style={{ textAlign: 'left', background: 'rgba(248,250,248,0.95)', color: 'var(--muted)', fontSize: 12 }}>
+              <tr style={{ textAlign: 'left', background: 'color-mix(in srgb, var(--sand) 70%, var(--card))', color: 'var(--muted)', fontSize: 12 }}>
                 <th style={{ padding: '10px 12px' }}>Course</th>
                 <th style={{ padding: '10px 12px' }}>Platform</th>
                 <th style={{ padding: '10px 12px' }}>Rates</th>

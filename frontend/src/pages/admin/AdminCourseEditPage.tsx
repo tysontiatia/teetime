@@ -223,7 +223,7 @@ export function AdminCourseEditPage() {
   if (loadError) {
     return (
       <div className="container" style={{ padding: 24 }}>
-        <p style={{ color: '#9a3412' }}>{loadError}</p>
+        <p className="admin-err">{loadError}</p>
         <Link className="btn" to="/admin/courses">
           Back to list
         </Link>
@@ -270,7 +270,7 @@ export function AdminCourseEditPage() {
       ) : null}
 
       {warnings.length > 0 ? (
-        <ul style={{ margin: '12px 0 0', paddingLeft: 18, color: '#92400e', fontSize: 13 }}>
+        <ul className="admin-warn" style={{ margin: '12px 0 0', paddingLeft: 18, fontSize: 13 }}>
           {warnings.map((w) => (
             <li key={w}>{w}</li>
           ))}
@@ -278,7 +278,7 @@ export function AdminCourseEditPage() {
       ) : null}
 
       {saveError ? (
-        <p style={{ marginTop: 12, color: '#9a3412', fontSize: 14 }}>
+        <p className="admin-err" style={{ marginTop: 12, fontSize: 14 }}>
           {saveError}
         </p>
       ) : null}
@@ -291,7 +291,7 @@ export function AdminCourseEditPage() {
           gap: 16,
         }}
       >
-        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: '#fff' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--card)' }}>
           {section('Identity')}
           <Field label="Course name (include city in parentheses)">
             <input
@@ -365,7 +365,7 @@ export function AdminCourseEditPage() {
           </Field>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: '#fff' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--card)' }}>
           {section('Booking platform')}
           <Field label="Booking URL" hint="Paste from course site or Google, then Parse">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -493,7 +493,7 @@ export function AdminCourseEditPage() {
           </Field>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: '#fff' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--card)' }}>
           {section('Course facts')}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             <Field label="Holes">
@@ -556,7 +556,7 @@ export function AdminCourseEditPage() {
           </Field>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: '#fff' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--card)' }}>
           {section('Rates (standard card)')}
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
             Leave blank for no row. Seasonal / guest rates: add via SQL for now.
@@ -590,7 +590,7 @@ export function AdminCourseEditPage() {
           </div>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: '#fff' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--card)' }}>
           {section('Policy')}
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 14 }}>
             <input type="checkbox" checked={prepaid} onChange={(e) => setPrepaid(e.target.checked)} />
