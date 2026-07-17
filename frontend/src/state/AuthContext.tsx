@@ -31,7 +31,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
+      // Avoid churning session identity (and every downstream consumer) when a
+      // background refresh yields the same user + token, e.g. on tab refocus.
+      setSession((prev) => {
+        if (prev?.access_token === next?.access_token && prev?.user?.id === next?.user?.id) {
+          return prev;
+        }
+        return next;
+      });
     });
     return () => {
       cancelled = true;

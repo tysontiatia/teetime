@@ -4,12 +4,13 @@ import { fetchIsAdmin } from '../lib/courseAdminApi';
 
 export function useIsAdmin() {
   const { user, loading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!userId) {
       setIsAdmin(false);
       setLoading(false);
       return;
@@ -25,7 +26,9 @@ export function useIsAdmin() {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading]);
+    // Key on the stable user id (not the session object) so a background
+    // token refresh on tab focus doesn't re-run this and unmount admin pages.
+  }, [userId, authLoading]);
 
   return { isAdmin, loading: authLoading || loading };
 }

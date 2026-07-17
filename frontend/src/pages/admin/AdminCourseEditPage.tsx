@@ -117,6 +117,32 @@ export function AdminCourseEditPage() {
     setRecord((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  // Unsaved-changes protection: snapshot the form once it's populated, then warn
+  // before the browser unloads/reloads the tab if the user has edited anything.
+  const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
+  const currentSnapshot = useMemo(
+    () => JSON.stringify({ record, prepaid, rates, bookingUrlInput }),
+    [record, prepaid, rates, bookingUrlInput],
+  );
+
+  useEffect(() => {
+    if (!loading && baselineSnapshot === null) {
+      setBaselineSnapshot(currentSnapshot);
+    }
+  }, [loading, currentSnapshot, baselineSnapshot]);
+
+  const dirty = baselineSnapshot !== null && currentSnapshot !== baselineSnapshot;
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
   const onPlacesLookup = async () => {
     const q = placesQuery.trim() || `${record.name} golf course`;
     setBusy(true);
@@ -190,6 +216,7 @@ export function AdminCourseEditPage() {
         : await updateAdminCourse(slug, payload);
       setWarnings(result.platform_warnings || []);
       setSavedSlug(result.slug);
+      setBaselineSnapshot(currentSnapshot);
       if (isNew) {
         nav(`/admin/courses/${result.slug}`, { replace: true });
       }
