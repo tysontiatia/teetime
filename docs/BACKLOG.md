@@ -2,6 +2,22 @@
 
 Tracked work that is intentionally deferred. Newest first.
 
+## Poller: don't treat vendor errors as "covered" (empty snapshot)
+
+When a poll claim bumps `availability_poll_schedule.last_polled_at` but the
+vendor fetch fails (wrong ForeUp `booking_class_id`, permissions error, timeout,
+etc.), `/v1/availability` still reports `has_poll_coverage: true` with `times: []`.
+Search trusts that fresh empty snapshot and never falls back to the live vendor
+path — so a misconfigured course can look like "no tee times" for ~12 minutes
+(or longer if every subsequent poll keeps failing the same way).
+
+**Seen with:** Skyway after a Members-class poll wrote coverage with 0 slots.
+
+**Fix:** on poll failure, do not advance coverage / `last_polled_at` in a way that
+search trusts; or have `/v1/availability` ignore failed run-course rows so the
+frontend falls through to live fetch. Same hardening helps every live platform
+(ForeUp, Chronogolf, MemberSports, TeeItUp).
+
 ## Per-course timezone (BLOCKER for out-of-state courses)
 
 **Do this before adding any course outside Utah / Mountain Time.**
