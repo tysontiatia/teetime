@@ -25,6 +25,23 @@ type SnapshotAvailabilityResponse = {
 /** Snapshots older than this fall back to live vendor (avoids stale open slots). */
 const SNAPSHOT_STALE_MS = 12 * 60 * 1000;
 
+/** Abort a single worker request if it stalls, so it can't hold a concurrency slot forever. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit = {},
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function parsePrice(s: string | null): number | undefined {
   if (!s) return undefined;
   const n = parseInt(s.replace(/[^0-9]/g, ''), 10);
@@ -62,7 +79,13 @@ function excludePastTeeTimes(times: TeeTime[], nowMs: number = Date.now()): TeeT
   return times.filter((t) => new Date(t.startsAt).getTime() > nowMs);
 }
 
-export type TeeTimeFetchResult = { times: TeeTime[]; ok: boolean; source?: 'snapshot' | 'live' };
+export type TeeTimeFetchResult = {
+  times: TeeTime[];
+  ok: boolean;
+  source?: 'snapshot' | 'live';
+  /** True when the worker returned 429; caller should back off, not hammer. */
+  rateLimited?: boolean;
+};
 
 const emptyOk: TeeTimeFetchResult = { times: [], ok: true };
 
@@ -80,7 +103,7 @@ async function fetchTeeTimesFromSnapshot(
   url.searchParams.set('players', String(players));
 
   try {
-    const res = await fetch(url.toString(), { method: 'GET' });
+    const res = await fetchWithTimeout(url.toString(), { method: 'GET' });
     if (!res.ok) return null;
     return (await res.json()) as SnapshotAvailabilityResponse;
   } catch {
@@ -158,8 +181,8 @@ async function fetchTeeTimesLive(
   }
 
   try {
-    const res = await fetch(url.toString(), { method: 'GET' });
-    if (!res.ok) return { times: [], ok: false };
+    const res = await fetchWithTimeout(url.toString(), { method: 'GET' });
+    if (!res.ok) return { times: [], ok: false, rateLimited: res.status === 429 };
     let data: unknown;
     try {
       data = await res.json();
@@ -232,6 +255,39 @@ export type CourseTimesUpdate = {
   source?: 'snapshot' | 'live';
 };
 
+/** Retry transient transport failures (network resets, ERR_INSUFFICIENT_RESOURCES, timeouts). */
+const MAX_FETCH_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchTeeTimesWithRetry(
+  record: CourseRecord,
+  slug: string,
+  dateYmd: string,
+  holes: 9 | 18,
+  players: 1 | 2 | 3 | 4,
+): Promise<TeeTimeFetchResult> {
+  let last: TeeTimeFetchResult = { times: [], ok: false };
+  for (let attempt = 0; attempt < MAX_FETCH_ATTEMPTS; attempt++) {
+    try {
+      last = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
+    } catch {
+      last = { times: [], ok: false };
+    }
+    if (last.ok) return last;
+    // Never rapid-retry a 429 — the window is ~60s, so retrying just amplifies the
+    // storm and can't succeed. Fail this course gracefully and let the next refresh recover.
+    if (last.rateLimited) return last;
+    // Backoff with jitter so transient-error retries don't stampede the same origin at once.
+    if (attempt < MAX_FETCH_ATTEMPTS - 1) {
+      await sleep(250 * 2 ** attempt + Math.random() * 200);
+    }
+  }
+  return last;
+}
+
 export async function fetchTimesForCourseSlugs(
   entries: { slug: string; record: CourseRecord }[],
   dateYmd: string,
@@ -249,16 +305,10 @@ export async function fetchTimesForCourseSlugs(
       const i = index++;
       if (i >= entries.length) break;
       const { slug, record } = entries[i];
-      try {
-        const { times, ok, source } = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
-        out.set(slug, times);
-        if (!ok) failedSlugs.push(slug);
-        onCourseComplete?.({ slug, times, ok, source });
-      } catch {
-        out.set(slug, []);
-        failedSlugs.push(slug);
-        onCourseComplete?.({ slug, times: [], ok: false });
-      }
+      const { times, ok, source } = await fetchTeeTimesWithRetry(record, slug, dateYmd, holes, players);
+      out.set(slug, times);
+      if (!ok) failedSlugs.push(slug);
+      onCourseComplete?.({ slug, times, ok, source });
     }
   }
 

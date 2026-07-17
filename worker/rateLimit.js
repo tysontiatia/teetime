@@ -68,10 +68,14 @@ export function rateLimitResponse(corsHeaders, { resetSec }) {
   });
 }
 
-/** Generous enough for statewide finder refreshes (~67 courses). */
+/**
+ * Sized for a logged-in user doing several statewide refreshes/min (~60 live-capable
+ * courses, each possibly a live vendor call + snapshot read + photo). Still trips
+ * scrapers, which run at thousands/min.
+ */
 export const RATE_LIMITS = {
-  availability: { bucket: 'availability', limit: 240, windowSec: 60 },
-  feed: { bucket: 'feed', limit: 60, windowSec: 60 },
-  vendorLive: { bucket: 'vendor-live', limit: 90, windowSec: 60 },
-  places: { bucket: 'places', limit: 120, windowSec: 60 },
+  availability: { bucket: 'availability', limit: 600, windowSec: 60 },
+  feed: { bucket: 'feed', limit: 120, windowSec: 60 },
+  vendorLive: { bucket: 'vendor-live', limit: 300, windowSec: 60 },
+  places: { bucket: 'places', limit: 400, windowSec: 60 },
 };
