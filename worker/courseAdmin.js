@@ -62,10 +62,13 @@ export function parseBookingUrl(rawUrl) {
 
   if (host.includes('foreupsoftware.com')) {
     out.platform = 'foreup';
-    const scheduleMatch = path.match(/\/booking\/(?:index\/)?(\d+)/);
-    if (scheduleMatch) out.hints.schedule_id = scheduleMatch[1];
-    const classMatch = path.match(/\/booking\/\d+\/(\d+)/);
-    if (classMatch) out.hints.booking_class_id = classMatch[1];
+    // ForeUp tee-sheet deep links are /booking/{facility}/{schedule_id}#/teetimes.
+    // The SECOND path segment is the schedule_id the times API needs; the first is
+    // the facility/course_id. Do NOT treat the second segment as booking_class_id
+    // (that is a query param, defaulting to 0). /booking/index/{facility} is the
+    // class-picker page and carries no schedule_id, so leave it for manual entry.
+    const facilitySchedule = path.match(/\/booking\/(\d+)\/(\d+)/);
+    if (facilitySchedule) out.hints.schedule_id = facilitySchedule[2];
     return out;
   }
 
