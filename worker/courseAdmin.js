@@ -125,6 +125,36 @@ function stripPlatformFields(record, platform) {
   }
 }
 
+/**
+ * ForeUp deep links only jump to the selected date when a booking_class_id is
+ * present in the URL. The booking page embeds the class list per teesheet, so
+ * fetch it once at parse time and pick the class matching the schedule. Best
+ * effort — returns null on any failure so parsing never blocks on the network.
+ */
+async function discoverForeUpBookingClass(bookingUrl, scheduleId) {
+  if (!bookingUrl || !scheduleId) return null;
+  try {
+    const pageUrl = bookingUrl.split('#')[0];
+    const res = await fetch(pageUrl, {
+      headers: {
+        'User-Agent': 'TeeTimeIO/1.0 (+https://tee-time.io)',
+        Referer: 'https://foreupsoftware.com/',
+      },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const re = /"booking_class_id":"(\d+)","teesheet_id":"(\d+)"/g;
+    const matches = [];
+    let m;
+    while ((m = re.exec(html))) matches.push({ classId: m[1], teesheet: m[2] });
+    if (matches.length === 0) return null;
+    const exact = matches.find((x) => x.teesheet === String(scheduleId));
+    return (exact || matches[0]).classId;
+  } catch {
+    return null;
+  }
+}
+
 function parseDollars(v) {
   if (v == null || v === '') return null;
   const n = typeof v === 'number' ? v : parseInt(String(v).replace(/[^0-9]/g, ''), 10);
@@ -463,7 +493,16 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         } catch {
           return corsResponse({ error: 'invalid_body' }, 400);
         }
-        return corsResponse(parseBookingUrl(body.url));
+        const parsed = parseBookingUrl(body.url);
+        if (
+          parsed.platform === 'foreup' &&
+          parsed.hints.schedule_id &&
+          !parsed.hints.booking_class_id
+        ) {
+          const bc = await discoverForeUpBookingClass(body.url, parsed.hints.schedule_id);
+          if (bc) parsed.hints.booking_class_id = bc;
+        }
+        return corsResponse(parsed);
       }
 
       if (path === '/admin/places/lookup' && request.method === 'POST') {

@@ -989,6 +989,7 @@
     "address": "401 Kindler Dr, Evanston, WY 82930, USA",
     "platform": "foreup",
     "schedule_id": "806",
+    "booking_class_id": "6162",
     "timezone": "America/Denver",
     "booking_url": "https://foreupsoftware.com/index.php/booking/19040/806",
     "walkability": "moderate",
