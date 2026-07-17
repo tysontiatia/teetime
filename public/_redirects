@@ -1,8 +1,7 @@
-# Short vote links (site root) → SPA under /app/…/
-# Without a trailing slash on /app/… deep links, Pages can 308 → /app/ and drop the path.
-/round/:slug      /app/round/:slug/     302
-# Copied links use `/round/slug/`; `:slug` alone does not match a trailing slash on the source path.
-/round/:slug/     /app/round/:slug/     302
+# Short vote links (site root /round/:slug) are handled by the Pages Function
+# functions/round/[[slug]].js, which serves per-round Open Graph tags for link
+# previews and then redirects humans into the SPA. Do NOT add a /round redirect
+# here or it will shadow the Function's rich preview.
 
 # React SPA at /app/ — do NOT use /app/* here: would break /app/assets/*.js
 /app              /app/                 302
