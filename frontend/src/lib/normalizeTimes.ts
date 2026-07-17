@@ -86,6 +86,52 @@ function normalizeMemberSportsTimes(data: unknown[], holes: string): NormRow[] {
   return result;
 }
 
+/** TeeItUp `teetime` is UTC ISO — render in America/Denver so rawTeeTimeToIsoUtc reads it as wall clock. */
+function utcIsoToMtLocal(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === t)?.value ?? '';
+  const hh = get('hour') === '24' ? '00' : get('hour');
+  return `${get('year')}-${get('month')}-${get('day')} ${hh}:${get('minute')}`;
+}
+
+/** Fan out one row per rate (Palisade = 9h + 18h on the same tee time). greenFeeCart is cents (non-resident). */
+function normalizeTeeItUpTimes(course: CourseRecord, data: unknown): NormRow[] {
+  if (!Array.isArray(data)) return [];
+  const wantHash = String(course.teeitup_course_id || '').trim();
+  const rows: NormRow[] = [];
+  for (const entry of data as Record<string, unknown>[]) {
+    const teetimes = entry?.teetimes as Record<string, unknown>[] | undefined;
+    if (!Array.isArray(teetimes)) continue;
+    if (wantHash && entry.courseId && entry.courseId !== wantHash) continue;
+    for (const tt of teetimes) {
+      const localTime = utcIsoToMtLocal(String(tt.teetime || ''));
+      if (!localTime) continue;
+      const spots = tt.maxPlayers != null ? Number(tt.maxPlayers) : null;
+      const rates = (tt.rates as Record<string, unknown>[] | undefined) ?? [];
+      for (const rate of rates) {
+        const cents = Number(rate.greenFeeCart);
+        rows.push({
+          rawTime: localTime,
+          spots,
+          price: Number.isFinite(cents) ? '$' + Math.round(cents / 100) : null,
+          holes: rate.holes === 9 ? 9 : 18,
+        });
+      }
+    }
+  }
+  return rows;
+}
+
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
   if (!data || (typeof data === 'object' && data !== null && 'error' in data && (data as { error: unknown }).error))
     return [];
@@ -98,6 +144,8 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
       return normalizeChronogolfSlcTimes(data as unknown[], holes);
     case 'chronogolf':
       return normalizeChronogolfTimes(data as { teetimes?: unknown[] });
+    case 'teeitup':
+      return normalizeTeeItUpTimes(course, data);
     default:
       return [];
   }

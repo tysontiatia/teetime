@@ -9,6 +9,7 @@ const PLATFORM_ID_FIELDS = {
   chronogolf_slc: ['club_id', 'course_id', 'affiliation_type_id'],
   membersports: ['golf_club_id', 'golf_course_id'],
   trutee: ['trutee_org_slug', 'trutee_course_id'],
+  teeitup: ['facility_id', 'teeitup_course_id', 'teeitup_alias'],
 };
 
 const ALL_PLATFORM_FIELDS = [
@@ -22,6 +23,9 @@ const ALL_PLATFORM_FIELDS = [
   'course_ids',
   'trutee_org_slug',
   'trutee_course_id',
+  'facility_id',
+  'teeitup_course_id',
+  'teeitup_alias',
 ];
 
 const RATE_SPECS = [
@@ -85,6 +89,16 @@ export function parseBookingUrl(rawUrl) {
 
   if (host.includes('membersports.com') || host.includes('app.membersports.com')) {
     out.platform = 'membersports';
+    return out;
+  }
+
+  if (host.includes('teeitup')) {
+    out.platform = 'teeitup';
+    const facility = u.searchParams.get('course');
+    if (facility) out.hints.facility_id = facility;
+    // Tenant alias is the subdomain label (…book-v2.teeitup.golf / …book.teeitup.com).
+    const label = host.split('.')[0];
+    if (label && label !== 'book' && label !== 'www') out.hints.teeitup_alias = label;
     return out;
   }
 
@@ -372,6 +386,9 @@ function getPlatformWarnings(record) {
   }
   if (platform === 'chronogolf_slc' && (!record.club_id || !record.course_id || !record.affiliation_type_id)) {
     warnings.push('Chronogolf SLC needs club_id, course_id, and affiliation_type_id.');
+  }
+  if (platform === 'teeitup' && (!record.facility_id || !record.teeitup_course_id)) {
+    warnings.push('TeeItUp needs facility_id (deep link) and teeitup_course_id (poller mapping hash).');
   }
   return warnings;
 }

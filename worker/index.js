@@ -366,6 +366,71 @@ async function handleChronogolfSlc(params) {
   return corsResponse(data);
 }
 
+// TeeItUp / Aspira (kenna.io) — one unauthenticated JSON endpoint serves all
+// Aspira facilities. Reads need the tenant alias header; a bare request → 400.
+const TEEITUP_API = 'https://phx-api-be-east-1b.kenna.io/v2/tee-times';
+const TEEITUP_ALIAS = 'aspira-management-company';
+const TEEITUP_USER_AGENT = 'TeeTimeIO/1.0 (+https://tee-time.io)';
+
+/**
+ * Tenant alias for the `x-be-alias` header — the subdomain label of the booking
+ * URL (e.g. aspira-management-company.book-v2.teeitup.golf → aspira-management-company,
+ * hideout-golf-club.book.teeitup.com → hideout-golf-club). Explicit override wins;
+ * falls back to Aspira so existing courses need no change.
+ */
+export function teeItUpAlias(course) {
+  const explicit = course.teeitup_alias != null ? String(course.teeitup_alias).trim() : '';
+  if (explicit) return explicit;
+  const m = String(course.booking_url || '').match(/^https?:\/\/([^.]+)\.book/i);
+  return m ? m[1] : TEEITUP_ALIAS;
+}
+
+async function handleTeeItUp(params) {
+  const { facility_id, date, alias } = params;
+  if (!facility_id || !date) {
+    return corsResponse({ error: 'missing_params' });
+  }
+
+  const beAlias = alias && String(alias).trim() ? String(alias).trim() : TEEITUP_ALIAS;
+
+  const url = new URL(TEEITUP_API);
+  url.searchParams.set('date', date);
+  url.searchParams.set('facilityIds', String(facility_id));
+  url.searchParams.set('returnPromotedRates', 'true');
+
+  let res;
+  try {
+    res = await fetchWithTimeout(url.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'x-be-alias': beAlias,
+        'User-Agent': TEEITUP_USER_AGENT,
+      },
+    });
+  } catch (err) {
+    if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
+    return corsResponse({ error: 'upstream_error' });
+  }
+
+  if (!res.ok) {
+    return corsResponse({ error: 'upstream_error', status: res.status });
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return corsResponse({ error: 'parse_error' });
+  }
+
+  // Break loudly (poll_runs failure) on schema drift rather than writing garbage.
+  if (!Array.isArray(data)) {
+    return corsResponse({ error: 'teeitup_schema_drift' });
+  }
+
+  return corsResponse(data);
+}
+
 // ── Supabase + Resend config (set via wrangler secrets) ──────────────
 // env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, env.RESEND_API_KEY
 
@@ -453,6 +518,62 @@ function normalizeMemberSportsTimesWorker(data, holes) {
   return result;
 }
 
+/**
+ * TeeItUp `teetime` is UTC ISO. The shared diff pipeline treats `rawTime` as
+ * America/Denver wall clock, so render the instant in MT first ("YYYY-MM-DD HH:MM").
+ */
+export function utcIsoToMtLocal(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
+  const hh = get('hour') === '24' ? '00' : get('hour');
+  return `${get('year')}-${get('month')}-${get('day')} ${hh}:${get('minute')}`;
+}
+
+/**
+ * TeeItUp fan-out: emit one normalized row PER RATE (Palisade returns a 9-hole
+ * AND an 18-hole rate on the same tee time). greenFeeCart is CENTS and is the
+ * "Non-Utah Resident" price; the shared pipeline stores whole dollars via
+ * parsePriceCents, so pass a dollar string. maxPlayers = open spots remaining.
+ */
+export function normalizeTeeItUpTimesWorker(course, data) {
+  if (!Array.isArray(data)) return [];
+  const wantHash = String(course?.teeitup_course_id || '').trim();
+  const rows = [];
+  for (const entry of data) {
+    if (!entry || !Array.isArray(entry.teetimes)) continue;
+    if (wantHash && entry.courseId && entry.courseId !== wantHash) {
+      // Aspira tenant returns sibling courses; log unmapped ids loudly, skip.
+      console.warn(`[poll] teeitup unmapped courseId in response: ${entry.courseId}`);
+      continue;
+    }
+    for (const tt of entry.teetimes) {
+      const localTime = utcIsoToMtLocal(tt.teetime);
+      if (!localTime) continue;
+      const spots = tt.maxPlayers != null ? tt.maxPlayers : null;
+      for (const rate of tt.rates || []) {
+        const cents = Number(rate.greenFeeCart);
+        rows.push({
+          rawTime: localTime,
+          spots,
+          price: Number.isFinite(cents) ? '$' + Math.round(cents / 100) : null,
+          holes: rate.holes === 9 ? 9 : 18,
+        });
+      }
+    }
+  }
+  return rows;
+}
+
 function normalizeTimesWorker(course, data, holes) {
   if (!data || data.error) return [];
   switch (course.platform) {
@@ -460,6 +581,7 @@ function normalizeTimesWorker(course, data, holes) {
     case 'membersports':   return normalizeMemberSportsTimesWorker(data, holes);
     case 'chronogolf_slc': return normalizeChronogolfSlcTimesWorker(data, holes);
     case 'chronogolf':     return normalizeChronogolfTimesWorker(data);
+    case 'teeitup':        return normalizeTeeItUpTimesWorker(course, data);
     default:               return [];
   }
 }
@@ -656,6 +778,12 @@ async function fetchTimesForCourse(course, date, holes, players) {
     params.set('nb_holes', holes);
     params.set('players', players);
     handler = () => handleChronogolfSlc(Object.fromEntries(params.entries()));
+  } else if (course.platform === 'teeitup') {
+    // One facility per course; the shared endpoint returns all rates (9 + 18).
+    if (!course.facility_id) return null;
+    params.set('facility_id', String(course.facility_id));
+    params.set('alias', teeItUpAlias(course));
+    handler = () => handleTeeItUp(Object.fromEntries(params.entries()));
   } else {
     return null; // unsupported platform (golfpay, tenfore, foreup_login)
   }
@@ -895,6 +1023,28 @@ function buildTruteeBookingUrl(course, date, holes, players) {
   }
 }
 
+function buildTeeItUpBookingUrl(course, date) {
+  const facilityId =
+    course.facility_id != null && String(course.facility_id).trim()
+      ? String(course.facility_id).trim()
+      : '';
+  // The tenant's booking host varies (book-v2.teeitup.golf vs book.teeitup.com);
+  // use the stored booking_url as the base and just stamp course + date.
+  let base = String(course.booking_url || '').trim();
+  if (!base && facilityId) {
+    base = `https://${TEEITUP_ALIAS}.book-v2.teeitup.golf/?course=${facilityId}`;
+  }
+  if (!base) return null;
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    if (facilityId) u.searchParams.set('course', facilityId);
+    u.searchParams.set('date', date);
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 function buildGolfPayBookingUrl(course, date, players) {
   const base = String(course.booking_url || '').trim();
   if (!base) return null;
@@ -920,6 +1070,7 @@ function buildBookingUrlWorker(course, date, holes, players) {
     'membersports',
     'trutee',
     'golfpay',
+    'teeitup',
   ];
   if (!base && !supported.includes(course.platform)) {
     return 'https://tee-time.io';
@@ -943,6 +1094,10 @@ function buildBookingUrlWorker(course, date, holes, players) {
 
   if (course.platform === 'golfpay') {
     return buildGolfPayBookingUrl(course, date, players) || base || 'https://tee-time.io';
+  }
+
+  if (course.platform === 'teeitup') {
+    return buildTeeItUpBookingUrl(course, date) || base || 'https://tee-time.io';
   }
 
   const templateOverride = String(course.booking_url_template || '').trim();
@@ -1475,7 +1630,7 @@ export default {
     const params = Object.fromEntries(url.searchParams.entries());
     const foreupJwt = request.headers.get('foreup_jwt') || null;
 
-    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports') {
+    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.vendorLive);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
     }
@@ -1494,6 +1649,10 @@ export default {
 
     if (path === '/membersports') {
       return handleMemberSports(params);
+    }
+
+    if (path === '/teeitup') {
+      return handleTeeItUp(params);
     }
 
     if (path === '/place-photo' || path === '/place-reviews') {

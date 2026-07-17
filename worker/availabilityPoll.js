@@ -29,6 +29,7 @@ const SUPPORTED_PLATFORMS = new Set([
   'chronogolf',
   'chronogolf_slc',
   'membersports',
+  'teeitup',
 ]);
 
 /**

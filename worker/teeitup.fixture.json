@@ -1,0 +1,85 @@
+[
+  {
+    "courseId": "5e208551241fa20100d28007",
+    "dayInfo": {
+      "dawn": "2026-07-22T11:35:00.000Z",
+      "sunrise": "2026-07-22T12:05:00.000Z",
+      "sunset": "2026-07-23T03:00:00.000Z",
+      "dusk": "2026-07-23T03:30:00.000Z"
+    },
+    "totalAvailableTeetimes": 2,
+    "teetimes": [
+      {
+        "teetime": "2026-07-22T14:00:00.000Z",
+        "backNine": false,
+        "bookedPlayers": 0,
+        "minPlayers": 1,
+        "maxPlayers": 4,
+        "rates": [
+          {
+            "_id": 170455849,
+            "externalId": "170455849",
+            "name": "Non-Utah Resident",
+            "holes": 18,
+            "greenFeeCart": 8500,
+            "allowedPlayers": [1, 2, 3, 4]
+          }
+        ]
+      },
+      {
+        "teetime": "2026-07-22T21:20:00.000Z",
+        "backNine": false,
+        "bookedPlayers": 3,
+        "minPlayers": 1,
+        "maxPlayers": 1,
+        "rates": [
+          {
+            "_id": 170455912,
+            "externalId": "170455912",
+            "name": "Non-Utah Resident",
+            "holes": 18,
+            "greenFeeCart": 8500,
+            "allowedPlayers": [1]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "courseId": "54f14df70c8ad60378b046ad",
+    "dayInfo": {
+      "dawn": "2026-07-22T11:38:00.000Z",
+      "sunrise": "2026-07-22T12:08:00.000Z",
+      "sunset": "2026-07-23T02:58:00.000Z",
+      "dusk": "2026-07-23T03:28:00.000Z"
+    },
+    "totalAvailableTeetimes": 1,
+    "teetimes": [
+      {
+        "teetime": "2026-07-22T15:40:00.000Z",
+        "backNine": false,
+        "bookedPlayers": 0,
+        "minPlayers": 1,
+        "maxPlayers": 4,
+        "rates": [
+          {
+            "_id": 170460001,
+            "externalId": "170460001",
+            "name": "Non-Utah Resident",
+            "holes": 9,
+            "greenFeeCart": 3000,
+            "allowedPlayers": [1, 2, 3, 4]
+          },
+          {
+            "_id": 170460002,
+            "externalId": "170460002",
+            "name": "Non-Utah Resident",
+            "holes": 18,
+            "greenFeeCart": 5000,
+            "allowedPlayers": [1, 2, 3, 4]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -2,7 +2,7 @@ import type { TeeTime } from '../types';
 import type { CourseRecord } from './courseRecord';
 import { getWorkerBaseUrl } from './env';
 import { normalizeTimesWorker } from './normalizeTimes';
-import { workerSupportedPlatform } from './platformRegistry';
+import { teeItUpAlias, workerSupportedPlatform } from './platformRegistry';
 import { rawTeeTimeToIsoUtc } from './teeTimeInstant';
 
 type SnapshotAvailabilityResponse = {
@@ -173,6 +173,14 @@ async function fetchTeeTimesLive(
       if (!course.course_ids?.length) return emptyOk;
       url = new URL(`${base}/chronogolf`);
       url.searchParams.set('course_ids', course.course_ids.join(','));
+      url.searchParams.set('date', dateYmd);
+      break;
+    }
+    case 'teeitup': {
+      if (!course.facility_id) return emptyOk;
+      url = new URL(`${base}/teeitup`);
+      url.searchParams.set('facility_id', course.facility_id);
+      url.searchParams.set('alias', teeItUpAlias(course));
       url.searchParams.set('date', dateYmd);
       break;
     }

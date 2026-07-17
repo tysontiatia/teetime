@@ -292,6 +292,28 @@ function buildTruteeBookingUrl(source: BookingSource, params: BookingLinkParams)
   }
 }
 
+function buildTeeItUpBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const facilityId =
+    source.facility_id != null && String(source.facility_id).trim()
+      ? String(source.facility_id).trim()
+      : '';
+  // Tenant booking host varies (book-v2.teeitup.golf vs book.teeitup.com); use the
+  // stored booking_url as the base. The widget reads course + date client-side.
+  let base = (source.booking_url || source.bookingUrl || '').trim();
+  if (!base && facilityId) {
+    base = `https://aspira-management-company.book-v2.teeitup.golf/?course=${facilityId}`;
+  }
+  if (!base) return null;
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    if (facilityId) u.searchParams.set('course', facilityId);
+    u.searchParams.set('date', params.dateYmd);
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 function buildGolfPayBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
   const base = (source.booking_url || source.bookingUrl || '').trim();
   if (!base) return null;
@@ -327,6 +349,8 @@ export type BookingSource = {
   golf_club_id?: string | number | null;
   trutee_org_slug?: string | null;
   trutee_course_id?: string | null;
+  facility_id?: string | number | null;
+  teeitup_course_id?: string | null;
 };
 
 /**
@@ -369,6 +393,12 @@ export function buildBookingUrl(
     'trutee_course_id' in source && source.trutee_course_id != null
       ? String(source.trutee_course_id)
       : null;
+  const facilityId =
+    'facility_id' in source && source.facility_id != null ? String(source.facility_id) : null;
+  const teeitupCourseId =
+    'teeitup_course_id' in source && source.teeitup_course_id != null
+      ? String(source.teeitup_course_id)
+      : null;
 
   const bookingSource: BookingSource = {
     booking_url: bookingUrl,
@@ -381,6 +411,8 @@ export function buildBookingUrl(
     golf_club_id: golfClubId,
     trutee_org_slug: truteeOrgSlug,
     trutee_course_id: truteeCourseId,
+    facility_id: facilityId,
+    teeitup_course_id: teeitupCourseId,
   };
 
   if (platform === 'foreup' || platform === 'foreup_login') {
@@ -401,6 +433,10 @@ export function buildBookingUrl(
 
   if (platform === 'golfpay') {
     return buildGolfPayBookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'teeitup') {
+    return buildTeeItUpBookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;

@@ -28,6 +28,11 @@ export type CourseRecord = {
   /** Trutee public booking (City of St. George munis, etc.). */
   trutee_org_slug?: string;
   trutee_course_id?: string;
+  /** TeeItUp: numeric facility (query + deep link) + mongo courseId hash (poll mapping). */
+  facility_id?: string;
+  teeitup_course_id?: string;
+  /** TeeItUp tenant alias (x-be-alias header). Derived from booking_url when omitted. */
+  teeitup_alias?: string;
   booking_window_days?: number;
   booking_opens_time?: string;
   timezone?: string;

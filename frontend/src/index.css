@@ -1724,6 +1724,12 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
   letter-spacing: -.02em;
 }
 .rail-price .per{ color: var(--ink-3); font-size: 14px; }
+.rail-price-note{
+  flex-basis: 100%;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+}
 .rail-picker{
   border: 1px solid var(--line);
   border-radius: 14px;

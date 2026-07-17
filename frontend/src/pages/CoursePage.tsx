@@ -4,7 +4,7 @@ import { formatDateCompact, formatDateShort, formatReopenedAgo, formatTime12h, m
 import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
-import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
+import { capabilityHint, getPlatformCapability, platformDisplayName, platformPriceCaption, workerSupportedPlatform } from '../lib/platformRegistry';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { CoursePhoto } from '../components/CoursePhoto';
 import { NotificationModal } from '../components/NotificationModal';
@@ -422,6 +422,9 @@ export function CoursePage() {
           <div className="rail-price">
             <span className="amt mono">{typeof priceHint === 'number' ? `$${priceHint}` : '—'}</span>
             <span className="per">/ player · {holes} holes</span>
+            {platformPriceCaption(record) && (
+              <span className="rail-price-note">{platformPriceCaption(record)}</span>
+            )}
           </div>
           <div className="rail-picker">
             <div className="rp-row">

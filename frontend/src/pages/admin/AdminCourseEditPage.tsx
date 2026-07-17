@@ -24,6 +24,7 @@ const PLATFORMS = [
   'chronogolf',
   'chronogolf_slc',
   'membersports',
+  'teeitup',
   'trutee',
   'golfpay',
   'tenfore',
@@ -156,6 +157,8 @@ export function AdminCourseEditPage() {
       if (hints.course_id) patch.course_id = hints.course_id;
       if (hints.trutee_org_slug) patch.trutee_org_slug = hints.trutee_org_slug;
       if (hints.trutee_course_id) patch.trutee_course_id = hints.trutee_course_id;
+      if (hints.facility_id) patch.facility_id = hints.facility_id;
+      if (hints.teeitup_alias) patch.teeitup_alias = hints.teeitup_alias;
       patchRecord(patch);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Could not parse booking URL');
@@ -467,6 +470,32 @@ export function AdminCourseEditPage() {
                   className="input"
                   value={record.trutee_course_id || ''}
                   onChange={(e) => patchRecord({ trutee_course_id: e.target.value })}
+                />
+              </Field>
+            </>
+          )}
+
+          {record.platform === 'teeitup' && (
+            <>
+              <Field label="facility_id">
+                <input
+                  className="input"
+                  value={record.facility_id || ''}
+                  onChange={(e) => patchRecord({ facility_id: e.target.value })}
+                />
+              </Field>
+              <Field label="teeitup_course_id (mongo courseId hash)">
+                <input
+                  className="input"
+                  value={record.teeitup_course_id || ''}
+                  onChange={(e) => patchRecord({ teeitup_course_id: e.target.value })}
+                />
+              </Field>
+              <Field label="teeitup_alias (optional — derived from booking URL)">
+                <input
+                  className="input"
+                  value={record.teeitup_alias || ''}
+                  onChange={(e) => patchRecord({ teeitup_alias: e.target.value })}
                 />
               </Field>
             </>
