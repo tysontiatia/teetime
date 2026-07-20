@@ -55,13 +55,19 @@ async function loadPollCoverage(env, course_slug, play_date) {
     `${env.SUPABASE_URL}/rest/v1/availability_poll_schedule` +
       `?course_slug=eq.${encodeURIComponent(course_slug)}` +
       `&play_date=eq.${play_date}` +
-      `&select=last_polled_at`,
+      `&select=last_polled_at,last_success_at`,
     { headers: sbHeaders(env) },
   );
   if (!res.ok) return { last_polled_at: null, has_poll_coverage: false };
   const rows = await res.json();
-  const last_polled_at = rows[0]?.last_polled_at ?? null;
-  return { last_polled_at, has_poll_coverage: last_polled_at != null };
+  const row = rows[0];
+  // Coverage/freshness follow successful polls only. last_polled_at is the claim
+  // cursor and advances even when the vendor fetch fails.
+  const last_success_at = row?.last_success_at ?? null;
+  return {
+    last_polled_at: last_success_at,
+    has_poll_coverage: last_success_at != null,
+  };
 }
 
 async function loadOpenSlots(env, course_slug, play_date, holes) {

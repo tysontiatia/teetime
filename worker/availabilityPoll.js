@@ -223,6 +223,28 @@ async function insertPollRunCourse(env, row) {
   });
 }
 
+/** Mark that search may trust the snapshot for this (course, date). Claim time is separate. */
+async function markScheduleSuccess(env, course_slug, play_date) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/availability_poll_schedule` +
+      `?course_slug=eq.${encodeURIComponent(course_slug)}` +
+      `&play_date=eq.${play_date}`,
+    {
+      method: 'PATCH',
+      headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ last_success_at: new Date().toISOString() }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(
+      `[poll] markScheduleSuccess failed ${course_slug} ${play_date}:`,
+      res.status,
+      text.slice(0, 200),
+    );
+  }
+}
+
 async function ensureScheduleRows(env, pairs) {
   if (!pairs.length) return 0;
   const body = pairs.map(({ course_slug, play_date }) => ({
@@ -763,6 +785,8 @@ async function pollOneClaimedCourse(env, {
     });
 
     if (result.status === 'ok') {
+      await markScheduleSuccess(env, row.course_slug, row.play_date);
+
       const burst = burstCandidates.find(
         (b) => b.slug === row.course_slug && b.play_date === row.play_date,
       );
