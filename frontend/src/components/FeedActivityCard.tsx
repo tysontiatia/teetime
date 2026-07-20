@@ -20,7 +20,7 @@ type Props = {
 
 export function FeedActivityCard({ item, record, minPlayers }: Props) {
   const { short } = parseCourseTitle(item.course_name);
-  const photo = record ? coursePhotoUrl(record) : undefined;
+  const photo = record ? coursePhotoUrl(record, 240) : undefined;
   const price = formatFeedPrice(item.price_cents);
   const courseHref = `/course/${item.course_slug}?date=${item.play_date}&players=${minPlayers}&holes=${item.holes}`;
   const bookingUrl =
