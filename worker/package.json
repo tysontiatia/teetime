@@ -1,5 +1,8 @@
 {
   "name": "utah-tee-times-worker",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^1.0.2"
+  }
 }

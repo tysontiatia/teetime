@@ -60,6 +60,7 @@ function rowsToTeeTimes(
     const h = (row.holes === 9 ? 9 : 18) as 9 | 18;
     if (h !== holesFilter) continue;
     if (!row.rawTime) continue;
+    if (row.spots != null && row.spots <= 0) continue;
     const iso = rawTeeTimeToIsoUtc(dateYmd, row.rawTime);
     out.push({
       id: `${courseSlug}-${dateYmd}-${i++}-${row.rawTime}`,
@@ -116,15 +117,17 @@ function snapshotToTeeTimes(
   dateYmd: string,
   rows: NonNullable<SnapshotAvailabilityResponse['times']>,
 ): TeeTime[] {
-  const out: TeeTime[] = rows.map((row, i) => ({
-    id: row.id || `${courseSlug}-${dateYmd}-${i}-${row.startsAt}`,
-    courseId: courseSlug,
-    startsAt: row.startsAt,
-    price: row.price,
-    spots: row.spots,
-    holes: row.holes === 9 ? 9 : 18,
-    reopenedAt: row.reopenedAt,
-  }));
+  const out: TeeTime[] = rows
+    .filter((row) => row.spots == null || row.spots > 0)
+    .map((row, i) => ({
+      id: row.id || `${courseSlug}-${dateYmd}-${i}-${row.startsAt}`,
+      courseId: courseSlug,
+      startsAt: row.startsAt,
+      price: row.price,
+      spots: row.spots,
+      holes: row.holes === 9 ? 9 : 18,
+      reopenedAt: row.reopenedAt,
+    }));
   out.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   return excludePastTeeTimes(out);
 }

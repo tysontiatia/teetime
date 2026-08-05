@@ -42,4 +42,10 @@ put_secret TWILIO_AUTH_TOKEN "$TWILIO_AUTH_TOKEN"
 put_secret TWILIO_FROM_NUMBER "$TWILIO_FROM_NUMBER"
 put_secret TWILIO_VERIFY_SERVICE_SID "$TWILIO_VERIFY_SERVICE_SID"
 
-echo "Done. Worker secrets updated (Supabase, Resend, Twilio)."
+if [[ -n "${VAPID_PRIVATE_KEY:-}" ]]; then
+  put_secret VAPID_PRIVATE_KEY "$VAPID_PRIVATE_KEY"
+else
+  echo "Skip VAPID_PRIVATE_KEY (not in .env). Set with: npx wrangler secret put VAPID_PRIVATE_KEY --config worker/wrangler.toml"
+fi
+
+echo "Done. Worker secrets updated (Supabase, Resend, Twilio${VAPID_PRIVATE_KEY:+, VAPID})."

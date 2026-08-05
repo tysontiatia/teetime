@@ -24,3 +24,11 @@ export function getWorkerBaseUrl(): string {
 export function getLaunchDarklyClientSideId(): string {
   return import.meta.env.VITE_LAUNCHDARKLY_CLIENT_SIDE_ID || DEFAULT_LAUNCHDARKLY_CLIENT_SIDE_ID_TEST;
 }
+
+/** VAPID public key (safe to expose). Falls back to production key when unset. */
+const DEFAULT_VAPID_PUBLIC_KEY =
+  'BGsDeJ3VYSXLYIKmQZZeahgY4K72RJ2L8jObIlnnn6rhJSyyDjR8UIVe561Iuf9JynQmPgEEioa-_etmEdiWjRY';
+
+export function getVapidPublicKey(): string {
+  return (import.meta.env.VITE_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY).trim();
+}

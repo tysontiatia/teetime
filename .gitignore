@@ -4,6 +4,7 @@
 node_modules/
 deploy/
 .wrangler/
+worker/.dev.vars
 
 # OS / editor noise (keep repo status clean)
 .DS_Store

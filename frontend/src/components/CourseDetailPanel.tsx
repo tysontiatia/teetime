@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { CourseRecord } from '../lib/courseRecord';
 import {
   formatRateDollars,
@@ -10,16 +11,6 @@ function walkabilityLabel(v: CourseRecord['walkability']): string | null {
   if (!v) return null;
   if (v === 'carts only') return 'Carts only';
   return v.charAt(0).toUpperCase() + v.slice(1);
-}
-
-function vitalsLine(record: CourseRecord): string | null {
-  const parts: string[] = [];
-  if (record.holes) parts.push(`${record.holes} holes`);
-  if (record.par) parts.push(`Par ${record.par}`);
-  if (record.yardage) parts.push(`${record.yardage.toLocaleString()} yds`);
-  const walk = walkabilityLabel(record.walkability);
-  if (walk) parts.push(walk);
-  return parts.length ? parts.join(' · ') : null;
 }
 
 function bookingWindowLine(record: CourseRecord): string | null {
@@ -62,6 +53,8 @@ function buildRateRows(rates: CourseRatesExpanded): RateRow[] {
   return rows.filter((r) => r.nine != null || r.eighteen != null);
 }
 
+type InfoRow = { label: string; value: ReactNode };
+
 type Props = {
   record: CourseRecord | undefined;
   rates: CourseRatesExpanded | null;
@@ -70,25 +63,54 @@ type Props = {
 };
 
 export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: Props) {
-  const vitals = record ? vitalsLine(record) : null;
   const booking = record ? bookingWindowLine(record) : null;
+  const walk = record ? walkabilityLabel(record.walkability) : null;
   const rateRows = rates && ratesExpandedHasPrices(rates) ? buildRateRows(rates) : [];
   const showNine = rateRows.some((r) => r.nine != null);
   const showEighteen = rateRows.some((r) => r.eighteen != null);
 
-  const hasAbout =
-    record?.editorial_note ||
-    record?.history_blurb ||
-    catalogMeta?.history_blurb ||
-    catalogMeta?.signature_hole ||
-    record?.signature_hole ||
-    vitals ||
-    booking ||
-    record?.website ||
-    record?.phone_number ||
-    catalogMeta?.prepaid ||
-    catalogMeta?.cancellation_policy ||
-    record?.cancellation_policy;
+  const aboutCopy =
+    record?.editorial_note || catalogMeta?.history_blurb || record?.history_blurb || null;
+
+  const infoRows: InfoRow[] = [];
+  if (record?.address) infoRows.push({ label: 'Address', value: record.address });
+  if (record?.phone_number) {
+    infoRows.push({
+      label: 'Phone',
+      value: (
+        <a href={`tel:${record.phone_number.replace(/\D/g, '')}`} className="detail-text-link">
+          {record.phone_number}
+        </a>
+      ),
+    });
+  }
+  if (record?.website) {
+    infoRows.push({
+      label: 'Website',
+      value: (
+        <a href={record.website} target="_blank" rel="noreferrer" className="detail-text-link">
+          Course site →
+        </a>
+      ),
+    });
+  }
+  if (walk) infoRows.push({ label: 'Walkability', value: walk });
+  if (booking) infoRows.push({ label: 'Booking window', value: booking });
+  if (catalogMeta?.prepaid) infoRows.push({ label: 'Payment', value: 'Prepaid at booking' });
+  if (catalogMeta?.cancellation_policy || record?.cancellation_policy) {
+    infoRows.push({
+      label: 'Cancellation',
+      value: catalogMeta?.cancellation_policy ?? record?.cancellation_policy,
+    });
+  }
+  if (catalogMeta?.signature_hole || record?.signature_hole) {
+    infoRows.push({
+      label: 'Signature hole',
+      value: catalogMeta?.signature_hole ?? record?.signature_hole,
+    });
+  }
+
+  const hasAbout = aboutCopy || infoRows.length > 0;
 
   if (!record && !ratesLoading && !rateRows.length) {
     return (
@@ -102,41 +124,17 @@ export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: 
     <>
       {hasAbout ? (
         <div className="section">
-          <h2>About</h2>
-          {vitals ? <p className="about-vitals">{vitals}</p> : null}
-          {booking ? <p className="about-booking">{booking}</p> : null}
-          {catalogMeta?.prepaid ? (
-            <div className="about-pill-row">
-              <span className="pill about-prepaid">Prepaid at booking</span>
-            </div>
-          ) : null}
-          {record?.editorial_note ? <p>{record.editorial_note}</p> : null}
-          {catalogMeta?.signature_hole || record?.signature_hole ? (
-            <p>
-              <strong>Signature hole:</strong> {catalogMeta?.signature_hole ?? record?.signature_hole}
-            </p>
-          ) : null}
-          {catalogMeta?.history_blurb || record?.history_blurb ? (
-            <p className="about-history">{catalogMeta?.history_blurb ?? record?.history_blurb}</p>
-          ) : null}
-          {catalogMeta?.cancellation_policy || record?.cancellation_policy ? (
-            <p className="about-cancel">
-              <strong>Cancellation:</strong> {catalogMeta?.cancellation_policy ?? record?.cancellation_policy}
-            </p>
-          ) : null}
-          {record?.website || record?.phone_number ? (
-            <div className="about-contact">
-              {record?.website ? (
-                <a href={record.website} target="_blank" rel="noreferrer" className="detail-text-link">
-                  Course website →
-                </a>
-              ) : null}
-              {record?.phone_number ? (
-                <a href={`tel:${record.phone_number.replace(/\D/g, '')}`} className="detail-text-link">
-                  {record.phone_number}
-                </a>
-              ) : null}
-            </div>
+          <h2>About this course</h2>
+          {aboutCopy ? <p className="about-lead">{aboutCopy}</p> : null}
+          {infoRows.length > 0 ? (
+            <dl className="course-info-grid">
+              {infoRows.map((row) => (
+                <div key={row.label} className="course-info-item">
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))}
+            </dl>
           ) : null}
         </div>
       ) : null}

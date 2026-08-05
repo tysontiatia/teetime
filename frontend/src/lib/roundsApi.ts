@@ -208,6 +208,28 @@ export async function fetchRoundBySlug(slug: string): Promise<DbRound | null> {
 
 const ROUND_LIST_COLS = 'id, share_slug, title, play_date, created_at, host_public_name, organizer_id';
 
+function sortRoundsForList(a: DbRound, b: DbRound): number {
+  const ad = a.play_date || '';
+  const bd = b.play_date || '';
+  if (ad && bd && ad !== bd) return ad.localeCompare(bd);
+  if (ad && !bd) return -1;
+  if (!ad && bd) return 1;
+  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+}
+
+/** Hide a round from Your vote links only — does not delete the vote page. */
+export async function hideRoundFromMyList(
+  userId: string,
+  roundId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { error } = await supabase.from('round_list_hides').upsert(
+    { user_id: userId, round_id: roundId },
+    { onConflict: 'user_id,round_id' },
+  );
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
 /** Rounds you created (host). */
 export async function fetchRoundsForOrganizer(organizerId: string): Promise<DbRound[]> {
   const { data, error } = await supabase
@@ -237,17 +259,24 @@ export async function fetchRoundsForUser(userId: string): Promise<DbRound[]> {
   const { data: voterRows } = await supabase.from('round_voters').select('round_id').eq('user_id', userId).limit(200);
 
   const joinIds = [...new Set((voterRows ?? []).map((r) => r.round_id as string).filter(Boolean))].filter((id) => !hostedIds.has(id));
-  if (joinIds.length === 0) return hostedRows;
 
-  const { data: joined, error: joinErr } = await supabase
-    .from('rounds')
-    .select(ROUND_LIST_COLS)
-    .in('id', joinIds)
-    .not('share_slug', 'is', null);
-  if (joinErr || !joined?.length) return hostedRows;
+  let merged = [...hostedRows];
+  if (joinIds.length > 0) {
+    const { data: joined, error: joinErr } = await supabase
+      .from('rounds')
+      .select(ROUND_LIST_COLS)
+      .in('id', joinIds)
+      .not('share_slug', 'is', null);
+    if (!joinErr && joined?.length) merged = [...merged, ...(joined as DbRound[])];
+  }
 
-  const merged = [...hostedRows, ...(joined as DbRound[])];
-  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const { data: hides } = await supabase.from('round_list_hides').select('round_id').eq('user_id', userId);
+  if (hides?.length) {
+    const hidden = new Set(hides.map((h) => h.round_id as string));
+    merged = merged.filter((r) => !hidden.has(r.id));
+  }
+
+  merged.sort(sortRoundsForList);
   return merged;
 }
 

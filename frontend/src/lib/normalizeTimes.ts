@@ -4,36 +4,48 @@ type NormRow = { rawTime: string; spots: number | null; price: string | null; ho
 
 function normalizeForeUpTimes(data: unknown): NormRow[] {
   if (!Array.isArray(data)) return [];
-  return data.map((t) => {
-    const row = t as Record<string, unknown>;
-    return {
-      rawTime: String(row.time || ''),
-      spots: (row.available_spots as number) ?? null,
-      price: row.green_fee != null ? '$' + parseFloat(String(row.green_fee)).toFixed(0) : null,
-      holes: Number(row.holes) || 18,
-    };
-  });
+  return data
+    .map((t) => {
+      const row = t as Record<string, unknown>;
+      const spotsRaw = row.available_spots;
+      const spots =
+        typeof spotsRaw === 'number' && Number.isFinite(spotsRaw)
+          ? spotsRaw
+          : spotsRaw != null && spotsRaw !== ''
+            ? Number(spotsRaw)
+            : null;
+      return {
+        rawTime: String(row.time || ''),
+        spots: spots != null && Number.isFinite(spots) ? spots : null,
+        price: row.green_fee != null && row.green_fee !== '' ? '$' + parseFloat(String(row.green_fee)).toFixed(0) : null,
+        holes: Number(row.holes) || 18,
+      };
+    })
+    .filter((row) => row.spots == null || row.spots > 0);
 }
 
 function normalizeChronogolfTimes(data: { teetimes?: unknown[] }): NormRow[] {
   const items = data?.teetimes;
   if (!Array.isArray(items)) return [];
-  return items.map((t) => {
-    const row = t as Record<string, unknown>;
-    return {
-      rawTime: String(row.start_time || ''),
-      spots: (row.max_player_size as number) ?? null,
-      price:
-        (row.default_price as { green_fee?: number } | undefined)?.green_fee != null
-          ? '$' + parseFloat(String((row.default_price as { green_fee: number }).green_fee)).toFixed(0)
-          : null,
-      holes:
-        Number(
-          (row.default_price as { bookable_holes?: number } | undefined)?.bookable_holes ??
-            (row.course as { holes?: number } | undefined)?.holes
-        ) || 18,
-    };
-  });
+  return items
+    .map((t) => {
+      const row = t as Record<string, unknown>;
+      const spots = row.max_player_size != null ? Number(row.max_player_size) : null;
+      return {
+        rawTime: String(row.start_time || ''),
+        spots: spots != null && Number.isFinite(spots) ? spots : null,
+        price:
+          (row.default_price as { green_fee?: number } | undefined)?.green_fee != null
+            ? '$' + parseFloat(String((row.default_price as { green_fee: number }).green_fee)).toFixed(0)
+            : null,
+        holes:
+          Number(
+            (row.default_price as { bookable_holes?: number } | undefined)?.bookable_holes ??
+              (row.course as { holes?: number } | undefined)?.holes
+          ) || 18,
+      };
+    })
+    .filter((row) => row.spots == null || row.spots > 0);
 }
 
 function normalizeChronogolfSlcTimes(data: unknown[], holes: string): NormRow[] {
@@ -117,12 +129,13 @@ function normalizeTeeItUpTimes(course: CourseRecord, data: unknown): NormRow[] {
       const localTime = utcIsoToMtLocal(String(tt.teetime || ''));
       if (!localTime) continue;
       const spots = tt.maxPlayers != null ? Number(tt.maxPlayers) : null;
+      if (spots != null && (!Number.isFinite(spots) || spots <= 0)) continue;
       const rates = (tt.rates as Record<string, unknown>[] | undefined) ?? [];
       for (const rate of rates) {
         const cents = Number(rate.greenFeeCart);
         rows.push({
           rawTime: localTime,
-          spots,
+          spots: spots != null && Number.isFinite(spots) ? spots : null,
           price: Number.isFinite(cents) ? '$' + Math.round(cents / 100) : null,
           holes: rate.holes === 9 ? 9 : 18,
         });

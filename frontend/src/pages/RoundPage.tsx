@@ -24,6 +24,8 @@ import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { supabase } from '../lib/supabase';
+import { useRoundOptionsAvailability } from '../hooks/useRoundOptionsAvailability';
+import type { OptionAvailability } from '../lib/roundOptionAvailability';
 
 /** Avatar chip tones — CSS variables only for theme safety. */
 const AVATAR_BG = ['var(--green-2)', 'var(--green)', 'var(--pine-deep)', 'var(--green-3)'];
@@ -95,7 +97,7 @@ function votersInForOption(votes: DbRoundVote[], optionId: string, nameByKey: Ma
 export function RoundPage() {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
-  const { courses, recordsBySlug } = useCourseCatalog();
+  const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
   const [loading, setLoading] = useState(true);
@@ -219,6 +221,13 @@ export function RoundPage() {
     });
   }, [options]);
 
+  const { availabilityByOptionId, loadingAvailability, stats: availStats } = useRoundOptionsAvailability(
+    sortedOptions,
+    playDate,
+    recordsBySlug,
+    catalogLoading,
+  );
+
   const primaryCourseId = sortedOptions[0]?.course_id ?? null;
   const heroCourse = primaryCourseId ? coursesById.get(primaryCourseId) ?? null : null;
   const heroName = heroCourse?.name ?? sortedOptions[0]?.course_name ?? 'Golf round';
@@ -236,6 +245,84 @@ export function RoundPage() {
     () => computeLeading(sortedOptions, countsByOption),
     [sortedOptions, countsByOption],
   );
+
+  const leadingAvailability: OptionAvailability = leading
+    ? (availabilityByOptionId.get(leading.option.id) ?? 'checking')
+    : 'checking';
+
+  /** Leading time has enough “in” votes and is still bookable — surface Book in the status banner. */
+  const readyToBook = useMemo(() => {
+    if (!leading) return null;
+    const avail = availabilityByOptionId.get(leading.option.id) ?? 'checking';
+    if (avail === 'unavailable' || avail === 'checking') return null;
+    const o = leading.option;
+    const inVoters = votersInForOption(votes, o.id, nameByKey);
+    const needed = typeof o.players === 'number' && o.players > 0 ? o.players : null;
+    if (needed == null || inVoters.length < needed) return null;
+    const href = bookingUrlForOption(o, playDate, coursesById, recordsBySlug);
+    if (!href) return null;
+    const timeLabel = o.starts_at
+      ? formatTime12h(o.starts_at)
+      : o.time_display?.trim() || 'tee time';
+    const priceLabel = typeof o.price === 'number' ? ` · $${Math.round(o.price)}` : '';
+    return {
+      optionId: o.id,
+      href,
+      timeLabel,
+      priceLabel,
+      inCount: inVoters.length,
+      needed,
+    };
+  }, [leading, votes, nameByKey, playDate, coursesById, recordsBySlug, availabilityByOptionId]);
+
+  const leadingSoldOut = useMemo(() => {
+    if (!leading || readyToBook) return null;
+    const avail = availabilityByOptionId.get(leading.option.id) ?? 'checking';
+    if (avail !== 'unavailable') return null;
+    const o = leading.option;
+    const inVoters = votersInForOption(votes, o.id, nameByKey);
+    const needed = typeof o.players === 'number' && o.players > 0 ? o.players : null;
+    if (needed == null || inVoters.length < needed) return null;
+    const timeLabel = o.starts_at
+      ? formatTime12h(o.starts_at)
+      : o.time_display?.trim() || 'tee time';
+    return { timeLabel, openCount: availStats.available };
+  }, [leading, readyToBook, availabilityByOptionId, votes, nameByKey, availStats.available]);
+
+  const inventoryBanner = useMemo(() => {
+    if (sortedOptions.length === 0) return null;
+    if (loadingAvailability || availStats.checking > 0) {
+      return { tone: 'checking' as const, text: 'Checking which times are still open…' };
+    }
+    if (availStats.unavailable === 0 && availStats.unknown === availStats.total) {
+      return {
+        tone: 'caution' as const,
+        text: 'Times go fast. Double-check availability before you book.',
+      };
+    }
+    if (availStats.available === 0 && availStats.unavailable > 0) {
+      return {
+        tone: 'gone' as const,
+        text: 'None of these times are open anymore. Share new times from Search, or check the course site.',
+      };
+    }
+    if (availStats.unavailable > 0) {
+      return {
+        tone: 'mixed' as const,
+        text: `${availStats.available} of ${availStats.total} times still open. Sold-out options stay on the ballot so votes aren’t lost.`,
+      };
+    }
+    if (availStats.available > 0) {
+      return {
+        tone: 'ok' as const,
+        text: `All ${availStats.total} times still look open — book soon.`,
+      };
+    }
+    return {
+      tone: 'caution' as const,
+      text: 'Times go fast. Double-check availability before you book.',
+    };
+  }, [sortedOptions.length, loadingAvailability, availStats]);
 
   const onVote = async (optionId: string, status: 'in' | 'maybe' | 'out') => {
     if (!roundId) return;
@@ -391,8 +478,46 @@ export function RoundPage() {
         </p>
       </header>
 
-      <div className={`round-leading${leading ? ' has-leader' : ''}`} aria-live="polite">
-        {leading ? (
+      <div
+        className={`round-leading${leading ? ' has-leader' : ''}${readyToBook ? ' is-ready' : ''}${leadingSoldOut ? ' is-gone' : ''}`}
+        aria-live="polite"
+      >
+        {readyToBook ? (
+          <div className="round-leading-ready">
+            <div className="round-leading-ready-text">
+              <div className="round-leading-main">
+                <span className="round-leading-label">Ready to book</span>
+                <span className="round-leading-time">{readyToBook.timeLabel}</span>
+              </div>
+              <p className="round-leading-ready-copy">
+                {readyToBook.inCount} of {readyToBook.needed} confirmed. One person books on the course site — everyone
+                else joins that tee time.
+              </p>
+            </div>
+            <a
+              className="btn btn-primary round-leading-book"
+              href={readyToBook.href}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Book {readyToBook.timeLabel}
+              {readyToBook.priceLabel} →
+            </a>
+          </div>
+        ) : leadingSoldOut ? (
+          <div className="round-leading-gone">
+            <div className="round-leading-main">
+              <span className="round-leading-label">No longer available</span>
+              <span className="round-leading-time">{leadingSoldOut.timeLabel}</span>
+            </div>
+            <p className="round-leading-gone-copy">
+              That time just went.
+              {leadingSoldOut.openCount > 0
+                ? ` Pick another open option (${leadingSoldOut.openCount} still open).`
+                : ' Share new times from Search or check the course site.'}
+            </p>
+          </div>
+        ) : leading ? (
           <>
             <div className="round-leading-main">
               <span className="round-leading-label">Leading</span>
@@ -401,6 +526,9 @@ export function RoundPage() {
                   ? formatTime12h(leading.option.starts_at)
                   : leading.option.time_display ?? 'TBD'}
               </span>
+              {leadingAvailability === 'unavailable' ? (
+                <span className="pill round-pill-gone">No longer available</span>
+              ) : null}
             </div>
             <div className="round-leading-counts">
               {leading.in} in · {leading.maybe} maybe
@@ -447,10 +575,15 @@ export function RoundPage() {
 
       <div className="round-split">
         <div className="round-main">
-          <div className="round-alert round-alert-compact">
-            <span aria-hidden>⏰</span>
-            <span>Times go fast. Double-check availability before you book.</span>
-          </div>
+          {inventoryBanner ? (
+            <div
+              className={`round-alert round-alert-compact round-alert-inventory is-${inventoryBanner.tone}`}
+              aria-live="polite"
+            >
+              <span aria-hidden>{inventoryBanner.tone === 'ok' ? '✓' : inventoryBanner.tone === 'gone' ? '!' : '⏰'}</span>
+              <span>{inventoryBanner.text}</span>
+            </div>
+          ) : null}
 
           <div className="round-vote-panel">
             <div className="round-vote-heading">Pick your time</div>
@@ -472,12 +605,19 @@ export function RoundPage() {
                 const busy = (s: string) => voteBusy === o.id + s;
                 const playersNeeded = typeof o.players === 'number' && o.players > 0 ? o.players : null;
                 const quorumMet = playersNeeded != null && inVoters.length >= playersNeeded;
-                const bookHref = quorumMet
-                  ? bookingUrlForOption(o, playDate, coursesById, recordsBySlug)
-                  : null;
+                const avail = availabilityByOptionId.get(o.id) ?? 'checking';
+                const stillOpen = avail === 'available' || avail === 'unknown';
+                const gone = avail === 'unavailable';
+                const bookHref =
+                  quorumMet && stillOpen
+                    ? bookingUrlForOption(o, playDate, coursesById, recordsBySlug)
+                    : null;
 
                 return (
-                  <div key={o.id} className={`round-option${selected ? ' is-selected' : ''}`}>
+                  <div
+                    key={o.id}
+                    className={`round-option${selected ? ' is-selected' : ''}${quorumMet && stillOpen ? ' is-ready' : ''}${gone ? ' is-gone' : ''}`}
+                  >
                     <div className="round-option-head">
                       <div className="round-option-time">{timeLabel}</div>
                       <div className="round-option-price">{o.price ? `$${o.price}` : '—'}</div>
@@ -489,6 +629,12 @@ export function RoundPage() {
                       <span className="pill" style={{ fontSize: 11 }}>
                         {o.holes} holes
                       </span>
+                      {gone ? <span className="pill round-pill-gone">No longer available</span> : null}
+                      {avail === 'available' ? <span className="pill round-pill-open">Open</span> : null}
+                      {quorumMet && stillOpen ? <span className="pill round-pill-ready">Ready to book</span> : null}
+                      {quorumMet && gone ? (
+                        <span className="pill round-pill-gone">Quorum met · sold out</span>
+                      ) : null}
                     </div>
                     <div className="round-option-voters">
                       {inVoters.length === 0 ? (
@@ -507,11 +653,14 @@ export function RoundPage() {
                         ))
                       )}
                     </div>
-                    {quorumMet ? (
+                    {quorumMet && stillOpen ? (
                       <div className="round-quorum">
+                        <p className="round-quorum-title">
+                          {inVoters.length} of {playersNeeded} in — enough for this tee time
+                        </p>
                         <p className="round-quorum-copy">
-                          {inVoters.length} of {playersNeeded} in. Enough to fill this tee time. Have{' '}
-                          <strong style={{ color: 'var(--ink)' }}>one person book</strong> on the course site, then everyone else joins that booking.
+                          Have <strong>one person book</strong> on the course site, then everyone else joins that
+                          booking. No markup from Tee-Time.
                         </p>
                         {bookHref ? (
                           <a
@@ -520,9 +669,20 @@ export function RoundPage() {
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Book this time →
+                            Book {timeLabel}
+                            {typeof o.price === 'number' ? ` · $${Math.round(o.price)}` : ''} →
                           </a>
-                        ) : null}
+                        ) : (
+                          <p className="round-quorum-missing">No booking link for this course yet.</p>
+                        )}
+                      </div>
+                    ) : null}
+                    {quorumMet && gone ? (
+                      <div className="round-quorum round-quorum-gone">
+                        <p className="round-quorum-title">Enough votes — but this time is gone</p>
+                        <p className="round-quorum-copy">
+                          Pick another open option, or share new times from Search.
+                        </p>
                       </div>
                     ) : null}
                     <div className="round-vote-actions">
