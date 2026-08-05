@@ -8,7 +8,8 @@ import { CourseCardTimesSkeleton } from './CourseCardSkeleton';
 import { buildBookingUrl } from '../lib/bookingUrl';
 import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
 import { pickNearestHour } from '../lib/weather';
-import { WeatherGlyph, chipWeatherLabel, weatherKindFromPrecip } from './WeatherGlyph';
+import { WeatherGlyph } from './WeatherGlyph';
+import { chipWeatherLabel, weatherKindFromPrecip } from '../lib/weatherKind';
 
 function walkabilityLabel(v: CourseRecord['walkability']): string | null {
   if (!v) return null;

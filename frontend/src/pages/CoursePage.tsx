@@ -20,7 +20,8 @@ import { CourseReviewsSection } from '../components/CourseReviewsSection';
 import { CourseStatsBar } from '../components/CourseStatsBar';
 import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
 import { pickNearestHour } from '../lib/weather';
-import { WeatherGlyph, chipWeatherLabel, weatherKindFromPrecip } from '../components/WeatherGlyph';
+import { WeatherGlyph } from '../components/WeatherGlyph';
+import { chipWeatherLabel, weatherKindFromPrecip } from '../lib/weatherKind';
 import {
   fetchCourseCatalogMeta,
   fetchCourseRatesExpanded,

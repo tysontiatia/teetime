@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { formatDateShort } from '../lib/time';
 import { fetchDayOutlook, type DayOutlook } from '../lib/weather';
-import { WeatherGlyph, weatherKindFromPrecip } from './WeatherGlyph';
+import { WeatherGlyph } from './WeatherGlyph';
+import { weatherKindFromPrecip } from '../lib/weatherKind';
 
 type Props = {
   dateYmd: string;
