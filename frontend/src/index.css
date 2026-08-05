@@ -724,6 +724,9 @@ html[data-theme='dark'] .app-header-logo-tld{
   max-width: 100%;
   overflow-x: clip;
 }
+.app-shell{
+  min-height: 100dvh;
+}
 .app-footer{
   padding: 20px 0 calc(20px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--line);
@@ -738,6 +741,79 @@ html[data-theme='dark'] .app-header-logo-tld{
 .app-main > *{
   min-width: 0;
   max-width: 100%;
+}
+
+/* System banners (errors / warnings) — theme-aware */
+.app-banner{
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.app-banner strong{ font-weight: 700; }
+.app-banner-actions{ margin-top: 12px; }
+.app-banner--error{
+  border-color: color-mix(in srgb, #c45c5c 42%, var(--line));
+  background: color-mix(in srgb, #c45c5c 10%, var(--card));
+}
+.app-banner--warn{
+  border-color: color-mix(in srgb, #d97706 40%, var(--line));
+  background: color-mix(in srgb, #d97706 10%, var(--card));
+}
+html[data-theme='dark'] .app-banner--error{
+  border-color: color-mix(in srgb, #f87171 38%, var(--line));
+  background: color-mix(in srgb, #f87171 12%, var(--card));
+}
+html[data-theme='dark'] .app-banner--warn{
+  border-color: color-mix(in srgb, #fbbf24 35%, var(--line));
+  background: color-mix(in srgb, #fbbf24 10%, var(--card));
+}
+
+/* Course page loading / empty / sticky book */
+.course-page-skeleton{
+  padding: 18px 0 40px;
+}
+.course-page-skeleton-hero{
+  height: 220px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--sand) 80%, var(--card));
+}
+.course-page-skeleton-identity{
+  margin-top: 18px;
+  max-width: 520px;
+}
+.course-page-skeleton-rail{
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  max-width: 420px;
+}
+.course-page-empty{
+  padding: 48px 0;
+  max-width: 440px;
+}
+.course-page-empty-title{
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 3.5vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin: 12px 0 0;
+  color: var(--ink);
+}
+.course-page-empty-copy{
+  margin: 10px 0 20px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 15px;
+}
+.course-sticky-book{
+  display: none;
 }
 
 /* ---------- Marketplace search pill ---------- */
@@ -1305,8 +1381,8 @@ html[data-theme='dark'] .app-header-logo-tld{
   gap: 6px;
 }
 .mp-icon-btn{
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: transparent;
   display: grid;
@@ -1317,6 +1393,7 @@ html[data-theme='dark'] .app-header-logo-tld{
   cursor: pointer;
   padding: 0;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+  -webkit-tap-highlight-color: transparent;
 }
 .mp-icon-btn:hover:not(:disabled){
   transform: scale(1.08);
@@ -2311,11 +2388,12 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
 .app-header-nav{
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  margin-right: 12px;
+  gap: 4px;
+  margin-left: 12px;
+  margin-right: 8px;
   min-width: 0;
-  flex-shrink: 1;
+  flex: 1;
+  justify-content: center;
 }
 .app-header-nav-icon{
   display: none;
@@ -2326,19 +2404,24 @@ a.review-author:hover{ text-decoration: underline; text-underline-offset: 2px; }
   font-weight: 600;
   color: var(--muted);
   text-decoration: none;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   transition: color .15s, background .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
-.app-header-nav-link:hover{ color: var(--ink); background: rgba(0,0,0,.04); }
+.app-header-nav-link:hover{ color: var(--ink); background: color-mix(in srgb, var(--sand) 70%, transparent); }
 .app-header-nav-link.is-active{
   color: var(--pine);
   background: var(--green-soft);
 }
-.app-header-nav-link{
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+html[data-theme='dark'] .app-header-nav-link:hover{
+  background: color-mix(in srgb, var(--sand) 55%, transparent);
+}
+html[data-theme='dark'] .app-header-nav-link.is-active{
+  color: var(--fairway);
+  background: color-mix(in srgb, var(--fairway) 14%, var(--card));
 }
 .app-header-nav-badge{
   min-width: 20px;
@@ -2366,6 +2449,83 @@ html[data-theme='dark'] .app-header-nav-badge{
 @media (prefers-reduced-motion: reduce){
   .app-header-nav-badge--hot{ animation: none; }
 }
+
+/* Mobile primary nav — bottom tabs */
+.app-bottom-nav{
+  display: none;
+}
+@media (max-width: 720px){
+  .app-header-nav{ display: none; }
+  .app-bottom-nav{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 180;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line);
+  }
+  .app-bottom-nav-link{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 48px;
+    padding: 6px 4px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--ink-3);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .app-bottom-nav-link.is-active{
+    color: var(--pine);
+  }
+  html[data-theme='dark'] .app-bottom-nav-link.is-active{
+    color: var(--fairway);
+  }
+  .app-bottom-nav-icon-wrap{
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+  .app-bottom-nav-badge{
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--pine);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+  }
+  html[data-theme='dark'] .app-bottom-nav-badge{
+    background: var(--fairway);
+    color: var(--fairway-ink);
+  }
+  .app-main{
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  .app-footer{
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+  .course-sticky-book{
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .feed-page-back{ margin-top: 22px; }
 
 .feed-page{
@@ -2929,6 +3089,21 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
   font-size: 14px;
   margin-bottom: 24px;
 }
+.account-page--signed-out{
+  max-width: 440px;
+}
+.account-page-signed-out-copy{
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.account-page-signed-out-actions{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
 .account-label{
   display: block;
   font-size: 12px;
@@ -3409,16 +3584,6 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
   .app-header-logo{ font-size: 17px; min-width: 0; }
   .app-header-logo-mark,
   .app-header-logo-img{ width: 24px; height: 24px; }
-  .app-header-nav{
-    margin-right: 6px;
-    flex-shrink: 0;
-  }
-  .app-header-nav-icon{ display: block; }
-  .app-header-nav-label{ display: none; }
-  .app-header-nav-link{
-    padding: 8px 10px;
-    gap: 6px;
-  }
   .app-header-sign-in{
     padding: 8px 12px;
     font-size: 12px;
@@ -3675,6 +3840,51 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
   .back-row{ padding: 16px 0 12px; }
   .section{ padding: 22px 0; }
   .rate-table{ font-size: 13.5px; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .course-sticky-book{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: fixed;
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 160;
+    padding: 12px 16px;
+    border-radius: 16px;
+    background: var(--pine);
+    color: #fff;
+    text-decoration: none;
+    box-shadow: 0 10px 28px rgba(20, 30, 25, 0.28);
+    transform: translateY(120%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .22s cubic-bezier(0.22, 1, 0.36, 1), opacity .18s ease;
+  }
+  .course-sticky-book.is-visible{
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .course-sticky-book-label{
+    font-weight: 700;
+    font-size: 14px;
+    min-width: 0;
+  }
+  .course-sticky-book-meta{
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    opacity: 0.88;
+  }
+  html[data-theme='dark'] .course-sticky-book{
+    background: var(--fairway);
+    color: var(--fairway-ink);
+  }
+  @media (prefers-reduced-motion: reduce){
+    .course-sticky-book{ transition: none; }
+  }
 }
 
 @media (max-width: 380px){

@@ -367,9 +367,9 @@ export function FinderPage() {
     <div className="container">
       <div className="finder-page">
         {catalogError ? (
-          <div style={{ marginTop: 18, padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.35)', background: 'rgba(254,242,242,0.9)', color: '#7f1d1d' }}>
+          <div className="app-banner app-banner--error" role="alert">
             <strong>Could not load courses.</strong> {catalogError}
-            <div style={{ marginTop: 12 }}>
+            <div className="app-banner-actions">
               <button type="button" className="btn btn-primary" onClick={() => void refreshCatalog()}>
                 Try again
               </button>
@@ -378,17 +378,18 @@ export function FinderPage() {
         ) : null}
 
         {workerFetchTotalFailure ? (
-          <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: '1px solid rgba(180,60,60,0.4)', background: 'rgba(254,242,242,0.95)', color: '#7f1d1d', fontSize: 14, lineHeight: 1.5 }}>
+          <div className="app-banner app-banner--error" role="alert">
             <strong>Could not load live tee times.</strong> Check your connection, then search again.
-            <div style={{ marginTop: 10 }}>
+            <div className="app-banner-actions">
               <button type="button" className="btn btn-primary" onClick={() => setLastUpdatedAt(Date.now())}>
                 Retry now
               </button>
             </div>
           </div>
         ) : workerFetchPartialFailure ? (
-          <div style={{ marginTop: 14, padding: 12, borderRadius: 12, border: '1px solid rgba(180,120,40,0.45)', background: 'rgba(255,251,235,0.95)', color: '#92400e', fontSize: 14, lineHeight: 1.5 }}>
-            <strong>Some courses didn&apos;t refresh</strong> ({failedSlugs.length} of {attemptedSlugCount}). Results may be incomplete.
+          <div className="app-banner app-banner--warn" role="status">
+            <strong>Some courses didn&apos;t refresh</strong> ({failedSlugs.length} of {attemptedSlugCount}). Results may
+            be incomplete.
           </div>
         ) : null}
 
@@ -679,7 +680,7 @@ export function FinderPage() {
           <div className="finder-help-title">Planning with a group?</div>
           <p>
             Tap <strong>Share times</strong> on any course to pick tee times and get a vote link, or open a course for
-            the full list. Past links live under <strong>Shared rounds</strong> in the nav.
+            the full list. Past links live under <strong>You → Shared rounds</strong>.
           </p>
         </div>
       </div>

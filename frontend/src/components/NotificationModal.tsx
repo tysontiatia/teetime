@@ -37,13 +37,14 @@ export function NotificationModal({
   course: Course | null;
   defaultDate?: string;
 }) {
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>('specific');
   const [dayOfWeek, setDayOfWeek] = useState('sat');
   const [timeWindow, setTimeWindow] = useState<'any' | 'morning' | 'afternoon' | 'evening'>('any');
   const [players, setPlayers] = useState<1 | 2 | 3 | 4>(2);
   const [targetDate, setTargetDate] = useState(() => defaultDate || toYmd(new Date()));
   const [saving, setSaving] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [message, setMessage] = useState<AlertMessage | null>(null);
 
   const title = useMemo(() => (course ? `${course.name} (${course.city})` : 'Course'), [course]);
@@ -53,7 +54,11 @@ export function NotificationModal({
   }, [open, defaultDate]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setMessage(null);
+      setSigningIn(false);
+      return;
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -66,10 +71,7 @@ export function NotificationModal({
   const save = async () => {
     setMessage(null);
     if (!course) return;
-    if (!user) {
-      setMessage({ type: 'err', text: 'Sign in with Google (header) to save alerts.' });
-      return;
-    }
+    if (!user) return;
 
     const { earliest, latest } = windowToRange(timeWindow);
     const days_of_week = mode === 'weekly' ? [DOW_MAP[dayOfWeek] ?? 6] : [];
@@ -99,6 +101,54 @@ export function NotificationModal({
     setMessage({ type: 'ok', text: 'Alert saved. You will get an email when times match.' });
     setTimeout(() => onClose(), 900);
   };
+
+  if (!user) {
+    return (
+      <div
+        className="modal-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notif-signin-title"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="modal-panel modal-panel-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <div>
+              <h2 id="notif-signin-title" className="modal-header-title" style={{ fontSize: 20 }}>
+                Sign in for alerts
+              </h2>
+              <p className="modal-header-sub" style={{ fontSize: 14, color: 'var(--ink-2)' }}>
+                Get an email when tee times open at <strong style={{ color: 'var(--ink)' }}>{title}</strong>. Google
+                sign-in is free and takes a few seconds.
+              </p>
+            </div>
+            <button className="btn btn-ghost" type="button" onClick={onClose} aria-label="Close">
+              ✕
+            </button>
+          </div>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={signingIn}
+              onClick={() => {
+                setSigningIn(true);
+                void signInWithGoogle().finally(() => setSigningIn(false));
+              }}
+              style={{ padding: '12px 16px', fontWeight: 700 }}
+            >
+              {signingIn ? 'Opening Google…' : 'Continue with Google'}
+            </button>
+            <button className="btn btn-ghost" type="button" onClick={onClose} style={{ padding: '10px 16px' }}>
+              Not now
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

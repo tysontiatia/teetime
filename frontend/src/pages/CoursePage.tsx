@@ -204,6 +204,11 @@ export function CoursePage() {
 
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [slotsExpanded, setSlotsExpanded] = useState(false);
+  const [stickyBookVisible, setStickyBookVisible] = useState(false);
+  const [railCtaEl, setRailCtaEl] = useState<HTMLElement | null>(null);
+  const setRailCtaRef = useCallback((node: HTMLAnchorElement | HTMLButtonElement | null) => {
+    setRailCtaEl(node);
+  }, []);
 
   useEffect(() => {
     setSelectedSlotId(null);
@@ -228,10 +233,48 @@ export function CoursePage() {
     }
   }, [user?.id, planAfterSignIn]);
 
+  useEffect(() => {
+    if (!railCtaEl || typeof IntersectionObserver === 'undefined') {
+      setStickyBookVisible(false);
+      return;
+    }
+    const mq = window.matchMedia('(max-width: 960px)');
+    const sync = (visibleInRail: boolean) => {
+      setStickyBookVisible(mq.matches && !visibleInRail);
+    };
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        sync(entry?.isIntersecting ?? true);
+      },
+      { root: null, threshold: 0.15, rootMargin: '-64px 0px 0px 0px' },
+    );
+    obs.observe(railCtaEl);
+    const onMq = () => {
+      if (!mq.matches) setStickyBookVisible(false);
+    };
+    mq.addEventListener('change', onMq);
+    return () => {
+      obs.disconnect();
+      mq.removeEventListener('change', onMq);
+    };
+  }, [railCtaEl]);
+
   if (catalogLoading && !course) {
     return (
       <div className="container">
-        <div style={{ padding: 18, color: 'var(--ink-3)' }}>Loading course…</div>
+        <div className="course-page-skeleton" aria-busy="true" aria-label="Loading course">
+          <div className="course-page-skeleton-hero skeleton-shimmer" />
+          <div className="course-page-skeleton-identity">
+            <div className="skeleton-shimmer" style={{ width: '55%', height: 28, borderRadius: 10 }} />
+            <div className="skeleton-shimmer" style={{ width: '38%', height: 14, marginTop: 12, borderRadius: 8 }} />
+            <div className="skeleton-shimmer" style={{ width: '72%', height: 14, marginTop: 10, borderRadius: 8 }} />
+          </div>
+          <div className="course-page-skeleton-rail">
+            <div className="skeleton-shimmer" style={{ width: '48%', height: 16, borderRadius: 8 }} />
+            <div className="skeleton-shimmer" style={{ width: '100%', height: 120, marginTop: 14, borderRadius: 14 }} />
+            <div className="skeleton-shimmer" style={{ width: '100%', height: 48, marginTop: 14, borderRadius: 14 }} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -239,10 +282,14 @@ export function CoursePage() {
   if (!course || !courseId) {
     return (
       <div className="container">
-        <div style={{ padding: 18, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16 }}>
-          <div style={{ fontWeight: 700 }}>Course not found</div>
-          <Link className="btn" to={`/?${finderBackSearch}`} style={{ marginTop: 10 }}>
-            Back to finder
+        <div className="course-page-empty">
+          <p className="pill">Missing course</p>
+          <h1 className="course-page-empty-title">Course not found</h1>
+          <p className="course-page-empty-copy">
+            That course isn’t in the catalog, or the link is out of date. Head back to search and pick another.
+          </p>
+          <Link className="btn btn-primary" to={`/?${finderBackSearch}`}>
+            Back to search
           </Link>
         </div>
       </div>
@@ -539,11 +586,11 @@ export function CoursePage() {
           )}
 
           {bookingHref ? (
-            <a className="rail-cta" href={bookingHref} target="_blank" rel="noreferrer">
+            <a className="rail-cta" href={bookingHref} target="_blank" rel="noreferrer" ref={setRailCtaRef}>
               {bookLabel}
             </a>
           ) : (
-            <button type="button" className="rail-cta" disabled>
+            <button type="button" className="rail-cta" disabled ref={setRailCtaRef}>
               {bookLabel}
             </button>
           )}
@@ -592,6 +639,25 @@ export function CoursePage() {
         recordsBySlug={recordsBySlug}
       />
       <NotificationModal open={notifOpen} onClose={() => setNotifOpen(false)} course={course} defaultDate={date} />
+
+      {bookingHref ? (
+        <a
+          className={`course-sticky-book${stickyBookVisible ? ' is-visible' : ''}`}
+          href={bookingHref}
+          target="_blank"
+          rel="noreferrer"
+          aria-hidden={!stickyBookVisible}
+          tabIndex={stickyBookVisible ? 0 : -1}
+        >
+          <span className="course-sticky-book-label">{bookLabel}</span>
+          {selected ? (
+            <span className="course-sticky-book-meta">
+              {formatTime12h(selected.startsAt)}
+              {typeof selected.price === 'number' ? ` · $${Math.round(selected.price)}` : ''}
+            </span>
+          ) : null}
+        </a>
+      ) : null}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { profileAvatarUrlFromUser } from '../lib/profileAvatar';
 import { UserAvatar } from './UserAvatar';
 import { UserMenu } from './UserMenu';
-import { OpeningsPreviewProvider } from '../state/OpeningsPreviewContext';
+import { AppBottomNav } from './AppBottomNav';
+import { OpeningsPreviewProvider, useOpeningsPreview } from '../state/OpeningsPreviewContext';
 
 function AvatarChip({ avatar, initial }: { avatar?: string; initial: string }) {
   return <UserAvatar src={avatar} initial={initial} size={34} className="app-header-avatar-chip" />;
@@ -19,7 +20,54 @@ function LogoMark() {
   );
 }
 
-export function AppShell() {
+function HeaderNav() {
+  const location = useLocation();
+  const { openCount } = useOpeningsPreview();
+  const p = location.pathname.replace(/\/$/, '') || '/';
+
+  if (p.startsWith('/admin')) return null;
+
+  const badge = openCount > 0 ? (openCount > 99 ? '99+' : String(openCount)) : null;
+
+  return (
+    <nav className="app-header-nav" aria-label="Primary">
+      <NavLink
+        to="/"
+        end
+        className={({ isActive }) =>
+          `app-header-nav-link${isActive || p.startsWith('/course/') ? ' is-active' : ''}`
+        }
+      >
+        <span className="app-header-nav-label">Search</span>
+      </NavLink>
+      <NavLink to="/feed" className={({ isActive }) => `app-header-nav-link${isActive ? ' is-active' : ''}`}>
+        <span className="app-header-nav-label">Openings</span>
+        {badge ? (
+          <span className={`app-header-nav-badge${openCount >= 5 ? ' app-header-nav-badge--hot' : ''}`}>
+            {badge}
+          </span>
+        ) : null}
+      </NavLink>
+      <NavLink
+        to="/account"
+        className={() => {
+          const youActive =
+            p === '/account' ||
+            p.startsWith('/account/') ||
+            p === '/plan' ||
+            p.startsWith('/plan/') ||
+            p === '/share' ||
+            p.startsWith('/share/');
+          return `app-header-nav-link${youActive ? ' is-active' : ''}`;
+        }}
+      >
+        <span className="app-header-nav-label">You</span>
+      </NavLink>
+    </nav>
+  );
+}
+
+function AppShellInner() {
   const { user, loading, signInWithGoogle } = useAuth();
   const location = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -60,8 +108,7 @@ export function AppShell() {
     location.pathname.startsWith('/account/');
 
   return (
-    <OpeningsPreviewProvider>
-    <div>
+    <div className="app-shell">
       <header className="app-header">
         <div className="container app-header-inner">
           <Link to="/" className="app-header-logo">
@@ -70,6 +117,8 @@ export function AppShell() {
               Tee-Time<span className="app-header-logo-tld">.io</span>
             </span>
           </Link>
+
+          <HeaderNav />
 
           <div className="app-header-trailing">
             {loading ? (
@@ -93,7 +142,7 @@ export function AppShell() {
                 type="button"
                 onClick={() => void signInWithGoogle()}
               >
-                Sign in with Google
+                Sign in
               </button>
             )}
           </div>
@@ -109,7 +158,16 @@ export function AppShell() {
       <footer className="app-footer">
         <p className="app-footer-note">Made with ❤️ in Salt Lake City</p>
       </footer>
+
+      <AppBottomNav />
     </div>
+  );
+}
+
+export function AppShell() {
+  return (
+    <OpeningsPreviewProvider>
+      <AppShellInner />
     </OpeningsPreviewProvider>
   );
 }

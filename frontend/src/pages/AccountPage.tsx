@@ -45,7 +45,7 @@ function summarizePref(p: NotificationPreferenceRow): string {
 }
 
 export function AccountPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, signInWithGoogle } = useAuth();
   const { courses } = useCourseCatalog();
   const [loading, setLoading] = useState(true);
   const [prefs, setPrefs] = useState<NotificationPreferenceRow[]>([]);
@@ -116,8 +116,19 @@ export function AccountPage() {
 
   if (!user) {
     return (
-      <div className="container" style={{ paddingTop: 32, textAlign: 'center', color: 'var(--muted)' }}>
-        Sign in to manage your account.
+      <div className="container account-page account-page--signed-out">
+        <h1 className="account-page-title">You</h1>
+        <p className="account-page-signed-out-copy">
+          Sign in to manage alerts, shared rounds, and account settings. Google sign-in is free.
+        </p>
+        <div className="account-page-signed-out-actions">
+          <button type="button" className="btn btn-primary" onClick={() => void signInWithGoogle()}>
+            Continue with Google
+          </button>
+          <Link to="/plan" className="btn btn-ghost">
+            Shared rounds
+          </Link>
+        </div>
       </div>
     );
   }
