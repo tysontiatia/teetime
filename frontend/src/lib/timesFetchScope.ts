@@ -2,8 +2,8 @@ import type { Course } from '../types';
 import { haversineMiles } from './geo';
 import { resolveZipQuery } from './zipSearch';
 
-/** Default radius for regional tee-time fetches (Wasatch Front / near-me). */
-export const DEFAULT_FETCH_RADIUS_MI = 60;
+/** Default radius for regional tee-time fetches (near me, city, ZIP). */
+export const DEFAULT_FETCH_RADIUS_MI = 25;
 
 /** Salt Lake City — fallback when GPS is unavailable. */
 export const WASATCH_FRONT_ANCHOR = { lat: 40.7608, lng: -111.891 };
@@ -27,6 +27,12 @@ export type TimesFetchScope = {
   regional: boolean;
   /** Worker courses outside the current fetch pool. */
   outOfScopeCount: number;
+};
+
+export type ResolvedPlaceAnchor = {
+  kind: 'zip' | 'city';
+  label: string;
+  anchor: { lat: number; lng: number };
 };
 
 export function resolveFetchAnchor(userLocation: { lat: number; lng: number } | null): FetchAnchor {
@@ -72,6 +78,60 @@ export function filterCoursesByLocationQuery(courses: Course[], query: string): 
   return courses.filter((c) => courseMatchesLocationQuery(c, q));
 }
 
+function isGenericCityLabel(city: string): boolean {
+  const n = normalizeSearchText(city);
+  return !n || n === 'utah' || n === 'wy' || n === 'wyoming';
+}
+
+/**
+ * Resolve a free-text query to a city centroid from catalog courses
+ * (e.g. "Orem" → average lat/lng of Orem courses). Used for near-city search.
+ */
+export function resolveCityQuery(query: string, courses: Course[]): ResolvedPlaceAnchor | null {
+  const q = normalizeSearchText(query);
+  if (q.length < 3) return null;
+
+  const cityCourses = courses.filter((c) => {
+    if (!c.city || isGenericCityLabel(c.city)) return false;
+    const city = normalizeSearchText(c.city);
+    return city === q || city.startsWith(`${q} `) || city.startsWith(q);
+  });
+
+  // Prefer exact city equality when available (avoids "Le"→Lehi noise; q is ≥3).
+  const exact = cityCourses.filter((c) => normalizeSearchText(c.city) === q);
+  const matched = exact.length > 0 ? exact : cityCourses;
+  const withCoords = matched.filter(courseHasCoords);
+  if (withCoords.length === 0) return null;
+
+  // If the query is clearly a course title (not a place), keep text search.
+  const nameOnlyHits = courses.filter((c) => {
+    const name = normalizeSearchText(c.name);
+    const short = normalizeSearchText(c.catalogName || c.name);
+    return name === q || short === q || name.startsWith(`${q} `);
+  });
+  const cityLabels = new Set(matched.map((c) => normalizeSearchText(c.city)));
+  if (nameOnlyHits.length > 0 && !cityLabels.has(q) && exact.length === 0) {
+    return null;
+  }
+
+  const lat = withCoords.reduce((sum, c) => sum + c.lat, 0) / withCoords.length;
+  const lng = withCoords.reduce((sum, c) => sum + c.lng, 0) / withCoords.length;
+  return {
+    kind: 'city',
+    label: matched[0]!.city,
+    anchor: { lat, lng },
+  };
+}
+
+/** ZIP centroid or city centroid from the catalog. */
+export function resolvePlaceAnchor(query: string, courses: Course[]): ResolvedPlaceAnchor | null {
+  const zip = resolveZipQuery(query);
+  if (zip) {
+    return { kind: 'zip', label: zip.zip, anchor: zip.anchor };
+  }
+  return resolveCityQuery(query, courses);
+}
+
 export function buildTimesFetchScope(
   workerCourses: Course[],
   userLocation: { lat: number; lng: number } | null,
@@ -97,21 +157,21 @@ export function buildTimesFetchScope(
   }
 
   if (locationQuery) {
-    // ZIP search: fetch courses near the ZIP centroid instead of text-matching.
-    const zip = resolveZipQuery(locationQuery);
-    if (zip) {
-      const zipAnchor: FetchAnchor = { ...zip.anchor, source: 'default' };
-      const nearZip = filterCoursesWithinRadius(workerCourses, zipAnchor, radiusMi);
+    // ZIP or city: fetch courses near that place instead of text-matching only.
+    const place = resolvePlaceAnchor(locationQuery, workerCourses);
+    if (place) {
+      const placeAnchor: FetchAnchor = { ...place.anchor, source: 'default' };
+      const nearPlace = filterCoursesWithinRadius(workerCourses, placeAnchor, radiusMi);
       return {
-        anchor: zipAnchor,
+        anchor: placeAnchor,
         radiusMi,
-        fetchPool: nearZip,
+        fetchPool: nearPlace,
         workerCourses,
         mode: 'search',
         searchQuery: locationQuery,
-        searchMatchCount: nearZip.length,
+        searchMatchCount: nearPlace.length,
         regional: true,
-        outOfScopeCount: Math.max(0, workerCourses.length - nearZip.length),
+        outOfScopeCount: Math.max(0, workerCourses.length - nearPlace.length),
       };
     }
 

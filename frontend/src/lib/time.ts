@@ -22,6 +22,11 @@ export function ymdInUtah(iso: string): string {
   return `${y}-${mo}-${day}`;
 }
 
+/** Today’s calendar date in Utah (America/Denver). */
+export function todayYmdUtah(): string {
+  return ymdInUtah(new Date().toISOString());
+}
+
 /** Earliest calendar day (Utah) among tee-time instants — use as plan headline date. */
 export function minYmdUtahFromIsoStarts(startsAtIsos: string[]): string {
   if (!startsAtIsos.length) return toYmd(new Date());

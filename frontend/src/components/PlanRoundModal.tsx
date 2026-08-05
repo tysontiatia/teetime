@@ -134,7 +134,6 @@ export function PlanRoundModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="plan-round-title"
-      style={{ zIndex: 86 }}
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) onClose();
       }}

@@ -1,24 +1,30 @@
 import { useEffect, useState } from 'react';
 import { formatDateShort } from '../lib/time';
-import { fetchWasatchDayOutlook } from '../lib/weather';
+import { fetchDayOutlook, type DayOutlook } from '../lib/weather';
+import { WeatherGlyph, weatherKindFromPrecip } from './WeatherGlyph';
 
-/** One Open-Meteo call for Salt Lake area — replaces per-card weather on the finder. */
-export function FinderDayOutlook({ dateYmd }: { dateYmd: string }) {
-  const [text, setText] = useState<string | null>(null);
+type Props = {
+  dateYmd: string;
+  lat: number;
+  lng: number;
+  /** Short place label shown before highs/lows (e.g. St. George, Near you). */
+  regionLabel: string;
+};
+
+/** One Open-Meteo day summary for the finder’s current search area. */
+export function FinderDayOutlook({ dateYmd, lat, lng, regionLabel }: Props) {
+  const [outlook, setOutlook] = useState<DayOutlook | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setOutlook(null);
     const run = () => {
       void (async () => {
         try {
-          const o = await fetchWasatchDayOutlook(dateYmd);
-          if (cancelled) return;
-          const rain = o.maxPrecipProb > 0 ? ` · up to ${Math.round(o.maxPrecipProb)}% rain` : '';
-          setText(
-            `Wasatch · high ${Math.round(o.highF)}° / low ${Math.round(o.lowF)}° · wind to ${Math.round(o.maxWindMph)} mph${rain}`
-          );
+          const o = await fetchDayOutlook({ lat, lng, dateYmd });
+          if (!cancelled) setOutlook(o);
         } catch {
-          if (!cancelled) setText(null);
+          if (!cancelled) setOutlook(null);
         }
       })();
     };
@@ -34,13 +40,47 @@ export function FinderDayOutlook({ dateYmd }: { dateYmd: string }) {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [dateYmd]);
+  }, [dateYmd, lat, lng]);
 
-  if (!text) return null;
+  if (!outlook) return null;
+
+  const kind = weatherKindFromPrecip(outlook.maxPrecipProb);
+  const high = Math.round(outlook.highF);
+  const low = Math.round(outlook.lowF);
+  const wind = Math.round(outlook.maxWindMph);
+  const rain = outlook.maxPrecipProb > 0 ? Math.round(outlook.maxPrecipProb) : null;
 
   return (
-    <div className="day-outlook" aria-label={`Weather for ${formatDateShort(dateYmd)}`}>
-      {text}
+    <div
+      className={`day-outlook day-outlook--${kind}`}
+      aria-label={`Weather for ${regionLabel}, ${formatDateShort(dateYmd)}: high ${high}, low ${low}, wind ${wind}${
+        rain != null ? `, rain ${rain}%` : ''
+      }`}
+    >
+      <WeatherGlyph precipProb={outlook.maxPrecipProb} className="day-outlook-glyph" />
+      <span className="day-outlook-region">{regionLabel}</span>
+      <span className="day-outlook-sep" aria-hidden>
+        ·
+      </span>
+      <span className="day-outlook-temps">
+        <span className="day-outlook-high">high {high}°</span>
+        <span className="day-outlook-slash" aria-hidden>
+          /
+        </span>
+        <span className="day-outlook-low">low {low}°</span>
+      </span>
+      <span className="day-outlook-sep" aria-hidden>
+        ·
+      </span>
+      <span className="day-outlook-wind">wind to {wind} mph</span>
+      {rain != null ? (
+        <>
+          <span className="day-outlook-sep" aria-hidden>
+            ·
+          </span>
+          <span className="day-outlook-rain">up to {rain}% rain</span>
+        </>
+      ) : null}
     </div>
   );
 }

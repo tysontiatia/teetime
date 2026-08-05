@@ -5,7 +5,10 @@ import { profileAvatarUrlFromUser } from '../lib/profileAvatar';
 import { UserAvatar } from './UserAvatar';
 import { UserMenu } from './UserMenu';
 import { AppBottomNav } from './AppBottomNav';
-import { OpeningsPreviewProvider, useOpeningsPreview } from '../state/OpeningsPreviewContext';
+import { OpeningsPreviewProvider } from '../state/OpeningsPreviewContext';
+import { InstallAppModal } from './InstallAppModal';
+import { InstallAppBanner } from './InstallAppBanner';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 
 function AvatarChip({ avatar, initial }: { avatar?: string; initial: string }) {
   return <UserAvatar src={avatar} initial={initial} size={34} className="app-header-avatar-chip" />;
@@ -22,12 +25,9 @@ function LogoMark() {
 
 function HeaderNav() {
   const location = useLocation();
-  const { openCount } = useOpeningsPreview();
   const p = location.pathname.replace(/\/$/, '') || '/';
 
   if (p.startsWith('/admin')) return null;
-
-  const badge = openCount > 0 ? (openCount > 99 ? '99+' : String(openCount)) : null;
 
   return (
     <nav className="app-header-nav" aria-label="Primary">
@@ -40,20 +40,13 @@ function HeaderNav() {
       >
         <span className="app-header-nav-label">Search</span>
       </NavLink>
-      <NavLink to="/feed" className={({ isActive }) => `app-header-nav-link${isActive ? ' is-active' : ''}`}>
-        <span className="app-header-nav-label">Openings</span>
-        {badge ? (
-          <span className={`app-header-nav-badge${openCount >= 5 ? ' app-header-nav-badge--hot' : ''}`}>
-            {badge}
-          </span>
-        ) : null}
+      <NavLink to="/account" className={({ isActive }) => `app-header-nav-link${isActive ? ' is-active' : ''}`}>
+        <span className="app-header-nav-label">Alerts</span>
       </NavLink>
       <NavLink
-        to="/account"
+        to="/plan"
         className={() => {
           const youActive =
-            p === '/account' ||
-            p.startsWith('/account/') ||
             p === '/plan' ||
             p.startsWith('/plan/') ||
             p === '/share' ||
@@ -71,11 +64,31 @@ function AppShellInner() {
   const { user, loading, signInWithGoogle } = useAuth();
   const location = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [bannerReady, setBannerReady] = useState(false);
   const closeUserMenu = useCallback(() => setUserMenuOpen(false), []);
+  const {
+    installed,
+    platform,
+    canNativeInstall,
+    canSoftPrompt,
+    showInstallEntry,
+    promptNativeInstall,
+    dismissSoftPrompt,
+  } = usePwaInstall();
 
   useEffect(() => {
     setUserMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!canSoftPrompt || installed) {
+      setBannerReady(false);
+      return;
+    }
+    const t = window.setTimeout(() => setBannerReady(true), 2200);
+    return () => window.clearTimeout(t);
+  }, [canSoftPrompt, installed]);
 
   useEffect(() => {
     const p = location.pathname.replace(/\/$/, '') || '/';
@@ -86,7 +99,7 @@ function AppShellInner() {
     } else if (p === '/share') {
       document.title = 'Tee-Time · Share';
     } else if (p === '/account') {
-      document.title = 'Tee-Time · Account';
+      document.title = 'Tee-Time · Alerts';
     } else if (p === '/feed') {
       document.title = 'Tee-Time · Openings';
     } else if (p.startsWith('/round/')) {
@@ -104,8 +117,8 @@ function AppShellInner() {
   const youRouteActive =
     location.pathname === '/plan' ||
     location.pathname.startsWith('/plan/') ||
-    location.pathname === '/account' ||
-    location.pathname.startsWith('/account/');
+    location.pathname === '/share' ||
+    location.pathname.startsWith('/share/');
 
   return (
     <div className="app-shell">
@@ -121,6 +134,31 @@ function AppShellInner() {
           <HeaderNav />
 
           <div className="app-header-trailing">
+            {showInstallEntry ? (
+              <button
+                type="button"
+                className="app-header-icon-btn app-header-install-btn"
+                aria-label="Install Tee-Time"
+                title="Install app"
+                onClick={() => setInstallOpen(true)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M12 3v10M8.5 9.5L12 13l3.5-3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M5 16v2a2 2 0 002 2h10a2 2 0 002-2v-2"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            ) : null}
             {loading ? (
               <span className="app-header-loading" aria-hidden>
                 …
@@ -149,7 +187,33 @@ function AppShellInner() {
         </div>
       </header>
 
-      <UserMenu open={userMenuOpen} onClose={closeUserMenu} initial={initial} />
+      <UserMenu
+        open={userMenuOpen}
+        onClose={closeUserMenu}
+        initial={initial}
+        showInstall={showInstallEntry}
+        onInstall={() => setInstallOpen(true)}
+      />
+
+      <InstallAppBanner
+        open={bannerReady && canSoftPrompt}
+        onInstall={() => {
+          setBannerReady(false);
+          setInstallOpen(true);
+        }}
+        onDismiss={() => {
+          dismissSoftPrompt();
+          setBannerReady(false);
+        }}
+      />
+
+      <InstallAppModal
+        open={installOpen}
+        onClose={() => setInstallOpen(false)}
+        platform={platform}
+        canNativeInstall={canNativeInstall}
+        onNativeInstall={promptNativeInstall}
+      />
 
       <main className="app-main">
         <Outlet />

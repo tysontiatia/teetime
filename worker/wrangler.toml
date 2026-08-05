@@ -7,6 +7,9 @@ ALLOWED_ORIGIN = "*"
 SUPABASE_URL = "https://nmwlebcvezybfwertlzs.supabase.co"
 # Public anon key (same as frontend) — used only to validate the user JWT on /account/phone/*.
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg"
+# Web Push VAPID public key (safe to expose). Pair with secret VAPID_PRIVATE_KEY.
+VAPID_PUBLIC_KEY = "BGsDeJ3VYSXLYIKmQZZeahgY4K72RJ2L8jObIlnnn6rhJSyyDjR8UIVe561Iuf9JynQmPgEEioa-_etmEdiWjRY"
+VAPID_SUBJECT = "mailto:alerts@tee-time.io"
 
 # Secrets (set via `wrangler secret put`):
 #   GOOGLE_PLACES_KEY   (Places Photo + Details — /place-photo, /place-reviews)
@@ -16,6 +19,7 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 #   TWILIO_AUTH_TOKEN
 #   TWILIO_FROM_NUMBER   (E.164 format, e.g. +18015551234)
 #   TWILIO_VERIFY_SERVICE_SID   (Twilio Console → Verify → Services → SID; SMS OTP for phone verification)
+#   VAPID_PRIVATE_KEY   (Web Push — pair with VAPID_PUBLIC_KEY above)
 
 [triggers]
 # UTC heartbeats — golf hours and tiers are gated in America/Denver inside the worker.

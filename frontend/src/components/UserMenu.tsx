@@ -9,13 +9,15 @@ type UserMenuProps = {
   open: boolean;
   onClose: () => void;
   initial: string;
+  showInstall?: boolean;
+  onInstall?: () => void;
 };
 
 function MenuIcon({ children }: { children: ReactNode }) {
   return <span className="user-menu-item-icon" aria-hidden>{children}</span>;
 }
 
-export function UserMenu({ open, onClose, initial }: UserMenuProps) {
+export function UserMenu({ open, onClose, initial, showInstall, onInstall }: UserMenuProps) {
   const { user, signOut } = useAuth();
   const { preference, resolved, setPreference } = useTheme();
   const location = useLocation();
@@ -128,8 +130,28 @@ export function UserMenu({ open, onClose, initial }: UserMenuProps) {
                 />
               </svg>
             </MenuIcon>
-            <span className="user-menu-item-label">Account & alerts</span>
+            <span className="user-menu-item-label">Alerts</span>
           </Link>
+          {showInstall && onInstall ? (
+            <button
+              type="button"
+              className="user-menu-item"
+              role="menuitem"
+              onClick={() => {
+                onClose();
+                onInstall();
+              }}
+            >
+              <MenuIcon>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.9" />
+                  <path d="M12 17.2h.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                  <path d="M9 8.5h6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                </svg>
+              </MenuIcon>
+              <span className="user-menu-item-label">Install app</span>
+            </button>
+          ) : null}
         </nav>
 
         <div className="user-menu-section">

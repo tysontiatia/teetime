@@ -165,6 +165,52 @@ function buildOpeningEmailSubject(course, slots, eventType) {
   return `⛳ ${slots.length} tee time${slots.length !== 1 ? 's' : ''} at ${displayCourseName(course.name)}`;
 }
 
+function slugFromCourseName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function buildPushPayloadMessage(course, slots, playDate, players, eventType) {
+  const courseLabel = displayCourseName(course.name);
+  const verb = eventType === 'reopened' ? 'reopened' : 'opened';
+  const title =
+    slots.length === 1
+      ? `${formatTime12h(slots[0].rawTime)} ${verb} at ${courseLabel}`
+      : `${slots.length} times at ${courseLabel}`;
+  const dateLabel = new Date(`${playDate}T12:00:00`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: MT,
+  });
+  const body = `${dateLabel} · ${players} player${players === 1 ? '' : 's'}`;
+  const slug = slugFromCourseName(course.name);
+  return {
+    title,
+    body,
+    url: `https://tee-time.io/app/course/${encodeURIComponent(slug)}?date=${encodeURIComponent(playDate)}`,
+    tag: `alert-${slug}-${playDate}`,
+  };
+}
+
+async function loadPushSubscriptions(env, userId) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/push_subscriptions?user_id=eq.${userId}&select=id,endpoint,p256dh,auth`,
+    { headers: sbHeaders(env) },
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
+async function deletePushSubscription(env, id) {
+  await fetch(`${env.SUPABASE_URL}/rest/v1/push_subscriptions?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: sbHeaders(env),
+  });
+}
+
 async function loadPrefsForCourseDate(env, courseName, playDate, todayMt) {
   const res = await fetch(
     `${env.SUPABASE_URL}/rest/v1/notification_preferences?active=eq.true&course_id=eq.${encodeURIComponent(courseName)}&select=*`,
@@ -434,6 +480,47 @@ async function deliverToUser(ctx, {
           notified_slot_keys: smsSlots.map((s) => s.slotKey),
           notify_reason: notifyReason,
         });
+    }
+  }
+
+  // Browser / PWA push — opt-in via push_subscriptions rows.
+  if (typeof ctx.sendWebPush === 'function' && ctx.vapidConfigured?.(env)) {
+    const pushSlots = filterSlotsForNotify(slots, pref, logs, playDate, {
+      eventMode,
+      channel: 'push',
+    });
+    if (pushSlots.length) {
+      const subs = await loadPushSubscriptions(env, pref.user_id);
+      if (subs.length) {
+        const message = buildPushPayloadMessage(course, pushSlots, playDate, players, primaryEvent);
+        let anySent = false;
+        for (const sub of subs) {
+          const result = await ctx.sendWebPush(env, sub, message);
+          if (result?.gone && sub.id) {
+            await deletePushSubscription(env, sub.id);
+          }
+          if (result?.ok) anySent = true;
+        }
+        if (anySent) {
+          await writeNotificationLog(env, {
+            user_id: pref.user_id,
+            course_id: pref.course_id,
+            target_date: playDate,
+            channel: 'push',
+            times_found: pushSlots.length,
+            notified_slot_keys: pushSlots.map((s) => s.slotKey),
+            notify_reason: notifyReason,
+          });
+          appendLog(logs, {
+            user_id: pref.user_id,
+            course_id: pref.course_id,
+            target_date: playDate,
+            channel: 'push',
+            notified_slot_keys: pushSlots.map((s) => s.slotKey),
+            notify_reason: notifyReason,
+          });
+        }
+      }
     }
   }
 }

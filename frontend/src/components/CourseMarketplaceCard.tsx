@@ -6,6 +6,9 @@ import type { InventorySource } from '../hooks/useTimesByCourseMap';
 import { CoursePhoto } from './CoursePhoto';
 import { CourseCardTimesSkeleton } from './CourseCardSkeleton';
 import { buildBookingUrl } from '../lib/bookingUrl';
+import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
+import { pickNearestHour } from '../lib/weather';
+import { WeatherGlyph, chipWeatherLabel, weatherKindFromPrecip } from './WeatherGlyph';
 
 function walkabilityLabel(v: CourseRecord['walkability']): string | null {
   if (!v) return null;
@@ -21,6 +24,25 @@ function metaLine(course: Course, record: CourseRecord | undefined): string {
   const walk = record ? walkabilityLabel(record.walkability) : null;
   if (walk) parts.push(walk);
   return parts.join(' · ');
+}
+
+function PlayersIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.5 19c.8-3 2.8-4.5 5.5-4.5S13.7 16 14.5 19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="17" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M14.8 19c.5-2.2 1.8-3.3 3.7-3.3 1.5 0 2.7.7 3.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function HolesIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M6 21V5l9 4.5L6 14" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 type Props = {
@@ -74,6 +96,8 @@ export function CourseMarketplaceCard({
   // Don't dim mid-batch — wait until the full check finishes so the grid doesn't thrash.
   const isEmpty = comingSoon || (!hasTimes && !timesPending && !batchLoading);
 
+  const weatherPoints = useCourseHourlyWeather(course.lat, course.lng, dateYmd, hasTimes);
+
   let badgeLabel: string;
   let showPulse = false;
   if (comingSoon) {
@@ -81,7 +105,7 @@ export function CourseMarketplaceCard({
   } else if (timesPending || (batchLoading && !hasTimes)) {
     badgeLabel = 'Checking…';
   } else if (hasTimes) {
-    badgeLabel = `${times.length} tee time${times.length === 1 ? '' : 's'}`;
+    badgeLabel = `${times.length} open`;
     showPulse = isLive;
   } else if (outOfScope) {
     badgeLabel = 'Nearby only';
@@ -132,7 +156,7 @@ export function CourseMarketplaceCard({
                   {meta || null}
                 </div>
               </div>
-              {typeof priceHint === 'number' ? <div className="mp-course-price">${priceHint}</div> : null}
+              {typeof priceHint === 'number' ? <div className="mp-course-price">from ${priceHint}</div> : null}
             </div>
           </Link>
 
@@ -199,23 +223,87 @@ export function CourseMarketplaceCard({
 
         {hasTimes ? (
           <div className="tee-strip">
-            {top.map((t) => (
-              <Link
-                key={t.id}
-                to={detailHref}
-                className={`tee-chip${t.id === hotId ? ' hot' : ''}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <span className="t">{formatTime12h(t.startsAt).replace(' ', '').toLowerCase()}</span>
-                {t.reopenedAt ? (
-                  <span className="p reopened">{formatReopenedAgo(t.reopenedAt)}</span>
-                ) : (
-                  <span className="p">{typeof t.price === 'number' ? `$${t.price}` : '—'}</span>
-                )}
-              </Link>
-            ))}
+            {top.map((t) => {
+              const bookHref =
+                dateYmd != null
+                  ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
+                      dateYmd,
+                      players,
+                      holes,
+                      startsAtIso: t.startsAt,
+                    })
+                  : null;
+              const wx = weatherPoints ? pickNearestHour(weatherPoints, t.startsAt) : null;
+              const wxLabel = chipWeatherLabel(wx);
+              const precip = wx?.precipProb ?? 0;
+              const wet = precip >= 45;
+              const wxKind = weatherKindFromPrecip(precip);
+              const chipClass = `tee-chip tee-chip--rich${t.id === hotId ? ' hot' : ''}${wet ? ' is-wet' : ''}`;
+              const timeLabel = formatTime12h(t.startsAt);
+              const chipBody = (
+                <>
+                  <span className="tee-chip-top">
+                    <span className="t">{timeLabel}</span>
+                    {wxLabel ? (
+                      <span className={`tee-chip-wx tee-chip-wx--${wxKind}`}>
+                        <WeatherGlyph precipProb={precip} />
+                        {wxLabel}
+                      </span>
+                    ) : (
+                      <span className="tee-chip-wx tee-chip-wx--placeholder" aria-hidden>
+                        ···
+                      </span>
+                    )}
+                  </span>
+                  <span className="tee-chip-meta">
+                    {typeof t.spots === 'number' ? (
+                      <span className="tee-chip-meta-item" title={`${t.spots} spot${t.spots === 1 ? '' : 's'}`}>
+                        <PlayersIcon />
+                        {t.spots}
+                      </span>
+                    ) : null}
+                    <span className="tee-chip-meta-item" title={`${t.holes} holes`}>
+                      <HolesIcon />
+                      {t.holes}
+                    </span>
+                  </span>
+                  {t.reopenedAt ? (
+                    <span className="p reopened">{formatReopenedAgo(t.reopenedAt)}</span>
+                  ) : typeof t.price === 'number' ? (
+                    <span className="p">${t.price}</span>
+                  ) : (
+                    <span className="p p-muted">—</span>
+                  )}
+                </>
+              );
+              if (bookHref) {
+                return (
+                  <a
+                    key={t.id}
+                    href={bookHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={chipClass}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Book ${formatTime12h(t.startsAt)} at ${course.name}`}
+                  >
+                    {chipBody}
+                  </a>
+                );
+              }
+              return (
+                <Link
+                  key={t.id}
+                  to={detailHref}
+                  className={chipClass}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {chipBody}
+                </Link>
+              );
+            })}
             {times.length > top.length ? (
-              <Link to={detailHref} className="tee-chip more">
+              <Link to={detailHref} className="tee-chip tee-chip--rich more" onClick={(e) => e.stopPropagation()}>
                 +{times.length - top.length}
               </Link>
             ) : null}

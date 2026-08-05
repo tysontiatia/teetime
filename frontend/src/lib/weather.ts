@@ -79,25 +79,37 @@ export async function fetchHourlyWeather(params: {
   }
 }
 
-/** Single-day snapshot near Salt Lake (one request for the whole finder). */
-export type WasatchDayOutlook = {
+/** Single-day high/low snapshot for a lat/lng (Open-Meteo). */
+export type DayOutlook = {
   highF: number;
   lowF: number;
   maxWindMph: number;
   maxPrecipProb: number;
 };
 
+/** @deprecated Prefer DayOutlook — kept for older call sites. */
+export type WasatchDayOutlook = DayOutlook;
+
 const OUTLOOK_TTL_MS = WEATHER_TTL_MS;
-const outlookCache = new Map<string, { fetchedAt: number; data: WasatchDayOutlook }>();
-const outlookInflight = new Map<string, Promise<WasatchDayOutlook>>();
+const outlookCache = new Map<string, { fetchedAt: number; data: DayOutlook }>();
+const outlookInflight = new Map<string, Promise<DayOutlook>>();
 
 const WASATCH_LAT = 40.7608;
 const WASATCH_LNG = -111.891;
 
-async function fetchWasatchDayOutlookUncached(dateYmd: string): Promise<WasatchDayOutlook> {
+function outlookCacheKey(lat: number, lng: number, dateYmd: string): string {
+  return `${lat.toFixed(3)},${lng.toFixed(3)},${dateYmd}`;
+}
+
+async function fetchDayOutlookUncached(params: {
+  lat: number;
+  lng: number;
+  dateYmd: string;
+}): Promise<DayOutlook> {
+  const { lat, lng, dateYmd } = params;
   const url = new URL('https://api.open-meteo.com/v1/forecast');
-  url.searchParams.set('latitude', String(WASATCH_LAT));
-  url.searchParams.set('longitude', String(WASATCH_LNG));
+  url.searchParams.set('latitude', String(lat));
+  url.searchParams.set('longitude', String(lng));
   url.searchParams.set('timezone', 'America/Denver');
   url.searchParams.set('start_date', dateYmd);
   url.searchParams.set('end_date', dateYmd);
@@ -128,26 +140,36 @@ async function fetchWasatchDayOutlookUncached(dateYmd: string): Promise<WasatchD
   };
 }
 
-export async function fetchWasatchDayOutlook(dateYmd: string): Promise<WasatchDayOutlook> {
-  const hit = outlookCache.get(dateYmd);
+export async function fetchDayOutlook(params: {
+  lat: number;
+  lng: number;
+  dateYmd: string;
+}): Promise<DayOutlook> {
+  const key = outlookCacheKey(params.lat, params.lng, params.dateYmd);
+  const hit = outlookCache.get(key);
   if (hit && Date.now() - hit.fetchedAt < OUTLOOK_TTL_MS) {
     return hit.data;
   }
 
-  let req = outlookInflight.get(dateYmd);
+  let req = outlookInflight.get(key);
   if (!req) {
-    req = fetchWasatchDayOutlookUncached(dateYmd).then((data) => {
-      outlookCache.set(dateYmd, { fetchedAt: Date.now(), data });
+    req = fetchDayOutlookUncached(params).then((data) => {
+      outlookCache.set(key, { fetchedAt: Date.now(), data });
       return data;
     });
-    outlookInflight.set(dateYmd, req);
+    outlookInflight.set(key, req);
   }
 
   try {
     return await req;
   } finally {
-    outlookInflight.delete(dateYmd);
+    outlookInflight.delete(key);
   }
+}
+
+/** Salt Lake / Wasatch Front day outlook (legacy helper). */
+export async function fetchWasatchDayOutlook(dateYmd: string): Promise<DayOutlook> {
+  return fetchDayOutlook({ lat: WASATCH_LAT, lng: WASATCH_LNG, dateYmd });
 }
 
 export function pickNearestHour(points: WeatherPoint[], startsAtIso: string) {

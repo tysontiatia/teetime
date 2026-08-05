@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useOpeningsPreview } from '../state/OpeningsPreviewContext';
 
 function SearchIcon({ active }: { active: boolean }) {
   return (
@@ -10,16 +9,16 @@ function SearchIcon({ active }: { active: boolean }) {
   );
 }
 
-function OpeningsIcon({ active }: { active: boolean }) {
+function AlertsIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d="M4 11h16M4 7h10M4 15h14M4 19h8"
+        d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0"
         stroke="currentColor"
         strokeWidth={active ? 2.2 : 1.9}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <circle cx="18" cy="7" r="2.5" stroke="currentColor" strokeWidth={active ? 2.2 : 1.9} />
     </svg>
   );
 }
@@ -40,22 +39,17 @@ function YouIcon({ active }: { active: boolean }) {
 
 export function AppBottomNav() {
   const location = useLocation();
-  const { openCount } = useOpeningsPreview();
   const p = location.pathname.replace(/\/$/, '') || '/';
 
   if (p.startsWith('/admin')) return null;
 
   const searchActive = p === '/' || p.startsWith('/course/');
-  const openingsActive = p === '/feed' || p.startsWith('/feed/');
+  const alertsActive = p === '/account' || p.startsWith('/account/');
   const youActive =
-    p === '/account' ||
-    p.startsWith('/account/') ||
     p === '/plan' ||
     p.startsWith('/plan/') ||
     p === '/share' ||
     p.startsWith('/share/');
-
-  const badge = openCount > 0 ? (openCount > 99 ? '99+' : String(openCount)) : null;
 
   return (
     <nav className="app-bottom-nav" aria-label="Primary">
@@ -64,18 +58,15 @@ export function AppBottomNav() {
         <span>Search</span>
       </Link>
       <Link
-        to="/feed"
-        className={`app-bottom-nav-link${openingsActive ? ' is-active' : ''}`}
-        aria-current={openingsActive ? 'page' : undefined}
+        to="/account"
+        className={`app-bottom-nav-link${alertsActive ? ' is-active' : ''}`}
+        aria-current={alertsActive ? 'page' : undefined}
       >
-        <span className="app-bottom-nav-icon-wrap">
-          <OpeningsIcon active={openingsActive} />
-          {badge ? <span className="app-bottom-nav-badge">{badge}</span> : null}
-        </span>
-        <span>Openings</span>
+        <AlertsIcon active={alertsActive} />
+        <span>Alerts</span>
       </Link>
       <Link
-        to="/account"
+        to="/plan"
         className={`app-bottom-nav-link${youActive ? ' is-active' : ''}`}
         aria-current={youActive ? 'page' : undefined}
       >

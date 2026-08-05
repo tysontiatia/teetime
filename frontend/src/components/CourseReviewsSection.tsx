@@ -6,27 +6,30 @@ type Props = {
   reviews: PlaceReview[];
   loading: boolean;
   mapsUrl?: string | null;
-  course: Pick<Course, 'catalogName' | 'name' | 'city' | 'lat' | 'lng' | 'reviewCount'>;
+  course: Pick<Course, 'catalogName' | 'name' | 'city' | 'lat' | 'lng' | 'reviewCount' | 'rating'>;
+  /** When embedded under a Reviews tab, skip the section h2. */
+  hideHeading?: boolean;
 };
 
-function StarRow({ rating }: { rating: number | null }) {
+function StarRow({ rating, size = 'sm' }: { rating: number | null; size?: 'sm' | 'lg' }) {
   if (typeof rating !== 'number') return null;
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
   return (
-    <span className="review-stars" aria-label={`${filled} out of 5 stars`}>
+    <span className={`review-stars review-stars--${size}`} aria-label={`${filled} out of 5 stars`}>
       {'★★★★★'.slice(0, filled)}
       <span className="review-stars-empty">{'★★★★★'.slice(filled)}</span>
     </span>
   );
 }
 
-export function CourseReviewsSection({ reviews, loading, mapsUrl, course }: Props) {
+export function CourseReviewsSection({ reviews, loading, mapsUrl, course, hideHeading = false }: Props) {
   const allReviewsHref = mapsUrl || googleMapsPlaceUrl(course);
+  const heading = hideHeading ? null : <h2>Reviews</h2>;
 
   if (loading) {
     return (
       <div className="section">
-        <h2>Reviews</h2>
+        {heading}
         <p className="section-muted">Loading recent Google reviews…</p>
       </div>
     );
@@ -35,7 +38,7 @@ export function CourseReviewsSection({ reviews, loading, mapsUrl, course }: Prop
   if (!reviews.length) {
     return (
       <div className="section">
-        <h2>Reviews</h2>
+        {heading}
         <p className="section-muted">
           Recent Google reviews aren’t available right now.{' '}
           <a className="detail-text-link" href={allReviewsHref} target="_blank" rel="noreferrer">
@@ -47,11 +50,23 @@ export function CourseReviewsSection({ reviews, loading, mapsUrl, course }: Prop
   }
 
   return (
-    <div className="section">
-      <div className="reviews-head">
-        <h2>Reviews</h2>
+    <div className="section reviews-section">
+      {heading}
+      {typeof course.rating === 'number' ? (
+        <div className="reviews-summary">
+          <span className="reviews-summary-score">{course.rating.toFixed(1)}</span>
+          <div className="reviews-summary-side">
+            <StarRow rating={course.rating} size="lg" />
+            <p className="reviews-summary-count">
+              {typeof course.reviewCount === 'number'
+                ? `${course.reviewCount.toLocaleString()} Google reviews`
+                : 'Google reviews'}
+            </p>
+          </div>
+        </div>
+      ) : (
         <p className="reviews-head-meta">Most recent from Google · up to 5</p>
-      </div>
+      )}
       <ul className="reviews-list">
         {reviews.map((r, i) => (
           <li key={`${r.author}-${r.time ?? i}`} className="review-card">
@@ -81,10 +96,11 @@ export function CourseReviewsSection({ reviews, loading, mapsUrl, course }: Prop
           </li>
         ))}
       </ul>
-      <a className="detail-text-link reviews-more" href={allReviewsHref} target="_blank" rel="noreferrer">
-        {typeof course.reviewCount === 'number'
-          ? `See all ${course.reviewCount.toLocaleString()} reviews on Google →`
-          : 'See all reviews on Google →'}
+      <a className="btn reviews-more-btn" href={allReviewsHref} target="_blank" rel="noreferrer">
+        Read more on Google
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M7 17L17 7M17 7H9M17 7v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </a>
     </div>
   );

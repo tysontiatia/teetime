@@ -4,6 +4,7 @@ import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest } from './avail
 import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
 import { handleFeedRequest } from './feedRead.js';
 import { checkIpRateLimit, rateLimitResponse, RATE_LIMITS } from './rateLimit.js';
+import { getVapidPublicKey, sendWebPush, vapidConfigured } from './webPush.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -466,23 +467,39 @@ async function loadCourses(env) {
 // ── Normalize helpers (duplicated from app.html for worker context) ──
 function normalizeForeUpTimesWorker(data) {
   if (!Array.isArray(data)) return [];
-  return data.map(t => ({
-    rawTime: t.time || '',
-    spots: t.available_spots || null,
-    price: t.green_fee ? '$' + parseFloat(t.green_fee).toFixed(0) : null,
-    holes: t.holes,
-  }));
+  return data
+    .map(t => {
+      const spotsRaw = t.available_spots;
+      const spots =
+        typeof spotsRaw === 'number' && Number.isFinite(spotsRaw)
+          ? spotsRaw
+          : spotsRaw != null && spotsRaw !== ''
+            ? Number(spotsRaw)
+            : null;
+      return {
+        rawTime: t.time || '',
+        spots: spots != null && Number.isFinite(spots) ? spots : null,
+        price: t.green_fee != null && t.green_fee !== '' ? '$' + parseFloat(t.green_fee).toFixed(0) : null,
+        holes: t.holes,
+      };
+    })
+    .filter(t => t.spots == null || t.spots > 0);
 }
 
 function normalizeChronogolfTimesWorker(data) {
   const items = data?.teetimes;
   if (!Array.isArray(items)) return [];
-  return items.map(t => ({
-    rawTime: t.start_time || '',
-    spots: t.max_player_size ?? null,
-    price: t.default_price?.green_fee ? '$' + parseFloat(t.default_price.green_fee).toFixed(0) : null,
-    holes: t.default_price?.bookable_holes ?? t.course?.holes,
-  }));
+  return items
+    .map(t => {
+      const spots = t.max_player_size != null ? Number(t.max_player_size) : null;
+      return {
+        rawTime: t.start_time || '',
+        spots: spots != null && Number.isFinite(spots) ? spots : null,
+        price: t.default_price?.green_fee != null ? '$' + parseFloat(t.default_price.green_fee).toFixed(0) : null,
+        holes: t.default_price?.bookable_holes ?? t.course?.holes,
+      };
+    })
+    .filter(t => t.spots == null || t.spots > 0);
 }
 
 function normalizeChronogolfSlcTimesWorker(data, holes) {
@@ -560,11 +577,12 @@ export function normalizeTeeItUpTimesWorker(course, data) {
       const localTime = utcIsoToMtLocal(tt.teetime);
       if (!localTime) continue;
       const spots = tt.maxPlayers != null ? tt.maxPlayers : null;
+      if (spots != null && (!(Number.isFinite(Number(spots))) || Number(spots) <= 0)) continue;
       for (const rate of tt.rates || []) {
         const cents = Number(rate.greenFeeCart);
         rows.push({
           rawTime: localTime,
-          spots,
+          spots: spots != null && Number.isFinite(Number(spots)) ? Number(spots) : null,
           price: Number.isFinite(cents) ? '$' + Math.round(cents / 100) : null,
           holes: rate.holes === 9 ? 9 : 18,
         });
@@ -1549,6 +1567,8 @@ function createAlertContext(env, courses) {
     buildAlertEmail,
     findCourseByCatalogId,
     buildBookingUrlWorker,
+    sendWebPush,
+    vapidConfigured,
   };
 }
 
@@ -1597,6 +1617,14 @@ export default {
         },
         503,
       );
+    }
+
+    if (path === '/v1/push/vapid-public-key' && request.method === 'GET') {
+      const publicKey = getVapidPublicKey(env);
+      if (!publicKey) {
+        return corsResponse({ error: 'vapid_not_configured' }, 503);
+      }
+      return corsResponse({ publicKey });
     }
 
     if (path === '/v1/courses' && request.method === 'GET') {

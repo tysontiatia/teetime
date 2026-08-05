@@ -38,7 +38,7 @@ export function CourseCardTimesSkeleton() {
   return (
     <>
       {Array.from({ length: 4 }).map((_, i) => (
-        <Shimmer key={i} style={{ width: 68, height: 44, borderRadius: 10, flexShrink: 0 }} />
+        <Shimmer key={i} style={{ width: 136, height: 88, borderRadius: 12, flexShrink: 0 }} />
       ))}
     </>
   );
