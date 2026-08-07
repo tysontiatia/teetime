@@ -217,13 +217,20 @@ export function FinderPage() {
     [gridCourses, timesByCourse]
   );
 
+  const soldOutCount = useMemo(
+    () => gridCourses.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) === 0).length,
+    [gridCourses, timesByCourse],
+  );
+
   const resultCountLabel = catalogLoading
     ? 'Loading courses…'
     : loadingTimes
       ? attemptedSlugCount > 0
-        ? `Checking ${loadedSlugCount}/${attemptedSlugCount} courses…`
-        : 'Checking courses…'
-      : `${withTimesCount} with tee times · ${gridCourses.length} courses`;
+        ? `Checking ${loadedSlugCount}/${attemptedSlugCount}…`
+        : 'Checking…'
+      : withTimesCount > 0
+        ? `${withTimesCount} open${soldOutCount > 0 ? ` · ${soldOutCount} sold out` : ''}`
+        : `${gridCourses.length} courses`;
 
   const workerFetchTotalFailure =
     !loadingTimes && failedSlugs.length > 0 && failedSlugs.length === attemptedSlugCount && attemptedSlugCount > 0;
@@ -464,7 +471,7 @@ export function FinderPage() {
             </button>
           </div>
 
-          {/* Mobile: When · how many · Where (search at end) */}
+          {/* Mobile: date · where (players live in filter chips) */}
           <div className="finder-mobile-search">
             <div className="finder-mobile-bar">
               <div className="finder-date-control">
@@ -482,10 +489,6 @@ export function FinderPage() {
                   onClick={openMobileDatePicker}
                   aria-label={`Date, ${formatDateCompact(params.date)}. Open calendar`}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <rect x="3.5" y="5" width="17" height="15" rx="3" stroke="currentColor" strokeWidth="1.8" />
-                    <path d="M8 3.5v3M16 3.5v3M3.5 10h17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
                   <span>{formatDateCompact(params.date)}</span>
                 </button>
                 <button
@@ -509,49 +512,6 @@ export function FinderPage() {
                 />
               </div>
 
-              <label className="finder-players-pill">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
-                  <path
-                    d="M3.5 19c.8-3 2.8-4.5 5.5-4.5S13.7 16 14.5 19"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="17" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-                  <path
-                    d="M14.8 19c.5-2.2 1.8-3.3 3.7-3.3 1.5 0 2.7.7 3.5 2"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="finder-players-pill-value" aria-hidden>
-                  {params.players}
-                </span>
-                <select
-                  aria-label="Players and holes"
-                  value={`${params.players}-${params.holes}`}
-                  onChange={(e) => {
-                    const [p, h] = e.target.value.split('-');
-                    const next = new URLSearchParams(sp);
-                    next.set('players', p);
-                    next.set('holes', h);
-                    setSp(next, { replace: true });
-                    setLastUpdatedAt(Date.now());
-                  }}
-                >
-                  <option value="1-18">1 player · 18 holes</option>
-                  <option value="2-18">2 players · 18 holes</option>
-                  <option value="3-18">3 players · 18 holes</option>
-                  <option value="4-18">4 players · 18 holes</option>
-                  <option value="1-9">1 player · 9 holes</option>
-                  <option value="2-9">2 players · 9 holes</option>
-                  <option value="3-9">3 players · 9 holes</option>
-                  <option value="4-9">4 players · 9 holes</option>
-                </select>
-              </label>
-
               <button
                 type="button"
                 className="finder-where-pill"
@@ -565,6 +525,33 @@ export function FinderPage() {
                 </svg>
                 <span className="finder-where-pill-text">{whereLabel}</span>
               </button>
+
+              <label className="finder-players-pill finder-players-pill--compact">
+                <span className="finder-players-pill-value" aria-hidden>
+                  {params.players}·{params.holes}
+                </span>
+                <select
+                  aria-label="Players and holes"
+                  value={`${params.players}-${params.holes}`}
+                  onChange={(e) => {
+                    const [p, h] = e.target.value.split('-');
+                    const next = new URLSearchParams(sp);
+                    next.set('players', p);
+                    next.set('holes', h);
+                    setSp(next, { replace: true });
+                    setLastUpdatedAt(Date.now());
+                  }}
+                >
+                  <option value="1-18">1 · 18 holes</option>
+                  <option value="2-18">2 · 18 holes</option>
+                  <option value="3-18">3 · 18 holes</option>
+                  <option value="4-18">4 · 18 holes</option>
+                  <option value="1-9">1 · 9 holes</option>
+                  <option value="2-9">2 · 9 holes</option>
+                  <option value="3-9">3 · 9 holes</option>
+                  <option value="4-9">4 · 9 holes</option>
+                </select>
+              </label>
             </div>
           </div>
         </div>

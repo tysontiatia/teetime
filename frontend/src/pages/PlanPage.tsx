@@ -5,6 +5,10 @@ import { fetchRoundsForUser, hideRoundFromMyList, type DbRound } from '../lib/ro
 import { formatDateShort, todayYmdUtah } from '../lib/time';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { copyTextToClipboard } from '../lib/clipboard';
+import { profileAvatarUrlFromUser } from '../lib/profileAvatar';
+import { UserAvatar } from '../components/UserAvatar';
+import { InstallAppModal } from '../components/InstallAppModal';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 
 function RoundListItem({
   round,
@@ -73,6 +77,22 @@ export function PlanPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [pastOpen, setPastOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const {
+    installed,
+    platform,
+    canNativeInstall,
+    showInstallEntry,
+    promptNativeInstall,
+  } = usePwaInstall();
+
+  const displayName =
+    (typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
+    (typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
+    user?.email?.split('@')[0] ||
+    'You';
+  const avatarUrl = profileAvatarUrlFromUser(user);
+  const avatarInitial = (displayName[0] || 'Y').toUpperCase();
 
   const todayYmd = todayYmdUtah();
 
@@ -136,17 +156,11 @@ export function PlanPage() {
   return (
     <div className="container plan-page">
       <div className="plan-page-card">
-        <div className="pill">Shared rounds</div>
-        <h2 className="plan-page-title">Your vote links</h2>
-        <p className="plan-page-lede">
-          Rounds you <strong>host</strong> or <strong>join</strong> while signed in. Past play dates drop out of the
-          main list automatically. Remove hides a round for you only — the vote link stays live.
-        </p>
-
         {authLoading ? (
           <p className="plan-page-status">Loading account…</p>
         ) : !user ? (
           <div className="plan-page-signed-out">
+            <h1 className="plan-page-title">You</h1>
             <p className="plan-page-status">
               Sign in to host vote links and see rounds you join. Google sign-in is free.
             </p>
@@ -154,61 +168,106 @@ export function PlanPage() {
               Continue with Google
             </button>
           </div>
-        ) : loading ? (
-          <p className="plan-page-status">Loading your rounds…</p>
-        ) : loadErr ? (
-          <p className="plan-page-err">{loadErr}</p>
-        ) : upcoming.length === 0 && past.length === 0 ? (
-          <p className="plan-page-status">
-            No rounds here yet. Host one from search, or open a friend’s vote link while signed in to save it.
-          </p>
         ) : (
           <>
-            {upcoming.length === 0 ? (
-              <p className="plan-page-status">No upcoming rounds. Past ones are below when you expand them.</p>
-            ) : (
-              <ul className="plan-round-list">
-                {upcoming.map((r) => (
-                  <RoundListItem
-                    key={r.id}
-                    round={r}
-                    userId={user.id}
-                    busyId={busyId}
-                    copyId={copyId}
-                    onCopy={(slug, id) => void onCopy(slug, id)}
-                    onRemove={(id) => void onRemove(id)}
-                  />
-                ))}
-              </ul>
-            )}
+            <div className="you-profile-strip">
+              <UserAvatar src={avatarUrl} initial={avatarInitial} size={48} className="you-profile-avatar" />
+              <div className="you-profile-copy">
+                <h1 className="you-profile-name">{displayName}</h1>
+                {user.email ? <p className="you-profile-email">{user.email}</p> : null}
+              </div>
+            </div>
 
-            {past.length > 0 ? (
-              <div className="plan-past">
+            <nav className="you-hub-links" aria-label="Your shortcuts">
+              <a className="you-hub-link" href="#shared-rounds">
+                Shared rounds
+              </a>
+              <Link className="you-hub-link" to="/account">
+                Alerts
+              </Link>
+              {showInstallEntry ? (
                 <button
                   type="button"
-                  className="plan-past-toggle"
-                  aria-expanded={pastOpen}
-                  onClick={() => setPastOpen((v) => !v)}
+                  className="you-hub-link"
+                  onClick={() => {
+                    if (canNativeInstall) void promptNativeInstall();
+                    else setInstallOpen(true);
+                  }}
                 >
-                  {pastOpen ? 'Hide' : 'Show'} past ({past.length})
+                  Install app
                 </button>
-                {pastOpen ? (
-                  <ul className="plan-round-list plan-round-list--past">
-                    {past.map((r) => (
-                      <RoundListItem
-                        key={r.id}
-                        round={r}
-                        userId={user.id}
-                        busyId={busyId}
-                        copyId={copyId}
-                        onCopy={(slug, id) => void onCopy(slug, id)}
-                        onRemove={(id) => void onRemove(id)}
-                      />
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ) : null}
+              ) : installed ? (
+                <span className="you-hub-link you-hub-link--muted">App installed</span>
+              ) : null}
+            </nav>
+
+            <section id="shared-rounds" className="you-rounds-section">
+              <h2 className="plan-page-title">Shared rounds</h2>
+              <p className="plan-page-lede">
+                Rounds you <strong>host</strong> or <strong>join</strong> while signed in. Remove hides a round for
+                you only — the vote link stays live.
+              </p>
+
+              {loading ? (
+                <p className="plan-page-status">Loading your rounds…</p>
+              ) : loadErr ? (
+                <p className="plan-page-err">{loadErr}</p>
+              ) : upcoming.length === 0 && past.length === 0 ? (
+                <p className="plan-page-status">
+                  No rounds here yet. Host one from search, or open a friend’s vote link while signed in to save it.
+                </p>
+              ) : (
+                <>
+                  {upcoming.length === 0 ? (
+                    <p className="plan-page-status">
+                      No upcoming rounds. Past ones are below when you expand them.
+                    </p>
+                  ) : (
+                    <ul className="plan-round-list">
+                      {upcoming.map((r) => (
+                        <RoundListItem
+                          key={r.id}
+                          round={r}
+                          userId={user.id}
+                          busyId={busyId}
+                          copyId={copyId}
+                          onCopy={(slug, id) => void onCopy(slug, id)}
+                          onRemove={(id) => void onRemove(id)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+
+                  {past.length > 0 ? (
+                    <div className="plan-past">
+                      <button
+                        type="button"
+                        className="plan-past-toggle"
+                        aria-expanded={pastOpen}
+                        onClick={() => setPastOpen((v) => !v)}
+                      >
+                        {pastOpen ? 'Hide' : 'Show'} past ({past.length})
+                      </button>
+                      {pastOpen ? (
+                        <ul className="plan-round-list plan-round-list--past">
+                          {past.map((r) => (
+                            <RoundListItem
+                              key={r.id}
+                              round={r}
+                              userId={user.id}
+                              busyId={busyId}
+                              copyId={copyId}
+                              onCopy={(slug, id) => void onCopy(slug, id)}
+                              onRemove={(id) => void onRemove(id)}
+                            />
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </section>
           </>
         )}
 
@@ -219,6 +278,14 @@ export function PlanPage() {
           Browse tee times →
         </Link>
       </div>
+
+      <InstallAppModal
+        open={installOpen}
+        onClose={() => setInstallOpen(false)}
+        platform={platform}
+        canNativeInstall={canNativeInstall}
+        onNativeInstall={promptNativeInstall}
+      />
     </div>
   );
 }

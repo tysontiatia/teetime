@@ -53,26 +53,38 @@ export function AppBottomNav() {
 
   return (
     <nav className="app-bottom-nav" aria-label="Primary">
-      <Link to="/" className={`app-bottom-nav-link${searchActive ? ' is-active' : ''}`} aria-current={searchActive ? 'page' : undefined}>
-        <SearchIcon active={searchActive} />
-        <span>Search</span>
-      </Link>
-      <Link
-        to="/account"
-        className={`app-bottom-nav-link${alertsActive ? ' is-active' : ''}`}
-        aria-current={alertsActive ? 'page' : undefined}
-      >
-        <AlertsIcon active={alertsActive} />
-        <span>Alerts</span>
-      </Link>
-      <Link
-        to="/plan"
-        className={`app-bottom-nav-link${youActive ? ' is-active' : ''}`}
-        aria-current={youActive ? 'page' : undefined}
-      >
-        <YouIcon active={youActive} />
-        <span>You</span>
-      </Link>
+      <div className="app-bottom-nav-inner">
+        <Link
+          to="/"
+          className={`app-bottom-nav-link${searchActive ? ' is-active' : ''}`}
+          aria-current={searchActive ? 'page' : undefined}
+        >
+          <span className="app-bottom-nav-icon-wrap">
+            <SearchIcon active={searchActive} />
+          </span>
+          <span>Search</span>
+        </Link>
+        <Link
+          to="/account"
+          className={`app-bottom-nav-link${alertsActive ? ' is-active' : ''}`}
+          aria-current={alertsActive ? 'page' : undefined}
+        >
+          <span className="app-bottom-nav-icon-wrap">
+            <AlertsIcon active={alertsActive} />
+          </span>
+          <span>Alerts</span>
+        </Link>
+        <Link
+          to="/plan"
+          className={`app-bottom-nav-link${youActive ? ' is-active' : ''}`}
+          aria-current={youActive ? 'page' : undefined}
+        >
+          <span className="app-bottom-nav-icon-wrap">
+            <YouIcon active={youActive} />
+          </span>
+          <span>You</span>
+        </Link>
+      </div>
     </nav>
   );
 }
