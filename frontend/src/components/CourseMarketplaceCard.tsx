@@ -124,9 +124,6 @@ export function CourseMarketplaceCard({
         })
       : course.bookingUrl;
 
-  const nextTime = top[0] ?? null;
-  const nextLabel = nextTime ? formatTime12h(nextTime.startsAt) : null;
-
   return (
     <article className={`mp-course${isEmpty ? ' is-empty' : ''}`}>
       <div className="mp-course-media">
@@ -244,17 +241,6 @@ export function CourseMarketplaceCard({
               {meta || null}
             </div>
           </Link>
-          {hasTimes && nextLabel ? (
-            <div className="mp-course-avail">
-              <span className="mp-course-avail-next">
-                Next {nextLabel}
-                {typeof priceHint === 'number' ? ` · from $${priceHint}` : ''}
-              </span>
-              <Link to={detailHref} className="mp-course-avail-link">
-                View course
-              </Link>
-            </div>
-          ) : null}
         </div>
 
         {hasTimes ? (

@@ -125,7 +125,7 @@ export function InstallAppModal({
   return (
     <div className="modal-backdrop install-modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="modal-panel modal-panel-sm install-modal"
+        className="modal-panel modal-panel-sm"
         role="dialog"
         aria-modal="true"
         aria-labelledby="install-modal-title"
