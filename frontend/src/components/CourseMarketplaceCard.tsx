@@ -124,6 +124,9 @@ export function CourseMarketplaceCard({
         })
       : course.bookingUrl;
 
+  const nextTime = top[0] ?? null;
+  const nextLabel = nextTime ? formatTime12h(nextTime.startsAt) : null;
+
   return (
     <article className={`mp-course${isEmpty ? ' is-empty' : ''}`}>
       <div className="mp-course-media">
@@ -134,7 +137,7 @@ export function CourseMarketplaceCard({
             ) : (
               <div className="mp-photo-fallback" aria-hidden />
             )}
-            <div className="mp-course-scrim">
+            <div className="mp-course-scrim mp-course-scrim--desktop">
               <div className="mp-course-scrim-main">
                 <div className="course-name">{course.name}</div>
                 <div className="course-meta">
@@ -161,9 +164,9 @@ export function CourseMarketplaceCard({
             </div>
           </Link>
 
-          <span className={`badge-live${showPulse ? ' is-live' : ''}${isEmpty ? ' is-muted' : ''}`}>
+          <span className={`badge-live${showPulse ? ' is-live' : ''}${isEmpty ? ' is-muted' : ''}${badgeLabel === 'No tee times' ? ' is-soldout' : ''}`}>
             {showPulse ? <span className="pulse" aria-hidden /> : null}
-            {badgeLabel}
+            {badgeLabel === 'No tee times' ? 'Sold out' : badgeLabel}
           </span>
 
           <div className="mp-course-actions">
@@ -191,7 +194,7 @@ export function CourseMarketplaceCard({
             {!comingSoon ? (
               <button
                 type="button"
-                className="mp-icon-btn"
+                className="mp-icon-btn mp-icon-btn--share"
                 aria-label={`Share vote link for ${course.name}`}
                 title="Share times"
                 disabled={shareDisabled || shareBusy}
@@ -220,6 +223,38 @@ export function CourseMarketplaceCard({
               </button>
             ) : null}
           </div>
+        </div>
+
+        <div className="mp-course-body">
+          <Link to={detailHref} className="mp-course-body-link">
+            <div className="mp-course-body-name">{course.name}</div>
+            <div className="mp-course-body-meta">
+              {typeof course.rating === 'number' ? (
+                <span className="course-rating">
+                  <span className="star-gold" aria-hidden>
+                    ★
+                  </span>{' '}
+                  {course.rating.toFixed(1)}
+                  {typeof course.reviewCount === 'number' ? (
+                    <span className="mp-review-count"> ({course.reviewCount.toLocaleString()})</span>
+                  ) : null}
+                </span>
+              ) : null}
+              {typeof course.rating === 'number' && meta ? <span className="sep" aria-hidden>·</span> : null}
+              {meta || null}
+            </div>
+          </Link>
+          {hasTimes && nextLabel ? (
+            <div className="mp-course-avail">
+              <span className="mp-course-avail-next">
+                Next {nextLabel}
+                {typeof priceHint === 'number' ? ` · from $${priceHint}` : ''}
+              </span>
+              <Link to={detailHref} className="mp-course-avail-link">
+                View course
+              </Link>
+            </div>
+          ) : null}
         </div>
 
         {hasTimes ? (
@@ -319,8 +354,8 @@ export function CourseMarketplaceCard({
               <>
                 <span className="tee-empty-msg">Live tee times coming soon</span>
                 <div className="tee-empty-actions">
-                  <button type="button" className="tee-empty-action" onClick={onAlert}>
-                    Notify me
+                  <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onAlert}>
+                    Alert me
                   </button>
                   {openSiteHref ? (
                     <a
@@ -342,15 +377,15 @@ export function CourseMarketplaceCard({
             ) : outOfScope ? (
               <>
                 <span className="tee-empty-msg">Outside nearby search</span>
-                <button type="button" className="tee-empty-action" onClick={onSearchAllUtah}>
+                <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onSearchAllUtah}>
                   Search all Utah
                 </button>
               </>
             ) : (
               <>
-                <span className="tee-empty-msg">No tee times for these filters</span>
-                <button type="button" className="tee-empty-action" onClick={onAlert}>
-                  Notify me
+                <span className="tee-empty-msg">No tee times available</span>
+                <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onAlert}>
+                  Alert me
                 </button>
               </>
             )}

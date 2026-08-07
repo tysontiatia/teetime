@@ -259,8 +259,19 @@ export function AccountPage() {
   return (
     <div className="container account-page">
       <div className="account-page-card">
-        <h1 className="account-page-title">Alerts</h1>
-        <p className="account-page-email">{user.email}</p>
+        <div className="account-page-head">
+          <h1 className="account-page-title">Alerts</h1>
+          <p className="account-prefs-lede account-page-head-lede">
+            We check every few minutes and notify you by email
+            {pushEnabled ? ' and push' : ''} when times match.
+          </p>
+        </div>
+
+        <div className="account-create-bar">
+          <Link to="/" className="btn btn-primary account-create-btn">
+            Create alert
+          </Link>
+        </div>
 
         {loading ? (
           <p className="account-page-status" style={{ marginTop: 18 }}>
@@ -268,45 +279,14 @@ export function AccountPage() {
           </p>
         ) : (
           <div className="account-page-stack">
-            <div>
-              <label className="account-label">Alert channels</label>
-              <p className="account-channel-value">Email{pushEnabled ? ' · Push' : ''}</p>
-              <p className="account-channel-note">
-                Email alerts go to <strong>{user.email}</strong>. SMS is paused for now.
-              </p>
-              <div className="account-push-row">
-                <div className="account-push-copy">
-                  <div className="account-push-title">Browser push</div>
-                  <p className="account-push-note">
-                    {canUsePush
-                      ? 'Instant alerts on this device when a matching tee time opens. Works best after you install Tee-Time.'
-                      : 'Push isn’t available in this browser. Open Tee-Time in Chrome or Safari on your phone.'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={`btn account-push-btn${pushEnabled ? ' is-on' : ' btn-primary'}`}
-                  disabled={!canUsePush || pushBusy || loading}
-                  onClick={() => void onTogglePush()}
-                >
-                  {pushBusy ? '…' : pushEnabled ? 'On · Turn off' : 'Enable'}
-                </button>
-              </div>
-            </div>
-
             {message ? (
               <div className={`account-msg${message.type === 'ok' ? ' is-ok' : ' is-err'}`}>{message.text}</div>
             ) : null}
 
             <div className="account-prefs-section">
-              <h2 className="account-prefs-title">Tee time alerts</h2>
-              <p className="account-prefs-lede">
-                Active alerts you set from Search or a course page. We check every few minutes and notify you by email
-                {pushEnabled ? ' and push' : ''} when times match.
-              </p>
               {prefs.length === 0 ? (
                 <p className="account-prefs-empty">
-                  No alerts yet. <Link to="/">Open search</Link> and use “Create alert” on a course.
+                  No alerts yet. Tap Create alert, then pick a course on Search.
                 </p>
               ) : (
                 <ul className="account-pref-list">
@@ -463,6 +443,35 @@ export function AccountPage() {
                 </ul>
               )}
             </div>
+
+            <details className="account-settings">
+              <summary className="account-settings-summary">Delivery settings</summary>
+              <div className="account-settings-body">
+                <label className="account-label">Alert channels</label>
+                <p className="account-channel-value">Email{pushEnabled ? ' · Push' : ''}</p>
+                <p className="account-channel-note">
+                  Email alerts go to <strong>{user.email}</strong>. SMS is paused for now.
+                </p>
+                <div className="account-push-row">
+                  <div className="account-push-copy">
+                    <div className="account-push-title">Browser push</div>
+                    <p className="account-push-note">
+                      {canUsePush
+                        ? 'Instant alerts on this device when a matching tee time opens. Works best after you install Tee-Time.'
+                        : 'Push isn’t available in this browser. Open Tee-Time in Chrome or Safari on your phone.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`btn account-push-btn${pushEnabled ? ' is-on' : ' btn-primary'}`}
+                    disabled={!canUsePush || pushBusy || loading}
+                    onClick={() => void onTogglePush()}
+                  >
+                    {pushBusy ? '…' : pushEnabled ? 'On · Turn off' : 'Enable'}
+                  </button>
+                </div>
+              </div>
+            </details>
           </div>
         )}
 

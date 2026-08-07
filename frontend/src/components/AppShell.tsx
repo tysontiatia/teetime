@@ -95,7 +95,7 @@ function AppShellInner() {
     if (p === '/' || p === '') {
       document.title = 'Tee-Time · Search';
     } else if (p === '/plan') {
-      document.title = 'Tee-Time · Plan';
+      document.title = 'Tee-Time · You';
     } else if (p === '/share') {
       document.title = 'Tee-Time · Share';
     } else if (p === '/account') {
@@ -220,7 +220,7 @@ function AppShellInner() {
       </main>
 
       <footer className="app-footer">
-        <p className="app-footer-note">Made with ❤️ in Salt Lake City</p>
+        <p className="app-footer-note">Made in Salt Lake City</p>
       </footer>
 
       <AppBottomNav />
