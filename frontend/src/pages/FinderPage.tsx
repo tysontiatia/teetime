@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatDateShort, formatDateCompact } from '../lib/time';
@@ -79,21 +79,6 @@ export function FinderPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
-  const mobileDateRef = useRef<HTMLInputElement>(null);
-
-  const openMobileDatePicker = useCallback(() => {
-    const el = mobileDateRef.current;
-    if (!el) return;
-    try {
-      if (typeof el.showPicker === 'function') {
-        void el.showPicker();
-        return;
-      }
-    } catch {
-      /* fall through to click() */
-    }
-    el.click();
-  }, []);
   const { user, loading: authLoading } = useAuth();
 
   const {
@@ -483,14 +468,21 @@ export function FinderPage() {
                 >
                   ‹
                 </button>
-                <button
-                  type="button"
-                  className="finder-date-pill"
-                  onClick={openMobileDatePicker}
-                  aria-label={`Date, ${formatDateCompact(params.date)}. Open calendar`}
-                >
-                  <span>{formatDateCompact(params.date)}</span>
-                </button>
+                {/* Overlay native date input — iOS ignores showPicker() on clipped/hidden proxies. */}
+                <span className="finder-date-pill">
+                  <span className="finder-date-label" aria-hidden>
+                    {formatDateCompact(params.date)}
+                  </span>
+                  <input
+                    type="date"
+                    className="finder-date-input"
+                    value={params.date}
+                    aria-label={`Date, ${formatDateCompact(params.date)}`}
+                    onChange={(e) => {
+                      if (e.target.value) setParam('date', e.target.value);
+                    }}
+                  />
+                </span>
                 <button
                   type="button"
                   className="finder-date-nudge"
@@ -499,17 +491,6 @@ export function FinderPage() {
                 >
                   ›
                 </button>
-                <input
-                  ref={mobileDateRef}
-                  type="date"
-                  className="finder-date-input"
-                  value={params.date}
-                  aria-hidden
-                  tabIndex={-1}
-                  onChange={(e) => {
-                    if (e.target.value) setParam('date', e.target.value);
-                  }}
-                />
               </div>
 
               <button

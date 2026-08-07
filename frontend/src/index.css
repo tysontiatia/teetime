@@ -5568,12 +5568,12 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
     z-index: 1;
   }
   .finder-date-pill{
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    min-width: 0;
-    padding: 0 2px;
+    min-width: 4.75ch;
+    padding: 0 8px;
     border: none;
     border-left: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
     border-right: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
@@ -5582,26 +5582,36 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
     font-weight: 650;
     font-size: 13px;
     color: var(--ink);
-    cursor: pointer;
     white-space: nowrap;
   }
-  .finder-date-pill svg{ display: none; }
-  .finder-date-pill:focus-visible{
-    outline: 2px solid color-mix(in srgb, var(--pine) 45%, transparent);
-    outline-offset: -2px;
-    z-index: 1;
+  .finder-date-label{
+    display: block;
+    pointer-events: none;
+    line-height: 1.2;
   }
   .finder-date-input{
     position: absolute;
-    width: 1px;
-    height: 1px;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
     padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+    border: none;
+    opacity: 0.01;
+    color: transparent;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .finder-date-input::-webkit-calendar-picker-indicator{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     opacity: 0;
+    cursor: pointer;
   }
   .finder-players-pill{
     position: relative;
@@ -5840,7 +5850,7 @@ html[data-theme='dark'] .feed-activity-ago--hot{ color: var(--fairway); }
 
 @media (max-width: 380px){
   .finder-date-nudge{ width: 28px; }
-  .finder-date-pill{ font-size: 12.5px; padding: 0 2px; }
+  .finder-date-pill{ font-size: 12.5px; padding: 0 6px; }
   .rail-slots{ grid-template-columns: 1fr 1fr; gap: 6px; }
   .slot{ padding: 9px 4px; }
   .slot .t{ font-size: 12px; }
