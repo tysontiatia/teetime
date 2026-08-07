@@ -1236,8 +1236,11 @@
     }
 
     function initCourses() {
-      fetch('/courses.json')
-        .then(function (r) { return r.ok ? r.json() : []; })
+      // Prefer live registry (same source as /app/) so photo_reference stays fresh.
+      // Fall back to static /courses.json if the worker is unreachable.
+      fetch(WORKER_URL + '/v1/courses')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('worker')); })
+        .catch(function () { return fetch('/courses.json').then(function (r) { return r.ok ? r.json() : []; }); })
         .then(function (courses) {
           if (!Array.isArray(courses)) return;
           setCatalogCount(courses.length);
