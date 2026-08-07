@@ -141,7 +141,7 @@ export function PlanRoundModal({
       <div className="modal-panel modal-panel-sm" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2 id="plan-round-title" className="modal-header-title" style={{ fontSize: 20 }}>
+            <h2 id="plan-round-title" className="modal-header-title">
               {shareSlug ? 'Vote link ready' : 'Plan a round'}
             </h2>
             <p className="modal-header-sub">
@@ -161,69 +161,75 @@ export function PlanRoundModal({
         </div>
 
         {shareSlug && shareUrl ? (
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <input className="input" readOnly value={shareUrl} aria-label="Vote link" onFocus={(e) => e.target.select()} />
-            <button className="btn btn-primary" type="button" onClick={() => void onCopy()} style={{ padding: '12px 16px' }}>
-              {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed. Select and copy.' : 'Copy link'}
-            </button>
-            <a
-              className="btn btn-ghost"
-              href={shareUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{ padding: '10px 16px', textAlign: 'center' }}
-            >
-              Open vote page →
-            </a>
-            <button className="btn btn-ghost" type="button" onClick={onClose} style={{ padding: '10px 16px' }}>
-              Done
-            </button>
-          </div>
-        ) : (
-          <div className="modal-body plan-round-body">
-            <div className="plan-round-actions">
-              <button type="button" className="plan-round-link-btn" onClick={selectOne}>
-                Selected time only
+          <>
+            <div className="modal-body">
+              <input
+                className="input"
+                readOnly
+                value={shareUrl}
+                aria-label="Vote link"
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
+            <div className="modal-footer modal-footer--stack">
+              <button className="btn btn-primary" type="button" onClick={() => void onCopy()}>
+                {copyHint === 'ok' ? 'Copied!' : copyHint === 'fail' ? 'Copy failed. Select and copy.' : 'Copy link'}
               </button>
-              <span aria-hidden>·</span>
-              <button type="button" className="plan-round-link-btn" onClick={selectAll}>
-                All {times.length} times
+              <a className="btn btn-ghost" href={shareUrl} target="_blank" rel="noreferrer">
+                Open vote page →
+              </a>
+              <button className="btn btn-ghost" type="button" onClick={onClose}>
+                Done
               </button>
             </div>
+          </>
+        ) : (
+          <>
+            <div className="modal-body plan-round-body">
+              <div className="plan-round-actions">
+                <button type="button" className="plan-round-link-btn" onClick={selectOne}>
+                  Selected time only
+                </button>
+                <span aria-hidden>·</span>
+                <button type="button" className="plan-round-link-btn" onClick={selectAll}>
+                  All {times.length} times
+                </button>
+              </div>
 
-            <ul className="plan-round-times">
-              {times.map((t) => {
-                const on = checkedIds.has(t.id);
-                return (
-                  <li key={t.id}>
-                    <label className={`plan-round-time${on ? ' is-on' : ''}`}>
-                      <input type="checkbox" checked={on} onChange={() => toggleId(t.id)} />
-                      <span className="plan-round-time-main">
-                        <span className="plan-round-time-label">{formatTime12h(t.startsAt)}</span>
-                        <span className="plan-round-time-meta">
-                          {typeof t.price === 'number' ? `$${t.price}` : null}
-                          {typeof t.price === 'number' && typeof t.spots === 'number' ? ' · ' : null}
-                          {typeof t.spots === 'number' ? `${t.spots} spot${t.spots === 1 ? '' : 's'}` : null}
+              <ul className="plan-round-times">
+                {times.map((t) => {
+                  const on = checkedIds.has(t.id);
+                  return (
+                    <li key={t.id}>
+                      <label className={`plan-round-time${on ? ' is-on' : ''}`}>
+                        <input type="checkbox" checked={on} onChange={() => toggleId(t.id)} />
+                        <span className="plan-round-time-main">
+                          <span className="plan-round-time-label">{formatTime12h(t.startsAt)}</span>
+                          <span className="plan-round-time-meta">
+                            {typeof t.price === 'number' ? `$${t.price}` : null}
+                            {typeof t.price === 'number' && typeof t.spots === 'number' ? ' · ' : null}
+                            {typeof t.spots === 'number' ? `${t.spots} spot${t.spots === 1 ? '' : 's'}` : null}
+                          </span>
                         </span>
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
 
-            {err ? <p className="plan-round-err">{err}</p> : null}
-
-            <button
-              className="btn btn-primary"
-              type="button"
-              disabled={busy || pickedCount === 0}
-              onClick={() => void onPublish()}
-              style={{ width: '100%', padding: '12px 16px', marginTop: 4 }}
-            >
-              {busy ? 'Creating link…' : `Create vote link (${pickedCount} time${pickedCount === 1 ? '' : 's'})`}
-            </button>
-          </div>
+              {err ? <p className="plan-round-err">{err}</p> : null}
+            </div>
+            <div className="modal-footer modal-footer--stack">
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={busy || pickedCount === 0}
+                onClick={() => void onPublish()}
+              >
+                {busy ? 'Creating link…' : `Create vote link (${pickedCount} time${pickedCount === 1 ? '' : 's'})`}
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

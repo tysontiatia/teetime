@@ -186,7 +186,7 @@ export function NotificationModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-panel modal-panel-sm" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h2 id="notif-modal-title" className="modal-header-title">
@@ -330,7 +330,7 @@ export function NotificationModal({
             <div className={`modal-msg ${message.type === 'dup' ? 'ok' : message.type}`}>
               <div>{message.text}</div>
               {message.type === 'dup' ? (
-                <div style={{ marginTop: 8 }}>
+                <div className="modal-msg-extra">
                   <Link to="/account" className="detail-text-link" onClick={onClose}>
                     Manage alerts →
                   </Link>

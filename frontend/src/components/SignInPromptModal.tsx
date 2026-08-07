@@ -9,7 +9,7 @@ const COPY: Record<SignInPromptVariant, { title: string; body: (detail?: string)
     body: () => (
       <>
         Create a live vote link your group can open in one tap. Google sign-in is free. Links also appear under{' '}
-        <strong style={{ color: 'var(--ink)' }}>You → Shared rounds</strong>.
+        <strong>You → Shared rounds</strong>.
       </>
     ),
   },
@@ -21,7 +21,7 @@ const COPY: Record<SignInPromptVariant, { title: string; body: (detail?: string)
         {detail ? (
           <>
             {' '}
-            at <strong style={{ color: 'var(--ink)' }}>{detail}</strong>
+            at <strong>{detail}</strong>
           </>
         ) : null}
         . Google sign-in is free and takes a few seconds.
@@ -80,21 +80,19 @@ export function SignInPromptModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-panel modal-panel-sm sign-in-prompt" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-panel modal-panel-sm" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2 id="sign-in-prompt-title" className="modal-header-title" style={{ fontSize: 20 }}>
+            <h2 id="sign-in-prompt-title" className="modal-header-title">
               {copy.title}
             </h2>
-            <p className="modal-header-sub" style={{ fontSize: 14, color: 'var(--ink-2)' }}>
-              {copy.body(detail)}
-            </p>
+            <p className="modal-header-sub">{copy.body(detail)}</p>
           </div>
           <button className="btn btn-ghost" type="button" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="modal-footer modal-footer--stack">
           <button
             className="btn btn-primary"
             type="button"
@@ -103,11 +101,10 @@ export function SignInPromptModal({
               setSigningIn(true);
               void signInWithGoogle().finally(() => setSigningIn(false));
             }}
-            style={{ padding: '12px 16px', fontWeight: 700 }}
           >
             {signingIn ? 'Opening Google…' : 'Continue with Google'}
           </button>
-          <button className="btn btn-ghost" type="button" onClick={onClose} style={{ padding: '10px 16px' }}>
+          <button className="btn btn-ghost" type="button" onClick={onClose}>
             Not now
           </button>
         </div>
