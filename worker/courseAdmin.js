@@ -10,6 +10,7 @@ const PLATFORM_ID_FIELDS = {
   membersports: ['golf_club_id', 'golf_course_id'],
   trutee: ['trutee_org_slug', 'trutee_course_id'],
   golfpay: ['golfpay_course_id'],
+  cps: ['cps_tenant', 'cps_course_id'],
   teeitup: ['facility_id', 'teeitup_course_id', 'teeitup_alias'],
 };
 
@@ -25,6 +26,8 @@ const ALL_PLATFORM_FIELDS = [
   'trutee_org_slug',
   'trutee_course_id',
   'golfpay_course_id',
+  'cps_tenant',
+  'cps_course_id',
   'facility_id',
   'teeitup_course_id',
   'teeitup_alias',
@@ -111,6 +114,15 @@ export function parseBookingUrl(rawUrl) {
     out.platform = 'golfpay';
     const gshcid = u.searchParams.get('_gshcid');
     if (gshcid) out.hints.golfpay_course_id = gshcid;
+    return out;
+  }
+
+  if (host.endsWith('cps.golf') || host.includes('.cps.golf')) {
+    out.platform = 'cps';
+    const tenant = host.split('.')[0];
+    if (tenant && tenant !== 'www') out.hints.cps_tenant = tenant;
+    const courseId = u.searchParams.get('CourseId') || u.searchParams.get('CourseID');
+    if (courseId) out.hints.cps_course_id = courseId;
     return out;
   }
 
@@ -522,8 +534,8 @@ function getPlatformWarnings(record) {
   const warnings = [];
   const platform = record.platform;
   if (!platform) warnings.push('No platform set — poller will not run.');
-  if (platform === 'tenfore') {
-    warnings.push('tenfore is booking-link-only today — live inventory not polled yet.');
+  if (platform === 'tenfore' || platform === 'cps') {
+    warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
   }
   if (platform === 'golfpay' && !record.golfpay_course_id) {
     warnings.push('GolfPay needs golfpay_course_id (_gshcid) for live tee times.');

@@ -28,6 +28,7 @@ const PLATFORMS = [
   'trutee',
   'golfpay',
   'tenfore',
+  'cps',
 ];
 
 const WALKABILITY = ['flat', 'moderate', 'hilly', 'carts only'] as const;
@@ -186,6 +187,8 @@ export function AdminCourseEditPage() {
       if (hints.trutee_org_slug) patch.trutee_org_slug = hints.trutee_org_slug;
       if (hints.trutee_course_id) patch.trutee_course_id = hints.trutee_course_id;
       if (hints.golfpay_course_id) patch.golfpay_course_id = hints.golfpay_course_id;
+      if (hints.cps_tenant) patch.cps_tenant = hints.cps_tenant;
+      if (hints.cps_course_id) patch.cps_course_id = hints.cps_course_id;
       if (hints.facility_id) patch.facility_id = hints.facility_id;
       if (hints.teeitup_alias) patch.teeitup_alias = hints.teeitup_alias;
 
@@ -526,6 +529,25 @@ export function AdminCourseEditPage() {
                 onChange={(e) => patchRecord({ golfpay_course_id: e.target.value })}
               />
             </Field>
+          )}
+
+          {record.platform === 'cps' && (
+            <>
+              <Field label="cps_tenant (subdomain)">
+                <input
+                  className="input"
+                  value={record.cps_tenant || ''}
+                  onChange={(e) => patchRecord({ cps_tenant: e.target.value })}
+                />
+              </Field>
+              <Field label="cps_course_id (CourseId)">
+                <input
+                  className="input"
+                  value={record.cps_course_id || ''}
+                  onChange={(e) => patchRecord({ cps_course_id: e.target.value })}
+                />
+              </Field>
+            </>
           )}
 
           {record.platform === 'teeitup' && (

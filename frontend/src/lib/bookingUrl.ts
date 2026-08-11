@@ -332,6 +332,43 @@ function buildGolfPayBookingUrl(source: BookingSource, params: BookingLinkParams
   }
 }
 
+/**
+ * Club Prophet Online Res v5 — param names are case-sensitive (Date, Player, Hole, CourseId).
+ * https://onlinehelp.cps.golf/ … Passing Search Values from an External Site
+ */
+function buildCpsBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const tenant =
+    source.cps_tenant != null && String(source.cps_tenant).trim()
+      ? String(source.cps_tenant).trim()
+      : '';
+  let base = (source.booking_url || source.bookingUrl || '').trim();
+  if (!base && tenant) {
+    base = `https://${tenant}.cps.golf/onlineresweb/search-teetime`;
+  }
+  if (!base) return null;
+  const players = Math.min(Math.max(params.players || 1, 1), 4);
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    u.searchParams.set('Date', params.dateYmd);
+    u.searchParams.set('Player', String(players));
+    if (params.holes === 9 || params.holes === 18) {
+      u.searchParams.set('Hole', String(params.holes));
+    } else {
+      u.searchParams.set('Hole', 'Any');
+    }
+    const courseId =
+      source.cps_course_id != null && String(source.cps_course_id).trim()
+        ? String(source.cps_course_id).trim()
+        : u.searchParams.get('CourseId') || '';
+    if (courseId) u.searchParams.set('CourseId', courseId);
+    if (!u.searchParams.has('TeeOffTimeMin')) u.searchParams.set('TeeOffTimeMin', '0');
+    if (!u.searchParams.has('TeeOffTimeMax')) u.searchParams.set('TeeOffTimeMax', '23');
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 function defaultTemplate(
   record: Pick<CourseRecord, 'platform' | 'booking_url'>,
 ): string | null {
@@ -354,6 +391,8 @@ export type BookingSource = {
   trutee_course_id?: string | null;
   facility_id?: string | number | null;
   teeitup_course_id?: string | null;
+  cps_tenant?: string | null;
+  cps_course_id?: string | null;
 };
 
 /**
@@ -402,6 +441,10 @@ export function buildBookingUrl(
     'teeitup_course_id' in source && source.teeitup_course_id != null
       ? String(source.teeitup_course_id)
       : null;
+  const cpsTenant =
+    'cps_tenant' in source && source.cps_tenant != null ? String(source.cps_tenant) : null;
+  const cpsCourseId =
+    'cps_course_id' in source && source.cps_course_id != null ? String(source.cps_course_id) : null;
 
   const bookingSource: BookingSource = {
     booking_url: bookingUrl,
@@ -416,6 +459,8 @@ export function buildBookingUrl(
     trutee_course_id: truteeCourseId,
     facility_id: facilityId,
     teeitup_course_id: teeitupCourseId,
+    cps_tenant: cpsTenant,
+    cps_course_id: cpsCourseId,
   };
 
   if (platform === 'foreup' || platform === 'foreup_login') {
@@ -436,6 +481,10 @@ export function buildBookingUrl(
 
   if (platform === 'golfpay') {
     return buildGolfPayBookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'cps') {
+    return buildCpsBookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (platform === 'teeitup') {

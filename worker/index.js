@@ -1292,6 +1292,31 @@ function buildGolfPayBookingUrl(course, date, holes, players) {
   }
 }
 
+function buildCpsBookingUrl(course, date, holes, players) {
+  const tenant = course?.cps_tenant != null ? String(course.cps_tenant).trim() : '';
+  let base = String(course.booking_url || '').trim();
+  if (!base && tenant) base = `https://${tenant}.cps.golf/onlineresweb/search-teetime`;
+  if (!base) return null;
+  const playersNum = Math.min(Math.max(parseInt(players, 10) || 1, 1), 4);
+  const holesNum = parseInt(String(holes), 10);
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    u.searchParams.set('Date', date);
+    u.searchParams.set('Player', String(playersNum));
+    u.searchParams.set('Hole', holesNum === 9 || holesNum === 18 ? String(holesNum) : 'Any');
+    const courseId =
+      course?.cps_course_id != null && String(course.cps_course_id).trim()
+        ? String(course.cps_course_id).trim()
+        : u.searchParams.get('CourseId') || '';
+    if (courseId) u.searchParams.set('CourseId', courseId);
+    if (!u.searchParams.has('TeeOffTimeMin')) u.searchParams.set('TeeOffTimeMin', '0');
+    if (!u.searchParams.has('TeeOffTimeMax')) u.searchParams.set('TeeOffTimeMax', '23');
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 function buildBookingUrlWorker(course, date, holes, players) {
   const base = course.booking_url;
   const supported = [
@@ -1302,6 +1327,7 @@ function buildBookingUrlWorker(course, date, holes, players) {
     'membersports',
     'trutee',
     'golfpay',
+    'cps',
     'teeitup',
   ];
   if (!base && !supported.includes(course.platform)) {
@@ -1326,6 +1352,10 @@ function buildBookingUrlWorker(course, date, holes, players) {
 
   if (course.platform === 'golfpay') {
     return buildGolfPayBookingUrl(course, date, holes, players) || base || 'https://tee-time.io';
+  }
+
+  if (course.platform === 'cps') {
+    return buildCpsBookingUrl(course, date, holes, players) || base || 'https://tee-time.io';
   }
 
   if (course.platform === 'teeitup') {

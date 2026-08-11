@@ -28,6 +28,12 @@ API exists (`https://swan.tenfore.golf/api`, vanity `theranches` → `golfCourse
 Enterprise** (`X-Recaptcha-Token` / `X-Recaptcha-Action`). No viable worker path without
 a browser captcha solve or TenFore cooperation. Keep booking-link-only until that changes.
 
+`cps` (1 — Glenmoor) is deep-link only today. Club Prophet Online Res has a working
+tee-times JSON API (`…/onlineres/onlineapi/api/v1/onlinereservation/TeeTimes`) with a
+short-lived client-credentials token, but **API calls outside a cleared browser hit
+Cloudflare managed challenge**. Deep links use case-sensitive `Date` / `Player` / `Hole`
+/ `CourseId` query params.
+
 **Done:** `trutee` (4 St. George munis) — Convex public query
 `teetimes/publicTeeTimes:getSingleCourseTeeTimes` via `https://backend.trutee.app/api/query`.
 

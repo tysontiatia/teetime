@@ -135,6 +135,7 @@ Account UI: **`/app/account`** — manage active tee time alerts (pause / resume
 | `golfpay` | GolfPay public JSON (`/api/tee-times`) | 1 | Requires `golfpay_course_id` (`_gshcid`; Barn = 1466) |
 | `foreup_login` | ForeUp (login-gated) | 0 | No courses currently; worker support planned if needed. |
 | `tenfore` | — | 1 | No API support yet; booking link in UI + catalog. |
+| `cps` | — | 1 | Club Prophet Online Res; booking deep links (`Date`/`Player`/`Hole`). Live inventory blocked by Cloudflare on API. |
 
 The React app’s `frontend/src/lib/platformRegistry.ts` classifies platforms for UX (`live_inventory` vs `booking_link_only` vs `auth_gated_planned`); expand that file when you add a worker route.
 
