@@ -53,9 +53,10 @@ export function CourseReviewsSection({ reviews, loading, mapsUrl, course, hideHe
     <div className="section reviews-section">
       {heading}
       {typeof course.rating === 'number' ? (
-        <div className="reviews-summary">
+        <div className="reviews-summary" aria-label="Overall Google rating">
           <span className="reviews-summary-score">{course.rating.toFixed(1)}</span>
           <div className="reviews-summary-side">
+            <p className="reviews-summary-label">Overall</p>
             <StarRow rating={course.rating} size="lg" />
             <p className="reviews-summary-count">
               {typeof course.reviewCount === 'number'
@@ -67,7 +68,7 @@ export function CourseReviewsSection({ reviews, loading, mapsUrl, course, hideHe
       ) : (
         <p className="reviews-head-meta">Most recent from Google · up to 5</p>
       )}
-      <ul className="reviews-list">
+      <ul className="reviews-list" aria-label="Recent reviews">
         {reviews.map((r, i) => (
           <li key={`${r.author}-${r.time ?? i}`} className="review-card">
             <div className="review-card-top">

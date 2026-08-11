@@ -87,6 +87,16 @@ export function formatReopenedAgo(iso: string) {
   return 'Recently opened';
 }
 
+/** Compact reopen cue for finder chips — keeps spots/holes icons free. */
+export function formatReopenedAgoShort(iso: string) {
+  const mins = minutesSince(new Date(iso).getTime());
+  if (mins == null || mins < 1) return 'Just in';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 6) return `${hrs}h ago`;
+  return 'Reopened';
+}
+
 export function matchesPreset(startsAtIso: string, preset: TimeOfDayPreset) {
   if (preset === 'any') return true;
   const h = Number(

@@ -50,8 +50,8 @@ export function filterFeedItems(items: FeedItem[], slugAllowlist: Set<string> | 
 }
 
 export function feedScopeLabel(scope: TimesFetchScope): string {
-  if (scope.mode === 'statewide') return 'All Utah';
+  if (scope.mode === 'statewide') return 'Statewide';
   if (scope.mode === 'search' && scope.searchQuery) return `Near “${scope.searchQuery}”`;
-  if (scope.anchor.source === 'gps') return 'Nearby';
-  return 'Wasatch Front area';
+  if (scope.anchor.source === 'gps') return `Within ${scope.radiusMi} mi`;
+  return 'Salt Lake area';
 }

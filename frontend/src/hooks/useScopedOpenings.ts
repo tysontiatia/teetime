@@ -10,11 +10,13 @@ import {
 } from '../lib/feedScope';
 import { countFeedHotOpenings, sortFeedItemsByUrgency } from '../lib/feedDisplay';
 import { courseDistanceMap } from '../lib/feedDistanceMap';
+import { parseFetchRadiusMi } from '../lib/timesFetchScope';
 
 function scopeFromSearchParams(sp: URLSearchParams): FeedScopeInput {
   return {
     fetchAllUtah: sp.get('scope') === 'all',
     locationQuery: sp.get('q') || '',
+    radiusMi: parseFetchRadiusMi(sp.get('radius')),
   };
 }
 

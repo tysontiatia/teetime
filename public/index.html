@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Search live tee times across every Utah golf course in one place. Compare times and prices, plan rounds with your group, and get an email when a slot opens. More states coming soon." />
+  <meta name="description" content="Find live tee times across Utah golf courses in one place. Compare times and prices, create alerts, and plan rounds with your group. More states coming soon." />
   <meta name="theme-color" content="#FBFBF8" />
   <script>
     (function () {
@@ -22,11 +22,11 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tee-time.io/" />
   <meta property="og:title" content="tee-time.io · Every tee time. One search." />
-  <meta property="og:description" content="Live tee times across Utah golf courses: ForeUp, Chronogolf, MemberSports, and more in one search." />
+  <meta property="og:description" content="Find live tee times across Utah: ForeUp, Chronogolf, MemberSports, and more in one search." />
   <meta property="og:site_name" content="tee-time.io" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="tee-time.io · Every tee time. One search." />
-  <meta name="twitter:description" content="67+ Utah courses in one search. Plan with your group. Get alerted when slots open." />
+  <meta name="twitter:description" content="67+ Utah courses in one Find. Plan with your group. Get alerted when slots open." />
   <title>tee-time.io · Every tee time. One search.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -41,7 +41,7 @@
     "url": "https://tee-time.io",
     "applicationCategory": "SportsApplication",
     "operatingSystem": "Web",
-    "description": "Search golf tee times across ForeUp, Chronogolf, and MemberSports. Live in Utah with more states coming soon.",
+    "description": "Find golf tee times across ForeUp, Chronogolf, and MemberSports. Live in Utah with more states coming soon.",
     "areaServed": { "@type": "State", "name": "Utah" },
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
@@ -106,9 +106,112 @@
     }
 
     html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+
+    /* Motion */
+    @keyframes rise-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-stage {
+      position: relative;
+      isolation: isolate;
+      overflow: clip;
+    }
+    .hero-wash {
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: min(92vh, 820px);
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      --hero-wash-opacity: 0.26;
+    }
+    html[data-theme='dark'] .hero-wash { --hero-wash-opacity: 0.18; }
+    .hero-wash img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 42%;
+      opacity: 0;
+      transform: scale(1.05);
+      filter: saturate(0.92) contrast(1.02);
+      transition: opacity 1.15s cubic-bezier(0.22, 1, 0.36, 1), transform 1.15s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .hero-wash.is-ready img {
+      opacity: var(--hero-wash-opacity);
+      transform: scale(1);
+    }
+    .hero-wash-veil {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg,
+          color-mix(in srgb, var(--paper) 42%, transparent) 0%,
+          color-mix(in srgb, var(--paper) 78%, transparent) 55%,
+          var(--paper) 100%),
+        radial-gradient(ellipse 90% 70% at 50% 0%, color-mix(in srgb, var(--green-soft) 55%, transparent), transparent 60%);
+    }
+    html[data-theme='dark'] .hero-wash-veil {
+      background:
+        linear-gradient(180deg,
+          color-mix(in srgb, var(--paper) 55%, transparent) 0%,
+          color-mix(in srgb, var(--paper) 88%, transparent) 58%,
+          var(--paper) 100%),
+        radial-gradient(ellipse 90% 65% at 50% 0%, color-mix(in srgb, var(--green-soft) 40%, transparent), transparent 58%);
+    }
+    .hero-stage > .wrap,
+    .hero-stage > .hero {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-enter > * {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    .hero-enter.is-in > * {
+      animation: rise-in 0.58s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .hero-enter.is-in > *:nth-child(1) { animation-delay: 0.04s; }
+    .hero-enter.is-in > *:nth-child(2) { animation-delay: 0.12s; }
+    .hero-enter.is-in > *:nth-child(3) { animation-delay: 0.2s; }
+
+    #how .step {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    #how.is-in .step {
+      animation: rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    #how.is-in .step:nth-child(1) { animation-delay: 0.04s; }
+    #how.is-in .step:nth-child(2) { animation-delay: 0.14s; }
+    #how.is-in .step:nth-child(3) { animation-delay: 0.24s; }
+
+    .lah-card.lah-enter {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    .lah-grid.is-in .lah-card.lah-enter {
+      animation: rise-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    .lah-grid.is-in .lah-card.lah-enter:nth-child(1) { animation-delay: 0.04s; }
+    .lah-grid.is-in .lah-card.lah-enter:nth-child(2) { animation-delay: 0.12s; }
+    .lah-grid.is-in .lah-card.lah-enter:nth-child(3) { animation-delay: 0.2s; }
+
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      * { animation: none !important; transition: none !important; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .hero-enter > *,
+      #how .step,
+      .lah-card.lah-enter {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      .hero-wash.is-ready img {
+        opacity: var(--hero-wash-opacity) !important;
+        transform: none !important;
+      }
     }
 
     body {
@@ -195,30 +298,17 @@
     .menu-panel a.nav-anchor:hover { background: var(--card-2); color: var(--ink); }
 
     /* Hero */
-    .hero { padding: 56px 0 32px; text-align: center; }
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: 13px; color: var(--ink-2);
-      border: 1px solid var(--line); border-radius: 999px;
-      padding: 6px 14px; margin-bottom: 24px;
-      background: color-mix(in srgb, var(--card) 80%, var(--paper));
-    }
-    .eyebrow .dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--accent); animation: pulse 2.4s ease-in-out infinite;
-    }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-    @keyframes live-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.92); } }
+    .hero { padding: 40px 0 28px; text-align: center; }
     .hero h1 {
       font-family: var(--font-display); font-weight: 700;
-      font-size: clamp(2.35rem, 6vw, 4.25rem);
-      line-height: 1.04; letter-spacing: -0.03em; margin-bottom: 18px;
+      font-size: clamp(2.35rem, 6vw, 4.1rem);
+      line-height: 1.04; letter-spacing: -0.03em; margin-bottom: 14px;
     }
     .hero h1 .accent { color: var(--accent); }
     html:not([data-theme='dark']) .hero h1 .accent { color: var(--pine-deep); }
     .hero .sub {
-      max-width: 38rem; margin: 0 auto 36px;
-      color: var(--ink-2); font-size: 1.1rem; line-height: 1.6;
+      max-width: 32rem; margin: 0 auto 28px;
+      color: var(--ink-2); font-size: 1.05rem; line-height: 1.55;
     }
     .hero .sub strong { color: var(--ink); font-weight: 600; }
 
@@ -288,57 +378,52 @@
       color: var(--accent-ink); background: var(--accent); border-color: var(--accent);
     }
 
-    .live-strip {
-      margin-top: 36px;
-      display: flex; justify-content: center; gap: 10px 24px; flex-wrap: wrap;
+    .trust-strip {
+      margin: 0 auto;
+      display: flex; justify-content: center; gap: 10px 28px; flex-wrap: wrap;
       font-family: var(--font-mono); font-size: 13px; color: var(--ink-2);
+      padding: 8px 0 0;
     }
-    .live-strip b { color: var(--pine-deep); font-weight: 600; }
-    html[data-theme='dark'] .live-strip b { color: var(--accent); }
+    .trust-strip b { color: var(--pine-deep); font-weight: 600; }
+    html[data-theme='dark'] .trust-strip b { color: var(--accent); }
 
-    /* Live activity — alert proof + CTA */
+    /* Live activity — openings proof */
     .live-activity-home {
       padding-top: 8px;
-      padding-bottom: 56px;
+      padding-bottom: 48px;
     }
     .lah-panel {
-      padding: 28px 26px;
+      padding: 24px 22px;
       border-radius: 20px;
       border: 1px solid var(--line);
-      background: color-mix(in srgb, var(--green-soft) 32%, var(--card));
+      background: color-mix(in srgb, var(--sand) 35%, var(--card));
       min-width: 0;
     }
     html[data-theme='dark'] .lah-panel {
-      background: color-mix(in srgb, var(--green-soft) 14%, var(--card));
+      background: color-mix(in srgb, var(--green-soft) 12%, var(--card));
       border-color: color-mix(in srgb, var(--fairway) 12%, var(--line));
     }
     .live-activity-home .lah-grid[hidden],
     .live-activity-home .lah-cta[hidden],
     .live-activity-home .lah-link[hidden] { display: none; }
     .lah-fallback {
-      margin-top: 20px; padding: 28px 24px; text-align: center;
+      margin-top: 16px; padding: 24px 20px; text-align: center;
       border: 1px solid var(--line); border-radius: var(--radius);
       background: var(--card);
     }
     .lah-fallback[hidden] { display: none; }
     .lah-fallback .lah-cta { margin-top: 0; }
-    .lah-pill {
-      display: inline-flex; align-items: center;
-      padding: 4px 10px; border-radius: 999px;
-      background: color-mix(in srgb, #c2410c 14%, var(--card));
-      border: 1px solid color-mix(in srgb, #ea580c 28%, var(--line));
-      color: #c2410c; font-size: 10px; font-weight: 800;
-      letter-spacing: .08em; text-transform: uppercase;
-    }
-    html[data-theme='dark'] .lah-pill {
-      color: #fdba74;
-      background: color-mix(in srgb, #ea580c 18%, var(--card));
-    }
     .lah-head-row {
       display: flex; align-items: flex-start; justify-content: space-between;
-      gap: 16px; margin-top: 12px;
+      gap: 16px;
     }
     .lah-head-main { min-width: 0; }
+    .lah-kicker {
+      font-family: var(--font-mono); font-size: 12px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--pine-deep); margin-bottom: 10px;
+    }
+    html[data-theme='dark'] .lah-kicker { color: var(--accent); }
     .lah-sub { margin-top: 8px; max-width: 40rem; }
     .lah-link {
       flex-shrink: 0; padding-top: 8px;
@@ -349,25 +434,24 @@
     .lah-link:hover { text-decoration: underline; }
     .lah-grid {
       display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px; margin-top: 24px;
+      gap: 12px; margin-top: 20px;
     }
     .lah-card {
       display: flex; align-items: stretch; gap: 12px;
       min-width: 0; padding: 10px; border-radius: 14px;
       border: 1px solid var(--line); background: var(--card);
       text-decoration: none; color: inherit;
-      transition: border-color .15s, box-shadow .15s, transform .15s;
+      transition: border-color .15s, box-shadow .15s;
     }
     .lah-card:hover {
       border-color: color-mix(in srgb, var(--pine) 28%, var(--line));
-      box-shadow: 0 6px 20px rgba(20,30,25,.08);
-      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(20,30,25,.06);
     }
     .lah-card.is-hot {
       border-color: color-mix(in srgb, var(--pine) 32%, var(--line));
     }
     .lah-photo {
-      flex-shrink: 0; width: 72px; height: 72px;
+      flex-shrink: 0; width: 64px; height: 64px;
       border-radius: 10px; overflow: hidden; background: var(--sand);
     }
     .lah-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -382,8 +466,8 @@
       text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
     }
     .lah-badge.is-live { color: #fff; background: var(--pine); }
-    .lah-badge.is-new { color: #c2410c; background: #ffedd5; }
-    html[data-theme='dark'] .lah-badge.is-new { color: #fdba74; background: color-mix(in srgb, #ea580c 22%, var(--card)); }
+    .lah-badge.is-new { color: var(--pine); background: var(--green-soft); }
+    html[data-theme='dark'] .lah-badge.is-new { color: var(--fairway); background: color-mix(in srgb, var(--fairway) 18%, var(--card)); }
     .lah-ago { font-size: 11px; font-weight: 600; color: var(--ink-3); }
     .lah-ago.is-hot { color: var(--pine); }
     html[data-theme='dark'] .lah-ago.is-hot { color: var(--fairway); }
@@ -391,9 +475,11 @@
     .lah-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
     .lah-when { font-size: 12px; color: var(--ink-3); line-height: 1.35; min-width: 0; flex: 1; }
     .lah-price { flex-shrink: 0; font-family: var(--font-display); font-size: 14px; font-weight: 700; }
-    .lah-cta { margin-top: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .lah-cta { margin-top: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .lah-cta .btn { margin-inline: auto; }
     .lah-link--below { padding-top: 0; font-size: 14px; }
+
+    @keyframes live-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.92); } }
 
     /* Bands */
     section.band { padding: 72px 0; }
@@ -490,7 +576,7 @@
       margin-top: 24px;
       background: color-mix(in srgb, var(--sand) 50%, var(--paper));
     }
-    .foot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 28px; }
+    .foot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 28px; }
     footer h4 {
       font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
       color: var(--ink-3); margin-bottom: 12px; font-weight: 600;
@@ -543,35 +629,22 @@
       font-size: 14px; font-weight: 600; padding: 11px 18px; cursor: pointer;
     }
     .oauth-btn:hover { background: var(--card-2); }
-    .auth-divider {
-      display: flex; align-items: center; gap: 12px;
-      font-size: 12px; color: var(--ink-3); margin: 16px 0;
-    }
-    .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-    .auth-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
-    .auth-field label {
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--ink-3);
-    }
-    .auth-field input {
-      border: 1px solid var(--line); border-radius: var(--radius-sm);
-      padding: 10px 14px; font: inherit; font-size: 14px;
-      outline: none; background: var(--paper); color: var(--ink);
-    }
-    .auth-field input:focus { border-color: color-mix(in srgb, var(--pine) 40%, var(--line)); }
-    .auth-submit {
-      width: 100%; background: var(--pine); color: #fff; border: none;
-      border-radius: 999px; padding: 12px; font: inherit;
-      font-size: 14px; font-weight: 600; cursor: pointer;
-    }
-    html[data-theme='dark'] .auth-submit { background: var(--accent); color: var(--accent-ink); }
-    .auth-submit:hover { filter: brightness(1.05); }
-    .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-    .auth-error { font-size: 13px; color: #9a3412; margin-top: 10px; text-align: center; min-height: 1.2em; }
+    .auth-error { font-size: 13px; color: #9a3412; margin-top: 14px; text-align: center; min-height: 1.2em; }
     html[data-theme='dark'] .auth-error { color: #fecaca; }
-    .modal-toggle { font-size: 13px; color: var(--ink-2); margin-top: 16px; text-align: center; }
-    .modal-toggle a { color: var(--pine); font-weight: 600; cursor: pointer; }
-    html[data-theme='dark'] .modal-toggle a { color: var(--accent); }
+
+    .plan-cta {
+      margin-top: 28px;
+      padding: 32px 28px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px 28px;
+      align-items: center;
+    }
+    .plan-cta p { color: var(--ink-2); font-size: 15px; line-height: 1.55; max-width: 36rem; margin-top: 8px; }
+    .plan-cta .btn { white-space: nowrap; }
 
     @media (max-width: 860px) {
       .alert-cta { grid-template-columns: 1fr; padding: 32px 24px; }
@@ -599,16 +672,12 @@
       .logo { font-size: 17px; min-width: 0; }
       .logo-img { width: 28px; height: 28px; }
 
-      /* Hero — centered marketing column */
-      .hero { padding: 36px 0 28px; text-align: center; }
-      .hero h1 { font-size: clamp(2.05rem, 8.5vw, 2.75rem); margin-bottom: 16px; line-height: 1.06; }
+      /* Hero — calmer first viewport */
+      .hero { padding: 28px 0 20px; text-align: center; }
+      .hero h1 { font-size: clamp(2.05rem, 8.5vw, 2.75rem); margin-bottom: 12px; line-height: 1.06; }
       .hero .sub {
-        font-size: 1.05rem; margin: 0 auto 32px; padding: 0 6px;
-        max-width: 22rem; line-height: 1.62;
-      }
-      .eyebrow {
-        font-size: 12px; padding: 7px 14px; margin: 0 auto 20px;
-        max-width: calc(100% - 8px); line-height: 1.4;
+        font-size: 1rem; margin: 0 auto 24px; padding: 0 6px;
+        max-width: 22rem; line-height: 1.55;
       }
       .search {
         flex-direction: column; border-radius: 22px; gap: 2px; padding: 8px;
@@ -618,12 +687,18 @@
       .search .field:last-of-type { border-bottom: none; }
       .search input, .search select { font-size: 16px; }
       .search .go { width: calc(100% - 8px); height: 48px; border-radius: 14px; margin: 4px; }
-      .chips { margin-top: 16px; gap: 8px; justify-content: center; padding: 0 2px; }
-      .chip { font-size: 13px; padding: 7px 15px; }
-      .live-strip {
-        margin: 28px auto 0; flex-direction: column; align-items: center;
+      .trust-strip {
+        margin: 0 auto; flex-direction: column; align-items: center;
         gap: 8px; font-size: 12px; text-align: center; max-width: 20rem;
       }
+      .plan-cta {
+        grid-template-columns: 1fr;
+        text-align: center;
+        padding: 24px 20px;
+        justify-items: center;
+      }
+      .plan-cta p { margin-inline: auto; }
+      .plan-cta .btn { width: 100%; max-width: 280px; }
 
       /* Content bands — centered intros, readable cards */
       section.band { padding: 56px 0; text-align: center; }
@@ -680,14 +755,14 @@
       }
       .foot-auth-btn { text-align: center; width: 100%; }
 
-      .lah-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 18px; }
+      .lah-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 16px; }
       .lah-grid .lah-card:nth-child(n+4) { display: none; }
       .live-activity-home {
         text-align: center;
-        padding-bottom: 40px;
+        padding-bottom: 36px;
       }
       .live-activity-home .lah-panel {
-        padding: 22px 18px;
+        padding: 20px 16px;
         border-radius: 18px;
         text-align: center;
       }
@@ -714,8 +789,8 @@
         gap: 10px;
         text-align: left;
       }
-      .live-activity-home .lah-card:hover { transform: none; box-shadow: none; }
-      .live-activity-home .lah-photo { width: 64px; height: 64px; }
+      .live-activity-home .lah-card:hover { box-shadow: none; }
+      .live-activity-home .lah-photo { width: 56px; height: 56px; }
       .live-activity-home .lah-course { font-size: 13.5px; }
       .live-activity-home .lah-top { gap: 6px; }
       .live-activity-home .lah-meta { align-items: flex-start; gap: 4px 10px; }
@@ -736,6 +811,12 @@
 </head>
 <body>
 
+  <div class="hero-stage">
+    <div class="hero-wash" aria-hidden="true">
+      <img id="heroWashImg" alt="" decoding="async" fetchpriority="low" />
+      <div class="hero-wash-veil"></div>
+    </div>
+
   <div class="wrap">
     <nav class="site-nav" aria-label="Primary">
       <a class="logo" href="/">
@@ -745,16 +826,16 @@
       </a>
       <div class="nav-links" aria-label="Sections">
         <a href="#how">How it works</a>
-        <a href="#plan">Plan a round</a>
         <a href="#alerts">Alerts</a>
+        <a href="#plan">Plan</a>
         <a href="#states">Where we're live</a>
       </div>
       <div class="nav-actions">
         <div class="nav-actions-desktop">
           <button type="button" class="btn btn-ghost" onclick="openAuthModal('signin')">Sign in</button>
-          <a href="/app/" class="btn">Search tee times</a>
+          <a href="/app/" class="btn">Open Find</a>
         </div>
-        <a href="/app/" class="btn nav-search-mobile">Search</a>
+        <a href="/app/" class="btn nav-search-mobile">Find</a>
         <button type="button" class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="menuPanel" aria-label="Menu">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -762,25 +843,23 @@
         </button>
         <div class="menu-panel" id="menuPanel" role="menu">
           <a href="#how" class="nav-anchor" role="menuitem" onclick="closeMenu()">How it works</a>
-          <a href="#plan" class="nav-anchor" role="menuitem" onclick="closeMenu()">Plan a round</a>
           <a href="#alerts" class="nav-anchor" role="menuitem" onclick="closeMenu()">Alerts</a>
+          <a href="#plan" class="nav-anchor" role="menuitem" onclick="closeMenu()">Plan</a>
           <a href="#states" class="nav-anchor" role="menuitem" onclick="closeMenu()">Where we're live</a>
-          <a href="/app/" class="btn" role="menuitem" onclick="closeMenu()">Search tee times</a>
+          <a href="/app/" class="btn" role="menuitem" onclick="closeMenu()">Open Find</a>
           <button type="button" class="btn btn-ghost" role="menuitem" onclick="closeMenu(); openAuthModal('signin')">Sign in</button>
         </div>
       </div>
     </nav>
   </div>
 
-  <header class="hero wrap">
-    <div class="eyebrow"><span class="dot" aria-hidden="true"></span><span id="catalogEyebrow">67 courses in Utah · live now</span></div>
+  <header class="hero wrap hero-enter" id="heroEnter">
     <h1>Every tee time.<br><span class="accent">One search.</span></h1>
     <p class="sub">
-      Stop checking six booking sites before sunrise. Tee-Time searches <strong>live availability across every course</strong>.
-      Compare times and prices, plan a round with your group, and get an email the second a slot opens.
+      Live availability across Utah courses — compare, book direct, and get alerted when a slot opens.
     </p>
 
-    <form class="search" id="heroSearchForm" aria-label="Search tee times">
+    <form class="search" id="heroSearchForm" aria-label="Find tee times">
       <div class="field">
         <label for="heroQ">Where</label>
         <input id="heroQ" name="q" type="search" placeholder="Course, city, or zip" autocomplete="off" maxlength="120" />
@@ -801,111 +880,79 @@
           <option value="4">4 players · 18 holes</option>
         </select>
       </div>
-      <button type="submit" class="go" aria-label="Search">
+      <button type="submit" class="go" aria-label="Find tee times">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
         </svg>
       </button>
     </form>
-
-    <div class="chips" id="filterChips" aria-label="Quick filters">
-      <button type="button" class="chip active" data-tod="any">Any time</button>
-      <button type="button" class="chip" data-tod="morning">Morning</button>
-      <button type="button" class="chip" data-tod="afternoon">Afternoon</button>
-      <button type="button" class="chip" data-tod="evening">Twilight</button>
-    </div>
-
-    <div class="live-strip">
-      <span><b id="courseCountStat">67</b> courses tracked</span>
-      <span>ForeUp · Chronogolf · MemberSports</span>
-      <span>refreshed every few minutes</span>
-    </div>
   </header>
+  </div>
 
   <main>
-    <section class="band wrap live-activity-home band--tight" id="live-activity" aria-label="Tee time alert openings">
+    <section class="band wrap" id="how">
+      <p class="kicker">How it works</p>
+      <h2>Find. Alert. Plan.</h2>
+      <p class="lede">The same loop as the app — search live times, get notified when slots open, and lock a round with your group.</p>
+      <div class="steps">
+        <article class="step">
+          <p class="n">01 · Find</p>
+          <h3>Search once</h3>
+          <p>Where, when, and how many. We check every tracked course at once so you stop juggling tabs.</p>
+        </article>
+        <article class="step">
+          <p class="n">02 · Alerts</p>
+          <h3>Create an alert</h3>
+          <p>Follow a course and window. When a cancellation or release appears, we email you within minutes.</p>
+        </article>
+        <article class="step">
+          <p class="n">03 · Plan</p>
+          <h3>Share a vote link</h3>
+          <p>Send one link, let everyone pick times that work, and lock it in without the group-chat chaos.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="band wrap band--tight" aria-label="Coverage">
+      <div class="trust-strip">
+        <span><b id="courseCountStat">67</b> courses tracked</span>
+        <span>ForeUp · Chronogolf · MemberSports</span>
+        <span>refreshed every few minutes</span>
+      </div>
+    </section>
+
+    <section class="band wrap live-activity-home band--tight" id="live-activity" aria-label="Recent openings">
       <div class="lah-panel">
-        <span class="lah-pill">Tee time alerts</span>
+        <p class="lah-kicker">Openings</p>
         <div class="lah-head-row">
           <div class="lah-head-main">
-            <h2>Openings we'd email you about</h2>
+            <h2>Fresh slots we'd alert you about</h2>
             <p class="lede lah-sub" id="liveActivitySub">Checking for newly available tee times…</p>
           </div>
         </div>
         <div class="lah-grid" id="liveActivityGrid" aria-live="polite" hidden></div>
         <div class="lah-fallback" id="liveActivityFallback" hidden>
           <div class="lah-cta">
-            <a class="btn" href="#alerts" id="liveActivityFallbackCta">Set up free alerts</a>
-            <a class="lah-link lah-link--below" href="/app/">Browse all courses</a>
+            <a class="btn" href="#alerts" id="liveActivityFallbackCta">Create a free alert</a>
+            <a class="lah-link lah-link--below" href="/app/">Browse Find</a>
           </div>
         </div>
         <div class="lah-cta" id="liveActivityCtaWrap" hidden>
-          <a class="btn" href="#alerts" id="liveActivityCta">Set up free alerts</a>
+          <a class="btn" href="#alerts" id="liveActivityCta">Create a free alert</a>
           <a class="lah-link lah-link--below" href="/app/feed/" id="liveActivityViewAll">View all openings →</a>
         </div>
-      </div>
-    </section>
-
-    <section class="band wrap" id="plan">
-      <p class="kicker">Why Tee-Time</p>
-      <h2>Built for how golfers<br>actually book.</h2>
-      <p class="lede">One search instead of six tabs. One link instead of forty group texts. One alert instead of refreshing a tee sheet at 6am.</p>
-      <div class="pillars">
-        <article class="pillar">
-          <div class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          </div>
-          <h3>Find times now</h3>
-          <p>Every course's tee sheet in one place, refreshed every few minutes. Compare times, prices, and walkability, then book direct with the course. No markups, ever.</p>
-        </article>
-        <article class="pillar">
-          <div class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M15.5 3.13a4 4 0 010 7.75"/></svg>
-          </div>
-          <h3>Plan it with your group</h3>
-          <p>Share a round link, let everyone vote on times that work, and lock it in. One link replaces the group-chat chaos.</p>
-        </article>
-        <article class="pillar">
-          <div class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-          </div>
-          <h3>Never miss an opening</h3>
-          <p>Set an alert for a course, a day, or a price. When a slot opens, whether it's a cancellation or a new release, we email you within minutes.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="band wrap band--flush" id="how">
-      <p class="kicker">How it works</p>
-      <h2>Three steps to the first tee.</h2>
-      <div class="steps">
-        <article class="step">
-          <p class="n">01</p>
-          <h3>Search once</h3>
-          <p>Tell us where, when, and how many. We check every course at the same time, including the ones you forgot exist.</p>
-        </article>
-        <article class="step">
-          <p class="n">02</p>
-          <h3>Compare everything</h3>
-          <p>Times, prices, ratings, distance, and whether it's a pleasant walk or a cart-only slog. Side by side, no tabs.</p>
-        </article>
-        <article class="step">
-          <p class="n">03</p>
-          <h3>Book direct</h3>
-          <p>One tap sends you to the course's own booking page. Same price as calling the pro shop, minus the hold music.</p>
-        </article>
       </div>
     </section>
 
     <section class="band wrap band--tight" id="alerts">
       <div class="alert-cta">
         <div>
-          <p class="kicker">Tee time alerts</p>
+          <p class="kicker">Alerts</p>
           <h2>The good times get taken. Get them back.</h2>
-          <p class="lede">Tell us the course and the window you want. The moment a slot opens up, it's in your inbox, usually while everyone else is still refreshing.</p>
+          <p class="lede">Tell us the course and the window you want. The moment a slot opens, it's in your inbox — usually while everyone else is still refreshing.</p>
           <form id="alertForm">
             <input type="email" id="alertEmail" placeholder="Your email" aria-label="Email" autocomplete="email" />
-            <button type="submit" class="btn">Start free alerts</button>
+            <button type="submit" class="btn">Create free alert</button>
           </form>
         </div>
         <div class="phone" aria-hidden="true">
@@ -919,6 +966,17 @@
       </div>
     </section>
 
+    <section class="band wrap" id="plan">
+      <p class="kicker">Plan</p>
+      <h2>One link beats forty group texts.</h2>
+      <div class="plan-cta">
+        <div>
+          <p>Share a round from Find, let everyone vote on times, and lock it in together. Past links live under Plan in the app.</p>
+        </div>
+        <a href="/app/" class="btn">Start on Find</a>
+      </div>
+    </section>
+
     <section class="band wrap band--tight" id="states">
       <p class="kicker">Where we're live</p>
       <h2>Starting where the golf is underrated.</h2>
@@ -928,7 +986,7 @@
         <span class="state"><span class="dot"></span>Idaho · coming soon</span>
         <span class="state"><span class="dot"></span>Arizona · coming soon</span>
         <span class="state"><span class="dot"></span>Colorado · coming soon</span>
-        <button type="button" class="state waitlist" onclick="openAuthModal('signup')">+ Your state? Create an account</button>
+        <button type="button" class="state waitlist" onclick="openAuthModal('signin')">+ Your state? Sign in with Google</button>
       </div>
     </section>
   </main>
@@ -936,8 +994,8 @@
   <div class="modal-backdrop" id="authModal" role="dialog" aria-modal="true" aria-label="Sign in">
     <div class="modal-box">
       <button class="modal-close" id="authModalClose" aria-label="Close">&times;</button>
-      <h2 class="modal-title" id="authTitle">Welcome back</h2>
-      <p class="modal-sub" id="authSub">Sign in for the finder, saved courses, tee-time alerts, and share links.</p>
+      <h2 class="modal-title" id="authTitle">Sign in to Tee-Time</h2>
+      <p class="modal-sub" id="authSub">Use Google for Find, Alerts, Plan, and share links. New here? We’ll create an account for you.</p>
       <button class="oauth-btn" id="googleBtn" type="button">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
           <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -947,18 +1005,7 @@
         </svg>
         Continue with Google
       </button>
-      <div class="auth-divider">or</div>
-      <div class="auth-field">
-        <label for="authEmail">Email</label>
-        <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
-      </div>
-      <div class="auth-field">
-        <label for="authPassword">Password</label>
-        <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password" />
-      </div>
-      <button class="auth-submit" id="authSubmit" type="button">Sign in</button>
       <p class="auth-error" id="authError"></p>
-      <p class="modal-toggle" id="authToggle">No account? <a id="authSwitchLink">Create one</a></p>
     </div>
   </div>
 
@@ -971,28 +1018,22 @@
             <img class="logo-img is-dark" src="/logo-icon-dark.svg" alt="" width="28" height="28" />
             <span>Tee-Time<span class="io">.io</span></span>
           </a>
-          <p class="foot-tagline">Live tee times from every course, in one search. Book direct. No markups.</p>
-        </div>
-        <div>
-          <h4>Popular courses</h4>
-          <ul id="footerCourses">
-            <li><a href="/app/">Search all courses</a></li>
-          </ul>
+          <p class="foot-tagline">Live tee times from every course, in one Find. Book direct. No markups.</p>
         </div>
         <div>
           <h4>Product</h4>
           <ul>
-            <li><a href="#alerts">Tee time alerts</a></li>
+            <li><a href="/app/">Find tee times</a></li>
+            <li><a href="#alerts">Alerts</a></li>
             <li><a href="#plan">Plan a round</a></li>
-            <li><a href="/app/">Search tee times</a></li>
           </ul>
         </div>
         <div>
           <h4>Account</h4>
           <ul>
             <li><button type="button" class="foot-auth-btn" onclick="openAuthModal('signin')">Sign in</button></li>
-            <li><button type="button" class="foot-auth-btn" onclick="openAuthModal('signup')">Create account</button></li>
             <li><a href="#states">Request your state</a></li>
+            <li><a href="/app/account/">Manage alerts</a></li>
           </ul>
         </div>
       </div>
@@ -1006,7 +1047,6 @@
 
   <script>
     const WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
-    let activeTod = 'any';
 
     function slugFromName(name) {
       return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -1057,7 +1097,7 @@
       const href = '/app/course/' + item.course_slug + '?date=' + encodeURIComponent(item.play_date) + '&players=2&holes=' + (item.holes || 18);
 
       const card = document.createElement('a');
-      card.className = 'lah-card' + (isHot ? ' is-hot' : '');
+      card.className = 'lah-card lah-enter' + (isHot ? ' is-hot' : '');
       card.href = href;
 
       const photoWrap = document.createElement('div');
@@ -1117,7 +1157,7 @@
     }
 
     function liveActivityCardLimit() {
-      return window.matchMedia('(max-width: 720px)').matches ? 3 : 6;
+      return 3;
     }
 
     function setLiveActivityHead(title, subtext) {
@@ -1139,12 +1179,18 @@
         grid.appendChild(buildLiveActivityCard(item, coursesBySlug[item.course_slug]));
       });
       grid.hidden = false;
+      grid.classList.remove('is-in');
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          grid.classList.add('is-in');
+        });
+      });
       if (viewAll) viewAll.hidden = false;
       if (ctaWrap) ctaWrap.hidden = false;
       if (fallback) fallback.hidden = true;
       setLiveActivityHead(
-        "Openings we'd email you about",
-        items.length + ' openings in Utah in the last 6 hours. Follow your courses and get an email when the next one drops.',
+        'Fresh slots we’d alert you about',
+        items.length + ' openings in Utah in the last 6 hours. Create an alert and we’ll email you when the next one drops.',
       );
     }
 
@@ -1182,32 +1228,6 @@
         });
     }
 
-    function initFooterCourses(courses) {
-      const footer = document.getElementById('footerCourses');
-      if (!footer) return;
-      footer.replaceChildren();
-      courses
-        .slice()
-        .sort(function (a, b) {
-          return (Number(b.review_count) || 0) - (Number(a.review_count) || 0);
-        })
-        .slice(0, 3)
-        .forEach(function (c) {
-          const li = document.createElement('li');
-          const a = document.createElement('a');
-          a.href = '/app/course/' + slugFromName(c.name);
-          a.textContent = displayName(c.name) + ' tee times';
-          li.appendChild(a);
-          footer.appendChild(li);
-        });
-      const allLi = document.createElement('li');
-      const allA = document.createElement('a');
-      allA.href = '/app/';
-      allA.textContent = 'All ' + courses.length + ' courses →';
-      allLi.appendChild(allA);
-      footer.appendChild(allLi);
-    }
-
     function appUrl(extra) {
       const p = new URLSearchParams();
       const q = (document.getElementById('heroQ')?.value || '').trim();
@@ -1217,22 +1237,32 @@
       if (dt) p.set('date', dt);
       p.set('players', players);
       p.set('holes', '18');
-      if (activeTod && activeTod !== 'any') p.set('tod', activeTod);
       if (extra) Object.entries(extra).forEach(function (entry) { if (entry[1]) p.set(entry[0], entry[1]); });
       const qs = p.toString();
       return '/app/' + (qs ? '?' + qs : '');
     }
 
     function setCatalogCount(n) {
-      const text = n + ' courses in Utah · live now';
-      const eyebrow = document.getElementById('catalogEyebrow');
-      if (eyebrow) eyebrow.textContent = text;
       const stat = document.getElementById('courseCountStat');
       if (stat) stat.textContent = String(n);
       ['stateCourseCount', 'statePillCount'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el) el.textContent = String(n);
       });
+    }
+
+    function setHeroWash(courses) {
+      const wash = document.querySelector('.hero-wash');
+      const img = document.getElementById('heroWashImg');
+      if (!wash || !img || !Array.isArray(courses)) return;
+      const pick = courses
+        .slice()
+        .filter(function (c) { return c && c.photo_reference; })
+        .sort(function (a, b) { return (Number(b.review_count) || 0) - (Number(a.review_count) || 0); })[0];
+      if (!pick) return;
+      img.onload = function () { wash.classList.add('is-ready'); };
+      img.onerror = function () { wash.classList.remove('is-ready'); };
+      img.src = placePhotoUrl(pick.photo_reference);
     }
 
     function initCourses() {
@@ -1244,16 +1274,41 @@
         .then(function (courses) {
           if (!Array.isArray(courses)) return;
           setCatalogCount(courses.length);
+          setHeroWash(courses);
           const bySlug = {};
           courses.forEach(function (c) {
             bySlug[slugFromName(c.name)] = c;
           });
-
-          initFooterCourses(courses);
           initLiveActivity(bySlug, courses.length);
         })
         .catch(function () {});
     }
+
+    (function initMotion() {
+      const hero = document.getElementById('heroEnter');
+      if (hero) {
+        requestAnimationFrame(function () {
+          hero.classList.add('is-in');
+        });
+      }
+
+      const how = document.getElementById('how');
+      if (how && 'IntersectionObserver' in window) {
+        const io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              how.classList.add('is-in');
+              io.disconnect();
+            });
+          },
+          { threshold: 0.22, rootMargin: '0px 0px -8% 0px' },
+        );
+        io.observe(how);
+      } else if (how) {
+        how.classList.add('is-in');
+      }
+    })();
 
     (function initHeroSearch() {
       function formatDateCompact(ymd) {
@@ -1283,18 +1338,11 @@
           window.location.href = appUrl();
         });
       }
-      document.querySelectorAll('#filterChips .chip').forEach(function (chip) {
-        chip.addEventListener('click', function () {
-          document.querySelectorAll('#filterChips .chip').forEach(function (x) { x.classList.remove('active'); });
-          chip.classList.add('active');
-          activeTod = chip.getAttribute('data-tod') || 'any';
-        });
-      });
     })();
 
     document.getElementById('alertForm')?.addEventListener('submit', function (e) {
       e.preventDefault();
-      openAuthModal('signup');
+      openAuthModal('signin');
     });
 
     (function initMenu() {
@@ -1331,51 +1379,22 @@
       if (session) window.location.replace('/app/');
     });
 
-    let authMode = 'signin';
     const authModal = document.getElementById('authModal');
-    const authTitle = document.getElementById('authTitle');
-    const authSub = document.getElementById('authSub');
-    const authSubmit = document.getElementById('authSubmit');
-    const authToggle = document.getElementById('authToggle');
-    const authSwitchLink = document.getElementById('authSwitchLink');
     const authError = document.getElementById('authError');
-    const authEmailEl = document.getElementById('authEmail');
-    const authPasswordEl = document.getElementById('authPassword');
 
-    function openAuthModal(mode) {
-      setAuthMode(mode || 'signin');
+    function openAuthModal() {
       authModal.classList.add('open');
-      setTimeout(function () { authEmailEl.focus(); }, 150);
+      authError.textContent = '';
+      setTimeout(function () { document.getElementById('googleBtn')?.focus(); }, 150);
     }
     function closeAuthModal() {
       authModal.classList.remove('open');
       authError.textContent = '';
     }
-    function setAuthMode(mode) {
-      authMode = mode;
-      if (mode === 'signin') {
-        authTitle.textContent = 'Welcome back';
-        authSub.textContent = 'Sign in for the finder, saved courses, tee-time alerts, and share links.';
-        authSubmit.textContent = 'Sign in';
-        authSwitchLink.textContent = 'Create one';
-        authToggle.firstChild.textContent = 'No account? ';
-        authPasswordEl.autocomplete = 'current-password';
-      } else {
-        authTitle.textContent = 'Create account';
-        authSub.textContent = "Join tee-time.io. It's free.";
-        authSubmit.textContent = 'Create account';
-        authSwitchLink.textContent = 'Sign in instead';
-        authToggle.firstChild.textContent = 'Already have an account? ';
-        authPasswordEl.autocomplete = 'new-password';
-      }
-      authError.textContent = '';
-      authError.style.color = '';
-    }
 
     document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
     authModal.addEventListener('click', function (e) { if (e.target === authModal) closeAuthModal(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAuthModal(); });
-    authSwitchLink.addEventListener('click', function () { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); });
 
     document.getElementById('googleBtn').addEventListener('click', async function () {
       authError.textContent = '';
@@ -1385,37 +1404,6 @@
       });
       if (error) authError.textContent = error.message;
     });
-
-    authSubmit.addEventListener('click', async function () {
-      const email = authEmailEl.value.trim();
-      const password = authPasswordEl.value;
-      if (!email || !password) {
-        authError.textContent = 'Please fill in both fields.';
-        return;
-      }
-      authSubmit.disabled = true;
-      authSubmit.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
-      authError.textContent = '';
-      const result = authMode === 'signin'
-        ? await sb.auth.signInWithPassword({ email, password })
-        : await sb.auth.signUp({ email, password });
-      authSubmit.disabled = false;
-      authSubmit.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
-      if (result.error) {
-        authError.textContent = result.error.message;
-        return;
-      }
-      if (authMode === 'signup' && !result.data?.session) {
-        authError.style.color = 'var(--pine)';
-        authError.textContent = 'Check your email to confirm your account, then sign in.';
-        setAuthMode('signin');
-        return;
-      }
-      window.location.replace('/app/');
-    });
-
-    authPasswordEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') authSubmit.click(); });
-    authEmailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') authPasswordEl.focus(); });
   </script>
 </body>
 </html>

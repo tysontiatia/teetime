@@ -4,6 +4,7 @@ import { FeedActivityCard } from './FeedActivityCard';
 import { useScopedOpenings } from '../hooks/useScopedOpenings';
 import { feedQueryString } from '../lib/finderUrl';
 import { feedChipDetectedShort, FINDER_PREVIEW_HOURS } from '../lib/feedDisplay';
+import type { FetchRadiusMi } from '../types';
 
 const PREVIEW_LIMIT = 6;
 
@@ -11,9 +12,15 @@ type Props = {
   players: number;
   fetchAllUtah?: boolean;
   locationQuery?: string;
+  radiusMi?: FetchRadiusMi;
 };
 
-export function FeedTeaser({ players, fetchAllUtah = false, locationQuery = '' }: Props) {
+export function FeedTeaser({
+  players,
+  fetchAllUtah = false,
+  locationQuery = '',
+  radiusMi,
+}: Props) {
   const { recordsBySlug } = useCourseCatalog();
   const {
     items,
@@ -26,10 +33,15 @@ export function FeedTeaser({ players, fetchAllUtah = false, locationQuery = '' }
     catalogLoading,
     statewideHiddenCount,
     allItems,
-  } = useScopedOpenings({ fetchAllUtah, locationQuery });
+  } = useScopedOpenings({ fetchAllUtah, locationQuery, radiusMi });
 
   const windowLabel = `last ${FINDER_PREVIEW_HOURS} hours`;
-  const feedHref = `/feed?${feedQueryString({ players, locationQuery, fetchScope: fetchAllUtah ? 'all' : 'nearby' })}`;
+  const feedHref = `/feed?${feedQueryString({
+    players,
+    locationQuery,
+    fetchScope: fetchAllUtah ? 'all' : 'nearby',
+    radiusMi,
+  })}`;
   const statewideHref = `/feed?${feedQueryString({ players, locationQuery, fetchScope: 'all' })}`;
   const freshest = items[0] ? feedChipDetectedShort(items[0]) : null;
 
@@ -52,7 +64,7 @@ export function FeedTeaser({ players, fetchAllUtah = false, locationQuery = '' }
             {statewideHiddenCount} elsewhere →
           </Link>
         </p>
-        <section className="live-activity live-activity--desktop live-activity--nudge" aria-label="Recent openings elsewhere">
+        <section className="live-activity live-activity--desktop live-activity--nudge" aria-label="Openings elsewhere">
           <p className="live-activity-nudge">
             Nothing fresh {scopeLabel.toLowerCase()} in the {windowLabel}.{' '}
             <Link to={statewideHref} className="live-activity-link">
@@ -84,10 +96,10 @@ export function FeedTeaser({ players, fetchAllUtah = false, locationQuery = '' }
         </span>
       </Link>
 
-      <section className="live-activity live-activity--desktop" aria-label="Live tee time activity nearby">
+        <section className="live-activity live-activity--desktop" aria-label="Live openings nearby">
         <div className="live-activity-head">
           <div className="live-activity-head-main">
-            <div className="live-activity-pill">Live activity</div>
+            <div className="live-activity-pill">Openings</div>
             <h2 className="live-activity-title">Fresh openings near you</h2>
             <p className="live-activity-sub">
               Detected in the {windowLabel}

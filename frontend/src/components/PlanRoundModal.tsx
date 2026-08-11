@@ -6,6 +6,8 @@ import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsA
 import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { formatDateShort, formatTime12h } from '../lib/time';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { ModalCloseButton } from './ModalCloseButton';
 
 type PlanRoundModalProps = {
   open: boolean;
@@ -56,6 +58,8 @@ export function PlanRoundModal({
   useEffect(() => {
     if (open) reset();
   }, [open, reset]);
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
@@ -138,7 +142,7 @@ export function PlanRoundModal({
         if (e.target === e.currentTarget && !busy) onClose();
       }}
     >
-      <div className="modal-panel modal-panel-sm" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h2 id="plan-round-title" className="modal-header-title">
@@ -155,9 +159,7 @@ export function PlanRoundModal({
               )}
             </p>
           </div>
-          <button className="btn btn-ghost" type="button" onClick={onClose} disabled={busy} aria-label="Close">
-            ✕
-          </button>
+          <ModalCloseButton onClick={onClose} disabled={busy} />
         </div>
 
         {shareSlug && shareUrl ? (

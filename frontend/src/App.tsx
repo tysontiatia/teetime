@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { AdminGuard } from './components/AdminGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -17,26 +17,23 @@ import { LaunchDarklyProvider } from './state/LaunchDarklyContext';
 import { CourseCatalogProvider } from './state/CourseCatalogContext';
 
 function RoutedApp() {
-  const location = useLocation();
   return (
-    <ErrorBoundary key={location.key}>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/" element={<FinderPage />} />
-          <Route path="/course/:courseId" element={<CoursePage />} />
-          <Route path="/plan" element={<PlanPage />} />
-          <Route path="/share" element={<SharePage />} />
-          <Route path="/round/:slug" element={<RoundPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/feed" element={<FeedPage />} />
-          <Route element={<AdminGuard />}>
-            <Route path="/admin/courses" element={<AdminCoursesListPage />} />
-            <Route path="/admin/courses/:slug" element={<AdminCourseEditPage />} />
-          </Route>
-          <Route path="*" element={<NotFoundPage />} />
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route path="/" element={<FinderPage />} />
+        <Route path="/course/:courseId" element={<CoursePage />} />
+        <Route path="/plan" element={<PlanPage />} />
+        <Route path="/share" element={<SharePage />} />
+        <Route path="/round/:slug" element={<RoundPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/feed" element={<FeedPage />} />
+        <Route element={<AdminGuard />}>
+          <Route path="/admin/courses" element={<AdminCoursesListPage />} />
+          <Route path="/admin/courses/:slug" element={<AdminCourseEditPage />} />
         </Route>
-      </Routes>
-    </ErrorBoundary>
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 }
 

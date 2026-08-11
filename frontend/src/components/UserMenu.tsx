@@ -1,14 +1,25 @@
-import { useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { profileAvatarUrlFromUser } from '../lib/profileAvatar';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { UserAvatar } from './UserAvatar';
 import { useTheme, type ThemePreference } from '../state/ThemeContext';
+import { AlertsIcon, PlanIcon } from './icons/AppIcons';
+import {
+  countPushSubscriptions,
+  disablePushAlerts,
+  enablePushAlerts,
+  pushSupported,
+} from '../lib/pushAlerts';
 
 type UserMenuProps = {
   open: boolean;
   onClose: () => void;
   initial: string;
+  /** Desktop: align the dropdown under this header control. */
+  anchorRef?: RefObject<HTMLElement | null>;
   showInstall?: boolean;
   onInstall?: () => void;
 };
@@ -17,11 +28,50 @@ function MenuIcon({ children }: { children: ReactNode }) {
   return <span className="user-menu-item-icon" aria-hidden>{children}</span>;
 }
 
-export function UserMenu({ open, onClose, initial, showInstall, onInstall }: UserMenuProps) {
+export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onInstall }: UserMenuProps) {
   const { user, signOut } = useAuth();
   const { preference, resolved, setPreference } = useTheme();
   const location = useLocation();
+  const isCompact = useIsCompactShell();
   const avatar = profileAvatarUrlFromUser(user);
+  const canUsePush = pushSupported();
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
+  const [anchorStyle, setAnchorStyle] = useState<CSSProperties | undefined>();
+
+  useBodyScrollLock(open && Boolean(user));
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setAnchorStyle(undefined);
+      return;
+    }
+    const update = () => {
+      const el = anchorRef?.current;
+      if (!el || window.matchMedia('(max-width: 720px)').matches) {
+        setAnchorStyle(undefined);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      const panelWidth = Math.min(320, window.innerWidth - 24);
+      const gap = 8;
+      let right = Math.max(12, window.innerWidth - r.right);
+      // Keep panel on-screen if the avatar sits near the left.
+      right = Math.min(right, window.innerWidth - panelWidth - 12);
+      setAnchorStyle({
+        ['--user-menu-top' as string]: `${Math.round(r.bottom + gap)}px`,
+        ['--user-menu-right' as string]: `${Math.round(right)}px`,
+      });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open, anchorRef]);
 
   useEffect(() => {
     onClose();
@@ -36,14 +86,41 @@ export function UserMenu({ open, onClose, initial, showInstall, onInstall }: Use
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const refreshPushState = useCallback(async (uid: string) => {
+    const n = await countPushSubscriptions(uid);
+    setPushEnabled(n > 0);
+  }, []);
+
   useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+    if (!open || !user?.id) return;
+    setPushMsg(null);
+    void refreshPushState(user.id);
+  }, [open, user?.id, refreshPushState]);
+
+  const onTogglePush = async () => {
+    if (!user?.id || pushBusy) return;
+    setPushBusy(true);
+    setPushMsg(null);
+    if (pushEnabled) {
+      const res = await disablePushAlerts(user.id);
+      setPushBusy(false);
+      if (!res.ok) {
+        setPushMsg(res.message);
+        return;
+      }
+      setPushEnabled(false);
+      setPushMsg('Push off on this device.');
+      return;
+    }
+    const res = await enablePushAlerts(user.id);
+    setPushBusy(false);
+    if (!res.ok) {
+      setPushMsg(res.message);
+      return;
+    }
+    setPushEnabled(true);
+    setPushMsg('Push on — we’ll notify this device.');
+  };
 
   if (!open || !user) return null;
 
@@ -63,12 +140,15 @@ export function UserMenu({ open, onClose, initial, showInstall, onInstall }: Use
     </button>
   );
 
+  const showHubLinks = !isCompact;
+
   return (
     <div className="user-menu-backdrop" role="presentation" onClick={onClose}>
       <div
         className="user-menu-panel"
         role="menu"
         aria-label="Account menu"
+        style={anchorStyle}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="user-menu-head">
@@ -83,6 +163,22 @@ export function UserMenu({ open, onClose, initial, showInstall, onInstall }: Use
         </div>
 
         <nav className="user-menu-nav">
+          {showHubLinks ? (
+            <>
+              <Link to="/account" className="user-menu-item" role="menuitem" onClick={onClose}>
+                <MenuIcon>
+                  <AlertsIcon />
+                </MenuIcon>
+                <span className="user-menu-item-label">Alerts</span>
+              </Link>
+              <Link to="/plan" className="user-menu-item" role="menuitem" onClick={onClose}>
+                <MenuIcon>
+                  <PlanIcon />
+                </MenuIcon>
+                <span className="user-menu-item-label">Plan</span>
+              </Link>
+            </>
+          ) : null}
           <Link to="/feed" className="user-menu-item" role="menuitem" onClick={onClose}>
             <MenuIcon>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -95,42 +191,7 @@ export function UserMenu({ open, onClose, initial, showInstall, onInstall }: Use
                 <circle cx="18" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.9" />
               </svg>
             </MenuIcon>
-            <span className="user-menu-item-label">Recent openings</span>
-          </Link>
-          <Link to="/plan" className="user-menu-item" role="menuitem" onClick={onClose}>
-            <MenuIcon>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9.5 11a4 4 0 100-8 4 4 0 000 8ZM22 21v-2a4 4 0 00-3-3.87M15.5 3.13a4 4 0 010 7.75"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </MenuIcon>
-            <span className="user-menu-item-label">Shared rounds</span>
-          </Link>
-          <Link to="/account" className="user-menu-item" role="menuitem" onClick={onClose}>
-            <MenuIcon>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 15a3 3 0 100-6 3 3 0 000 6z"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </MenuIcon>
-            <span className="user-menu-item-label">Alerts</span>
+            <span className="user-menu-item-label">Openings</span>
           </Link>
           {showInstall && onInstall ? (
             <button
@@ -166,6 +227,30 @@ export function UserMenu({ open, onClose, initial, showInstall, onInstall }: Use
           </p>
         </div>
 
+        <div className="user-menu-section">
+          <div className="user-menu-section-label">Delivery</div>
+          <div className="user-menu-push-row">
+            <div className="user-menu-push-copy">
+              <div className="user-menu-push-title">Browser push</div>
+              <p className="user-menu-push-hint">
+                {canUsePush
+                  ? 'Instant notices on this device.'
+                  : 'Not available in this browser.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`btn user-menu-push-btn${pushEnabled ? ' is-on' : ' btn-primary'}`}
+              disabled={!canUsePush || pushBusy}
+              onClick={() => void onTogglePush()}
+            >
+              {pushBusy ? '…' : pushEnabled ? 'On' : 'Enable'}
+            </button>
+          </div>
+          {pushMsg ? <p className="user-menu-push-msg">{pushMsg}</p> : null}
+          <p className="user-menu-delivery-note">Email alerts go to {user.email}.</p>
+        </div>
+
         <button
           type="button"
           className="btn user-menu-sign-out"
@@ -177,6 +262,16 @@ export function UserMenu({ open, onClose, initial, showInstall, onInstall }: Use
         >
           Sign out
         </button>
+
+        <p className="user-menu-legal">
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer">
+            Privacy
+          </a>
+          <span aria-hidden> · </span>
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer">
+            Terms
+          </a>
+        </p>
       </div>
     </div>
   );

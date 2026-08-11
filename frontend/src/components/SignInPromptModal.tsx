@@ -1,20 +1,23 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../state/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { AuthPanel } from './AuthPanel';
+import { ModalCloseButton } from './ModalCloseButton';
 
-export type SignInPromptVariant = 'share' | 'alert';
+export type SignInPromptVariant = 'share' | 'alert' | 'you' | 'general';
 
 const COPY: Record<SignInPromptVariant, { title: string; body: (detail?: string) => ReactNode }> = {
   share: {
-    title: 'Sign in to share',
+    title: 'Log in or create an account',
     body: () => (
       <>
-        Create a live vote link your group can open in one tap. Google sign-in is free. Links also appear under{' '}
-        <strong>You → Shared rounds</strong>.
+        Create a live vote link your group can open in one tap. If you&apos;re new to Tee-Time, we&apos;ll create an
+        account for you.
       </>
     ),
   },
   alert: {
-    title: 'Sign in for alerts',
+    title: 'Log in or create an account',
     body: (detail) => (
       <>
         Get an email when tee times open
@@ -24,8 +27,22 @@ const COPY: Record<SignInPromptVariant, { title: string; body: (detail?: string)
             at <strong>{detail}</strong>
           </>
         ) : null}
-        . Google sign-in is free and takes a few seconds.
+        . If you&apos;re new to Tee-Time, we&apos;ll create an account for you.
       </>
+    ),
+  },
+  you: {
+    title: 'Log in or create an account',
+    body: () => (
+      <>
+        Host vote links and see rounds you join. If you&apos;re new to Tee-Time, we&apos;ll create an account for you.
+      </>
+    ),
+  },
+  general: {
+    title: 'Log in or create an account',
+    body: () => (
+      <>Use Google to continue. If you&apos;re new to Tee-Time, we&apos;ll create an account for you.</>
     ),
   },
 };
@@ -36,6 +53,8 @@ export function SignInPromptModal({
   variant,
   detail,
   closeOnSignIn = true,
+  /** In-app path to open after Google OAuth (e.g. `/account`). */
+  returnTo,
 }: {
   open: boolean;
   onClose: () => void;
@@ -47,6 +66,7 @@ export function SignInPromptModal({
    * Set false when the parent should stay open and continue (e.g. alert form after Google).
    */
   closeOnSignIn?: boolean;
+  returnTo?: string;
 }) {
   const { user, signInWithGoogle } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
@@ -55,6 +75,8 @@ export function SignInPromptModal({
   useEffect(() => {
     if (open && user && closeOnSignIn) onClose();
   }, [open, user, onClose, closeOnSignIn]);
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     if (!open) {
@@ -80,34 +102,24 @@ export function SignInPromptModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-panel modal-panel-sm" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div>
-            <h2 id="sign-in-prompt-title" className="modal-header-title">
-              {copy.title}
-            </h2>
-            <p className="modal-header-sub">{copy.body(detail)}</p>
-          </div>
-          <button className="btn btn-ghost" type="button" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </div>
-        <div className="modal-footer modal-footer--stack">
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={signingIn}
-            onClick={() => {
-              setSigningIn(true);
-              void signInWithGoogle().finally(() => setSigningIn(false));
-            }}
-          >
-            {signingIn ? 'Opening Google…' : 'Continue with Google'}
-          </button>
-          <button className="btn btn-ghost" type="button" onClick={onClose}>
-            Not now
-          </button>
-        </div>
+      <div className="modal-panel modal-panel-auth" onClick={(e) => e.stopPropagation()}>
+        <ModalCloseButton onClick={onClose} />
+        <AuthPanel
+          title={copy.title}
+          titleId="sign-in-prompt-title"
+          signingIn={signingIn}
+          onGoogle={() => {
+            setSigningIn(true);
+            void signInWithGoogle(returnTo).finally(() => setSigningIn(false));
+          }}
+          secondary={
+            <button type="button" className="auth-panel-back" onClick={onClose}>
+              Not now
+            </button>
+          }
+        >
+          {copy.body(detail)}
+        </AuthPanel>
       </div>
     </div>
   );

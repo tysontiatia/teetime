@@ -5,6 +5,9 @@ export type SortBy = 'distance' | 'soonest' | 'price' | 'rating';
 /** Tee-time fetch scope for the finder (`scope=all` in URL loads statewide). */
 export type FetchScope = 'nearby' | 'all';
 
+/** Regional fetch radius in miles (`radius` URL param; default 25). */
+export type FetchRadiusMi = 15 | 25 | 50;
+
 export type Course = {
   id: string;
   /** Full name from `courses.json` — matches worker + `notification_preferences.course_id`. */
@@ -55,6 +58,8 @@ export type SearchParams = {
   timeOfDay: TimeOfDayPreset;
   sortBy: SortBy;
   fetchScope: FetchScope;
+  /** Used when fetchScope is nearby — ignored for statewide. */
+  radiusMi: FetchRadiusMi;
 };
 
 export type PlanOption = {

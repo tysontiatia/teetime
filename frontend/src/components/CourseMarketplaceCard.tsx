@@ -6,42 +6,55 @@ import type { InventorySource } from '../hooks/useTimesByCourseMap';
 import { CoursePhoto } from './CoursePhoto';
 import { CourseCardTimesSkeleton } from './CourseCardSkeleton';
 import { buildBookingUrl } from '../lib/bookingUrl';
-import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
-import { pickNearestHour } from '../lib/weather';
-import { WeatherGlyph } from './WeatherGlyph';
-import { chipWeatherLabel, weatherKindFromPrecip } from '../lib/weatherKind';
+import { AlertsIcon, PlanIcon } from './icons/AppIcons';
 
-function walkabilityLabel(v: CourseRecord['walkability']): string | null {
-  if (!v) return null;
-  if (v === 'carts only') return 'Carts only';
-  return v.charAt(0).toUpperCase() + v.slice(1);
-}
-
-function metaLine(course: Course, record: CourseRecord | undefined): string {
+/** Location meta — rating is shown separately as a muted trust signal. */
+function metaLine(course: Course): string {
   const parts: string[] = [];
   if (course.city) parts.push(course.city);
   if (typeof course.distanceMi === 'number') parts.push(`${course.distanceMi.toFixed(1)} mi`);
-  if (record?.par) parts.push(`Par ${record.par}`);
-  const walk = record ? walkabilityLabel(record.walkability) : null;
-  if (walk) parts.push(walk);
   return parts.join(' · ');
 }
 
+function RatingMark({ rating }: { rating: number }) {
+  return (
+    <span className="course-rating course-rating--muted">
+      <span className="star-gold" aria-hidden>
+        ★
+      </span>{' '}
+      {rating.toFixed(1)}
+    </span>
+  );
+}
+
+/** Tee-sheet style: two player silhouettes. */
 function PlayersIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3.5 19c.8-3 2.8-4.5 5.5-4.5S13.7 16 14.5 19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="17" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M14.8 19c.5-2.2 1.8-3.3 3.7-3.3 1.5 0 2.7.7 3.5 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="7.5" r="2.6" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M4.2 19c.7-3.1 2.7-4.6 4.8-4.6s4.1 1.5 4.8 4.6"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <circle cx="16.2" cy="8.2" r="2.2" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="M13.4 19c.5-2.3 1.8-3.4 3.5-3.4 1.4 0 2.5.7 3.2 2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
+/** Tee-sheet style: flagstick in a cup. */
 function HolesIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M6 21V5l9 4.5L6 14" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M7 20.5V4.5l10 4.2L7 13" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <ellipse cx="7" cy="20.5" rx="3.2" ry="1.2" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -75,7 +88,6 @@ export function CourseMarketplaceCard({
   detailHref,
   timesPending = false,
   outOfScope = false,
-  inventorySource,
   variant = 'inventory',
   batchLoading = false,
   dateYmd,
@@ -88,30 +100,26 @@ export function CourseMarketplaceCard({
   shareDisabled = true,
 }: Props) {
   const comingSoon = variant === 'comingSoon';
-  const top = times.slice(0, 4);
+  const top = times.slice(0, 5);
   const hasTimes = !comingSoon && times.length > 0;
   const hotId = top[0]?.id;
-  const isLive = inventorySource === 'live';
-  const priceHint = times.find((t) => typeof t.price === 'number')?.price;
-  const meta = metaLine(course, record);
+  const meta = metaLine(course);
+  const hasRating = typeof course.rating === 'number';
   // Don't dim mid-batch — wait until the full check finishes so the grid doesn't thrash.
   const isEmpty = comingSoon || (!hasTimes && !timesPending && !batchLoading);
-
-  const weatherPoints = useCourseHourlyWeather(course.lat, course.lng, dateYmd, hasTimes);
+  const moreCount = times.length > top.length ? times.length - top.length : 0;
 
   let badgeLabel: string;
-  let showPulse = false;
   if (comingSoon) {
     badgeLabel = 'Coming soon';
   } else if (timesPending || (batchLoading && !hasTimes)) {
     badgeLabel = 'Checking…';
   } else if (hasTimes) {
     badgeLabel = `${times.length} open`;
-    showPulse = isLive;
   } else if (outOfScope) {
     badgeLabel = 'Nearby only';
   } else {
-    badgeLabel = 'No tee times';
+    badgeLabel = 'No matches';
   }
 
   const showSkeletonFooter = timesPending || (batchLoading && !hasTimes && !comingSoon);
@@ -134,36 +142,26 @@ export function CourseMarketplaceCard({
             ) : (
               <div className="mp-photo-fallback" aria-hidden />
             )}
-            <div className="mp-course-scrim mp-course-scrim--desktop">
+            <div className="mp-course-scrim">
               <div className="mp-course-scrim-main">
                 <div className="course-name">{course.name}</div>
-                <div className="course-meta">
-                  {typeof course.rating === 'number' ? (
-                    <span className="course-rating">
-                      <span className="star-gold" aria-hidden>
-                        ★
-                      </span>{' '}
-                      {course.rating.toFixed(1)}
-                      {typeof course.reviewCount === 'number' ? (
-                        <span> ({course.reviewCount.toLocaleString()})</span>
-                      ) : null}
-                    </span>
-                  ) : null}
-                  {typeof course.rating === 'number' && meta ? (
-                    <span className="sep" aria-hidden>
-                      ·
-                    </span>
-                  ) : null}
-                  {meta || null}
-                </div>
+                {hasRating || meta ? (
+                  <div className="course-meta">
+                    {hasRating ? <RatingMark rating={course.rating!} /> : null}
+                    {hasRating && meta ? (
+                      <span className="sep" aria-hidden>
+                        ·
+                      </span>
+                    ) : null}
+                    {meta || null}
+                  </div>
+                ) : null}
               </div>
-              {typeof priceHint === 'number' ? <div className="mp-course-price">from ${priceHint}</div> : null}
             </div>
           </Link>
 
-          <span className={`badge-live${showPulse ? ' is-live' : ''}${isEmpty ? ' is-muted' : ''}${badgeLabel === 'No tee times' ? ' is-soldout' : ''}`}>
-            {showPulse ? <span className="pulse" aria-hidden /> : null}
-            {badgeLabel === 'No tee times' ? 'Sold out' : badgeLabel}
+          <span className={`badge-live${isEmpty ? ' is-muted' : ''}${badgeLabel === 'No matches' ? ' is-soldout' : ''}`}>
+            {badgeLabel}
           </span>
 
           <div className="mp-course-actions">
@@ -171,29 +169,21 @@ export function CourseMarketplaceCard({
               type="button"
               className={`mp-icon-btn${isEmpty ? ' is-emphasis' : ''}`}
               aria-label={`Tee time alerts for ${course.name}`}
-              title="Tee time alerts"
+              title="Alerts"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onAlert();
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <AlertsIcon />
             </button>
             {!comingSoon ? (
               <button
                 type="button"
                 className="mp-icon-btn mp-icon-btn--share"
-                aria-label={`Share vote link for ${course.name}`}
-                title="Share times"
+                aria-label={`Plan a round at ${course.name}`}
+                title="Plan a round"
                 disabled={shareDisabled || shareBusy}
                 onClick={(e) => {
                   e.preventDefault();
@@ -201,50 +191,18 @@ export function CourseMarketplaceCard({
                   onShare?.();
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path
-                    d="M12 3v11M8.5 6.5L12 3l3.5 3.5"
-                    stroke="currentColor"
-                    strokeWidth="1.9"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M5 12v6.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V12"
-                    stroke="currentColor"
-                    strokeWidth="1.9"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <PlanIcon />
               </button>
             ) : null}
           </div>
         </div>
 
-        <div className="mp-course-body">
-          <Link to={detailHref} className="mp-course-body-link">
-            <div className="mp-course-body-name">{course.name}</div>
-            <div className="mp-course-body-meta">
-              {typeof course.rating === 'number' ? (
-                <span className="course-rating">
-                  <span className="star-gold" aria-hidden>
-                    ★
-                  </span>{' '}
-                  {course.rating.toFixed(1)}
-                  {typeof course.reviewCount === 'number' ? (
-                    <span className="mp-review-count"> ({course.reviewCount.toLocaleString()})</span>
-                  ) : null}
-                </span>
-              ) : null}
-              {typeof course.rating === 'number' && meta ? <span className="sep" aria-hidden>·</span> : null}
-              {meta || null}
-            </div>
-          </Link>
-        </div>
-
         {hasTimes ? (
-          <div className="tee-strip">
+          <div
+            className={`tee-strip tee-strip--discover${moreCount > 0 ? ' has-more' : ''}${
+              top.length >= 4 ? ' is-dense' : ''
+            }`}
+          >
             {top.map((t) => {
               const bookHref =
                 dateYmd != null
@@ -255,49 +213,44 @@ export function CourseMarketplaceCard({
                       startsAtIso: t.startsAt,
                     })
                   : null;
-              const wx = weatherPoints ? pickNearestHour(weatherPoints, t.startsAt) : null;
-              const wxLabel = chipWeatherLabel(wx);
-              const precip = wx?.precipProb ?? 0;
-              const wet = precip >= 45;
-              const wxKind = weatherKindFromPrecip(precip);
-              const chipClass = `tee-chip tee-chip--rich${t.id === hotId ? ' hot' : ''}${wet ? ' is-wet' : ''}`;
+              const chipClass = `tee-chip tee-chip--compact${t.id === hotId ? ' hot' : ''}${
+                t.reopenedAt ? ' is-reopened' : ''
+              }`;
               const timeLabel = formatTime12h(t.startsAt);
+              const spots = typeof t.spots === 'number' ? t.spots : null;
+              const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
+              const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;
+              const availParts = [
+                spots != null ? `${spots} spot${spots === 1 ? '' : 's'}` : null,
+                `${t.holes} holes`,
+                priceLabel,
+                reopenLabel,
+              ].filter(Boolean);
+              const availTitle = availParts.join(' · ');
               const chipBody = (
                 <>
-                  <span className="tee-chip-top">
-                    <span className="t">{timeLabel}</span>
-                    {wxLabel ? (
-                      <span className={`tee-chip-wx tee-chip-wx--${wxKind}`}>
-                        <WeatherGlyph precipProb={precip} />
-                        {wxLabel}
-                      </span>
-                    ) : (
-                      <span className="tee-chip-wx tee-chip-wx--placeholder" aria-hidden>
-                        ···
-                      </span>
-                    )}
-                  </span>
-                  <span className="tee-chip-meta">
-                    {typeof t.spots === 'number' ? (
-                      <span className="tee-chip-meta-item" title={`${t.spots} spot${t.spots === 1 ? '' : 's'}`}>
+                  {reopenLabel ? (
+                    <span className="tee-chip-new" title={reopenLabel}>
+                      New
+                    </span>
+                  ) : null}
+                  <span className="t">{timeLabel}</span>
+                  <span className="tee-chip-sheet" title={availTitle || undefined}>
+                    {spots != null ? (
+                      <span className="tee-chip-sheet-item">
                         <PlayersIcon />
-                        {t.spots}
+                        {spots}
                       </span>
                     ) : null}
-                    <span className="tee-chip-meta-item" title={`${t.holes} holes`}>
+                    <span className="tee-chip-sheet-item">
                       <HolesIcon />
                       {t.holes}
                     </span>
                   </span>
-                  {t.reopenedAt ? (
-                    <span className="p reopened">{formatReopenedAgo(t.reopenedAt)}</span>
-                  ) : typeof t.price === 'number' ? (
-                    <span className="p">${t.price}</span>
-                  ) : (
-                    <span className="p p-muted">—</span>
-                  )}
+                  {priceLabel ? <span className="p">{priceLabel}</span> : null}
                 </>
               );
+              const bookLabel = `Book ${timeLabel} at ${course.name}${availTitle ? `, ${availTitle}` : ''}`;
               if (bookHref) {
                 return (
                   <a
@@ -307,7 +260,7 @@ export function CourseMarketplaceCard({
                     rel="noreferrer"
                     className={chipClass}
                     onClick={(e) => e.stopPropagation()}
-                    aria-label={`Book ${formatTime12h(t.startsAt)} at ${course.name}`}
+                    aria-label={bookLabel}
                   >
                     {chipBody}
                   </a>
@@ -324,9 +277,15 @@ export function CourseMarketplaceCard({
                 </Link>
               );
             })}
-            {times.length > top.length ? (
-              <Link to={detailHref} className="tee-chip tee-chip--rich more" onClick={(e) => e.stopPropagation()}>
-                +{times.length - top.length}
+            {moreCount > 0 ? (
+              <Link
+                to={detailHref}
+                className="tee-chip tee-chip--compact more"
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`View ${moreCount} more tee times at ${course.name}`}
+                title="View all times"
+              >
+                +{moreCount}
               </Link>
             ) : null}
           </div>
@@ -362,18 +321,15 @@ export function CourseMarketplaceCard({
               </>
             ) : outOfScope ? (
               <>
-                <span className="tee-empty-msg">Outside nearby search</span>
+                <span className="tee-empty-msg">Outside search radius</span>
                 <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onSearchAllUtah}>
-                  Search all Utah
+                  Try Statewide
                 </button>
               </>
             ) : (
-              <>
-                <span className="tee-empty-msg">No tee times available</span>
-                <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onAlert}>
-                  Alert me
-                </button>
-              </>
+              <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onAlert}>
+                Alert me
+              </button>
             )}
           </div>
         )}
