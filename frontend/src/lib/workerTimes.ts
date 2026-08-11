@@ -302,6 +302,12 @@ function snapshotIsFresh(
   return Number.isFinite(age) && age >= 0 && age <= snapshotMaxAgeMs(playDateYmd, nowMs);
 }
 
+function snapshotAgeMs(snapshot: SnapshotAvailabilityResponse, nowMs: number = Date.now()): number | null {
+  if (!snapshot.last_polled_at) return null;
+  const age = nowMs - new Date(snapshot.last_polled_at).getTime();
+  return Number.isFinite(age) ? age : null;
+}
+
 function canTrustSnapshotForPlayers(
   snapshot: SnapshotAvailabilityResponse,
   players: 1 | 2 | 3 | 4,
@@ -309,17 +315,17 @@ function canTrustSnapshotForPlayers(
 ): boolean {
   if (!snapshot.ok || !snapshot.has_poll_coverage || !Array.isArray(snapshot.times)) return false;
   if (!snapshotIsFresh(snapshot, playDateYmd)) return false;
+  // Empty "fully booked" is high-regret if wrong (e.g. Stonebridge opened seats after
+  // the last poll). Only trust a fresh empty sheet; otherwise force live.
+  if (snapshot.times.length === 0) {
+    if (snapshot.spots_known !== true) return false;
+    const age = snapshotAgeMs(snapshot);
+    return age != null && age <= SNAPSHOT_REVALIDATE_AFTER_MS;
+  }
   if (players === 1) return true;
   // Multi-player needs spot counts. Empty [].every() is vacuously true — don't trust that.
   if (snapshot.spots_known === false) return false;
-  if (snapshot.times.length === 0) return snapshot.spots_known === true;
   return snapshot.times.every((row) => row.spots != null);
-}
-
-function snapshotAgeMs(snapshot: SnapshotAvailabilityResponse, nowMs: number = Date.now()): number | null {
-  if (!snapshot.last_polled_at) return null;
-  const age = nowMs - new Date(snapshot.last_polled_at).getTime();
-  return Number.isFinite(age) ? age : null;
 }
 
 /** Paint from snapshot, then live-refresh when aging (golf hours only). */

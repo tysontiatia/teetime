@@ -9,6 +9,8 @@ fallback only for misses/stale. Freshness is tiered to match poller claim lag (n
 naive 5–12 min window); overnight Find trusts last evening's snapshot while the
 poller sleeps. During golf hours, Find **paints snapshots then background
 live-revalidates** any course older than ~12 minutes (stale-while-revalidate).
+Empty player-filtered snapshots older than ~12 minutes always live-fetch (avoids
+hiding real openings like a sold-out poll that later reopened).
 Course detail still uses `/v1/availability`.
 
 **Later:** migrate CoursePage to batch-of-1; server-side live aggregation inside the
