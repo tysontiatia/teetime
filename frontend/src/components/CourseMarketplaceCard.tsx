@@ -67,19 +67,24 @@ type Props = {
   timesPending?: boolean;
   outOfScope?: boolean;
   inventorySource?: InventorySource;
-  variant?: 'inventory' | 'comingSoon';
-  /** True while the finder batch is still fetching — keeps layout calm. */
-  batchLoading?: boolean;
-  /** Finder search date — used to enrich “Open site” booking links. */
+  /** `bookingLink` = no live inventory; deep-link + call instead. */
+  variant?: 'inventory' | 'bookingLink';
+  /** Finder search date — used to enrich booking deep links. */
   dateYmd?: string;
   players?: number;
   holes?: number;
-  onAlert: () => void;
+  onAlert?: () => void;
   onSearchAllUtah?: () => void;
   onShare?: () => void;
   shareBusy?: boolean;
   shareDisabled?: boolean;
 };
+
+function telHref(phone: string | undefined | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  return digits ? `tel:${digits}` : null;
+}
 
 export function CourseMarketplaceCard({
   course,
@@ -89,7 +94,6 @@ export function CourseMarketplaceCard({
   timesPending = false,
   outOfScope = false,
   variant = 'inventory',
-  batchLoading = false,
   dateYmd,
   players = 2,
   holes = 18,
@@ -99,21 +103,21 @@ export function CourseMarketplaceCard({
   shareBusy = false,
   shareDisabled = true,
 }: Props) {
-  const comingSoon = variant === 'comingSoon';
+  const bookingLinkOnly = variant === 'bookingLink';
   const top = times.slice(0, 5);
-  const hasTimes = !comingSoon && times.length > 0;
+  const hasTimes = !bookingLinkOnly && times.length > 0;
   const hotId = top[0]?.id;
   const meta = metaLine(course);
   const hasRating = typeof course.rating === 'number';
-  // Don't dim mid-batch — wait until the full check finishes so the grid doesn't thrash.
-  const isEmpty = comingSoon || (!hasTimes && !timesPending && !batchLoading);
+  // Empty as soon as this course finishes — don't wait on the rest of the batch.
+  const isEmpty = bookingLinkOnly || (!hasTimes && !timesPending);
   const moreCount = times.length > top.length ? times.length - top.length : 0;
 
   let badgeLabel: string;
-  if (comingSoon) {
-    badgeLabel = 'Coming soon';
-  } else if (timesPending || (batchLoading && !hasTimes)) {
-    badgeLabel = 'Checking…';
+  if (bookingLinkOnly) {
+    badgeLabel = 'On course site';
+  } else if (timesPending) {
+    badgeLabel = '…';
   } else if (hasTimes) {
     badgeLabel = `${times.length} open`;
   } else if (outOfScope) {
@@ -122,7 +126,9 @@ export function CourseMarketplaceCard({
     badgeLabel = 'No matches';
   }
 
-  const showSkeletonFooter = timesPending || (batchLoading && !hasTimes && !comingSoon);
+  // Only the course still in-flight shows a skeleton — don't hold the whole grid
+  // on "Checking…" for a slow vendor (e.g. GolfPay / Barn).
+  const showSkeletonFooter = timesPending;
   const openSiteHref =
     dateYmd != null
       ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
@@ -131,6 +137,7 @@ export function CourseMarketplaceCard({
           holes,
         })
       : course.bookingUrl;
+  const callHref = telHref(record?.phone_number);
 
   return (
     <article className={`mp-course${isEmpty ? ' is-empty' : ''}`}>
@@ -160,25 +167,32 @@ export function CourseMarketplaceCard({
             </div>
           </Link>
 
-          <span className={`badge-live${isEmpty ? ' is-muted' : ''}${badgeLabel === 'No matches' ? ' is-soldout' : ''}`}>
+          <span
+            className={`badge-live${isEmpty || timesPending ? ' is-muted' : ''}${
+              badgeLabel === 'No matches' ? ' is-soldout' : ''
+            }${timesPending ? ' is-pending' : ''}`}
+            aria-label={timesPending ? 'Checking tee times' : undefined}
+          >
             {badgeLabel}
           </span>
 
           <div className="mp-course-actions">
-            <button
-              type="button"
-              className={`mp-icon-btn${isEmpty ? ' is-emphasis' : ''}`}
-              aria-label={`Tee time alerts for ${course.name}`}
-              title="Alerts"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onAlert();
-              }}
-            >
-              <AlertsIcon />
-            </button>
-            {!comingSoon ? (
+            {!bookingLinkOnly && onAlert ? (
+              <button
+                type="button"
+                className={`mp-icon-btn${isEmpty ? ' is-emphasis' : ''}`}
+                aria-label={`Tee time alerts for ${course.name}`}
+                title="Alerts"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAlert();
+                }}
+              >
+                <AlertsIcon />
+              </button>
+            ) : null}
+            {!bookingLinkOnly ? (
               <button
                 type="button"
                 className="mp-icon-btn mp-icon-btn--share"
@@ -295,28 +309,35 @@ export function CourseMarketplaceCard({
           </div>
         ) : (
           <div className="tee-strip tee-strip-empty">
-            {comingSoon ? (
+            {bookingLinkOnly ? (
               <>
-                <span className="tee-empty-msg">Live tee times coming soon</span>
+                <span className="tee-empty-msg">Book on course site</span>
                 <div className="tee-empty-actions">
-                  <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onAlert}>
-                    Alert me
-                  </button>
                   {openSiteHref ? (
                     <a
-                      className="tee-empty-action"
+                      className="tee-empty-action tee-empty-action--primary"
                       href={openSiteHref}
                       target="_blank"
                       rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      Open site →
+                      See times
                     </a>
                   ) : (
-                    <Link to={detailHref} className="tee-empty-action">
-                      Details →
+                    <Link to={detailHref} className="tee-empty-action tee-empty-action--primary">
+                      Details
                     </Link>
                   )}
+                  {callHref && record?.phone_number ? (
+                    <a
+                      className="tee-empty-action tee-empty-action--phone"
+                      href={callHref}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
+                    >
+                      {record.phone_number.trim()}
+                    </a>
+                  ) : null}
                 </div>
               </>
             ) : outOfScope ? (

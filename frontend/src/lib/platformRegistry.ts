@@ -80,8 +80,8 @@ export function capabilityHint(cap: PlatformCapability): string {
     case 'live_inventory':
       return 'Live tee times';
     case 'auth_gated_planned':
-      return 'Worker support planned. Open site to book';
+      return 'Book on the course site, or call the pro shop';
     default:
-      return 'Open site to see times';
+      return 'Book on the course site, or call the pro shop';
   }
 }

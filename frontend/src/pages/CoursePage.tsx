@@ -4,7 +4,7 @@ import { formatDateCompact, formatDateShort, formatReopenedAgo, formatTime12h, m
 import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
-import { capabilityHint, getPlatformCapability, platformDisplayName, workerSupportedPlatform } from '../lib/platformRegistry';
+import { capabilityHint, getPlatformCapability, workerSupportedPlatform } from '../lib/platformRegistry';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { CoursePhoto } from '../components/CoursePhoto';
 import { NotificationModal } from '../components/NotificationModal';
@@ -305,6 +305,15 @@ export function CoursePage() {
 
   const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
   const unsupported = !record || cap !== 'live_inventory';
+  const bookingLinkHref = unsupported
+    ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
+        dateYmd: date,
+        players,
+        holes,
+      })
+    : null;
+  const proShopPhone = record?.phone_number?.trim() || '';
+  const proShopTelHref = proShopPhone ? `tel:${proShopPhone.replace(/\D/g, '')}` : null;
   const selected = times.find((t) => t.id === selectedSlotId) ?? times[0] ?? null;
   const hiddenSlotCount = Math.max(0, times.length - SLOT_PREVIEW);
   const visibleSlots = slotsExpanded || hiddenSlotCount === 0 ? times : times.slice(0, SLOT_PREVIEW);
@@ -359,27 +368,33 @@ export function CoursePage() {
             <span className="pulse" aria-hidden />
             {openCount} open
           </span>
+        ) : unsupported ? (
+          <span className="badge-live is-muted detail-hero-open">On course site</span>
         ) : null}
         <div className="mp-course-actions detail-hero-actions">
-          <button
-            type="button"
-            className="mp-icon-btn"
-            aria-label={`Tee time alerts for ${course.name}`}
-            title="Alerts"
-            onClick={() => setNotifOpen(true)}
-          >
-            <AlertsIcon />
-          </button>
-          <button
-            type="button"
-            className="mp-icon-btn"
-            aria-label={`Plan a round at ${course.name}`}
-            title="Plan a round"
-            disabled={!canShare || authLoading}
-            onClick={onShareTimes}
-          >
-            <PlanIcon />
-          </button>
+          {!unsupported ? (
+            <button
+              type="button"
+              className="mp-icon-btn"
+              aria-label={`Tee time alerts for ${course.name}`}
+              title="Alerts"
+              onClick={() => setNotifOpen(true)}
+            >
+              <AlertsIcon />
+            </button>
+          ) : null}
+          {!unsupported ? (
+            <button
+              type="button"
+              className="mp-icon-btn"
+              aria-label={`Plan a round at ${course.name}`}
+              title="Plan a round"
+              disabled={!canShare || authLoading}
+              onClick={onShareTimes}
+            >
+              <PlanIcon />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -519,12 +534,24 @@ export function CoursePage() {
 
           {unsupported ? (
             <div className="rail-empty">
-              <p>
-                <strong>{platformDisplayName(record?.platform)}</strong>. {capabilityHint(cap)}.
-              </p>
-              <button type="button" className="tee-empty-action" onClick={() => setNotifOpen(true)}>
-                Alert me
-              </button>
+              <p>{capabilityHint(cap)}.</p>
+              <div className="rail-empty-actions">
+                {bookingLinkHref ? (
+                  <a
+                    className="tee-empty-action tee-empty-action--primary"
+                    href={bookingLinkHref}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    See times
+                  </a>
+                ) : null}
+                {proShopTelHref ? (
+                  <a className="tee-empty-action tee-empty-action--phone" href={proShopTelHref}>
+                    {proShopPhone}
+                  </a>
+                ) : null}
+              </div>
             </div>
           ) : loadingTimes ? (
             <p className="rail-status">Checking tee times…</p>
@@ -676,21 +703,23 @@ export function CoursePage() {
             </>
           )}
 
-          <div className="tee-panel-foot">
-            <button type="button" className="tee-panel-alert-link" onClick={() => setNotifOpen(true)}>
-              <AlertsIcon size={16} />
-              Create alert
-            </button>
-            <button
-              type="button"
-              className="tee-panel-plan-link"
-              disabled={!canShare || authLoading}
-              onClick={onShareTimes}
-            >
-              <PlanIcon size={16} />
-              Plan a round
-            </button>
-          </div>
+          {!unsupported ? (
+            <div className="tee-panel-foot">
+              <button type="button" className="tee-panel-alert-link" onClick={() => setNotifOpen(true)}>
+                <AlertsIcon size={16} />
+                Create alert
+              </button>
+              <button
+                type="button"
+                className="tee-panel-plan-link"
+                disabled={!canShare || authLoading}
+                onClick={onShareTimes}
+              >
+                <PlanIcon size={16} />
+                Plan a round
+              </button>
+            </div>
+          ) : null}
         </aside>
       </div>
 

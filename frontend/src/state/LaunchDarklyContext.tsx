@@ -70,9 +70,10 @@ export function LaunchDarklyProvider({ children }: { children: React.ReactNode }
     const clientSideId = getLaunchDarklyClientSideId();
     const context = makeLDContext(user);
     const client = initialize(clientSideId, context, {
-      // Keep this simple for onboarding: we only need flag evaluation.
-      // Events are still sent when the SDK is available, but we avoid extra noise.
-      sendEvents: true,
+      // Local: skip analytics — events.launchdarkly.com is often blocked by
+      // extensions/CORS from localhost and only adds console noise. Flag eval still works.
+      sendEvents: !import.meta.env.DEV,
+      diagnosticOptOut: import.meta.env.DEV,
       bootstrap: 'localStorage',
     });
 

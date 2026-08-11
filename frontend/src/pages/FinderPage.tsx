@@ -181,7 +181,6 @@ export function FinderPage() {
     failedSlugs,
     attemptedSlugCount,
     pendingSlugs,
-    loadedSlugCount,
   } = useTimesByCourseMap(
     fetchPool,
     recordsBySlug,
@@ -207,8 +206,9 @@ export function FinderPage() {
   }, [rawTimesByCourse, params.timeOfDay, params.players]);
 
   const gridCourses = useMemo(() => {
-    // Stable distance order while inventory streams in — one intentional reorder when the batch finishes.
-    if (loadingTimes) {
+    // Progressive open-first as results arrive (avoids looking "stuck" while a slow
+    // vendor like GolfPay is still pending).
+    if (loadingTimes && timesByCourse.size === 0) {
       return sortCourses([...searchPool], new Map(), 'distance');
     }
     return sortFinderGridCourses(searchPool, timesByCourse, params.sortBy);
@@ -223,53 +223,74 @@ export function FinderPage() {
     !loadingTimes && failedSlugs.length > 0 && failedSlugs.length === attemptedSlugCount && attemptedSlugCount > 0;
   const workerFetchPartialFailure = !loadingTimes && failedSlugs.length > 0 && !workerFetchTotalFailure;
 
-  /** Same search as live list, but over the full catalog (other platforms). */
-  const queryAllCourses = useMemo(() => {
-    const q = locationDraft.trim();
-    if (placeMatch) return coursesNearPlace(courses);
-    if (!q) return courses;
-    return courses.filter((c) => courseMatchesLocationQuery(c, q));
-  }, [courses, locationDraft, placeMatch, coursesNearPlace]);
-
-  const bookingOnlyCourses = useMemo(() => {
-    let list = queryAllCourses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
+  /** Booking-link courses in the same geographic / search scope as the live grid. */
+  const bookingOnlyInScope = useMemo(() => {
+    let list = courses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
     if (params.holes !== 9) list = list.filter((c) => c.holes !== 9);
-    return list;
-  }, [queryAllCourses, params.holes]);
 
-  const bookingOnlySorted = useMemo(
-    () => [...bookingOnlyCourses].sort(sortCoursesByDistanceThenName),
-    [bookingOnlyCourses]
-  );
-
-  /** While searching a place/query, surface booking-link courses in the main grid. */
-  const searchingPlaceOrQuery = Boolean(placeMatch || locationDraft.trim());
+    const q = locationDraft.trim();
+    if (fetchAllUtah && !placeMatch && !q) {
+      return [...list].sort(sortCoursesByDistanceThenName);
+    }
+    if (placeMatch) {
+      return coursesNearPlace(list).sort(sortCoursesByDistanceThenName);
+    }
+    if (q) {
+      return list
+        .filter((c) => courseMatchesLocationQuery(c, q))
+        .sort(sortCoursesByDistanceThenName);
+    }
+    const anchor = timesFetchScope.anchor;
+    return filterCoursesWithinRadius(list, anchor, radiusMi)
+      .map((c) => ({
+        ...c,
+        distanceMi: distanceFromAnchor(c, anchor) ?? undefined,
+      }))
+      .sort(sortCoursesByDistanceThenName);
+  }, [
+    courses,
+    params.holes,
+    locationDraft,
+    fetchAllUtah,
+    placeMatch,
+    coursesNearPlace,
+    timesFetchScope.anchor,
+    radiusMi,
+  ]);
 
   const displayCourses = useMemo(() => {
-    if (!searchingPlaceOrQuery || bookingOnlySorted.length === 0) return gridCourses;
+    if (bookingOnlyInScope.length === 0) return gridCourses;
     const liveIds = new Set(gridCourses.map((c) => c.id));
-    const extras = bookingOnlySorted.filter((c) => !liveIds.has(c.id));
+    const extras = bookingOnlyInScope.filter((c) => !liveIds.has(c.id));
     if (extras.length === 0) return gridCourses;
-    return [...gridCourses, ...extras].sort(sortCoursesByDistanceThenName);
-  }, [searchingPlaceOrQuery, gridCourses, bookingOnlySorted]);
+    const combined = [...gridCourses, ...extras];
+    if (loadingTimes && timesByCourse.size === 0) {
+      return combined.sort(sortCoursesByDistanceThenName);
+    }
+    return sortFinderGridCourses(combined, timesByCourse, params.sortBy);
+  }, [gridCourses, bookingOnlyInScope, loadingTimes, timesByCourse, params.sortBy]);
 
-  /** Collapsed "coming soon" list — omit courses already shown in the main grid while searching. */
-  const bookingOnlySectionCourses = useMemo(() => {
-    if (!searchingPlaceOrQuery) return bookingOnlySorted;
-    return [];
-  }, [searchingPlaceOrQuery, bookingOnlySorted]);
-
-  const resultCountLabel = catalogLoading
+  const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
-    : loadingTimes
-      ? attemptedSlugCount > 0
-        ? `Checking ${loadedSlugCount}/${attemptedSlugCount}…`
-        : 'Checking…'
-      : withTimesCount > 0
-        ? `${withTimesCount} open`
+    : withTimesCount > 0
+      ? `${withTimesCount} open`
+      : loadingTimes
+        ? 'Finding tee times…'
         : `${displayCourses.length} courses`;
 
-  const [showBookingOnly, setShowBookingOnly] = useState(false);
+  const resultCountSecondary = catalogLoading
+    ? null
+    : loadingTimes && withTimesCount > 0
+      ? 'still checking a few…'
+      : loadingTimes
+        ? null
+        : (() => {
+            const m = minutesSince(lastUpdatedAt);
+            if (m == null) return null;
+            if (m === 0) return 'Updated just now';
+            return `Updated ${m}m ago`;
+          })();
+
   const [planRound, setPlanRound] = useState<PlanRoundTarget | null>(null);
   const [planAfterSignIn, setPlanAfterSignIn] = useState<PlanRoundTarget | null>(null);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
@@ -277,13 +298,6 @@ export function FinderPage() {
     setSignInToShareOpen(false);
     setPlanAfterSignIn(null);
   }, []);
-
-  const updatedLabel = useMemo(() => {
-    const m = minutesSince(lastUpdatedAt);
-    if (m == null) return '—';
-    if (m === 0) return 'Updated just now';
-    return `Updated ${m}m ago`;
-  }, [lastUpdatedAt]);
 
   useEffect(() => {
     if (user?.id && planAfterSignIn) {
@@ -642,9 +656,15 @@ export function FinderPage() {
         />
 
         <div className="result-meta">
-          <span className="result-count">
-            <strong>{resultCountLabel}</strong>
-            {updatedLabel !== '—' ? ` · ${updatedLabel}` : ''}
+          <span
+            className={`result-count${
+              loadingTimes && withTimesCount === 0 ? ' is-finding' : ''
+            }`}
+          >
+            <strong>{resultCountPrimary}</strong>
+            {resultCountSecondary ? (
+              <span className="result-count-secondary"> · {resultCountSecondary}</span>
+            ) : null}
           </span>
           <FinderDayOutlook
             dateYmd={params.date}
@@ -744,12 +764,13 @@ export function FinderPage() {
                   timesPending={timesPending}
                   outOfScope={outOfScope}
                   inventorySource={sourceBySlug.get(course.id)}
-                  batchLoading={loadingTimes && !bookingLinkOnly}
-                  variant={bookingLinkOnly ? 'comingSoon' : 'inventory'}
+                  variant={bookingLinkOnly ? 'bookingLink' : 'inventory'}
                   dateYmd={params.date}
                   players={params.players}
                   holes={params.holes}
-                  onAlert={() => setNotifCourseId(course.id)}
+                  onAlert={
+                    bookingLinkOnly ? undefined : () => setNotifCourseId(course.id)
+                  }
                   onSearchAllUtah={() => setRadiusMode('all')}
                   onShare={() => requestShareRound(course, times)}
                   shareDisabled={times.length === 0 || timesPending || authLoading}
@@ -757,46 +778,6 @@ export function FinderPage() {
               );
             })}
         </div>
-
-        {bookingOnlySectionCourses.length > 0 ? (
-          <section className="booking-only-section">
-            <button
-              type="button"
-              className="booking-only-toggle"
-              onClick={() => setShowBookingOnly((s) => !s)}
-              aria-expanded={showBookingOnly}
-            >
-              <span>
-                Coming soon <span className="booking-only-count">({bookingOnlySectionCourses.length})</span>
-              </span>
-              <span className="booking-only-chevron" aria-hidden>
-                {showBookingOnly ? '−' : '+'}
-              </span>
-            </button>
-            {showBookingOnly ? (
-              <>
-                <p className="booking-only-blurb">
-                  These courses aren&apos;t on live inventory yet. We&apos;ll add tee times as platforms come online.
-                </p>
-                <div className="mp-grid booking-only-grid">
-                  {bookingOnlySectionCourses.map((course) => (
-                    <CourseMarketplaceCard
-                      key={course.id}
-                      course={course}
-                      record={recordsBySlug.get(course.id)}
-                      detailHref={`/course/${course.id}?${courseDetailQueryString(params)}`}
-                      variant="comingSoon"
-                      dateYmd={params.date}
-                      players={params.players}
-                      holes={params.holes}
-                      onAlert={() => setNotifCourseId(course.id)}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
-          </section>
-        ) : null}
 
         <p className="finder-help">
           Planning a group round? Tap the calendar icon on a course for a vote link — past links live under{' '}
