@@ -45,6 +45,8 @@ const SNAPSHOT_OFF_HOURS_MAX_AGE_MS = 18 * 60 * 60 * 1000;
  */
 const SNAPSHOT_REVALIDATE_AFTER_MS = 12 * 60 * 1000;
 
+/** Max wait for /v1/tee-times (may server-side live-fill several vendors). */
+const TEE_TIMES_BATCH_TIMEOUT_MS = 35_000;
 /** Abort a single worker request if it stalls, so it can't hold a concurrency slot forever. */
 const REQUEST_TIMEOUT_MS = 15_000;
 /** GolfPay upstream often takes 15–25s; worker allows 30s — client must wait longer. */
@@ -347,11 +349,16 @@ type BatchSlugSnapshot = {
   spots_known?: boolean;
   last_polled_at?: string | null;
   times?: SnapshotAvailabilityResponse['times'];
+  /** snapshot = poller cache; live = worker filled from vendor in this request. */
+  source?: 'snapshot' | 'live';
+  live_failed?: boolean;
 };
 
 type BatchTeeTimesResponse = {
   ok?: boolean;
   by_slug?: Record<string, BatchSlugSnapshot>;
+  live_filled?: number;
+  live_failed?: number;
 };
 
 function chunkSlugs<T>(items: T[], size: number): T[][] {
@@ -361,16 +368,19 @@ function chunkSlugs<T>(items: T[], size: number): T[][] {
 }
 
 /**
- * Batched snapshot read via GET /v1/tee-times?ids=.
- * Returns a map of slug → snapshot payload (missing slugs omitted on transport failure).
+ * Batched read via GET /v1/tee-times?ids= (snapshots + server-side live fill).
+ * Returns a map of slug → payload (missing slugs omitted on transport failure).
  */
 async function fetchTeeTimesBatchFromSnapshot(
   slugs: string[],
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
-): Promise<Map<string, SnapshotAvailabilityResponse>> {
-  const out = new Map<string, SnapshotAvailabilityResponse>();
+): Promise<Map<string, SnapshotAvailabilityResponse & { batchSource?: 'snapshot' | 'live'; live_failed?: boolean }>> {
+  const out = new Map<
+    string,
+    SnapshotAvailabilityResponse & { batchSource?: 'snapshot' | 'live'; live_failed?: boolean }
+  >();
   if (slugs.length === 0) return out;
   const base = getWorkerBaseUrl();
 
@@ -382,20 +392,23 @@ async function fetchTeeTimesBatchFromSnapshot(
       url.searchParams.set('players', String(players));
       url.searchParams.set('ids', chunk.join(','));
       try {
-        const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, REQUEST_TIMEOUT_MS);
+        const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, TEE_TIMES_BATCH_TIMEOUT_MS);
         if (!res.ok) return;
         const data = (await res.json()) as BatchTeeTimesResponse;
         if (!data?.by_slug || typeof data.by_slug !== 'object') return;
         for (const slug of chunk) {
           const row = data.by_slug[slug];
           if (!row) continue;
+          const batchSource = row.source === 'live' ? 'live' : 'snapshot';
           out.set(slug, {
             ok: true,
-            source: 'snapshot',
+            source: batchSource,
             has_poll_coverage: row.has_poll_coverage === true,
             spots_known: row.spots_known !== false,
             last_polled_at: row.last_polled_at ?? null,
             times: Array.isArray(row.times) ? row.times : [],
+            batchSource,
+            live_failed: row.live_failed === true,
           });
         }
       } catch {
@@ -405,6 +418,18 @@ async function fetchTeeTimesBatchFromSnapshot(
   );
 
   return out;
+}
+
+/** Whether Finder can paint from a /v1/tee-times row without a client live call. */
+function canUseBatchRow(
+  row: SnapshotAvailabilityResponse & { batchSource?: 'snapshot' | 'live'; live_failed?: boolean },
+  players: 1 | 2 | 3 | 4,
+  playDateYmd: string,
+): boolean {
+  if (row.live_failed) return false;
+  // Server completed a vendor fill for this slug (including confirmed empty).
+  if (row.batchSource === 'live') return Array.isArray(row.times);
+  return canTrustSnapshotForPlayers(row, players, playDateYmd);
 }
 
 export async function fetchTeeTimesForCourse(
@@ -517,11 +542,17 @@ export async function fetchTimesForCourseSlugs(
 
   for (const entry of entries) {
     const snap = batchMap.get(entry.slug);
-    if (snap && canTrustSnapshotForPlayers(snap, players, dateYmd)) {
+    if (snap && canUseBatchRow(snap, players, dateYmd)) {
       const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
       out.set(entry.slug, times);
-      onCourseComplete?.({ slug: entry.slug, times, ok: true, source: 'snapshot' });
-      if (revalidateStale && shouldBackgroundRevalidate(snap, dateYmd, players)) {
+      const source = snap.batchSource === 'live' ? 'live' : 'snapshot';
+      onCourseComplete?.({ slug: entry.slug, times, ok: true, source });
+      // Only background-revalidate poller snapshots (server live rows are already fresh).
+      if (
+        revalidateStale &&
+        source === 'snapshot' &&
+        shouldBackgroundRevalidate(snap, dateYmd, players)
+      ) {
         needRevalidate.push({
           slug: entry.slug,
           record: entry.record,

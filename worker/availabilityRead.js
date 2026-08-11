@@ -1,11 +1,24 @@
 /**
  * Read path: serve polled tee_time_slots snapshots via GET /v1/availability
- * and batched GET /v1/tee-times?ids=.
+ * and batched GET /v1/tee-times?ids= (with optional server-side live fill).
  */
+
+import { slugFromCourseName } from './courseAdmin.js';
 
 const REOPENED_LOOKBACK_MS = 6 * 60 * 60 * 1000;
 /** Max course slugs per /v1/tee-times request (URL + PostgREST bound). */
 export const TEE_TIMES_BATCH_MAX_IDS = 20;
+
+const MT_TZ = 'America/Denver';
+const GOLF_HOUR_START = 6;
+const GOLF_HOUR_END = 23;
+/** Prefer live fill when snapshot older than this (empty or daytime aging). */
+const SNAPSHOT_REVALIDATE_AFTER_MS = 12 * 60 * 1000;
+const SNAPSHOT_OFF_HOURS_MAX_AGE_MS = 18 * 60 * 60 * 1000;
+const LIVE_FILL_CONCURRENCY = 6;
+const LIVE_FILL_TIMEOUT_MS = 12_000;
+const LIVE_FILL_SLOW_TIMEOUT_MS = 28_000;
+const SLOW_LIVE_PLATFORMS = new Set(['golfpay']);
 
 function corsResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -216,6 +229,7 @@ export function buildTeeTimesBySlug(slugs, scheduleRows, slotRows, eventRows, pl
       spots_known,
       last_polled_at: coverage.last_polled_at,
       times,
+      source: 'snapshot',
     };
   }
   return by_slug;
@@ -345,8 +359,15 @@ export async function handleAvailabilityRequest(env, params) {
 
 /**
  * Batched snapshot read for Finder: GET /v1/tee-times?date=&holes=&players=&ids=a,b,c
+ * When `deps` includes live fetch helpers, miss/stale/empty rows are filled from
+ * vendors in parallel so the browser sees one request instead of a live waterfall.
+ *
+ * @param {object} [deps]
+ * @param {() => Promise<object[]>} [deps.loadCourses]
+ * @param {(course: object, date: string, holes: string, players: string) => Promise<unknown>} [deps.fetchTimesForCourse]
+ * @param {(course: object, data: unknown, holes: string) => Array<{rawTime:string,spots:number|null,price:string|null,holes:number}>} [deps.normalizeTimesWorker]
  */
-export async function handleTeeTimesBatchRequest(env, params) {
+export async function handleTeeTimesBatchRequest(env, params, deps = null) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
     return corsResponse({ error: 'availability_unconfigured' }, 503);
   }
@@ -370,11 +391,263 @@ export async function handleTeeTimesBatchRequest(env, params) {
 
   const by_slug = buildTeeTimesBySlug(slugs, scheduleRows, slotRows, eventRows, players);
 
+  let live_filled = 0;
+  let live_failed = 0;
+  if (deps?.loadCourses && deps?.fetchTimesForCourse && deps?.normalizeTimesWorker) {
+    try {
+      const fill = await liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps);
+      live_filled = fill.filled;
+      live_failed = fill.failed;
+    } catch (err) {
+      console.error('[tee-times] live fill failed:', err);
+      live_failed = slugs.length;
+    }
+  }
+
   return corsResponse({
     ok: true,
-    source: 'snapshot',
+    source: live_filled > 0 ? 'mixed' : 'snapshot',
     date: play_date,
     holes,
+    live_filled,
+    live_failed,
     by_slug,
   });
+}
+
+function mtNowParts(nowMs = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: MT_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(nowMs));
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
+  return {
+    dateYmd: `${get('year')}-${get('month')}-${get('day')}`,
+    hour: Number(get('hour')),
+  };
+}
+
+function daysUntilPlay(playDateYmd, todayMtYmd) {
+  const [y1, m1, d1] = playDateYmd.split('-').map(Number);
+  const [y2, m2, d2] = todayMtYmd.split('-').map(Number);
+  return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 86400000);
+}
+
+function snapshotMaxAgeMs(playDateYmd, nowMs = Date.now()) {
+  const mt = mtNowParts(nowMs);
+  if (mt.hour < GOLF_HOUR_START || mt.hour >= GOLF_HOUR_END) {
+    return SNAPSHOT_OFF_HOURS_MAX_AGE_MS;
+  }
+  const days = daysUntilPlay(playDateYmd, mt.dateYmd);
+  if (days <= 1) return 90 * 60 * 1000;
+  if (days <= 6) return 4 * 60 * 60 * 1000;
+  return 8 * 60 * 60 * 1000;
+}
+
+function snapshotAgeMs(row, nowMs = Date.now()) {
+  if (!row?.last_polled_at) return null;
+  const age = nowMs - new Date(row.last_polled_at).getTime();
+  return Number.isFinite(age) ? age : null;
+}
+
+/** Exported for unit tests — when true, batch handler should vendor-fetch this slug. */
+export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.now()) {
+  if (!row || row.has_poll_coverage !== true) return true;
+  if (players > 1 && row.spots_known === false) return true;
+  const age = snapshotAgeMs(row, nowMs);
+  if (age == null || age < 0) return true;
+  const empty = !Array.isArray(row.times) || row.times.length === 0;
+  if (empty) return age > SNAPSHOT_REVALIDATE_AFTER_MS;
+  const mt = mtNowParts(nowMs);
+  const golfHours = mt.hour >= GOLF_HOUR_START && mt.hour < GOLF_HOUR_END;
+  if (!golfHours) return age > SNAPSHOT_OFF_HOURS_MAX_AGE_MS;
+  // Daytime: refresh aging snapshots so Find stays near-live without a client waterfall.
+  return age > SNAPSHOT_REVALIDATE_AFTER_MS || age > snapshotMaxAgeMs(playDateYmd, nowMs);
+}
+
+function wallClockToUtcInstant(y, mo, d, hh, mm) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: MT_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const read = (ms) => {
+    const parts = fmt.formatToParts(new Date(ms));
+    const get = (t) => Number(parts.find((p) => p.type === t)?.value ?? NaN);
+    return { y: get('year'), mo: get('month'), d: get('day'), hh: get('hour'), mm: get('minute') };
+  };
+  const lo = Date.UTC(y, mo - 1, d - 1, 6, 0, 0);
+  const hi = Date.UTC(y, mo - 1, d + 1, 6, 0, 0);
+  for (let t = lo; t <= hi; t += 60 * 1000) {
+    const g = read(t);
+    if (g.y === y && g.mo === mo && g.d === d && g.hh === hh && g.mm === mm) return new Date(t);
+  }
+  return new Date(Date.UTC(y, mo - 1, d, hh + 7, mm, 0));
+}
+
+/** Convert vendor rawTime + play date to UTC ISO (America/Denver wall clock). */
+export function rawTimeToStartsAtIso(dateYmd, rawTime) {
+  const s = String(rawTime || '').trim();
+  if (!s) return null;
+  if (s.includes('T') && (/Z$/i.test(s) || /[+-]\d{2}:?\d{2}$/.test(s))) {
+    const ms = Date.parse(s);
+    return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+  }
+  const full = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+  if (full) {
+    return wallClockToUtcInstant(
+      Number(full[1]),
+      Number(full[2]),
+      Number(full[3]),
+      Number(full[4]),
+      Number(full[5]),
+    ).toISOString();
+  }
+  const timeOnly = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!timeOnly) return null;
+  const [ys, ms, ds] = dateYmd.split('-').map(Number);
+  if (!ys || !ms || !ds) return null;
+  return wallClockToUtcInstant(ys, ms, ds, Number(timeOnly[1]), Number(timeOnly[2])).toISOString();
+}
+
+function parsePriceDollars(price) {
+  if (price == null || price === '') return undefined;
+  if (typeof price === 'number' && Number.isFinite(price)) return Math.round(price);
+  const n = parseInt(String(price).replace(/[^0-9]/g, ''), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Map normalizeTimesWorker rows → batch time objects (player-filtered, future only). */
+export function normalizedRowsToBatchTimes(slug, dateYmd, holes, players, rows) {
+  const nowMs = Date.now();
+  const out = [];
+  let i = 0;
+  for (const row of rows || []) {
+    if (!row?.rawTime) continue;
+    const h = row.holes === 9 ? 9 : 18;
+    if (h !== holes) continue;
+    let spots = row.spots;
+    if (spots != null && (!Number.isFinite(spots) || spots <= 0)) continue;
+    if (players > 1 && spots == null) continue;
+    if (spots != null && spots < players) continue;
+    const startsAt = rawTimeToStartsAtIso(dateYmd, row.rawTime);
+    if (!startsAt) continue;
+    if (new Date(startsAt).getTime() <= nowMs) continue;
+    out.push({
+      id: `${slug}-${dateYmd}-${i++}-${row.rawTime}`,
+      startsAt,
+      price: parsePriceDollars(row.price),
+      spots: spots ?? undefined,
+      holes: h,
+    });
+  }
+  out.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  return out;
+}
+
+async function withTimeout(promise, ms) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('live_fill_timeout')), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function mapPool(items, concurrency, fn) {
+  if (!items.length) return [];
+  const results = new Array(items.length);
+  let index = 0;
+  async function worker() {
+    for (;;) {
+      const i = index++;
+      if (i >= items.length) break;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(concurrency, items.length));
+  await Promise.all(Array.from({ length: n }, () => worker()));
+  return results;
+}
+
+async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps) {
+  const need = slugs.filter((slug) => snapshotNeedsLiveFill(by_slug[slug], players, play_date));
+  if (!need.length) return { filled: 0, failed: 0 };
+
+  const courses = await deps.loadCourses();
+  const byCourseSlug = new Map();
+  for (const course of courses || []) {
+    if (!course?.platform) continue;
+    const slug = course.slug || slugFromCourseName(course.name);
+    if (slug) byCourseSlug.set(slug, { ...course, slug });
+  }
+
+  const ordered = [
+    ...need.filter((s) => !SLOW_LIVE_PLATFORMS.has(byCourseSlug.get(s)?.platform)),
+    ...need.filter((s) => SLOW_LIVE_PLATFORMS.has(byCourseSlug.get(s)?.platform)),
+  ];
+
+  let filled = 0;
+  let failed = 0;
+
+  await mapPool(ordered, LIVE_FILL_CONCURRENCY, async (slug) => {
+    const course = byCourseSlug.get(slug);
+    if (!course) {
+      failed++;
+      by_slug[slug] = {
+        ...(by_slug[slug] || { times: [], has_poll_coverage: false, spots_known: true, last_polled_at: null }),
+        live_failed: true,
+        source: by_slug[slug]?.source || 'snapshot',
+      };
+      return;
+    }
+
+    const timeoutMs = SLOW_LIVE_PLATFORMS.has(course.platform)
+      ? LIVE_FILL_SLOW_TIMEOUT_MS
+      : LIVE_FILL_TIMEOUT_MS;
+
+    try {
+      const data = await withTimeout(
+        deps.fetchTimesForCourse(course, play_date, String(holes), String(players)),
+        timeoutMs,
+      );
+      if (data == null || (typeof data === 'object' && data.error)) {
+        failed++;
+        by_slug[slug] = { ...by_slug[slug], live_failed: true };
+        return;
+      }
+      let rows = deps.normalizeTimesWorker(course, data, String(holes));
+      if (course.platform === 'chronogolf_slc') {
+        rows = rows.map((row) => ({ ...row, spots: row.spots ?? players }));
+      }
+      const times = normalizedRowsToBatchTimes(slug, play_date, holes, players, rows);
+      by_slug[slug] = {
+        has_poll_coverage: true,
+        spots_known: true,
+        last_polled_at: new Date().toISOString(),
+        times,
+        source: 'live',
+        live_failed: false,
+      };
+      filled++;
+    } catch {
+      failed++;
+      by_slug[slug] = { ...by_slug[slug], live_failed: true };
+    }
+  });
+
+  return { filled, failed };
 }
