@@ -22,8 +22,22 @@ type SnapshotAvailabilityResponse = {
   }>;
 };
 
-/** Snapshots older than this fall back to live vendor (avoids stale open slots). */
-const SNAPSHOT_STALE_MS = 12 * 60 * 1000;
+/**
+ * Snapshot freshness for Find.
+ *
+ * The poller claims ~20 (course, date) pairs every 5 minutes across ~67 courses × 15
+ * dates, so a given pair is often 30–240+ minutes between successful polls — far
+ * longer than a naive "hot = 5 min" target. A tight window (e.g. 12 min) rejects
+ * almost every snapshot and forces per-course live vendor calls, which is what
+ * Network shows as "each course being fetched."
+ *
+ * Tiered max age mirrors poller hot/warm/cold with claim-lag headroom. Outside
+ * Mountain golf hours the poller sleeps — trust last evening's snapshot overnight.
+ */
+const MT_TZ = 'America/Denver';
+const GOLF_HOUR_START = 6;
+const GOLF_HOUR_END = 23;
+const SNAPSHOT_OFF_HOURS_MAX_AGE_MS = 18 * 60 * 60 * 1000;
 
 /** Abort a single worker request if it stalls, so it can't hold a concurrency slot forever. */
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -238,18 +252,57 @@ async function fetchTeeTimesLive(
   }
 }
 
-function snapshotIsFresh(snapshot: SnapshotAvailabilityResponse): boolean {
+function mtNowParts(nowMs: number = Date.now()): { dateYmd: string; hour: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: MT_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(nowMs));
+  const get = (t: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === t)?.value ?? '';
+  return {
+    dateYmd: `${get('year')}-${get('month')}-${get('day')}`,
+    hour: Number(get('hour')),
+  };
+}
+
+function daysUntilPlay(playDateYmd: string, todayMtYmd: string): number {
+  const [y1, m1, d1] = playDateYmd.split('-').map(Number);
+  const [y2, m2, d2] = todayMtYmd.split('-').map(Number);
+  return Math.round((Date.UTC(y1!, m1! - 1, d1!) - Date.UTC(y2!, m2! - 1, d2!)) / 86400000);
+}
+
+/** Max snapshot age before Find falls back to live — mirrors poller tiers + claim lag. */
+function snapshotMaxAgeMs(playDateYmd: string, nowMs: number = Date.now()): number {
+  const mt = mtNowParts(nowMs);
+  if (mt.hour < GOLF_HOUR_START || mt.hour >= GOLF_HOUR_END) {
+    return SNAPSHOT_OFF_HOURS_MAX_AGE_MS;
+  }
+  const days = daysUntilPlay(playDateYmd, mt.dateYmd);
+  if (days <= 1) return 90 * 60 * 1000; // hot + claim-lag headroom
+  if (days <= 6) return 4 * 60 * 60 * 1000; // warm sweep
+  return 8 * 60 * 60 * 1000; // cold sweep
+}
+
+function snapshotIsFresh(
+  snapshot: SnapshotAvailabilityResponse,
+  playDateYmd: string,
+  nowMs: number = Date.now(),
+): boolean {
   if (!snapshot.last_polled_at) return false;
-  const age = Date.now() - new Date(snapshot.last_polled_at).getTime();
-  return Number.isFinite(age) && age >= 0 && age <= SNAPSHOT_STALE_MS;
+  const age = nowMs - new Date(snapshot.last_polled_at).getTime();
+  return Number.isFinite(age) && age >= 0 && age <= snapshotMaxAgeMs(playDateYmd, nowMs);
 }
 
 function canTrustSnapshotForPlayers(
   snapshot: SnapshotAvailabilityResponse,
   players: 1 | 2 | 3 | 4,
+  playDateYmd: string,
 ): boolean {
   if (!snapshot.ok || !snapshot.has_poll_coverage || !Array.isArray(snapshot.times)) return false;
-  if (!snapshotIsFresh(snapshot)) return false;
+  if (!snapshotIsFresh(snapshot, playDateYmd)) return false;
   if (players === 1) return true;
   // Multi-player needs spot counts. Empty [].every() is vacuously true — don't trust that.
   if (snapshot.spots_known === false) return false;
@@ -331,7 +384,7 @@ export async function fetchTeeTimesForCourse(
 ): Promise<TeeTimeFetchResult> {
   if (course.platform && workerSupportedPlatform(course.platform)) {
     const snapshot = await fetchTeeTimesFromSnapshot(courseSlug, dateYmd, holes, players);
-    if (snapshot && canTrustSnapshotForPlayers(snapshot, players)) {
+    if (snapshot && canTrustSnapshotForPlayers(snapshot, players, dateYmd)) {
       return {
         times: snapshotToTeeTimes(courseSlug, dateYmd, snapshot.times!),
         ok: true,
@@ -418,7 +471,7 @@ export async function fetchTimesForCourseSlugs(
   const needLive: { slug: string; record: CourseRecord }[] = [];
   for (const entry of entries) {
     const snap = batchMap.get(entry.slug);
-    if (snap && canTrustSnapshotForPlayers(snap, players)) {
+    if (snap && canTrustSnapshotForPlayers(snap, players, dateYmd)) {
       const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
       out.set(entry.slug, times);
       onCourseComplete?.({ slug: entry.slug, times, ok: true, source: 'snapshot' });
