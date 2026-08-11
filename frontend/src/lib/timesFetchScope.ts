@@ -145,12 +145,19 @@ export function resolvePlaceAnchor(query: string, courses: Course[]): ResolvedPl
 export function buildTimesFetchScope(
   workerCourses: Course[],
   userLocation: { lat: number; lng: number } | null,
-  options: { fetchAllUtah?: boolean; radiusMi?: number; locationQuery?: string } = {}
+  options: {
+    fetchAllUtah?: boolean;
+    radiusMi?: number;
+    locationQuery?: string;
+    /** Catalog used to resolve city/ZIP anchors (defaults to workerCourses). */
+    placeCourses?: Course[];
+  } = {}
 ): TimesFetchScope {
   const anchor = resolveFetchAnchor(userLocation);
   const radiusMi = options.radiusMi ?? DEFAULT_FETCH_RADIUS_MI;
   const fetchAllUtah = options.fetchAllUtah === true;
   const locationQuery = options.locationQuery?.trim() ?? '';
+  const placeCourses = options.placeCourses ?? workerCourses;
 
   if (fetchAllUtah) {
     return {
@@ -168,7 +175,7 @@ export function buildTimesFetchScope(
 
   if (locationQuery) {
     // ZIP or city: fetch courses near that place instead of text-matching only.
-    const place = resolvePlaceAnchor(locationQuery, workerCourses);
+    const place = resolvePlaceAnchor(locationQuery, placeCourses);
     if (place) {
       const placeAnchor: FetchAnchor = { ...place.anchor, source: 'default' };
       const nearPlace = filterCoursesWithinRadius(workerCourses, placeAnchor, radiusMi);
