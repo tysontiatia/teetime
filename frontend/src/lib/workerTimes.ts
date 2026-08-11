@@ -38,6 +38,12 @@ const MT_TZ = 'America/Denver';
 const GOLF_HOUR_START = 6;
 const GOLF_HOUR_END = 23;
 const SNAPSHOT_OFF_HOURS_MAX_AGE_MS = 18 * 60 * 60 * 1000;
+/**
+ * After painting a trusted snapshot, live-refresh in the background when older
+ * than this (stale-while-revalidate). Skipped outside Mountain golf hours so
+ * overnight Find does not hammer every vendor.
+ */
+const SNAPSHOT_REVALIDATE_AFTER_MS = 12 * 60 * 1000;
 
 /** Abort a single worker request if it stalls, so it can't hold a concurrency slot forever. */
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -310,6 +316,26 @@ function canTrustSnapshotForPlayers(
   return snapshot.times.every((row) => row.spots != null);
 }
 
+function snapshotAgeMs(snapshot: SnapshotAvailabilityResponse, nowMs: number = Date.now()): number | null {
+  if (!snapshot.last_polled_at) return null;
+  const age = nowMs - new Date(snapshot.last_polled_at).getTime();
+  return Number.isFinite(age) ? age : null;
+}
+
+/** Paint from snapshot, then live-refresh when aging (golf hours only). */
+function shouldBackgroundRevalidate(
+  snapshot: SnapshotAvailabilityResponse,
+  playDateYmd: string,
+  players: 1 | 2 | 3 | 4,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!canTrustSnapshotForPlayers(snapshot, players, playDateYmd)) return false;
+  const mt = mtNowParts(nowMs);
+  if (mt.hour < GOLF_HOUR_START || mt.hour >= GOLF_HOUR_END) return false;
+  const age = snapshotAgeMs(snapshot, nowMs);
+  return age != null && age > SNAPSHOT_REVALIDATE_AFTER_MS;
+}
+
 type BatchSlugSnapshot = {
   has_poll_coverage?: boolean;
   spots_known?: boolean;
@@ -447,16 +473,28 @@ async function fetchTeeTimesLiveWithRetry(
   return last;
 }
 
+export type FetchTimesForCourseSlugsOptions = {
+  /**
+   * Fires after snapshot paint + blocking live misses finish.
+   * Background revalidation may still be in flight.
+   */
+  onBlockingComplete?: () => void;
+  /** When false, skip stale-while-revalidate live refresh. Default true. */
+  revalidateStale?: boolean;
+};
+
 export async function fetchTimesForCourseSlugs(
   entries: { slug: string; record: CourseRecord }[],
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
   concurrency: number,
-  onCourseComplete?: (update: CourseTimesUpdate) => void
+  onCourseComplete?: (update: CourseTimesUpdate) => void,
+  options?: FetchTimesForCourseSlugsOptions,
 ): Promise<TimesBySlugFetchResult> {
   const out = new Map<string, TeeTime[]>();
   const failedSlugs: string[] = [];
+  const revalidateStale = options?.revalidateStale !== false;
 
   const workerEntries = entries.filter(
     (e) => e.record.platform && workerSupportedPlatform(e.record.platform),
@@ -469,45 +507,75 @@ export async function fetchTimesForCourseSlugs(
   );
 
   const needLive: { slug: string; record: CourseRecord }[] = [];
+  const needRevalidate: { slug: string; record: CourseRecord; ageMs: number }[] = [];
+
   for (const entry of entries) {
     const snap = batchMap.get(entry.slug);
     if (snap && canTrustSnapshotForPlayers(snap, players, dateYmd)) {
       const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
       out.set(entry.slug, times);
       onCourseComplete?.({ slug: entry.slug, times, ok: true, source: 'snapshot' });
+      if (revalidateStale && shouldBackgroundRevalidate(snap, dateYmd, players)) {
+        needRevalidate.push({
+          slug: entry.slug,
+          record: entry.record,
+          ageMs: snapshotAgeMs(snap) ?? 0,
+        });
+      }
     } else {
       needLive.push(entry);
     }
   }
 
-  // Fast vendors first so the grid fills before GolfPay's cold start.
-  const orderedLive = [
-    ...needLive.filter((e) => !isSlowLivePlatform(e.record.platform)),
-    ...needLive.filter((e) => isSlowLivePlatform(e.record.platform)),
-  ];
-
-  let index = 0;
-  async function runWorker() {
-    for (;;) {
-      const i = index++;
-      if (i >= orderedLive.length) break;
-      const { slug, record } = orderedLive[i]!;
-      const { times, ok, source } = await fetchTeeTimesLiveWithRetry(
-        record,
-        slug,
-        dateYmd,
-        holes,
-        players,
-      );
-      out.set(slug, times);
-      if (!ok) failedSlugs.push(slug);
-      onCourseComplete?.({ slug, times, ok, source });
+  async function runLiveQueue(
+    queue: { slug: string; record: CourseRecord }[],
+    mode: 'blocking' | 'revalidate',
+  ) {
+    const ordered = [
+      ...queue.filter((e) => !isSlowLivePlatform(e.record.platform)),
+      ...queue.filter((e) => isSlowLivePlatform(e.record.platform)),
+    ];
+    let index = 0;
+    async function runWorker() {
+      for (;;) {
+        const i = index++;
+        if (i >= ordered.length) break;
+        const { slug, record } = ordered[i]!;
+        const { times, ok, source } = await fetchTeeTimesLiveWithRetry(
+          record,
+          slug,
+          dateYmd,
+          holes,
+          players,
+        );
+        if (mode === 'revalidate') {
+          // Keep painted snapshot if live refresh fails.
+          if (!ok) continue;
+          out.set(slug, times);
+          onCourseComplete?.({ slug, times, ok: true, source: source ?? 'live' });
+          continue;
+        }
+        out.set(slug, times);
+        if (!ok) failedSlugs.push(slug);
+        onCourseComplete?.({ slug, times, ok, source });
+      }
+    }
+    const n = Math.max(1, Math.min(concurrency, ordered.length || 1));
+    if (ordered.length > 0) {
+      await Promise.all(Array.from({ length: n }, () => runWorker()));
     }
   }
 
-  const n = Math.max(1, Math.min(concurrency, orderedLive.length || 1));
-  if (orderedLive.length > 0) {
-    await Promise.all(Array.from({ length: n }, () => runWorker()));
-  }
+  // Fast vendors first so the grid fills before GolfPay's cold start.
+  await runLiveQueue(needLive, 'blocking');
+  options?.onBlockingComplete?.();
+
+  // Oldest snapshots first so the most stale cards refresh sooner.
+  needRevalidate.sort((a, b) => b.ageMs - a.ageMs);
+  await runLiveQueue(
+    needRevalidate.map(({ slug, record }) => ({ slug, record })),
+    'revalidate',
+  );
+
   return { bySlug: out, failedSlugs };
 }
