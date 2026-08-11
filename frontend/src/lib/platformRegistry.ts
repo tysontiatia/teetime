@@ -10,7 +10,8 @@ export function workerSupportedPlatform(platform: string): boolean {
     platform === 'chronogolf' ||
     platform === 'chronogolf_slc' ||
     platform === 'membersports' ||
-    platform === 'teeitup'
+    platform === 'teeitup' ||
+    platform === 'trutee'
   );
 }
 

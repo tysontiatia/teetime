@@ -518,8 +518,11 @@ function getPlatformWarnings(record) {
   const warnings = [];
   const platform = record.platform;
   if (!platform) warnings.push('No platform set — poller will not run.');
-  if (platform === 'trutee' || platform === 'golfpay' || platform === 'tenfore') {
+  if (platform === 'golfpay' || platform === 'tenfore') {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
+  }
+  if (platform === 'trutee' && !record.trutee_course_id) {
+    warnings.push('Trutee needs trutee_course_id for live tee times.');
   }
   if (platform === 'foreup' && !record.schedule_id) {
     warnings.push('ForeUp requires schedule_id for live tee times.');

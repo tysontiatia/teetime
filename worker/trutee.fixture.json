@@ -1,0 +1,111 @@
+{
+  "sunbrook": {
+    "bookingWindowStatus": "open",
+    "courseId": "course_5eab079479324dbc8bd128449b892177",
+    "isReleasedForPublic": true,
+    "timezone": "America/Denver",
+    "teeTimes": [
+      {
+        "available_holes": "9/18",
+        "available_spots": 0,
+        "booked_spots": 4,
+        "cart_fee_18": 2000,
+        "cart_fee_9": 1000,
+        "course_id": "course_5eab079479324dbc8bd128449b892177",
+        "green_fee_18": 3400,
+        "green_fee_9": 2100,
+        "id": "tt_e3f1d6f5-ed2e-8b72-b9d8-678c3707fa0b",
+        "nine_hole_duration_minutes": 140,
+        "organization_id": "org_3B7TX4pZPq52SGsK0oT7bcxtEjX",
+        "pricingKey": "pricing:u0flfh",
+        "reround_side_name": "Woodbridge",
+        "season_id": "vd779167y6kssjsqr13b2h5kj183st6g",
+        "side_name": "Pointe",
+        "start_date": "2026-08-13",
+        "start_time": "07:00"
+      },
+      {
+        "available_holes": "9/18",
+        "available_spots": 4,
+        "booked_spots": 0,
+        "cart_fee_18": 2000,
+        "cart_fee_9": 1000,
+        "course_id": "course_5eab079479324dbc8bd128449b892177",
+        "green_fee_18": 3400,
+        "green_fee_9": 2100,
+        "id": "tt_fa7bb2a1-0ef6-8e78-8576-628871fb2e51",
+        "nine_hole_duration_minutes": 140,
+        "organization_id": "org_3B7TX4pZPq52SGsK0oT7bcxtEjX",
+        "pricingKey": "pricing:u0flfh",
+        "reround_side_name": "Woodbridge",
+        "season_id": "vd779167y6kssjsqr13b2h5kj183st6g",
+        "side_name": "Pointe",
+        "start_date": "2026-08-13",
+        "start_time": "07:10"
+      },
+      {
+        "available_holes": "9/18",
+        "available_spots": 1,
+        "booked_spots": 3,
+        "cart_fee_18": 2000,
+        "cart_fee_9": 1000,
+        "course_id": "course_5eab079479324dbc8bd128449b892177",
+        "green_fee_18": 3400,
+        "green_fee_9": 2100,
+        "id": "tt_4e5a3332-498d-88b2-a8ea-94c36f3d0f43",
+        "nine_hole_duration_minutes": 140,
+        "organization_id": "org_3B7TX4pZPq52SGsK0oT7bcxtEjX",
+        "pricingKey": "pricing:u0flfh",
+        "reround_side_name": "Blackrock",
+        "season_id": "vd779167y6kssjsqr13b2h5kj183st6g",
+        "side_name": "Woodbridge",
+        "start_date": "2026-08-13",
+        "start_time": "07:20"
+      }
+    ]
+  },
+  "dixie": {
+    "bookingWindowStatus": "open",
+    "courseId": "course_0e421059bd49483c87be5c38f563eda1",
+    "isReleasedForPublic": true,
+    "timezone": "America/Denver",
+    "teeTimes": [
+      {
+        "available_holes": "9",
+        "available_spots": 0,
+        "booked_spots": 4,
+        "cart_fee_18": 2000,
+        "cart_fee_9": 1000,
+        "course_id": "course_0e421059bd49483c87be5c38f563eda1",
+        "green_fee_18": 3800,
+        "green_fee_9": 1900,
+        "id": "tt_86a3ff3e-c085-89d6-a853-212eee7527c6",
+        "nine_hole_duration_minutes": 140,
+        "organization_id": "org_3B7TX4pZPq52SGsK0oT7bcxtEjX",
+        "pricingKey": "pricing:45hguj",
+        "season_id": "vd7a7r55f1qy8ccydx8ns3p03s83sztd",
+        "side_name": "Front",
+        "start_date": "2026-08-12",
+        "start_time": "06:50"
+      },
+      {
+        "available_holes": "9",
+        "available_spots": 4,
+        "booked_spots": 0,
+        "cart_fee_18": 2000,
+        "cart_fee_9": 1000,
+        "course_id": "course_0e421059bd49483c87be5c38f563eda1",
+        "green_fee_18": 3800,
+        "green_fee_9": 1900,
+        "id": "tt_ea58620c-2ffe-8ce4-92a3-96ded7058836",
+        "nine_hole_duration_minutes": 140,
+        "organization_id": "org_3B7TX4pZPq52SGsK0oT7bcxtEjX",
+        "pricingKey": "pricing:45hguj",
+        "season_id": "vd7a7r55f1qy8ccydx8ns3p03s83sztd",
+        "side_name": "Front",
+        "start_date": "2026-08-12",
+        "start_time": "08:00"
+      }
+    ]
+  }
+}
