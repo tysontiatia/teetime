@@ -224,7 +224,11 @@ function normalizeGolfPayTimes(data: unknown): NormRow[] {
     const prev = best.get(key);
     if (!prev || priceNum < prev._priceNum) best.set(key, row);
   }
-  return [...best.values()].map(({ _priceNum: _drop, ...row }) => row);
+  return [...best.values()].map((row) => {
+    const { _priceNum, ...rest } = row;
+    void _priceNum;
+    return rest;
+  });
 }
 
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
