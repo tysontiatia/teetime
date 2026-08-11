@@ -38,6 +38,8 @@
   --z-sheet: 220;
   --z-header: 200;
   --z-bottom-nav: 180;
+  /* Updated by useKeyboardInsetCssVar when the software keyboard is open */
+  --keyboard-inset: 0px;
   /* Shared dimmer for modals, menus, and sheets (see-through, not full blackout). */
   --scrim: rgba(0, 0, 0, 0.4);
 
@@ -205,13 +207,13 @@ button, input, select{ font: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px)) max(12px, env(safe-area-inset-left, 0px));
   overscroll-behavior: none;
   touch-action: none;
 }
 /* Shared dialog shell: same width/height for all purpose modals; body scrolls. */
 .modal-panel{
-  --modal-shell-h: min(560px, 88dvh);
+  --modal-shell-h: min(560px, calc(88dvh - var(--keyboard-inset, 0px)));
   position: relative;
   width: min(420px, 100%);
   height: var(--modal-shell-h);
@@ -1246,7 +1248,8 @@ html[data-theme='dark'] .app-banner--warn{
 }
 .location-sheet{
   width: min(560px, 100%);
-  max-height: min(88dvh, 720px);
+  max-height: min(88dvh, calc(100dvh - var(--keyboard-inset, 0px) - 8px), 720px);
+  margin-bottom: var(--keyboard-inset, 0px);
   background: var(--card);
   border-radius: 22px 22px 0 0;
   border: 1px solid var(--line);
@@ -1270,6 +1273,7 @@ html[data-theme='dark'] .app-banner--warn{
   justify-content: space-between;
   gap: 12px;
   padding: 0 16px 12px;
+  flex-shrink: 0;
 }
 .location-sheet-title{
   margin: 0;
@@ -1292,6 +1296,7 @@ html[data-theme='dark'] .app-banner--warn{
 .location-sheet-input-wrap{
   position: relative;
   margin: 0 16px 12px;
+  flex-shrink: 0;
 }
 .location-sheet-search-icon{
   position: absolute;
