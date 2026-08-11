@@ -6291,9 +6291,10 @@ html[data-theme='dark'] .account-pref-menu-panel{
     gap: 0;
     width: 100%;
   }
-  /* One floating pill — Airbnb mobile “Start your search” rhythm */
+  /* One floating pill — soft-balanced When · Players · Where (Where gets a touch more) */
   .finder-mobile-bar{
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(0, 1.15fr);
     align-items: stretch;
     gap: 0;
     width: 100%;
@@ -6306,26 +6307,13 @@ html[data-theme='dark'] .account-pref-menu-panel{
       0 8px 24px rgba(20, 30, 25, 0.08);
     overflow: hidden;
   }
-  .finder-players-pill--compact{
-    flex: 0 0 auto;
-    width: auto;
-    min-width: 0;
-    height: auto;
-    min-height: 0;
-    padding: 0 12px;
-    gap: 6px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
   .finder-players-pill--compact .finder-players-pill-value{
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
   }
   .filter-toolbar{
-    gap: 6px;
+    gap: 8px;
     margin-top: 8px;
     padding: 0 0 2px;
     flex-direction: column;
@@ -6333,22 +6321,34 @@ html[data-theme='dark'] .account-pref-menu-panel{
     align-items: stretch;
   }
   .filter-row{
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     flex: 0 0 auto;
     width: 100%;
     min-width: 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    gap: 8px;
+    overflow: visible;
+    padding-right: 0;
     padding-bottom: 0;
   }
-  .filter-row::-webkit-scrollbar{ display: none; }
+  .filter-row .chip{
+    width: 100%;
+    min-width: 0;
+    flex: unset;
+    justify-content: center;
+    justify-self: stretch;
+    box-sizing: border-box;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
   .filter-controls{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     flex-shrink: 0;
     width: 100%;
-    justify-content: flex-start;
     gap: 8px;
   }
-  .sort-control{ flex: 1 1 auto; min-width: 0; }
+  .sort-control{ min-width: 0; width: 100%; }
   .sort-control select{
     width: 100%;
     max-width: none;
@@ -6373,20 +6373,22 @@ html[data-theme='dark'] .account-pref-menu-panel{
   .finder-where-pill{
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex: 1 1 auto;
+    justify-content: center;
+    gap: 6px;
+    flex: unset;
+    width: 100%;
     min-width: 0;
     height: auto;
     min-height: 0;
-    padding: 0 12px;
+    padding: 0 10px;
     border-radius: 0;
     border: none;
     background: transparent;
     color: var(--ink);
     font: inherit;
     font-weight: 600;
-    font-size: 14px;
-    text-align: left;
+    font-size: 13px;
+    text-align: center;
     cursor: pointer;
     box-shadow: none;
   }
@@ -6399,7 +6401,8 @@ html[data-theme='dark'] .account-pref-menu-panel{
   }
   .finder-where-pill-text{
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -6412,7 +6415,10 @@ html[data-theme='dark'] .account-pref-menu-panel{
     position: relative;
     display: inline-flex;
     align-items: stretch;
-    flex: 0 0 auto;
+    justify-content: center;
+    flex: unset;
+    width: 100%;
+    min-width: 0;
     height: auto;
     min-height: 48px;
     border-radius: 0;
@@ -6421,7 +6427,7 @@ html[data-theme='dark'] .account-pref-menu-panel{
     overflow: visible;
   }
   .finder-date-nudge{
-    width: 28px;
+    width: 26px;
     border: none;
     background: transparent;
     color: var(--ink-2);
@@ -6502,6 +6508,17 @@ html[data-theme='dark'] .account-pref-menu-panel{
     color: var(--ink);
     cursor: pointer;
   }
+  .finder-players-pill.finder-players-pill--compact{
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: unset;
+    padding: 0 8px;
+    gap: 6px;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
   .finder-players-pill-value{
     font-weight: 600;
     font-size: 14px;
@@ -6528,34 +6545,44 @@ html[data-theme='dark'] .account-pref-menu-panel{
 
   .filter-toolbar{
     padding: 0 0 2px;
-    gap: 6px;
+    gap: 8px;
     margin-top: 8px;
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;
   }
   .filter-row{
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
     flex: 0 0 auto;
     max-width: 100%;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 6px;
+    gap: 8px;
+    overflow: visible;
+    padding-right: 0;
     padding-bottom: 0;
-    /* Soft edge hint that more chips scroll */
-    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 20px), transparent 100%);
-    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 20px), transparent 100%);
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .filter-row .chip{
+    width: 100%;
+    min-width: 0;
+    flex: unset;
+    justify-content: center;
+    justify-self: stretch;
+    box-sizing: border-box;
+    padding: 7px 6px;
+    font-size: 12.5px;
   }
   .filter-controls{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
     flex-shrink: 0;
-    justify-content: flex-start;
     min-width: 0;
     gap: 8px;
   }
-  .chip{ padding: 7px 12px; font-size: 13px; }
-  .sort-control{ min-width: 0; flex: 1 1 auto; }
+  .sort-control{ min-width: 0; width: 100%; }
   .sort-control select{
     width: 100%;
     max-width: none;
@@ -6687,8 +6714,12 @@ html[data-theme='dark'] .account-pref-menu-panel{
 }
 
 @media (max-width: 380px){
-  .finder-date-nudge{ width: 28px; }
-  .finder-date-pill{ font-size: 12.5px; padding: 0 6px; }
+  .finder-mobile-bar{
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.15fr);
+  }
+  .finder-date-nudge{ width: 24px; }
+  .finder-date-pill{ font-size: 12.5px; padding: 0 4px; }
+  .finder-where-pill{ font-size: 12.5px; padding: 0 8px; }
   .rail-slots{ grid-template-columns: 1fr 1fr; gap: 6px; }
   .slot{ padding: 9px 4px; }
   .slot .t{ font-size: 12px; }
