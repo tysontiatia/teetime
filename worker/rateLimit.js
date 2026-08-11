@@ -75,6 +75,8 @@ export function rateLimitResponse(corsHeaders, { resetSec }) {
  */
 export const RATE_LIMITS = {
   availability: { bucket: 'availability', limit: 600, windowSec: 60 },
+  /** Batched Finder reads — far fewer calls than 1:1 /v1/availability. */
+  teeTimesBatch: { bucket: 'tee-times-batch', limit: 120, windowSec: 60 },
   feed: { bucket: 'feed', limit: 120, windowSec: 60 },
   vendorLive: { bucket: 'vendor-live', limit: 300, windowSec: 60 },
   places: { bucket: 'places', limit: 400, windowSec: 60 },

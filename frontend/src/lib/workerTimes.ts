@@ -27,6 +27,10 @@ const SNAPSHOT_STALE_MS = 12 * 60 * 1000;
 
 /** Abort a single worker request if it stalls, so it can't hold a concurrency slot forever. */
 const REQUEST_TIMEOUT_MS = 15_000;
+/** GolfPay upstream often takes 15–25s; worker allows 30s — client must wait longer. */
+const GOLFPAY_REQUEST_TIMEOUT_MS = 35_000;
+/** Max slugs per /v1/tee-times request (matches worker TEE_TIMES_BATCH_MAX_IDS). */
+const TEE_TIMES_BATCH_CHUNK = 20;
 
 async function fetchWithTimeout(
   input: string,
@@ -211,7 +215,9 @@ async function fetchTeeTimesLive(
   }
 
   try {
-    const res = await fetchWithTimeout(url.toString(), { method: 'GET' });
+    const timeoutMs =
+      course.platform === 'golfpay' ? GOLFPAY_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+    const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, timeoutMs);
     if (!res.ok) return { times: [], ok: false, rateLimited: res.status === 429 };
     let data: unknown;
     try {
@@ -251,6 +257,71 @@ function canTrustSnapshotForPlayers(
   return snapshot.times.every((row) => row.spots != null);
 }
 
+type BatchSlugSnapshot = {
+  has_poll_coverage?: boolean;
+  spots_known?: boolean;
+  last_polled_at?: string | null;
+  times?: SnapshotAvailabilityResponse['times'];
+};
+
+type BatchTeeTimesResponse = {
+  ok?: boolean;
+  by_slug?: Record<string, BatchSlugSnapshot>;
+};
+
+function chunkSlugs<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Batched snapshot read via GET /v1/tee-times?ids=.
+ * Returns a map of slug → snapshot payload (missing slugs omitted on transport failure).
+ */
+async function fetchTeeTimesBatchFromSnapshot(
+  slugs: string[],
+  dateYmd: string,
+  holes: 9 | 18,
+  players: 1 | 2 | 3 | 4,
+): Promise<Map<string, SnapshotAvailabilityResponse>> {
+  const out = new Map<string, SnapshotAvailabilityResponse>();
+  if (slugs.length === 0) return out;
+  const base = getWorkerBaseUrl();
+
+  await Promise.all(
+    chunkSlugs(slugs, TEE_TIMES_BATCH_CHUNK).map(async (chunk) => {
+      const url = new URL(`${base}/v1/tee-times`);
+      url.searchParams.set('date', dateYmd);
+      url.searchParams.set('holes', String(holes));
+      url.searchParams.set('players', String(players));
+      url.searchParams.set('ids', chunk.join(','));
+      try {
+        const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, REQUEST_TIMEOUT_MS);
+        if (!res.ok) return;
+        const data = (await res.json()) as BatchTeeTimesResponse;
+        if (!data?.by_slug || typeof data.by_slug !== 'object') return;
+        for (const slug of chunk) {
+          const row = data.by_slug[slug];
+          if (!row) continue;
+          out.set(slug, {
+            ok: true,
+            source: 'snapshot',
+            has_poll_coverage: row.has_poll_coverage === true,
+            spots_known: row.spots_known !== false,
+            last_polled_at: row.last_polled_at ?? null,
+            times: Array.isArray(row.times) ? row.times : [],
+          });
+        }
+      } catch {
+        // miss → live fallback per course
+      }
+    }),
+  );
+
+  return out;
+}
+
 export async function fetchTeeTimesForCourse(
   course: CourseRecord,
   courseSlug: string,
@@ -288,30 +359,34 @@ export type CourseTimesUpdate = {
 /** Retry transient transport failures (network resets, ERR_INSUFFICIENT_RESOURCES, timeouts). */
 const MAX_FETCH_ATTEMPTS = 3;
 
+/** Platforms whose upstream is routinely multi-second — fetch last; don't thrash retries. */
+function isSlowLivePlatform(platform: string | undefined): boolean {
+  return platform === 'golfpay';
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchTeeTimesWithRetry(
+/** Live vendor only (skip snapshot) — used after a batch snapshot miss/stale. */
+async function fetchTeeTimesLiveWithRetry(
   record: CourseRecord,
   slug: string,
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
 ): Promise<TeeTimeFetchResult> {
+  const maxAttempts = isSlowLivePlatform(record.platform) ? 1 : MAX_FETCH_ATTEMPTS;
   let last: TeeTimeFetchResult = { times: [], ok: false };
-  for (let attempt = 0; attempt < MAX_FETCH_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      last = await fetchTeeTimesForCourse(record, slug, dateYmd, holes, players);
+      last = await fetchTeeTimesLive(record, slug, dateYmd, holes, players);
     } catch {
       last = { times: [], ok: false };
     }
     if (last.ok) return last;
-    // Never rapid-retry a 429 — the window is ~60s, so retrying just amplifies the
-    // storm and can't succeed. Fail this course gracefully and let the next refresh recover.
     if (last.rateLimited) return last;
-    // Backoff with jitter so transient-error retries don't stampede the same origin at once.
-    if (attempt < MAX_FETCH_ATTEMPTS - 1) {
+    if (attempt < maxAttempts - 1) {
       await sleep(250 * 2 ** attempt + Math.random() * 200);
     }
   }
@@ -328,21 +403,57 @@ export async function fetchTimesForCourseSlugs(
 ): Promise<TimesBySlugFetchResult> {
   const out = new Map<string, TeeTime[]>();
   const failedSlugs: string[] = [];
-  let index = 0;
 
+  const workerEntries = entries.filter(
+    (e) => e.record.platform && workerSupportedPlatform(e.record.platform),
+  );
+  const batchMap = await fetchTeeTimesBatchFromSnapshot(
+    workerEntries.map((e) => e.slug),
+    dateYmd,
+    holes,
+    players,
+  );
+
+  const needLive: { slug: string; record: CourseRecord }[] = [];
+  for (const entry of entries) {
+    const snap = batchMap.get(entry.slug);
+    if (snap && canTrustSnapshotForPlayers(snap, players)) {
+      const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
+      out.set(entry.slug, times);
+      onCourseComplete?.({ slug: entry.slug, times, ok: true, source: 'snapshot' });
+    } else {
+      needLive.push(entry);
+    }
+  }
+
+  // Fast vendors first so the grid fills before GolfPay's cold start.
+  const orderedLive = [
+    ...needLive.filter((e) => !isSlowLivePlatform(e.record.platform)),
+    ...needLive.filter((e) => isSlowLivePlatform(e.record.platform)),
+  ];
+
+  let index = 0;
   async function runWorker() {
     for (;;) {
       const i = index++;
-      if (i >= entries.length) break;
-      const { slug, record } = entries[i];
-      const { times, ok, source } = await fetchTeeTimesWithRetry(record, slug, dateYmd, holes, players);
+      if (i >= orderedLive.length) break;
+      const { slug, record } = orderedLive[i]!;
+      const { times, ok, source } = await fetchTeeTimesLiveWithRetry(
+        record,
+        slug,
+        dateYmd,
+        holes,
+        players,
+      );
       out.set(slug, times);
       if (!ok) failedSlugs.push(slug);
       onCourseComplete?.({ slug, times, ok, source });
     }
   }
 
-  const n = Math.max(1, Math.min(concurrency, entries.length));
-  await Promise.all(Array.from({ length: n }, () => runWorker()));
+  const n = Math.max(1, Math.min(concurrency, orderedLive.length || 1));
+  if (orderedLive.length > 0) {
+    await Promise.all(Array.from({ length: n }, () => runWorker()));
+  }
   return { bySlug: out, failedSlugs };
 }

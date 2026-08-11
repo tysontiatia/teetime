@@ -100,6 +100,8 @@ Signed-in users set an alert from the 🔔 modal: **specific date** (one play da
 
 **Honest latency:** vendor APIs are polled, not streamed — a book-then-cancel test may take up to one poll cycle plus the **20 min close debounce** before a reopen is detected. Phantom-churn guards suppress false closes on flaky API responses.
 
+**Finder inventory:** the app loads tee times via batched **`GET /v1/tee-times?date=&holes=&players=&ids=`** (chunks of ≤20 course slugs) from poller snapshots. Only cache misses / stale rows fall back to live vendor proxies (`/foreup`, `/chronogolf-slc`, …). Course detail still uses single-slug **`GET /v1/availability`** then live.
+
 **Deploy:** changing worker code requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker. Apply new Supabase migrations with **`supabase db push`** (slot dedupe columns + alert-prioritized poll claim).
 
 ### Empty state CTAs

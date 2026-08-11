@@ -1,6 +1,6 @@
 import { handleAvailabilityPoll } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
-import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest } from './availabilityRead.js';
+import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
 import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
 import { handleFeedRequest } from './feedRead.js';
 import { checkIpRateLimit, rateLimitResponse, RATE_LIMITS } from './rateLimit.js';
@@ -1887,6 +1887,13 @@ export default {
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
       return handleAvailabilityRequest(env, params);
+    }
+
+    if (path === '/v1/tee-times' && request.method === 'GET') {
+      const rl = await checkIpRateLimit(request, RATE_LIMITS.teeTimesBatch);
+      if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
+      const params = Object.fromEntries(url.searchParams.entries());
+      return handleTeeTimesBatchRequest(env, params);
     }
 
     if (path.startsWith('/admin/')) {
