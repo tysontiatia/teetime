@@ -122,17 +122,17 @@ export function SharePage() {
 
   if (!payload || !normalized) {
     return (
-      <div className="container share-page">
-        <div className="share-card">
-          <div className="pill">Archived link</div>
-          <h2 className="share-title share-title-sm">Could not open this snapshot</h2>
-          <p style={{ color: 'var(--muted)', lineHeight: 1.55, maxWidth: 640 }}>
+      <div className="container hub-page">
+        <div className="hub-page-card">
+          <p className="hub-page-kicker">Archived link</p>
+          <h1 className="hub-page-title">Could not open this snapshot</h1>
+          <p className="hub-page-lede">
             This URL is missing data or uses an old format. New vote links look like{' '}
             <code className="share-code">/round/your-link</code> and save everyone&apos;s votes in real time.
           </p>
-          <div className="share-upgrade-actions" style={{ marginTop: 14 }}>
+          <div className="hub-page-actions">
             <Link to="/" className="btn btn-primary">
-              Browse tee times →
+              Back to Find
             </Link>
             <Link to="/plan" className="btn btn-ghost">
               Shared rounds

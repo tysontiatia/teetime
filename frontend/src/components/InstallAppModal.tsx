@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { InstallPlatform } from '../lib/pwa';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { ModalCloseButton } from './ModalCloseButton';
 
 type Tab = 'ios' | 'android';
 
@@ -99,18 +101,15 @@ export function InstallAppModal({
     setTab(platform === 'android' ? 'android' : 'ios');
   }, [open, platform]);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
   if (!open) return null;
@@ -123,9 +122,9 @@ export function InstallAppModal({
   };
 
   return (
-    <div className="modal-backdrop install-modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="modal-panel modal-panel-sm"
+        className="modal-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="install-modal-title"
@@ -138,9 +137,7 @@ export function InstallAppModal({
             </h2>
             <p className="modal-header-sub">Add Tee-Time to your home screen for quicker access.</p>
           </div>
-          <button className="btn btn-ghost" type="button" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         <div className="modal-body install-modal-body">

@@ -6,7 +6,8 @@ type AuthApi = {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  /** Optional in-app path after OAuth (e.g. `/account`). Defaults to `/app/`. */
+  signInWithGoogle: (returnToAppPath?: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -51,11 +52,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       user: session?.user ?? null,
       loading,
-      signInWithGoogle: async () => {
+      signInWithGoogle: async (returnToAppPath?: string) => {
         const origin = redirectOrigin();
         const redirectTo = `${origin}/auth/callback.html`;
+        const appBase = `${origin}/app`;
+        const trimmed = returnToAppPath?.trim() || '';
+        const returnTo =
+          trimmed && trimmed.startsWith('/') && !trimmed.startsWith('//')
+            ? `${appBase}${trimmed === '/' ? '/' : trimmed}`
+            : `${appBase}/`;
         try {
-          sessionStorage.setItem('tt_auth_return_to', `${origin}/app/`);
+          sessionStorage.setItem('tt_auth_return_to', returnTo);
         } catch {
           // ignore if storage is unavailable
         }

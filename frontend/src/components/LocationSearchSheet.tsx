@@ -1,12 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Course } from '../types';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export type LocationSearchSheetProps = {
   open: boolean;
   onClose: () => void;
   courses: Course[];
-  /** Current committed location query (empty = Near me). */
+  /** Current committed location query (empty = Near me / area default). */
   currentQuery: string;
+  /** True when GPS (or equivalent) is available for a true Near me. */
+  locationAvailable?: boolean;
   onSelectNearMe: () => void;
   onSelectQuery: (query: string) => void;
   onSelectCourse: (course: Course) => void;
@@ -25,6 +28,7 @@ export function LocationSearchSheet({
   onClose,
   courses,
   currentQuery,
+  locationAvailable = false,
   onSelectNearMe,
   onSelectQuery,
   onSelectCourse,
@@ -32,6 +36,8 @@ export function LocationSearchSheet({
   const titleId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState('');
+
+  useBodyScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
@@ -41,12 +47,9 @@ export function LocationSearchSheet({
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     return () => {
       window.clearTimeout(t);
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
     };
   }, [open, currentQuery, onClose]);
 
@@ -155,8 +158,14 @@ export function LocationSearchSheet({
               </svg>
             </span>
             <span className="location-sheet-row-text">
-              <span className="location-sheet-row-title">Near me</span>
-              <span className="location-sheet-row-sub">Courses around your location</span>
+              <span className="location-sheet-row-title">
+                {locationAvailable ? 'Near me' : 'Salt Lake area'}
+              </span>
+              <span className="location-sheet-row-sub">
+                {locationAvailable
+                  ? 'Courses around your location'
+                  : 'Default area until location is available'}
+              </span>
             </span>
             {nearMeActive && !q ? <span className="location-sheet-check" aria-hidden>✓</span> : null}
           </button>

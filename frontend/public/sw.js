@@ -1,5 +1,5 @@
 /* Minimal service worker — installability + Web Push for tee-time alerts. */
-const CACHE = 'tt-shell-v1';
+const CACHE = 'tt-shell-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -23,6 +23,15 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Never intercept the web manifest — a HTML fallback here causes
+  // "Manifest: Line: 1, column: 1, Syntax error."
+  if (url.pathname.endsWith('manifest.webmanifest') || req.destination === 'manifest') {
+    return;
+  }
+
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
@@ -36,8 +45,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  const url = new URL(req.url);
-  if (url.origin === self.location.origin && url.pathname.startsWith('/app/')) {
+  if (url.pathname.startsWith('/app/')) {
     event.respondWith(
       fetch(req)
         .then((res) => res)

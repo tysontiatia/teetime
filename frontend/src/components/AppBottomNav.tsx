@@ -1,89 +1,96 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../state/AuthContext';
+import { useAlertActivity } from '../state/AlertActivityContext';
+import { useIsCompactShell } from '../hooks/useMediaQuery';
+import { AlertsIcon, FindIcon, PlanIcon } from './icons/AppIcons';
+import type { SignInPromptVariant } from './SignInPromptModal';
 
-function SearchIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth={active ? 2.2 : 1.9} />
-      <path d="M16.2 16.2L20 20" stroke="currentColor" strokeWidth={active ? 2.2 : 1.9} strokeLinecap="round" />
-    </svg>
-  );
-}
+type Props = {
+  /** Compact + signed-out: open auth modal instead of navigating to Alerts/Plan. */
+  onRequestHubAuth?: (variant: Extract<SignInPromptVariant, 'alert' | 'you'>, returnTo: string) => void;
+};
 
-function AlertsIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0"
-        stroke="currentColor"
-        strokeWidth={active ? 2.2 : 1.9}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function YouIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="9" r="3.5" stroke="currentColor" strokeWidth={active ? 2.2 : 1.9} />
-      <path
-        d="M5.5 19.5c1.2-3.2 3.5-4.8 6.5-4.8s5.3 1.6 6.5 4.8"
-        stroke="currentColor"
-        strokeWidth={active ? 2.2 : 1.9}
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-export function AppBottomNav() {
+export function AppBottomNav({ onRequestHubAuth }: Props) {
   const location = useLocation();
+  const { user, loading } = useAuth();
+  const { unreadCount } = useAlertActivity();
+  const isCompact = useIsCompactShell();
   const p = location.pathname.replace(/\/$/, '') || '/';
 
   if (p.startsWith('/admin')) return null;
 
-  const searchActive = p === '/' || p.startsWith('/course/');
+  const findActive = p === '/' || p.startsWith('/course/');
   const alertsActive = p === '/account' || p.startsWith('/account/');
-  const youActive =
+  const planActive =
     p === '/plan' ||
     p.startsWith('/plan/') ||
     p === '/share' ||
     p.startsWith('/share/');
+
+  const gateHubNav = isCompact && !loading && !user && !!onRequestHubAuth;
+  const alertsBadge = user && unreadCount > 0 ? (unreadCount > 9 ? '9+' : String(unreadCount)) : null;
 
   return (
     <nav className="app-bottom-nav" aria-label="Primary">
       <div className="app-bottom-nav-inner">
         <Link
           to="/"
-          className={`app-bottom-nav-link${searchActive ? ' is-active' : ''}`}
-          aria-current={searchActive ? 'page' : undefined}
+          className={`app-bottom-nav-link${findActive ? ' is-active' : ''}`}
+          aria-current={findActive ? 'page' : undefined}
         >
           <span className="app-bottom-nav-icon-wrap">
-            <SearchIcon active={searchActive} />
+            <FindIcon size={22} active={findActive} />
           </span>
-          <span>Search</span>
+          <span>Find</span>
         </Link>
-        <Link
-          to="/account"
-          className={`app-bottom-nav-link${alertsActive ? ' is-active' : ''}`}
-          aria-current={alertsActive ? 'page' : undefined}
-        >
-          <span className="app-bottom-nav-icon-wrap">
-            <AlertsIcon active={alertsActive} />
-          </span>
-          <span>Alerts</span>
-        </Link>
-        <Link
-          to="/plan"
-          className={`app-bottom-nav-link${youActive ? ' is-active' : ''}`}
-          aria-current={youActive ? 'page' : undefined}
-        >
-          <span className="app-bottom-nav-icon-wrap">
-            <YouIcon active={youActive} />
-          </span>
-          <span>You</span>
-        </Link>
+        {gateHubNav ? (
+          <button
+            type="button"
+            className="app-bottom-nav-link"
+            onClick={() => onRequestHubAuth('alert', '/account')}
+          >
+            <span className="app-bottom-nav-icon-wrap">
+              <AlertsIcon size={22} />
+            </span>
+            <span>Alerts</span>
+          </button>
+        ) : (
+          <Link
+            to="/account"
+            className={`app-bottom-nav-link${alertsActive ? ' is-active' : ''}`}
+            aria-current={alertsActive ? 'page' : undefined}
+            aria-label={alertsBadge ? `Alerts, ${unreadCount} new` : 'Alerts'}
+          >
+            <span className="app-bottom-nav-icon-wrap">
+              <AlertsIcon size={22} active={alertsActive} />
+              {alertsBadge ? <span className="app-bottom-nav-badge">{alertsBadge}</span> : null}
+            </span>
+            <span>Alerts</span>
+          </Link>
+        )}
+        {gateHubNav ? (
+          <button
+            type="button"
+            className="app-bottom-nav-link"
+            onClick={() => onRequestHubAuth('you', '/plan')}
+          >
+            <span className="app-bottom-nav-icon-wrap">
+              <PlanIcon size={22} />
+            </span>
+            <span>Plan</span>
+          </button>
+        ) : (
+          <Link
+            to="/plan"
+            className={`app-bottom-nav-link${planActive ? ' is-active' : ''}`}
+            aria-current={planActive ? 'page' : undefined}
+          >
+            <span className="app-bottom-nav-icon-wrap">
+              <PlanIcon size={22} active={planActive} />
+            </span>
+            <span>Plan</span>
+          </Link>
+        )}
       </div>
     </nav>
   );

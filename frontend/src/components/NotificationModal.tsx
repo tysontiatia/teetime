@@ -11,7 +11,9 @@ import {
   type AlertTimeWindow,
   windowToRange,
 } from '../lib/alertPrefs';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { SignInPromptModal } from './SignInPromptModal';
+import { ModalCloseButton } from './ModalCloseButton';
 
 type Mode = 'specific' | 'weekly';
 
@@ -85,6 +87,8 @@ export function NotificationModal({
     setTimeWindow(todToWindow(defaultTimeOfDay));
     setMessage(null);
   }, [open, defaultDate, defaultPlayers, defaultTimeOfDay, todayYmd]);
+
+  useBodyScrollLock(open && Boolean(user));
 
   useEffect(() => {
     if (!open) return;
@@ -172,7 +176,7 @@ export function NotificationModal({
       return;
     }
 
-    setMessage({ type: 'ok', text: 'Alert saved. We’ll email you when times match — enable push on Alerts for instant device alerts.' });
+    setMessage({ type: 'ok', text: 'Alert saved. We’ll email you when times match — turn on push in your account menu for instant alerts.' });
     setTimeout(() => onClose(), 900);
   };
 
@@ -186,7 +190,7 @@ export function NotificationModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-panel modal-panel-sm" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h2 id="notif-modal-title" className="modal-header-title">
@@ -194,9 +198,7 @@ export function NotificationModal({
             </h2>
             <p className="modal-header-sub">{title}</p>
           </div>
-          <button className="btn btn-ghost" type="button" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
         <div className="modal-body">

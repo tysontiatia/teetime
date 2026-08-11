@@ -71,7 +71,8 @@ export function usePwaInstall() {
     platform,
     canNativeInstall: !!deferredPrompt,
     canSoftPrompt: canSoftPrompt && !installed,
-    showInstallEntry: !installed,
+    /** Header / menu install entry — mobile only; desktop PWAs are rare for this product. */
+    showInstallEntry: !installed && isMobileInstallCandidate(),
     promptNativeInstall,
     dismissSoftPrompt,
   };

@@ -1,10 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import LDClient from 'launchdarkly-js-client-sdk';
+import { initialize, type LDClient } from 'launchdarkly-js-client-sdk';
 import { getLaunchDarklyClientSideId } from '../lib/env';
 import { useAuth } from './AuthContext';
-
-type LDClientInstance = ReturnType<typeof LDClient.initialize>;
 
 type LaunchDarklyUserContext = {
   kind: 'user';
@@ -20,7 +18,7 @@ type LaunchDarklyAnonymousContext = {
 type LaunchDarklyEvaluationContext = LaunchDarklyUserContext | LaunchDarklyAnonymousContext;
 
 type LDContextValue = {
-  client: LDClientInstance | null;
+  client: LDClient | null;
   ready: boolean;
 };
 
@@ -57,10 +55,10 @@ function makeLDContext(user: User | null): LaunchDarklyEvaluationContext {
 export function LaunchDarklyProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [ready, setReady] = useState(false);
-  const clientRef = useRef<LDClientInstance | null>(null);
+  const clientRef = useRef<LDClient | null>(null);
   const anonInitRef = useRef(false);
 
-  const [clientState, setClientState] = useState<LDClientInstance | null>(null);
+  const [clientState, setClientState] = useState<LDClient | null>(null);
 
   const ldContext = useMemo(() => makeLDContext(user), [user]);
 
@@ -71,7 +69,7 @@ export function LaunchDarklyProvider({ children }: { children: React.ReactNode }
 
     const clientSideId = getLaunchDarklyClientSideId();
     const context = makeLDContext(user);
-    const client = LDClient.initialize(clientSideId, context, {
+    const client = initialize(clientSideId, context, {
       // Keep this simple for onboarding: we only need flag evaluation.
       // Events are still sent when the SDK is available, but we avoid extra noise.
       sendEvents: true,

@@ -8,11 +8,11 @@ type Props = {
   dateYmd: string;
   lat: number;
   lng: number;
-  /** Short place label shown before highs/lows (e.g. St. George, Near you). */
+  /** Short place label for accessibility (e.g. St. George, Near you). */
   regionLabel: string;
 };
 
-/** One Open-Meteo day summary for the finder’s current search area. */
+/** Compact day summary — glyph + high/low only; detail stays in the aria-label. */
 export function FinderDayOutlook({ dateYmd, lat, lng, regionLabel }: Props) {
   const [outlook, setOutlook] = useState<DayOutlook | null>(null);
 
@@ -59,29 +59,13 @@ export function FinderDayOutlook({ dateYmd, lat, lng, regionLabel }: Props) {
       }`}
     >
       <WeatherGlyph precipProb={outlook.maxPrecipProb} className="day-outlook-glyph" />
-      <span className="day-outlook-region">{regionLabel}</span>
-      <span className="day-outlook-sep" aria-hidden>
-        ·
-      </span>
       <span className="day-outlook-temps">
-        <span className="day-outlook-high">high {high}°</span>
+        <span className="day-outlook-high">{high}°</span>
         <span className="day-outlook-slash" aria-hidden>
           /
         </span>
-        <span className="day-outlook-low">low {low}°</span>
+        <span className="day-outlook-low">{low}°</span>
       </span>
-      <span className="day-outlook-sep" aria-hidden>
-        ·
-      </span>
-      <span className="day-outlook-wind">wind to {wind} mph</span>
-      {rain != null ? (
-        <>
-          <span className="day-outlook-sep" aria-hidden>
-            ·
-          </span>
-          <span className="day-outlook-rain">up to {rain}% rain</span>
-        </>
-      ) : null}
     </div>
   );
 }

@@ -206,7 +206,7 @@ export async function fetchRoundBySlug(slug: string): Promise<DbRound | null> {
   return data as DbRound;
 }
 
-const ROUND_LIST_COLS = 'id, share_slug, title, play_date, created_at, host_public_name, organizer_id';
+const ROUND_LIST_COLS = 'id, share_slug, title, play_date, created_at, host_public_name, organizer_id, course_id';
 
 function sortRoundsForList(a: DbRound, b: DbRound): number {
   const ad = a.play_date || '';

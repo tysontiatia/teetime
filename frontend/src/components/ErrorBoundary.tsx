@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Reload page
             </button>
             <Link to="/" className="btn">
-              Back to search
+              Back to Find
             </Link>
           </div>
         </div>

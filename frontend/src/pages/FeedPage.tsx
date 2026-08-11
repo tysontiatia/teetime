@@ -7,6 +7,8 @@ import { FeedOpeningRow } from '../components/FeedOpeningRow';
 import { buildFeedScope, feedScopeLabel, filterFeedItems } from '../lib/feedScope';
 import { sortFeedItemsByUrgency } from '../lib/feedDisplay';
 import { courseDistanceMap } from '../lib/feedDistanceMap';
+import type { FetchRadiusMi } from '../types';
+import { DEFAULT_FETCH_RADIUS_MI, parseFetchRadiusMi } from '../lib/timesFetchScope';
 
 type PlayersFilter = 1 | 2 | 3 | 4;
 
@@ -26,6 +28,7 @@ export function FeedPage() {
   const urlPlayers = clampPlayers(Number(sp.get('players') || 2));
   const fetchAllUtah = sp.get('scope') === 'all';
   const locationQuery = sp.get('q') || '';
+  const radiusMi = parseFetchRadiusMi(sp.get('radius'));
 
   const [minPlayers, setMinPlayers] = useState<PlayersFilter>(urlPlayers);
   const [items, setItems] = useState<FeedItem[]>([]);
@@ -33,11 +36,17 @@ export function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const setFetchScope = useCallback(
-    (scope: 'nearby' | 'all') => {
+  const setRadiusMode = useCallback(
+    (value: FetchRadiusMi | 'all') => {
       const next = new URLSearchParams(sp);
-      if (scope === 'all') next.set('scope', 'all');
-      else next.delete('scope');
+      if (value === 'all') {
+        next.set('scope', 'all');
+        next.delete('radius');
+      } else {
+        next.delete('scope');
+        if (value === DEFAULT_FETCH_RADIUS_MI) next.delete('radius');
+        else next.set('radius', String(value));
+      }
       setSp(next, { replace: true });
     },
     [sp, setSp],
@@ -95,8 +104,9 @@ export function FeedPage() {
       buildFeedScope(courses, userLocation, {
         fetchAllUtah,
         locationQuery,
+        radiusMi,
       }),
-    [courses, userLocation, fetchAllUtah, locationQuery],
+    [courses, userLocation, fetchAllUtah, locationQuery, radiusMi],
   );
 
   const scopeReady = feedScopeResult.scopeReady && !catalogLoading;
@@ -116,101 +126,113 @@ export function FeedPage() {
   const scopeLabel = useMemo(() => feedScopeLabel(feedScopeResult.scope), [feedScopeResult.scope]);
   const statewideHiddenCount =
     scopeReady && feedScopeResult.isRegional ? items.length - filteredItems.length : 0;
-
-  const partyLabel = `${minPlayers} player${minPlayers !== 1 ? 's' : ''}`;
+  const radiusSelectValue: string = fetchAllUtah ? 'all' : String(radiusMi);
 
   return (
-    <div className="container feed-page">
-      <header className="feed-page-head">
-        <h1 className="feed-page-title">Openings</h1>
-        <p className="feed-page-lede">Cancellations and new releases · last {FEED_HOURS} hours</p>
-      </header>
+    <div className="container hub-page feed-page">
+      <div className="hub-page-card">
+        <header className="feed-page-head">
+          <h1 className="hub-page-title">Openings</h1>
+          <p className="hub-page-lede feed-page-head-lede">
+            Fresh cancellations and releases · last {FEED_HOURS} hours
+            {generatedAt ? (
+              <>
+                {' '}
+                · updated{' '}
+                {new Date(generatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                {loading ? '…' : ''}
+              </>
+            ) : null}
+          </p>
+        </header>
 
-      <div className="feed-filters" role="group" aria-label="Feed filters">
-        <div className="feed-filter-group">
-          <span className="feed-filter-label">Area</span>
-          <div className="seg feed-filter-seg">
-            <button
-              type="button"
-              className={!fetchAllUtah ? 'on' : ''}
-              onClick={() => setFetchScope('nearby')}
+        <div className="feed-filters" role="group" aria-label="Openings filters">
+          <label className="sort-control radius-control feed-radius-control">
+            <span className="visually-hidden">Search radius</span>
+            <select
+              value={radiusSelectValue}
+              aria-label="Search radius"
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === 'all') setRadiusMode('all');
+                else setRadiusMode(Number(v) as FetchRadiusMi);
+              }}
             >
-              Nearby
-            </button>
-            <button
-              type="button"
-              className={fetchAllUtah ? 'on' : ''}
-              onClick={() => setFetchScope('all')}
-            >
-              All Utah
-            </button>
-          </div>
-        </div>
-        <div className="feed-filter-group">
-          <span className="feed-filter-label">Party</span>
-          <div className="seg feed-filter-seg">
+              <option value="15">Within 15 mi</option>
+              <option value="25">Within 25 mi</option>
+              <option value="50">Within 50 mi</option>
+              <option value="all">Statewide</option>
+            </select>
+          </label>
+          <div className="seg feed-filter-seg" role="group" aria-label="Players">
             {([1, 2, 3, 4] as PlayersFilter[]).map((p) => (
               <button
                 key={p}
                 type="button"
                 className={minPlayers === p ? 'on' : ''}
                 onClick={() => setParty(p)}
+                aria-label={`${p} player${p !== 1 ? 's' : ''}`}
               >
                 {p}
               </button>
             ))}
           </div>
         </div>
-      </div>
 
-      {generatedAt ? (
-        <p className="feed-meta mono">
-          Updated {new Date(generatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-          {loading ? ' · refreshing…' : null}
-        </p>
-      ) : null}
+        {err ? <p className="feed-page-err">{err}</p> : null}
 
-      {err ? <p className="feed-page-err">{err}</p> : null}
-
-      {loading && scopedItems.length === 0 && !err ? (
-        <p className="feed-page-status">Loading openings…</p>
-      ) : !loading && scopedItems.length === 0 && !err ? (
-        <div className="feed-page-status">
-          <p>
-            No openings {scopeLabel.toLowerCase()} in the last {FEED_HOURS} hours for {partyLabel}.
-          </p>
-          {!fetchAllUtah && statewideHiddenCount > 0 ? (
-            <button type="button" className="btn btn-primary feed-scope-expand" onClick={() => setFetchScope('all')}>
-              See {statewideHiddenCount} statewide →
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        <>
-          <ul className="feed-opening-list">
-            {scopedItems.map((item) => (
-              <li key={item.id}>
-                <FeedOpeningRow
-                  item={item}
-                  record={recordsBySlug.get(item.course_slug)}
-                  minPlayers={minPlayers}
-                />
-              </li>
-            ))}
-          </ul>
-          {!fetchAllUtah && statewideHiddenCount > 0 ? (
-            <p className="feed-scope-foot">
-              <button type="button" className="feed-teaser-link feed-scope-more-btn" onClick={() => setFetchScope('all')}>
-                +{statewideHiddenCount} more statewide →
-              </button>
+        {loading && scopedItems.length === 0 && !err ? (
+          <p className="feed-page-status">Loading openings…</p>
+        ) : !loading && scopedItems.length === 0 && !err ? (
+          <div className="feed-page-empty">
+            <p className="feed-page-status">
+              Nothing fresh {scopeLabel.toLowerCase()} right now.
             </p>
-          ) : null}
-        </>
-      )}
+            <div className="feed-page-empty-actions">
+              {!fetchAllUtah && radiusMi < 50 ? (
+                <button type="button" className="btn btn-primary" onClick={() => setRadiusMode(50)}>
+                  Within 50 mi
+                </button>
+              ) : null}
+              {!fetchAllUtah && statewideHiddenCount > 0 ? (
+                <button type="button" className="btn btn-primary" onClick={() => setRadiusMode('all')}>
+                  See {statewideHiddenCount} statewide →
+                </button>
+              ) : null}
+              <Link to="/" className="btn">
+                Browse Find
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
+            <ul className="feed-opening-list">
+              {scopedItems.map((item) => (
+                <li key={item.id}>
+                  <FeedOpeningRow
+                    item={item}
+                    record={recordsBySlug.get(item.course_slug)}
+                    minPlayers={minPlayers}
+                  />
+                </li>
+              ))}
+            </ul>
+            {!fetchAllUtah && statewideHiddenCount > 0 ? (
+              <p className="feed-scope-foot">
+                <button type="button" className="feed-scope-more-btn" onClick={() => setRadiusMode('all')}>
+                  +{statewideHiddenCount} more statewide →
+                </button>
+              </p>
+            ) : null}
+          </>
+        )}
 
-      <Link to="/" className="btn btn-ghost feed-page-back">
-        Browse all courses →
-      </Link>
+        {scopedItems.length > 0 ? (
+          <Link to="/" className="btn btn-ghost feed-page-back">
+            Browse Find →
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }

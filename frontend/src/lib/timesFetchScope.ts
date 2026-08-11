@@ -5,6 +5,16 @@ import { resolveZipQuery } from './zipSearch';
 /** Default radius for regional tee-time fetches (near me, city, ZIP). */
 export const DEFAULT_FETCH_RADIUS_MI = 25;
 
+export const FETCH_RADIUS_OPTIONS_MI = [15, 25, 50] as const;
+
+export type FetchRadiusOption = (typeof FETCH_RADIUS_OPTIONS_MI)[number];
+
+export function parseFetchRadiusMi(raw: string | null | undefined): FetchRadiusOption {
+  const n = Number(raw);
+  if (n === 15 || n === 50) return n;
+  return DEFAULT_FETCH_RADIUS_MI;
+}
+
 /** Salt Lake City — fallback when GPS is unavailable. */
 export const WASATCH_FRONT_ANCHOR = { lat: 40.7608, lng: -111.891 };
 

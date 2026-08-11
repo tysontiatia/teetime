@@ -13,10 +13,12 @@ import { PlanRoundModal } from '../components/PlanRoundModal';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 import { useAuth } from '../state/AuthContext';
 import { courseDetailQueryString } from '../lib/finderUrl';
+import { parseFetchRadiusMi } from '../lib/timesFetchScope';
 import { buildBookingUrl } from '../lib/bookingUrl';
 import { teeTimeFitsPlayers } from '../lib/teeTimeFitsPlayers';
 import { CourseDetailPanel } from '../components/CourseDetailPanel';
 import { CourseReviewsSection } from '../components/CourseReviewsSection';
+import { AlertsIcon, PlanIcon } from '../components/icons/AppIcons';
 import { CourseStatsBar } from '../components/CourseStatsBar';
 import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
 import { pickNearestHour } from '../lib/weather';
@@ -99,6 +101,7 @@ export function CoursePage() {
       sortBy: sort,
       locationQuery: sp.get('q') || '',
       fetchScope: sp.get('scope') === 'all' ? 'all' : 'nearby',
+      radiusMi: parseFetchRadiusMi(sp.get('radius')),
     };
     return courseDetailQueryString(finderParams);
   }, [date, players, holes, tod, sort, sp]);
@@ -283,16 +286,18 @@ export function CoursePage() {
 
   if (!course || !courseId) {
     return (
-      <div className="container">
-        <div className="course-page-empty">
-          <p className="pill">Missing course</p>
-          <h1 className="course-page-empty-title">Course not found</h1>
-          <p className="course-page-empty-copy">
-            That course isn’t in the catalog, or the link is out of date. Head back to search and pick another.
+      <div className="container hub-page">
+        <div className="hub-page-card">
+          <p className="hub-page-kicker">Missing course</p>
+          <h1 className="hub-page-title">Course not found</h1>
+          <p className="hub-page-lede">
+            That course isn’t in the catalog, or the link is out of date. Head back to Find and pick another.
           </p>
-          <Link className="btn btn-primary" to={`/?${finderBackSearch}`}>
-            Back to search
-          </Link>
+          <div className="hub-page-actions">
+            <Link className="btn btn-primary" to={`/?${finderBackSearch}`}>
+              Back to Find
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -339,7 +344,7 @@ export function CoursePage() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          All courses
+          Back to Find
         </Link>
       </div>
 
@@ -360,43 +365,20 @@ export function CoursePage() {
             type="button"
             className="mp-icon-btn"
             aria-label={`Tee time alerts for ${course.name}`}
-            title="Tee time alerts"
+            title="Alerts"
             onClick={() => setNotifOpen(true)}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <AlertsIcon />
           </button>
           <button
             type="button"
             className="mp-icon-btn"
-            aria-label={`Share vote link for ${course.name}`}
-            title="Share times"
+            aria-label={`Plan a round at ${course.name}`}
+            title="Plan a round"
             disabled={!canShare || authLoading}
             onClick={onShareTimes}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M12 3v11M8.5 6.5L12 3l3.5 3.5"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M5 12v6.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V12"
-                stroke="currentColor"
-                strokeWidth="1.9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <PlanIcon />
           </button>
         </div>
       </div>
@@ -433,7 +415,6 @@ export function CoursePage() {
           holes={record?.holes ?? course.holes}
           par={record?.par}
           yardage={record?.yardage}
-          rating={typeof course.rating === 'number' ? course.rating : record?.rating}
         />
       </div>
 
@@ -461,7 +442,6 @@ export function CoursePage() {
               holes={record?.holes ?? course.holes}
               par={record?.par}
               yardage={record?.yardage}
-              rating={typeof course.rating === 'number' ? course.rating : record?.rating}
             />
           </div>
           <CourseDetailPanel
@@ -543,7 +523,7 @@ export function CoursePage() {
                 <strong>{platformDisplayName(record?.platform)}</strong>. {capabilityHint(cap)}.
               </p>
               <button type="button" className="tee-empty-action" onClick={() => setNotifOpen(true)}>
-                Notify me
+                Alert me
               </button>
             </div>
           ) : loadingTimes ? (
@@ -560,9 +540,19 @@ export function CoursePage() {
               <p>
                 No tee times for {todLabel.toLowerCase()} on {formatDateCompact(date)}
               </p>
-              <button type="button" className="tee-empty-action" onClick={() => setNotifOpen(true)}>
-                Notify me
-              </button>
+              <div className="rail-empty-actions">
+                {tod !== 'any' ? (
+                  <button type="button" className="tee-empty-action" onClick={() => setParam('tod', 'any')}>
+                    Any time of day
+                  </button>
+                ) : null}
+                <button type="button" className="tee-empty-action" onClick={() => shiftDate(1)}>
+                  Try tomorrow
+                </button>
+                <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={() => setNotifOpen(true)}>
+                  Alert me
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -581,10 +571,26 @@ export function CoursePage() {
                   const wxLabel = chipWeatherLabel(wx);
                   const precip = wx?.precipProb ?? 0;
                   const wxKind = weatherKindFromPrecip(precip);
-                  const slotClass = `tee-slot-card${t.id === selected?.id ? ' is-sel' : ''}`;
+                  const slotClass = `tee-slot-card${t.id === selected?.id ? ' is-sel' : ''}${
+                    t.reopenedAt ? ' is-reopened' : ''
+                  }`;
+                  const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
+                  const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;
+                  const bookAria = [
+                    `Book ${formatTime12h(t.startsAt)}`,
+                    priceLabel,
+                    reopenLabel ? `reopened ${reopenLabel}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ');
                   const slotBody = (
                     <>
                       <span className="tee-slot-card-time">{formatTime12h(t.startsAt)}</span>
+                      {reopenLabel ? (
+                        <span className="tee-slot-card-new" title={reopenLabel}>
+                          New
+                        </span>
+                      ) : null}
                       {wxLabel ? (
                         <span className={`tee-slot-card-wx tee-slot-card-wx--${wxKind}`}>
                           <WeatherGlyph precipProb={precip} />
@@ -617,10 +623,8 @@ export function CoursePage() {
                           {t.holes}
                         </span>
                       </span>
-                      {t.reopenedAt ? (
-                        <span className="tee-slot-card-price is-reopened">{formatReopenedAgo(t.reopenedAt)}</span>
-                      ) : typeof t.price === 'number' ? (
-                        <span className="tee-slot-card-price">${t.price}</span>
+                      {priceLabel ? (
+                        <span className="tee-slot-card-price">{priceLabel}</span>
                       ) : (
                         <span className="tee-slot-card-price is-muted">—</span>
                       )}
@@ -638,7 +642,7 @@ export function CoursePage() {
                         rel="noreferrer"
                         className={slotClass}
                         onClick={() => setSelectedSlotId(t.id)}
-                        aria-label={`Book ${formatTime12h(t.startsAt)}`}
+                        aria-label={bookAria}
                       >
                         {slotBody}
                       </a>
@@ -674,15 +678,7 @@ export function CoursePage() {
 
           <div className="tee-panel-foot">
             <button type="button" className="tee-panel-alert-link" onClick={() => setNotifOpen(true)}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M18 9a6 6 0 10-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9ZM10 20a2.2 2.2 0 004 0"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <AlertsIcon size={16} />
               Create alert
             </button>
             <button
@@ -691,6 +687,7 @@ export function CoursePage() {
               disabled={!canShare || authLoading}
               onClick={onShareTimes}
             >
+              <PlanIcon size={16} />
               Plan a round
             </button>
           </div>

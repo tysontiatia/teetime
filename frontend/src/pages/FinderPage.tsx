@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import type { Course, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import type { Course, FetchRadiusMi, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatDateShort, formatDateCompact } from '../lib/time';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
 import {
@@ -17,12 +17,14 @@ import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
+import { FeedTeaser } from '../components/FeedTeaser';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import {
   buildTimesFetchScope,
   courseMatchesLocationQuery,
   distanceFromAnchor,
   filterCoursesWithinRadius,
+  parseFetchRadiusMi,
   resolvePlaceAnchor,
   DEFAULT_FETCH_RADIUS_MI,
 } from '../lib/timesFetchScope';
@@ -54,7 +56,8 @@ function parseParams(sp: URLSearchParams): SearchParams {
   const sortBy = (sp.get('sort') as SortBy) || 'distance';
   const locationQuery = sp.get('q') || '';
   const fetchScope: SearchParams['fetchScope'] = sp.get('scope') === 'all' ? 'all' : 'nearby';
-  return { date, players, holes, timeOfDay, sortBy, locationQuery, fetchScope };
+  const radiusMi = parseFetchRadiusMi(sp.get('radius'));
+  return { date, players, holes, timeOfDay, sortBy, locationQuery, fetchScope, radiusMi };
 }
 
 /** Worker refetch only when date or party size changes — not text search, sort, or time-of-day. */
@@ -67,6 +70,7 @@ type PlanRoundTarget = {
 };
 
 export function FinderPage() {
+  const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const params = useMemo(() => parseParams(sp), [sp]);
   const [locationDraft, setLocationDraft] = useState(() => params.locationQuery);
@@ -93,16 +97,27 @@ export function FinderPage() {
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
   const fetchAllUtah = params.fetchScope === 'all';
+  const radiusMi = params.radiusMi;
 
-  const setFetchScope = useCallback(
-    (scope: 'nearby' | 'all') => {
+  /** Radius select: 15 / 25 / 50 mi, or statewide (`all`). */
+  const setRadiusMode = useCallback(
+    (value: FetchRadiusMi | 'all') => {
       const next = new URLSearchParams(sp);
-      if (scope === 'all') next.set('scope', 'all');
-      else next.delete('scope');
+      if (value === 'all') {
+        next.set('scope', 'all');
+        next.delete('radius');
+      } else {
+        next.delete('scope');
+        if (value === DEFAULT_FETCH_RADIUS_MI) next.delete('radius');
+        else next.set('radius', String(value));
+      }
       setSp(next, { replace: true });
+      setLastUpdatedAt(Date.now());
     },
     [sp, setSp]
   );
+
+  const radiusSelectValue: string = fetchAllUtah ? 'all' : String(radiusMi);
 
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
 
@@ -117,8 +132,9 @@ export function FinderPage() {
       buildTimesFetchScope(holesCompatibleCourses, userLocation, {
         fetchAllUtah,
         locationQuery: params.locationQuery,
+        radiusMi,
       }),
-    [holesCompatibleCourses, userLocation, fetchAllUtah, params.locationQuery]
+    [holesCompatibleCourses, userLocation, fetchAllUtah, params.locationQuery, radiusMi]
   );
 
   const fetchPool = timesFetchScope.fetchPool;
@@ -136,12 +152,12 @@ export function FinderPage() {
     (pool: Course[]) => {
       if (!placeMatch) return pool;
       const anchor = { ...placeMatch.anchor, source: 'default' as const };
-      return filterCoursesWithinRadius(pool, anchor, DEFAULT_FETCH_RADIUS_MI).map((c) => ({
+      return filterCoursesWithinRadius(pool, anchor, radiusMi).map((c) => ({
         ...c,
         distanceMi: distanceFromAnchor(c, anchor) ?? undefined,
       }));
     },
-    [placeMatch],
+    [placeMatch, radiusMi],
   );
 
   const searchPool = useMemo(() => {
@@ -202,11 +218,6 @@ export function FinderPage() {
     [gridCourses, timesByCourse]
   );
 
-  const soldOutCount = useMemo(
-    () => gridCourses.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) === 0).length,
-    [gridCourses, timesByCourse],
-  );
-
   const resultCountLabel = catalogLoading
     ? 'Loading courses…'
     : loadingTimes
@@ -214,7 +225,7 @@ export function FinderPage() {
         ? `Checking ${loadedSlugCount}/${attemptedSlugCount}…`
         : 'Checking…'
       : withTimesCount > 0
-        ? `${withTimesCount} open${soldOutCount > 0 ? ` · ${soldOutCount} sold out` : ''}`
+        ? `${withTimesCount} open`
         : `${gridCourses.length} courses`;
 
   const workerFetchTotalFailure =
@@ -238,7 +249,7 @@ export function FinderPage() {
     [bookingOnlyCourses]
   );
 
-  const [showBookingOnly, setShowBookingOnly] = useState(true);
+  const [showBookingOnly, setShowBookingOnly] = useState(false);
   const [planRound, setPlanRound] = useState<PlanRoundTarget | null>(null);
   const [planAfterSignIn, setPlanAfterSignIn] = useState<PlanRoundTarget | null>(null);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
@@ -376,7 +387,9 @@ export function FinderPage() {
     </span>
   );
 
-  const whereLabel = params.locationQuery.trim() || 'Near me';
+  const whereLabel =
+    params.locationQuery.trim() ||
+    (timesFetchScope.anchor.source === 'gps' ? 'Near me' : 'Salt Lake area');
 
   return (
     <div className="container">
@@ -437,26 +450,34 @@ export function FinderPage() {
               <span className="sp-label">Where</span>
               <span className="sp-value sp-value-btn">
                 <span className="sp-where-text">{whereLabel}</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.9" />
-                  <path d="M16.2 16.2L20 20" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-                </svg>
               </span>
             </button>
             <button
               className="sp-go"
               type="button"
-              aria-label="Refresh search"
+              aria-label="Refresh results"
+              title="Refresh"
               onClick={() => setLastUpdatedAt(Date.now())}
             >
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4" />
-                <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                <path
+                  d="M20 12a8 8 0 10-2.3 5.5"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M20 7v5h-5"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
           </div>
 
-          {/* Mobile: date · where (players live in filter chips) */}
+          {/* Mobile: When · Players · Where — same order as desktop */}
           <div className="finder-mobile-search">
             <div className="finder-mobile-bar">
               <div className="finder-date-control">
@@ -493,23 +514,25 @@ export function FinderPage() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                className="finder-where-pill"
-                onClick={() => setLocationSheetOpen(true)}
-                aria-haspopup="dialog"
-                aria-expanded={locationSheetOpen}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.9" />
-                  <path d="M16.2 16.2L20 20" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-                </svg>
-                <span className="finder-where-pill-text">{whereLabel}</span>
-              </button>
-
               <label className="finder-players-pill finder-players-pill--compact">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
+                  <path
+                    d="M3.5 19c.8-3 2.8-4.5 5.5-4.5S13.7 16 14.5 19"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="17" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                  <path
+                    d="M14.8 19c.5-2.2 1.8-3.3 3.7-3.3 1.5 0 2.7.7 3.5 2"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
                 <span className="finder-players-pill-value" aria-hidden>
-                  {params.players}·{params.holes}
+                  {params.players} · {params.holes}h
                 </span>
                 <select
                   aria-label="Players and holes"
@@ -533,6 +556,19 @@ export function FinderPage() {
                   <option value="4-9">4 · 9 holes</option>
                 </select>
               </label>
+
+              <button
+                type="button"
+                className="finder-where-pill"
+                onClick={() => setLocationSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={locationSheetOpen}
+              >
+                <span className="finder-where-pill-text">{whereLabel}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -543,18 +579,25 @@ export function FinderPage() {
             {timeChip('morning', 'Morning')}
             {timeChip('afternoon', 'Afternoon')}
             {timeChip('evening', 'Twilight')}
-            {!catalogLoading && timesFetchScope.regional && timesFetchScope.outOfScopeCount > 0 ? (
-              <button type="button" className="chip" onClick={() => setFetchScope('all')}>
-                All Utah
-              </button>
-            ) : null}
-            {!catalogLoading && fetchAllUtah ? (
-              <button type="button" className="chip" onClick={() => setFetchScope('nearby')}>
-                Nearby
-              </button>
-            ) : null}
           </div>
           <div className="filter-controls">
+            <label className="sort-control radius-control">
+              <span className="visually-hidden">Search radius</span>
+              <select
+                value={radiusSelectValue}
+                aria-label="Search radius"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === 'all') setRadiusMode('all');
+                  else setRadiusMode(Number(v) as FetchRadiusMi);
+                }}
+              >
+                <option value="15">Within 15 mi</option>
+                <option value="25">Within 25 mi</option>
+                <option value="50">Within 50 mi</option>
+                <option value="all">Statewide</option>
+              </select>
+            </label>
             <label className="sort-control">
               <span className="visually-hidden">Sort</span>
               <select
@@ -571,11 +614,17 @@ export function FinderPage() {
           </div>
         </div>
 
+        <FeedTeaser
+          players={params.players}
+          fetchAllUtah={fetchAllUtah}
+          locationQuery={params.locationQuery}
+          radiusMi={radiusMi}
+        />
+
         <div className="result-meta">
           <span className="result-count">
             <strong>{resultCountLabel}</strong>
             {updatedLabel !== '—' ? ` · ${updatedLabel}` : ''}
-            <span className="result-count-date">{` · ${formatDateShort(params.date)}`}</span>
           </span>
           <FinderDayOutlook
             dateYmd={params.date}
@@ -583,7 +632,7 @@ export function FinderPage() {
             lng={timesFetchScope.anchor.lng}
             regionLabel={
               params.locationQuery.trim() ||
-              (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Wasatch')
+              (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
             }
           />
         </div>
@@ -593,8 +642,8 @@ export function FinderPage() {
             <div className="empty-search-title">No courses match that search</div>
             <p>
               Try clearing the location box, switching time of day to <strong>Any</strong>, or picking another date.
-              {!fetchAllUtah && timesFetchScope.mode === 'nearby' && timesFetchScope.outOfScopeCount > 0
-                ? ' Try Search all Utah for statewide results, or search a city like St. George.'
+              {!fetchAllUtah && timesFetchScope.outOfScopeCount > 0
+                ? ' Widen the radius or try Statewide for more courses, or search a city like St. George.'
                 : ' The full live catalog stays available when your search matches again.'}
             </p>
             <div className="empty-search-actions">
@@ -603,9 +652,14 @@ export function FinderPage() {
                   Clear search
                 </button>
               ) : null}
+              {!fetchAllUtah && radiusMi < 50 ? (
+                <button type="button" className="btn btn-primary" onClick={() => setRadiusMode(50)}>
+                  Within 50 mi
+                </button>
+              ) : null}
               {!fetchAllUtah && timesFetchScope.outOfScopeCount > 0 ? (
-                <button type="button" className="btn btn-primary" onClick={() => setFetchScope('all')}>
-                  Search all Utah
+                <button type="button" className="btn btn-primary" onClick={() => setRadiusMode('all')}>
+                  Try Statewide
                 </button>
               ) : null}
               {params.timeOfDay !== 'any' ? (
@@ -674,7 +728,7 @@ export function FinderPage() {
                   players={params.players}
                   holes={params.holes}
                   onAlert={() => setNotifCourseId(course.id)}
-                  onSearchAllUtah={() => setFetchScope('all')}
+                  onSearchAllUtah={() => setRadiusMode('all')}
                   onShare={() => requestShareRound(course, times)}
                   shareDisabled={times.length === 0 || timesPending || authLoading}
                 />
@@ -722,13 +776,10 @@ export function FinderPage() {
           </section>
         ) : null}
 
-        <div className="finder-help">
-          <div className="finder-help-title">Planning with a group?</div>
-          <p>
-            Tap <strong>Share times</strong> on any course to pick tee times and get a vote link, or open a course for
-            the full list. Past links live under <strong>You → Shared rounds</strong>.
-          </p>
-        </div>
+        <p className="finder-help">
+          Planning a group round? Tap the calendar icon on a course for a vote link — past links live under{' '}
+          <strong>Plan</strong>.
+        </p>
       </div>
 
       <SignInPromptModal open={signInToShareOpen} onClose={closeSignInToShare} variant="share" />
@@ -737,9 +788,12 @@ export function FinderPage() {
         onClose={() => setLocationSheetOpen(false)}
         courses={courses}
         currentQuery={params.locationQuery}
+        locationAvailable={Boolean(userLocation)}
         onSelectNearMe={applyNearMe}
         onSelectQuery={applyLocationQuery}
-        onSelectCourse={(course) => applyLocationQuery(course.name)}
+        onSelectCourse={(course) => {
+          navigate(`/course/${course.id}?${courseDetailQueryString(params)}`);
+        }}
       />
       {planRound ? (
         <PlanRoundModal
