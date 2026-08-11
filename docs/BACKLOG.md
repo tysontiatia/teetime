@@ -13,6 +13,10 @@ Empty player-filtered snapshots older than ~12 minutes always live-fetch (avoids
 hiding real openings like a sold-out poll that later reopened).
 Course detail still uses `/v1/availability`.
 
+**Poller:** each 5-minute tick claims hot dates (today+tomorrow) first in a large
+batch, then a small warm/cold residual; vendor polls run with concurrency 8 so
+hot snapshots approach the 5-minute target instead of 15–20+ minutes.
+
 **Later:** migrate CoursePage to batch-of-1; server-side live aggregation inside the
 batch handler; stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore).
 

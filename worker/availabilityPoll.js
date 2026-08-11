@@ -13,12 +13,14 @@ const POLL_MAX_DAY_OFFSET = 14;
 const GOLF_HOUR_START = 6;
 const GOLF_HOUR_END = 23;
 /**
- * Claims per 5-minute tick. Hot tier target is 5 min/course but with ~67 courses
- * × 15 dates, effective hot cadence ≈ ceil(pairs_due / CLAIM_BATCH_SIZE) × 5 min
- * (~15–20 min today at batch 20). Raise batch / prioritize alert courses before
- * live-feed or near-instant notify depends on hot latency.
+ * Claims per 5-minute tick. Hot tier target is 5 min/course; ~67 courses × 2 hot
+ * dates need a large hot claim + parallel vendor fetches to approach that.
+ * Warm/cold get a smaller residual claim so they do not starve hot refresh.
  */
-const CLAIM_BATCH_SIZE = 20;
+const HOT_CLAIM_BATCH_SIZE = 48;
+const REST_CLAIM_BATCH_SIZE = 12;
+/** Parallel (course, date) polls within one cron tick (vendor + Supabase I/O bound). */
+const POLL_CONCURRENCY = 8;
 
 const MS_HOT = 5 * 60 * 1000;
 const MS_WARM = 15 * 60 * 1000;
@@ -40,7 +42,7 @@ const SUPPORTED_PLATFORMS = new Set([
  *   closes for the tick (incomplete API response — not proof slots were booked).
  *   Ratio is intentionally low: normal booking shrink (e.g. 8→5) must still close.
  * • Close debounce: only close after a slot has been missing longer than this window
- *   since last_seen_at (~1–2 effective poll cycles at CLAIM_BATCH_SIZE=20).
+ *   since last_seen_at (~1–2 effective hot poll cycles).
  */
 const MIN_OPEN_SLOTS_FOR_PARTIAL_GUARD = 8;
 const PARTIAL_FETCH_MIN_RATIO = 0.35;
@@ -312,6 +314,41 @@ async function claimPollBatch(env, todayMt, maxPlayDate, batchSize) {
     throw new Error(detail);
   }
   return res.json();
+}
+
+/**
+ * Hot dates first (today+tomorrow), then a residual warm/cold fill.
+ * Dedupes if a pair somehow appears in both claims.
+ */
+async function claimPollBatches(env, todayMt, maxPlayDate) {
+  const hotMax = addDaysYmd(todayMt, 1);
+  const claimedHot = await claimPollBatch(env, todayMt, hotMax, HOT_CLAIM_BATCH_SIZE);
+  const claimedRest = await claimPollBatch(env, todayMt, maxPlayDate, REST_CLAIM_BATCH_SIZE);
+  const seen = new Set();
+  const out = [];
+  for (const row of [...claimedHot, ...claimedRest]) {
+    const key = `${row.course_slug}|${row.play_date}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+async function mapPool(items, concurrency, fn) {
+  if (items.length === 0) return [];
+  const results = new Array(items.length);
+  let index = 0;
+  async function worker() {
+    for (;;) {
+      const i = index++;
+      if (i >= items.length) break;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(concurrency, items.length));
+  await Promise.all(Array.from({ length: n }, () => worker()));
+  return results;
 }
 
 async function loadExistingSlots(env, course_slug, play_date) {
@@ -894,7 +931,7 @@ export async function handleAvailabilityPoll(env, deps) {
       env,
       candidatePairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
     );
-    const claimed = await claimPollBatch(env, todayMt, maxPlayDate, CLAIM_BATCH_SIZE);
+    const claimed = await claimPollBatches(env, todayMt, maxPlayDate);
 
     if (!claimed.length) {
       const schedRows = await countDueScheduleRows(env, todayMt, maxPlayDate);
@@ -908,14 +945,12 @@ export async function handleAvailabilityPoll(env, deps) {
       }
     }
 
-    for (const row of claimed) {
+    const pollResults = await mapPool(claimed, POLL_CONCURRENCY, async (row) => {
       const course = courseBySlug.get(row.course_slug);
       if (!course) {
         console.warn(`[poll] unknown course_slug claimed: ${row.course_slug}`);
-        continue;
+        return null;
       }
-      coursesClaimed++;
-
       const result = await pollOneClaimedCourse(env, {
         pollRunId,
         row,
@@ -926,7 +961,12 @@ export async function handleAvailabilityPoll(env, deps) {
         normalizeTimesWorker,
         onPollNotifyEvents,
       });
+      return { ...result, course_slug: row.course_slug, play_date: row.play_date };
+    });
 
+    for (const result of pollResults) {
+      if (!result) continue;
+      coursesClaimed++;
       if (result.status === 'ok') {
         coursesOk++;
         slotsUpserted += result.slots_written;
@@ -934,7 +974,7 @@ export async function handleAvailabilityPoll(env, deps) {
       } else {
         coursesFailed++;
         if (result.error_message) {
-          errors.push(`${row.course_slug}:${result.error_message}`);
+          errors.push(`${result.course_slug}:${result.error_message}`);
         }
       }
     }

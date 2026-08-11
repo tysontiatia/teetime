@@ -98,11 +98,11 @@ Signed-in users set an alert from the 🔔 modal: **specific date** (one play da
 7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
 8. Multi-slot alert emails list matching times (SMS copy paths remain in code but are not sent while SMS is paused)
 
-**Honest latency:** vendor APIs are polled, not streamed — a book-then-cancel test may take up to one poll cycle plus the **20 min close debounce** before a reopen is detected. Phantom-churn guards suppress false closes on flaky API responses.
+**Honest latency:** vendor APIs are polled, not streamed — a book-then-cancel test may take up to one **hot** poll cycle (target ~5 minutes for today/tomorrow) plus the **20 min close debounce** before a reopen is detected. Phantom-churn guards suppress false closes on flaky API responses. Find also live-fetches on empty/stale snapshots so the grid is not limited to poll cadence alone.
 
 **Finder inventory:** the app loads tee times via batched **`GET /v1/tee-times?date=&holes=&players=&ids=`** (chunks of ≤20 course slugs) from poller snapshots. Only cache misses / stale rows fall back to live vendor proxies (`/foreup`, `/chronogolf-slc`, …). Course detail still uses single-slug **`GET /v1/availability`** then live.
 
-**Deploy:** changing worker code requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker. Apply new Supabase migrations with **`supabase db push`** (slot dedupe columns + alert-prioritized poll claim).
+**Deploy:** changing worker code requires **`cd worker && npx wrangler deploy`** — Cloudflare **Pages** deploys do not update the Worker. Apply new Supabase migrations with **`supabase db push`** (including hot-date poll claim priority).
 
 ### Empty state CTAs
 
