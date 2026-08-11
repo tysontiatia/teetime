@@ -209,7 +209,7 @@ export function CourseMarketplaceCard({
                   ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
                       dateYmd,
                       players,
-                      holes,
+                      holes: t.holes === 9 || t.holes === 18 ? t.holes : holes,
                       startsAtIso: t.startsAt,
                     })
                   : null;
