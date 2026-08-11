@@ -15,8 +15,7 @@ missing or `live_failed`. Course detail still uses `/v1/availability`.
 batch, then a small warm/cold residual; vendor polls run with concurrency 8 so
 hot snapshots approach the 5-minute target instead of 15–20+ minutes.
 
-**Later:** migrate CoursePage to batch-of-1; stronger poller runtime for
-Cloudflare/captcha vendors (CPS, TenFore).
+**Later:** stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore).
 
 ## Per-course timezone (BLOCKER for out-of-state courses)
 

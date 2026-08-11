@@ -116,28 +116,6 @@ export type TeeTimeFetchResult = {
 
 const emptyOk: TeeTimeFetchResult = { times: [], ok: true };
 
-async function fetchTeeTimesFromSnapshot(
-  courseSlug: string,
-  dateYmd: string,
-  holes: 9 | 18,
-  players: 1 | 2 | 3 | 4,
-): Promise<SnapshotAvailabilityResponse | null> {
-  const base = getWorkerBaseUrl();
-  const url = new URL(`${base}/v1/availability`);
-  url.searchParams.set('course_slug', courseSlug);
-  url.searchParams.set('date', dateYmd);
-  url.searchParams.set('holes', String(holes));
-  url.searchParams.set('players', String(players));
-
-  try {
-    const res = await fetchWithTimeout(url.toString(), { method: 'GET' });
-    if (!res.ok) return null;
-    return (await res.json()) as SnapshotAvailabilityResponse;
-  } catch {
-    return null;
-  }
-}
-
 function snapshotToTeeTimes(
   courseSlug: string,
   dateYmd: string,
@@ -439,18 +417,20 @@ export async function fetchTeeTimesForCourse(
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4
 ): Promise<TeeTimeFetchResult> {
+  // Same path as Find: /v1/tee-times live-fills miss/stale/empty so detail matches the grid.
   if (course.platform && workerSupportedPlatform(course.platform)) {
-    const snapshot = await fetchTeeTimesFromSnapshot(courseSlug, dateYmd, holes, players);
-    if (snapshot && canTrustSnapshotForPlayers(snapshot, players, dateYmd)) {
+    const batchMap = await fetchTeeTimesBatchFromSnapshot([courseSlug], dateYmd, holes, players);
+    const row = batchMap.get(courseSlug);
+    if (row && canUseBatchRow(row, players, dateYmd)) {
       return {
-        times: snapshotToTeeTimes(courseSlug, dateYmd, snapshot.times!),
+        times: snapshotToTeeTimes(courseSlug, dateYmd, row.times!),
         ok: true,
-        source: 'snapshot',
+        source: row.batchSource === 'live' ? 'live' : 'snapshot',
       };
     }
   }
 
-  return fetchTeeTimesLive(course, courseSlug, dateYmd, holes, players);
+  return fetchTeeTimesLiveWithRetry(course, courseSlug, dateYmd, holes, players);
 }
 
 export type TimesBySlugFetchResult = {
