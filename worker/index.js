@@ -1893,7 +1893,11 @@ export default {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.teeTimesBatch);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
-      return handleTeeTimesBatchRequest(env, params);
+      return handleTeeTimesBatchRequest(env, params, {
+        loadCourses: () => loadCourses(env),
+        fetchTimesForCourse,
+        normalizeTimesWorker,
+      });
     }
 
     if (path.startsWith('/admin/')) {

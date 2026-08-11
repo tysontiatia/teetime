@@ -4,21 +4,19 @@ Tracked work that is intentionally deferred. Newest first.
 
 ## Batched Finder reads (phase 1 done)
 
-Finder uses **`GET /v1/tee-times?ids=`** (snapshot batch, ≤20 slugs) with live vendor
-fallback only for misses/stale. Freshness is tiered to match poller claim lag (not a
-naive 5–12 min window); overnight Find trusts last evening's snapshot while the
-poller sleeps. During golf hours, Find **paints snapshots then background
-live-revalidates** any course older than ~12 minutes (stale-while-revalidate).
-Empty player-filtered snapshots older than ~12 minutes always live-fetch (avoids
-hiding real openings like a sold-out poll that later reopened).
-Course detail still uses `/v1/availability`.
+Finder uses **`GET /v1/tee-times?ids=`** (snapshot batch, ≤20 slugs). The Worker
+**live-fills** miss/stale/empty rows from vendors in that same request so the
+browser mostly sees 1–2 calls instead of a per-course waterfall. Freshness is
+tiered to match poller claim lag; overnight Find trusts last evening's non-empty
+snapshot while the poller sleeps. Client still falls back only when a slug is
+missing or `live_failed`. Course detail still uses `/v1/availability`.
 
 **Poller:** each 5-minute tick claims hot dates (today+tomorrow) first in a large
 batch, then a small warm/cold residual; vendor polls run with concurrency 8 so
 hot snapshots approach the 5-minute target instead of 15–20+ minutes.
 
-**Later:** migrate CoursePage to batch-of-1; server-side live aggregation inside the
-batch handler; stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore).
+**Later:** migrate CoursePage to batch-of-1; stronger poller runtime for
+Cloudflare/captcha vendors (CPS, TenFore).
 
 ## Per-course timezone (BLOCKER for out-of-state courses)
 

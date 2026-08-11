@@ -7,8 +7,10 @@ import assert from 'node:assert/strict';
 
 import {
   buildTeeTimesBySlug,
+  normalizedRowsToBatchTimes,
   parseTeeTimesIds,
   postgrestInList,
+  snapshotNeedsLiveFill,
   TEE_TIMES_BATCH_MAX_IDS,
 } from './availabilityRead.js';
 
@@ -66,6 +68,7 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
   );
 
   assert.equal(by.alpha.has_poll_coverage, true);
+  assert.equal(by.alpha.source, 'snapshot');
   assert.equal(by.alpha.times.length, 1);
   assert.equal(by.alpha.times[0].id, '1');
   assert.equal(by.alpha.times[0].reopenedAt, '2026-08-11T10:00:00.000Z');
@@ -73,4 +76,77 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
   assert.deepEqual(by.beta.times, []);
   assert.equal(by.gamma.has_poll_coverage, false);
   assert.deepEqual(by.gamma.times, []);
+});
+
+test('snapshotNeedsLiveFill for empty/stale/no coverage', () => {
+  const now = Date.parse('2026-08-11T18:00:00.000Z'); // ~noon MT golf hours
+  assert.equal(
+    snapshotNeedsLiveFill(
+      { has_poll_coverage: false, spots_known: true, last_polled_at: null, times: [] },
+      2,
+      '2026-08-12',
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(
+      {
+        has_poll_coverage: true,
+        spots_known: true,
+        last_polled_at: new Date(now - 5 * 60 * 1000).toISOString(),
+        times: [],
+      },
+      2,
+      '2026-08-12',
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(
+      {
+        has_poll_coverage: true,
+        spots_known: true,
+        last_polled_at: new Date(now - 30 * 60 * 1000).toISOString(),
+        times: [],
+      },
+      2,
+      '2026-08-12',
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(
+      {
+        has_poll_coverage: true,
+        spots_known: true,
+        last_polled_at: new Date(now - 5 * 60 * 1000).toISOString(),
+        times: [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 2 }],
+      },
+      2,
+      '2026-08-12',
+      now,
+    ),
+    false,
+  );
+});
+
+test('normalizedRowsToBatchTimes filters players/holes and builds startsAt', () => {
+  const playDate = '2099-06-01';
+  const times = normalizedRowsToBatchTimes(
+    'stonebridge-west-valley-city',
+    playDate,
+    18,
+    2,
+    [
+      { rawTime: '14:06', spots: 3, price: '$45', holes: 18 },
+      { rawTime: '14:15', spots: 1, price: '$45', holes: 18 },
+      { rawTime: '09:00', spots: 4, price: '$30', holes: 9 },
+    ],
+  );
+  assert.equal(times.length, 1);
+  assert.equal(times[0].spots, 3);
+  assert.ok(times[0].startsAt.includes('2099-06-01') || times[0].startsAt.startsWith('2099-'));
 });
