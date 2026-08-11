@@ -131,6 +131,22 @@ test('snapshotNeedsLiveFill for empty/stale/no coverage', () => {
     ),
     false,
   );
+  // Overnight non-empty but aging — must still live-fill (was under-counting openings).
+  const night = Date.parse('2026-08-11T09:00:00.000Z'); // ~3am MT
+  assert.equal(
+    snapshotNeedsLiveFill(
+      {
+        has_poll_coverage: true,
+        spots_known: true,
+        last_polled_at: new Date(night - 6 * 60 * 60 * 1000).toISOString(),
+        times: [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 4 }],
+      },
+      2,
+      '2026-08-12',
+      night,
+    ),
+    true,
+  );
 });
 
 test('normalizedRowsToBatchTimes filters players/holes and builds startsAt', () => {

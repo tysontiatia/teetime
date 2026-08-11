@@ -10,11 +10,8 @@ const REOPENED_LOOKBACK_MS = 6 * 60 * 60 * 1000;
 export const TEE_TIMES_BATCH_MAX_IDS = 20;
 
 const MT_TZ = 'America/Denver';
-const GOLF_HOUR_START = 6;
-const GOLF_HOUR_END = 23;
-/** Prefer live fill when snapshot older than this (empty or daytime aging). */
+/** Prefer live fill when snapshot older than this (empty or non-empty). */
 const SNAPSHOT_REVALIDATE_AFTER_MS = 12 * 60 * 1000;
-const SNAPSHOT_OFF_HOURS_MAX_AGE_MS = 18 * 60 * 60 * 1000;
 const LIVE_FILL_CONCURRENCY = 6;
 const LIVE_FILL_TIMEOUT_MS = 12_000;
 const LIVE_FILL_SLOW_TIMEOUT_MS = 28_000;
@@ -415,39 +412,6 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
   });
 }
 
-function mtNowParts(nowMs = Date.now()) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: MT_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    hour12: false,
-  }).formatToParts(new Date(nowMs));
-  const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
-  return {
-    dateYmd: `${get('year')}-${get('month')}-${get('day')}`,
-    hour: Number(get('hour')),
-  };
-}
-
-function daysUntilPlay(playDateYmd, todayMtYmd) {
-  const [y1, m1, d1] = playDateYmd.split('-').map(Number);
-  const [y2, m2, d2] = todayMtYmd.split('-').map(Number);
-  return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 86400000);
-}
-
-function snapshotMaxAgeMs(playDateYmd, nowMs = Date.now()) {
-  const mt = mtNowParts(nowMs);
-  if (mt.hour < GOLF_HOUR_START || mt.hour >= GOLF_HOUR_END) {
-    return SNAPSHOT_OFF_HOURS_MAX_AGE_MS;
-  }
-  const days = daysUntilPlay(playDateYmd, mt.dateYmd);
-  if (days <= 1) return 90 * 60 * 1000;
-  if (days <= 6) return 4 * 60 * 60 * 1000;
-  return 8 * 60 * 60 * 1000;
-}
-
 function snapshotAgeMs(row, nowMs = Date.now()) {
   if (!row?.last_polled_at) return null;
   const age = nowMs - new Date(row.last_polled_at).getTime();
@@ -460,13 +424,9 @@ export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.no
   if (players > 1 && row.spots_known === false) return true;
   const age = snapshotAgeMs(row, nowMs);
   if (age == null || age < 0) return true;
-  const empty = !Array.isArray(row.times) || row.times.length === 0;
-  if (empty) return age > SNAPSHOT_REVALIDATE_AFTER_MS;
-  const mt = mtNowParts(nowMs);
-  const golfHours = mt.hour >= GOLF_HOUR_START && mt.hour < GOLF_HOUR_END;
-  if (!golfHours) return age > SNAPSHOT_OFF_HOURS_MAX_AGE_MS;
-  // Daytime: refresh aging snapshots so Find stays near-live without a client waterfall.
-  return age > SNAPSHOT_REVALIDATE_AFTER_MS || age > snapshotMaxAgeMs(playDateYmd, nowMs);
+  // Refresh any aging row (including non-empty overnight). Trusting a 12h-old
+  // non-empty sheet under-counts openings that appeared after the last poll.
+  return age > SNAPSHOT_REVALIDATE_AFTER_MS;
 }
 
 function wallClockToUtcInstant(y, mo, d, hh, mm) {
