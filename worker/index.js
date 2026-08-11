@@ -432,6 +432,106 @@ async function handleTeeItUp(params) {
   return corsResponse(data);
 }
 
+// Trutee (Convex) — public tee times, no auth. Fees are cents.
+const TRUTEE_CONVEX_QUERY = 'https://backend.trutee.app/api/query';
+const TRUTEE_USER_AGENT = 'TeeTimeIO/1.0 (+https://tee-time.io)';
+
+async function handleTrutee(params) {
+  const { course_id, date } = params;
+  if (!course_id || !date) {
+    return corsResponse({ error: 'missing_params' });
+  }
+
+  let res;
+  try {
+    res = await fetchWithTimeout(TRUTEE_CONVEX_QUERY, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': TRUTEE_USER_AGENT,
+      },
+      body: JSON.stringify({
+        path: 'teetimes/publicTeeTimes:getSingleCourseTeeTimes',
+        args: { courseId: String(course_id), date: String(date) },
+        format: 'json',
+      }),
+    });
+  } catch (err) {
+    if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
+    return corsResponse({ error: 'upstream_error' });
+  }
+
+  if (!res.ok) {
+    return corsResponse({ error: 'upstream_error', status: res.status });
+  }
+
+  let envelope;
+  try {
+    envelope = await res.json();
+  } catch {
+    return corsResponse({ error: 'parse_error' });
+  }
+
+  if (!envelope || envelope.status !== 'success' || !envelope.value) {
+    return corsResponse({
+      error: 'upstream_error',
+      detail: envelope?.errorMessage || envelope?.code || 'trutee_query_failed',
+    });
+  }
+
+  const data = envelope.value;
+  if (!data || !Array.isArray(data.teeTimes)) {
+    return corsResponse({ error: 'trutee_schema_drift' });
+  }
+
+  return corsResponse(data);
+}
+
+/**
+ * Parse Trutee `available_holes` ("9", "18", "9/18") into hole options to emit.
+ */
+export function truteeAvailableHoles(raw) {
+  return String(raw || '')
+    .split('/')
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((h) => h === 9 || h === 18);
+}
+
+/**
+ * Trutee fees are cents. Fan out one row per bookable hole option on the slot
+ * (Sunbrook "9/18" → 9h + 18h rows; Dixie "9" → single 9h row).
+ */
+export function normalizeTruteeTimesWorker(course, data) {
+  if (!data || typeof data !== 'object' || data.error) return [];
+  const teeTimes = data.teeTimes;
+  if (!Array.isArray(teeTimes)) return [];
+  const wantCourse = String(course?.trutee_course_id || '').trim();
+  const rows = [];
+  for (const tt of teeTimes) {
+    if (!tt || typeof tt !== 'object') continue;
+    if (wantCourse && tt.course_id && String(tt.course_id) !== wantCourse) continue;
+    const spots = tt.available_spots != null ? Number(tt.available_spots) : null;
+    if (spots != null && (!Number.isFinite(spots) || spots <= 0)) continue;
+    const startDate = String(tt.start_date || '').trim();
+    const startTime = String(tt.start_time || '').trim();
+    if (!startTime) continue;
+    const rawTime = startDate ? `${startDate} ${startTime}` : startTime;
+    const holeOptions = truteeAvailableHoles(tt.available_holes);
+    if (holeOptions.length === 0) continue;
+    for (const holes of holeOptions) {
+      const cents = Number(holes === 9 ? tt.green_fee_9 : tt.green_fee_18);
+      rows.push({
+        rawTime,
+        spots: spots != null && Number.isFinite(spots) ? spots : null,
+        price: Number.isFinite(cents) ? '$' + Math.round(cents / 100) : null,
+        holes,
+      });
+    }
+  }
+  return rows;
+}
+
 // ── Supabase + Resend config (set via wrangler secrets) ──────────────
 // env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, env.RESEND_API_KEY
 
@@ -600,6 +700,7 @@ function normalizeTimesWorker(course, data, holes) {
     case 'chronogolf_slc': return normalizeChronogolfSlcTimesWorker(data, holes);
     case 'chronogolf':     return normalizeChronogolfTimesWorker(data);
     case 'teeitup':        return normalizeTeeItUpTimesWorker(course, data);
+    case 'trutee':         return normalizeTruteeTimesWorker(course, data);
     default:               return [];
   }
 }
@@ -802,6 +903,10 @@ async function fetchTimesForCourse(course, date, holes, players) {
     params.set('facility_id', String(course.facility_id));
     params.set('alias', teeItUpAlias(course));
     handler = () => handleTeeItUp(Object.fromEntries(params.entries()));
+  } else if (course.platform === 'trutee') {
+    if (!course.trutee_course_id) return null;
+    params.set('course_id', String(course.trutee_course_id));
+    handler = () => handleTrutee(Object.fromEntries(params.entries()));
   } else {
     return null; // unsupported platform (golfpay, tenfore, foreup_login)
   }
@@ -1658,7 +1763,7 @@ export default {
     const params = Object.fromEntries(url.searchParams.entries());
     const foreupJwt = request.headers.get('foreup_jwt') || null;
 
-    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup') {
+    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.vendorLive);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
     }
@@ -1681,6 +1786,10 @@ export default {
 
     if (path === '/teeitup') {
       return handleTeeItUp(params);
+    }
+
+    if (path === '/trutee') {
+      return handleTrutee(params);
     }
 
     if (path === '/place-photo' || path === '/place-reviews') {

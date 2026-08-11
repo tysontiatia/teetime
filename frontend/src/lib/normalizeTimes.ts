@@ -145,6 +145,44 @@ function normalizeTeeItUpTimes(course: CourseRecord, data: unknown): NormRow[] {
   return rows;
 }
 
+function truteeAvailableHoles(raw: unknown): Array<9 | 18> {
+  return String(raw || '')
+    .split('/')
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((h): h is 9 | 18 => h === 9 || h === 18);
+}
+
+/** Trutee fees are cents. Fan out one row per bookable hole option ("9/18" → two rows). */
+function normalizeTruteeTimes(course: CourseRecord, data: unknown): NormRow[] {
+  if (!data || typeof data !== 'object' || data === null || 'error' in data) return [];
+  const teeTimes = (data as { teeTimes?: unknown }).teeTimes;
+  if (!Array.isArray(teeTimes)) return [];
+  const wantCourse = String(course.trutee_course_id || '').trim();
+  const rows: NormRow[] = [];
+  for (const entry of teeTimes) {
+    const tt = entry as Record<string, unknown>;
+    if (wantCourse && tt.course_id && String(tt.course_id) !== wantCourse) continue;
+    const spots = tt.available_spots != null ? Number(tt.available_spots) : null;
+    if (spots != null && (!Number.isFinite(spots) || spots <= 0)) continue;
+    const startDate = String(tt.start_date || '').trim();
+    const startTime = String(tt.start_time || '').trim();
+    if (!startTime) continue;
+    const rawTime = startDate ? `${startDate} ${startTime}` : startTime;
+    const holeOptions = truteeAvailableHoles(tt.available_holes);
+    if (holeOptions.length === 0) continue;
+    for (const holes of holeOptions) {
+      const cents = Number(holes === 9 ? tt.green_fee_9 : tt.green_fee_18);
+      rows.push({
+        rawTime,
+        spots: spots != null && Number.isFinite(spots) ? spots : null,
+        price: Number.isFinite(cents) ? '$' + Math.round(cents / 100) : null,
+        holes,
+      });
+    }
+  }
+  return rows;
+}
+
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
   if (!data || (typeof data === 'object' && data !== null && 'error' in data && (data as { error: unknown }).error))
     return [];
@@ -159,6 +197,8 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
       return normalizeChronogolfTimes(data as { teetimes?: unknown[] });
     case 'teeitup':
       return normalizeTeeItUpTimes(course, data);
+    case 'trutee':
+      return normalizeTruteeTimes(course, data);
     default:
       return [];
   }

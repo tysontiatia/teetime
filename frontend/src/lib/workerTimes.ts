@@ -187,6 +187,13 @@ async function fetchTeeTimesLive(
       url.searchParams.set('date', dateYmd);
       break;
     }
+    case 'trutee': {
+      if (!course.trutee_course_id) return emptyOk;
+      url = new URL(`${base}/trutee`);
+      url.searchParams.set('course_id', course.trutee_course_id);
+      url.searchParams.set('date', dateYmd);
+      break;
+    }
     default:
       return emptyOk;
   }

@@ -130,7 +130,9 @@ Account UI: **`/app/account`** — manage active tee time alerts (pause / resume
 | `chronogolf_slc` | Chronogolf club-specific API (`/marketplace/clubs/{id}/teetimes`) | 17 | Requires `club_id`, `course_id`, `affiliation_type_id`. All former `chronogolf` courses were migrated to this endpoint — the marketplace search endpoint (`/v2/teetimes`) returns "closed" for these clubs. |
 | `chronogolf` | Chronogolf marketplace v2 (`/v2/teetimes`) | 0 in UT | Still supported in worker + React for other regions where the club endpoint is not used. |
 | `membersports` | MemberSports POST API | 10 | Requires `golf_club_id`, `golf_course_id` |
-| `foreup_login` | ForeUp (login-gated) | 1 | No worker proxy yet; React shows booking-site + roadmap copy until a JWT-aware path exists. |
+| `teeitup` | Kenna / TeeItUp JSON | 6 | Requires `facility_id`, `teeitup_course_id` |
+| `trutee` | Convex public query (`backend.trutee.app`) | 4 | Requires `trutee_course_id` (St. George munis) |
+| `foreup_login` | ForeUp (login-gated) | 0 | No courses currently; worker support planned if needed. |
 | `golfpay` | — | 1 | No API support yet; booking link in UI + catalog. |
 | `tenfore` | — | 1 | No API support yet; booking link in UI + catalog. |
 
