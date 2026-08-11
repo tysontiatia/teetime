@@ -1136,7 +1136,7 @@ function buildTruteeBookingUrl(course, date, holes, players) {
   const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
   try {
     const u = new URL(base.split('#')[0] || base);
-    if (courseKey && !u.searchParams.get('course')) u.searchParams.set('course', courseKey);
+    if (courseKey) u.searchParams.set('course', courseKey);
     u.searchParams.set('date', date);
     u.searchParams.set('players', playersStr);
     u.searchParams.set('holes', holesStr);

@@ -282,7 +282,7 @@ function buildTruteeBookingUrl(source: BookingSource, params: BookingLinkParams)
   const holes = String(params.holes === 9 ? 9 : 18);
   try {
     const u = new URL(base.split('#')[0] || base);
-    if (courseKey && !u.searchParams.get('course')) u.searchParams.set('course', courseKey);
+    if (courseKey) u.searchParams.set('course', courseKey);
     u.searchParams.set('date', params.dateYmd);
     u.searchParams.set('players', players);
     u.searchParams.set('holes', holes);

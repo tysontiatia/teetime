@@ -563,7 +563,7 @@ export function CoursePage() {
                     {
                       dateYmd: date,
                       players,
-                      holes,
+                      holes: t.holes === 9 || t.holes === 18 ? t.holes : holes,
                       startsAtIso: t.startsAt,
                     },
                   );
