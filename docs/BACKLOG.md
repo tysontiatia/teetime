@@ -22,12 +22,15 @@ centroids (`utahZipCentroids.json`) and default map anchor for real multi-state 
 
 ## Promote booking-link-only platforms to live inventory
 
-`golfpay` (1) and `tenfore` (1) are deep-link only.
-Each needs a poller fetch+normalize adapter (same recipe as the TeeItUp / Trutee adapters).
+`tenfore` (1) is deep-link only.
+Each needs a poller fetch+normalize adapter (same recipe as the TeeItUp / Trutee / GolfPay adapters).
 Main unknown per platform is the vendor's tee-times JSON API + auth model.
 
 **Done:** `trutee` (4 St. George munis) — Convex public query
 `teetimes/publicTeeTimes:getSingleCourseTeeTimes` via `https://backend.trutee.app/api/query`.
+
+**Done:** `golfpay` (Barn Golf Club) — public `GET https://golfpay.co/api/tee-times?course_id=&date=`.
+Requires `golfpay_course_id` (`_gshcid`). Skips `is_online_block` placeholder rows.
 
 `foreup_login` is a genuine auth-gated variant (no courses use it currently —
 Purple Sage was reclassified to plain `foreup` once confirmed public). If a truly

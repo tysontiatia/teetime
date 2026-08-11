@@ -31,6 +31,7 @@ const SUPPORTED_PLATFORMS = new Set([
   'membersports',
   'teeitup',
   'trutee',
+  'golfpay',
 ]);
 
 /**

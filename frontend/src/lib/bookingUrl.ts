@@ -322,6 +322,9 @@ function buildGolfPayBookingUrl(source: BookingSource, params: BookingLinkParams
     const u = new URL(base.split('#')[0] || base);
     u.searchParams.set('date', params.dateYmd);
     u.searchParams.set('players', players);
+    if (params.holes === 9 || params.holes === 18) {
+      u.searchParams.set('holes', String(params.holes));
+    }
     if (!u.searchParams.has('sort')) u.searchParams.set('sort', 'lowest_price');
     return u.toString();
   } catch {

@@ -532,6 +532,106 @@ export function normalizeTruteeTimesWorker(course, data) {
   return rows;
 }
 
+// GolfPay — public Laravel JSON. Course id is `_gshcid` / data-course-id (Barn = 1466).
+const GOLFPAY_TEE_TIMES = 'https://golfpay.co/api/tee-times';
+const GOLFPAY_USER_AGENT = 'TeeTimeIO/1.0 (+https://tee-time.io)';
+
+export function golfPayCourseId(course) {
+  const explicit = course?.golfpay_course_id != null ? String(course.golfpay_course_id).trim() : '';
+  if (explicit) return explicit;
+  const fromTemplate = String(course?.booking_url_template || '').match(/[?&]_gshcid=(\d+)/i);
+  if (fromTemplate) return fromTemplate[1];
+  const fromUrl = String(course?.booking_url || '').match(/[?&]_gshcid=(\d+)/i);
+  return fromUrl ? fromUrl[1] : '';
+}
+
+async function handleGolfPay(params) {
+  const { course_id, date } = params;
+  if (!course_id || !date) {
+    return corsResponse({ error: 'missing_params' });
+  }
+
+  const url = new URL(GOLFPAY_TEE_TIMES);
+  url.searchParams.set('course_id', String(course_id));
+  url.searchParams.set('date', String(date));
+
+  let res;
+  try {
+    res = await fetchWithTimeout(url.toString(), {
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': GOLFPAY_USER_AGENT,
+      },
+    });
+  } catch (err) {
+    if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
+    return corsResponse({ error: 'upstream_error' });
+  }
+
+  if (!res.ok) {
+    return corsResponse({ error: 'upstream_error', status: res.status });
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return corsResponse({ error: 'parse_error' });
+  }
+
+  if (!data || typeof data !== 'object' || !data.data || !Array.isArray(data.data.times)) {
+    return corsResponse({ error: 'golfpay_schema_drift' });
+  }
+
+  return corsResponse(data);
+}
+
+/**
+ * Skip online-blocked placeholders ($1.00). Prefer lowest public price when the
+ * same wall-clock + holes appears twice (rate variants).
+ */
+export function normalizeGolfPayTimesWorker(_course, data) {
+  if (!data || typeof data !== 'object' || data.error) return [];
+  const times = data?.data?.times;
+  if (!Array.isArray(times)) return [];
+  const best = new Map();
+  for (const tt of times) {
+    if (!tt || typeof tt !== 'object') continue;
+    if (tt.is_online_block) continue;
+    const holesRaw = Number(tt.number_of_holes);
+    const holes = holesRaw === 9 ? 9 : holesRaw === 18 ? 18 : null;
+    if (!holes) continue;
+    const local = String(tt.local_tee_time || '').trim();
+    // "2026-08-14 06:30:00" → "2026-08-14 06:30"
+    const rawTime = local.replace(/:\d{2}$/, '');
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(rawTime)) continue;
+    const priceNum = Number(tt.booking_golfer_price ?? tt.regular_golfer_price);
+    if (!Number.isFinite(priceNum) || priceNum <= 1) continue;
+    // Prefer remaining spots from the provider slot when present; otherwise capacity.
+    const availRaw = tt.provider_data?.tee_time_slot?.availableSpots;
+    const spotsRaw =
+      availRaw != null
+        ? Number(availRaw)
+        : tt.max_allowed_golfers != null
+          ? Number(tt.max_allowed_golfers)
+          : null;
+    const spots = spotsRaw != null && Number.isFinite(spotsRaw) ? spotsRaw : null;
+    if (spots != null && spots <= 0) continue;
+    const key = `${rawTime}|${holes}`;
+    const row = {
+      rawTime,
+      spots,
+      price: '$' + Math.round(priceNum),
+      holes,
+      _priceNum: priceNum,
+    };
+    const prev = best.get(key);
+    if (!prev || priceNum < prev._priceNum) best.set(key, row);
+  }
+  return [...best.values()].map(({ _priceNum, ...row }) => row);
+}
+
 // ── Supabase + Resend config (set via wrangler secrets) ──────────────
 // env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, env.RESEND_API_KEY
 
@@ -701,6 +801,7 @@ function normalizeTimesWorker(course, data, holes) {
     case 'chronogolf':     return normalizeChronogolfTimesWorker(data);
     case 'teeitup':        return normalizeTeeItUpTimesWorker(course, data);
     case 'trutee':         return normalizeTruteeTimesWorker(course, data);
+    case 'golfpay':        return normalizeGolfPayTimesWorker(course, data);
     default:               return [];
   }
 }
@@ -907,8 +1008,13 @@ async function fetchTimesForCourse(course, date, holes, players) {
     if (!course.trutee_course_id) return null;
     params.set('course_id', String(course.trutee_course_id));
     handler = () => handleTrutee(Object.fromEntries(params.entries()));
+  } else if (course.platform === 'golfpay') {
+    const gpId = golfPayCourseId(course);
+    if (!gpId) return null;
+    params.set('course_id', gpId);
+    handler = () => handleGolfPay(Object.fromEntries(params.entries()));
   } else {
-    return null; // unsupported platform (golfpay, tenfore, foreup_login)
+    return null; // unsupported platform (tenfore, foreup_login)
   }
 
   try {
@@ -1168,14 +1274,16 @@ function buildTeeItUpBookingUrl(course, date) {
   }
 }
 
-function buildGolfPayBookingUrl(course, date, players) {
+function buildGolfPayBookingUrl(course, date, holes, players) {
   const base = String(course.booking_url || '').trim();
   if (!base) return null;
   const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
+  const holesNum = parseInt(String(holes), 10);
   try {
     const u = new URL(base.split('#')[0] || base);
     u.searchParams.set('date', date);
     u.searchParams.set('players', playersStr);
+    if (holesNum === 9 || holesNum === 18) u.searchParams.set('holes', String(holesNum));
     if (!u.searchParams.has('sort')) u.searchParams.set('sort', 'lowest_price');
     return u.toString();
   } catch {
@@ -1216,7 +1324,7 @@ function buildBookingUrlWorker(course, date, holes, players) {
   }
 
   if (course.platform === 'golfpay') {
-    return buildGolfPayBookingUrl(course, date, players) || base || 'https://tee-time.io';
+    return buildGolfPayBookingUrl(course, date, holes, players) || base || 'https://tee-time.io';
   }
 
   if (course.platform === 'teeitup') {
@@ -1763,7 +1871,7 @@ export default {
     const params = Object.fromEntries(url.searchParams.entries());
     const foreupJwt = request.headers.get('foreup_jwt') || null;
 
-    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee') {
+    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee' || path === '/golfpay') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.vendorLive);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
     }
@@ -1790,6 +1898,10 @@ export default {
 
     if (path === '/trutee') {
       return handleTrutee(params);
+    }
+
+    if (path === '/golfpay') {
+      return handleGolfPay(params);
     }
 
     if (path === '/place-photo' || path === '/place-reviews') {

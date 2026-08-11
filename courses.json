@@ -21,7 +21,8 @@
     "photo_reference": "AWCwydiC3JROHJL6RmooUA1F8C8eTjGJCbqeLQPRhLbW2H_Ip_0IFgMCnjbjoDZH_fr23WQONaufO7_q4I6Cv-ivqYWGzP91hu2kXGUcijkv_oD_KjvAz0S3KLhiFyHnHjkRu6jjSED8xW82CvvxcCk3eJ4h9aqbFYJhY2SYySOc7DRK2RJOlArH0mGue5vG22NIBv9giN8iSDzWKDdD5m56HhTl7IR4b2v3v6u15t37KvCSN95w2sv9g28SIn9uw237-PtRd9hMeZINj-0vNz0KfbJYtDTQtqp3CqyIqV2MkvUXToOIei5C7Pd9C1UyI1S0_HoN0l4lOX1hCQ6p1skKpz-6kymgOVsNpQhcMjXZxbIjxNrbRNMuC7jYfAne_d8MLvREN53gEbFAXA-vMRFp9OdFm9rijBEyZ1B0u6WHR2M1kdj5",
     "rates_updated_at": "2026-07-08",
     "twilight_discount": false,
-    "booking_url_template": "https://golfpay.co/course/the-barn-golf-club-ogden-ut-84414?lp=1&_gshcid=1466&_gsrefsrc=acquisition&date=2026-07-09&sort=lowest_price"
+    "booking_url_template": "https://golfpay.co/course/the-barn-golf-club-ogden-ut-84414?lp=1&_gshcid=1466&_gsrefsrc=acquisition&date=2026-07-09&sort=lowest_price",
+    "golfpay_course_id": "1466"
   },
   {
     "lat": 41.9842548,
