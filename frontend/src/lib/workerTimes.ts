@@ -386,6 +386,7 @@ async function fetchTeeTimesLiveWithRetry(
     }
     if (last.ok) return last;
     if (last.rateLimited) return last;
+    // Backoff with jitter so transient-error retries don't stampede the same origin at once.
     if (attempt < maxAttempts - 1) {
       await sleep(250 * 2 ** attempt + Math.random() * 200);
     }
