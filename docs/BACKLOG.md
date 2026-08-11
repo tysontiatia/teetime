@@ -5,7 +5,9 @@ Tracked work that is intentionally deferred. Newest first.
 ## Batched Finder reads (phase 1 done)
 
 Finder uses **`GET /v1/tee-times?ids=`** (snapshot batch, ≤20 slugs) with live vendor
-fallback only for misses/stale. Course detail still uses `/v1/availability`.
+fallback only for misses/stale. Freshness is tiered to match poller claim lag (not a
+naive 5–12 min window); overnight Find trusts last evening's snapshot while the
+poller sleeps. Course detail still uses `/v1/availability`.
 
 **Later:** migrate CoursePage to batch-of-1; server-side live aggregation inside the
 batch handler; stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore).
