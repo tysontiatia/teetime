@@ -2,6 +2,14 @@
 
 Tracked work that is intentionally deferred. Newest first.
 
+## Batched Finder reads (phase 1 done)
+
+Finder uses **`GET /v1/tee-times?ids=`** (snapshot batch, ≤20 slugs) with live vendor
+fallback only for misses/stale. Course detail still uses `/v1/availability`.
+
+**Later:** migrate CoursePage to batch-of-1; server-side live aggregation inside the
+batch handler; stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore).
+
 ## Per-course timezone (BLOCKER for out-of-state courses)
 
 **Do this before adding any course outside Utah / Mountain Time.**
