@@ -185,6 +185,7 @@ export function AdminCourseEditPage() {
       if (hints.course_id) patch.course_id = hints.course_id;
       if (hints.trutee_org_slug) patch.trutee_org_slug = hints.trutee_org_slug;
       if (hints.trutee_course_id) patch.trutee_course_id = hints.trutee_course_id;
+      if (hints.golfpay_course_id) patch.golfpay_course_id = hints.golfpay_course_id;
       if (hints.facility_id) patch.facility_id = hints.facility_id;
       if (hints.teeitup_alias) patch.teeitup_alias = hints.teeitup_alias;
 
@@ -515,6 +516,16 @@ export function AdminCourseEditPage() {
                 />
               </Field>
             </>
+          )}
+
+          {record.platform === 'golfpay' && (
+            <Field label="golfpay_course_id (_gshcid)">
+              <input
+                className="input"
+                value={record.golfpay_course_id || ''}
+                onChange={(e) => patchRecord({ golfpay_course_id: e.target.value })}
+              />
+            </Field>
           )}
 
           {record.platform === 'teeitup' && (

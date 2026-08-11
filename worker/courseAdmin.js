@@ -9,6 +9,7 @@ const PLATFORM_ID_FIELDS = {
   chronogolf_slc: ['club_id', 'course_id', 'affiliation_type_id'],
   membersports: ['golf_club_id', 'golf_course_id'],
   trutee: ['trutee_org_slug', 'trutee_course_id'],
+  golfpay: ['golfpay_course_id'],
   teeitup: ['facility_id', 'teeitup_course_id', 'teeitup_alias'],
 };
 
@@ -23,6 +24,7 @@ const ALL_PLATFORM_FIELDS = [
   'course_ids',
   'trutee_org_slug',
   'trutee_course_id',
+  'golfpay_course_id',
   'facility_id',
   'teeitup_course_id',
   'teeitup_alias',
@@ -107,6 +109,8 @@ export function parseBookingUrl(rawUrl) {
 
   if (host.includes('golfpay.co')) {
     out.platform = 'golfpay';
+    const gshcid = u.searchParams.get('_gshcid');
+    if (gshcid) out.hints.golfpay_course_id = gshcid;
     return out;
   }
 
@@ -518,8 +522,11 @@ function getPlatformWarnings(record) {
   const warnings = [];
   const platform = record.platform;
   if (!platform) warnings.push('No platform set — poller will not run.');
-  if (platform === 'golfpay' || platform === 'tenfore') {
-    warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
+  if (platform === 'tenfore') {
+    warnings.push('tenfore is booking-link-only today — live inventory not polled yet.');
+  }
+  if (platform === 'golfpay' && !record.golfpay_course_id) {
+    warnings.push('GolfPay needs golfpay_course_id (_gshcid) for live tee times.');
   }
   if (platform === 'trutee' && !record.trutee_course_id) {
     warnings.push('Trutee needs trutee_course_id for live tee times.');

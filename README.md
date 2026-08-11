@@ -132,8 +132,8 @@ Account UI: **`/app/account`** — manage active tee time alerts (pause / resume
 | `membersports` | MemberSports POST API | 10 | Requires `golf_club_id`, `golf_course_id` |
 | `teeitup` | Kenna / TeeItUp JSON | 6 | Requires `facility_id`, `teeitup_course_id` |
 | `trutee` | Convex public query (`backend.trutee.app`) | 4 | Requires `trutee_course_id` (St. George munis) |
+| `golfpay` | GolfPay public JSON (`/api/tee-times`) | 1 | Requires `golfpay_course_id` (`_gshcid`; Barn = 1466) |
 | `foreup_login` | ForeUp (login-gated) | 0 | No courses currently; worker support planned if needed. |
-| `golfpay` | — | 1 | No API support yet; booking link in UI + catalog. |
 | `tenfore` | — | 1 | No API support yet; booking link in UI + catalog. |
 
 The React app’s `frontend/src/lib/platformRegistry.ts` classifies platforms for UX (`live_inventory` vs `booking_link_only` vs `auth_gated_planned`); expand that file when you add a worker route.

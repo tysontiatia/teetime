@@ -183,6 +183,50 @@ function normalizeTruteeTimes(course: CourseRecord, data: unknown): NormRow[] {
   return rows;
 }
 
+/**
+ * GolfPay: skip `is_online_block` placeholders; keep lowest price per wall-clock + holes.
+ */
+function normalizeGolfPayTimes(data: unknown): NormRow[] {
+  if (!data || typeof data !== 'object' || data === null || 'error' in data) return [];
+  const times = (data as { data?: { times?: unknown } }).data?.times;
+  if (!Array.isArray(times)) return [];
+  const best = new Map<string, NormRow & { _priceNum: number }>();
+  for (const entry of times) {
+    const tt = entry as Record<string, unknown>;
+    if (tt.is_online_block) continue;
+    const holesRaw = Number(tt.number_of_holes);
+    const holes: 9 | 18 | null = holesRaw === 9 ? 9 : holesRaw === 18 ? 18 : null;
+    if (!holes) continue;
+    const local = String(tt.local_tee_time || '').trim();
+    const rawTime = local.replace(/:\d{2}$/, '');
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(rawTime)) continue;
+    const priceNum = Number(tt.booking_golfer_price ?? tt.regular_golfer_price);
+    if (!Number.isFinite(priceNum) || priceNum <= 1) continue;
+    const slot = (tt.provider_data as { tee_time_slot?: { availableSpots?: unknown } } | undefined)
+      ?.tee_time_slot;
+    const availRaw = slot?.availableSpots;
+    const spotsRaw =
+      availRaw != null
+        ? Number(availRaw)
+        : tt.max_allowed_golfers != null
+          ? Number(tt.max_allowed_golfers)
+          : null;
+    const spots = spotsRaw != null && Number.isFinite(spotsRaw) ? spotsRaw : null;
+    if (spots != null && spots <= 0) continue;
+    const key = `${rawTime}|${holes}`;
+    const row = {
+      rawTime,
+      spots,
+      price: '$' + Math.round(priceNum),
+      holes,
+      _priceNum: priceNum,
+    };
+    const prev = best.get(key);
+    if (!prev || priceNum < prev._priceNum) best.set(key, row);
+  }
+  return [...best.values()].map(({ _priceNum: _drop, ...row }) => row);
+}
+
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
   if (!data || (typeof data === 'object' && data !== null && 'error' in data && (data as { error: unknown }).error))
     return [];
@@ -199,6 +243,8 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
       return normalizeTeeItUpTimes(course, data);
     case 'trutee':
       return normalizeTruteeTimes(course, data);
+    case 'golfpay':
+      return normalizeGolfPayTimes(data);
     default:
       return [];
   }

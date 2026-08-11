@@ -194,6 +194,18 @@ async function fetchTeeTimesLive(
       url.searchParams.set('date', dateYmd);
       break;
     }
+    case 'golfpay': {
+      const gpId =
+        (course.golfpay_course_id && String(course.golfpay_course_id).trim()) ||
+        String(course.booking_url_template || '').match(/[?&]_gshcid=(\d+)/i)?.[1] ||
+        String(course.booking_url || '').match(/[?&]_gshcid=(\d+)/i)?.[1] ||
+        '';
+      if (!gpId) return emptyOk;
+      url = new URL(`${base}/golfpay`);
+      url.searchParams.set('course_id', gpId);
+      url.searchParams.set('date', dateYmd);
+      break;
+    }
     default:
       return emptyOk;
   }
