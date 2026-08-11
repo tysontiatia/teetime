@@ -73,31 +73,49 @@ export function useTimesByCourseMap(
 
     void (async () => {
       const failed: string[] = [];
-      await fetchTimesForCourseSlugs(entries, dateYmd, holes, players, 6, ({ slug, times, ok, source }) => {
-        if (cancelled) return;
-        setMap((prev) => {
-          const next = new Map(prev);
-          next.set(slug, times);
-          return next;
-        });
-        if (source) {
-          setSourceBySlug((prev) => {
+      let blockingDone = false;
+      await fetchTimesForCourseSlugs(
+        entries,
+        dateYmd,
+        holes,
+        players,
+        6,
+        ({ slug, times, ok, source }) => {
+          if (cancelled) return;
+          setMap((prev) => {
             const next = new Map(prev);
-            next.set(slug, source);
+            next.set(slug, times);
             return next;
           });
-        }
-        setPendingSlugs((prev) => {
-          if (!prev.has(slug)) return prev;
-          const next = new Set(prev);
-          next.delete(slug);
-          return next;
-        });
-        if (!ok) failed.push(slug);
-      });
+          if (source) {
+            setSourceBySlug((prev) => {
+              const next = new Map(prev);
+              next.set(slug, source);
+              return next;
+            });
+          }
+          setPendingSlugs((prev) => {
+            if (!prev.has(slug)) return prev;
+            const next = new Set(prev);
+            next.delete(slug);
+            return next;
+          });
+          // Only count hard misses (no trusted snapshot) toward the failure banner.
+          if (!ok && !blockingDone) failed.push(slug);
+        },
+        {
+          onBlockingComplete: () => {
+            blockingDone = true;
+            if (cancelled) return;
+            setFailedSlugs([...failed]);
+            setPendingSlugs(new Set());
+            setLoading(false);
+          },
+        },
+      );
 
       if (!cancelled) {
-        setFailedSlugs(failed);
+        setFailedSlugs([...failed]);
         setPendingSlugs(new Set());
         setLoading(false);
       }
