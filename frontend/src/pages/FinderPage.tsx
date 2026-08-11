@@ -133,8 +133,9 @@ export function FinderPage() {
         fetchAllUtah,
         locationQuery: params.locationQuery,
         radiusMi,
+        placeCourses: courses,
       }),
-    [holesCompatibleCourses, userLocation, fetchAllUtah, params.locationQuery, radiusMi]
+    [holesCompatibleCourses, userLocation, fetchAllUtah, params.locationQuery, radiusMi, courses]
   );
 
   const fetchPool = timesFetchScope.fetchPool;
@@ -143,8 +144,8 @@ export function FinderPage() {
 
   /** When the location box holds a Utah ZIP or city, resolve it to a map anchor. */
   const placeMatch = useMemo(
-    () => resolvePlaceAnchor(locationDraft, holesCompatibleCourses),
-    [locationDraft, holesCompatibleCourses],
+    () => resolvePlaceAnchor(locationDraft, courses),
+    [locationDraft, courses],
   );
 
   /** Filter to courses near the place centroid and re-express distance from it. */
@@ -218,16 +219,6 @@ export function FinderPage() {
     [gridCourses, timesByCourse]
   );
 
-  const resultCountLabel = catalogLoading
-    ? 'Loading courses…'
-    : loadingTimes
-      ? attemptedSlugCount > 0
-        ? `Checking ${loadedSlugCount}/${attemptedSlugCount}…`
-        : 'Checking…'
-      : withTimesCount > 0
-        ? `${withTimesCount} open`
-        : `${gridCourses.length} courses`;
-
   const workerFetchTotalFailure =
     !loadingTimes && failedSlugs.length > 0 && failedSlugs.length === attemptedSlugCount && attemptedSlugCount > 0;
   const workerFetchPartialFailure = !loadingTimes && failedSlugs.length > 0 && !workerFetchTotalFailure;
@@ -241,13 +232,42 @@ export function FinderPage() {
   }, [courses, locationDraft, placeMatch, coursesNearPlace]);
 
   const bookingOnlyCourses = useMemo(() => {
-    return queryAllCourses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
-  }, [queryAllCourses]);
+    let list = queryAllCourses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
+    if (params.holes !== 9) list = list.filter((c) => c.holes !== 9);
+    return list;
+  }, [queryAllCourses, params.holes]);
 
   const bookingOnlySorted = useMemo(
     () => [...bookingOnlyCourses].sort(sortCoursesByDistanceThenName),
     [bookingOnlyCourses]
   );
+
+  /** While searching a place/query, surface booking-link courses in the main grid. */
+  const searchingPlaceOrQuery = Boolean(placeMatch || locationDraft.trim());
+
+  const displayCourses = useMemo(() => {
+    if (!searchingPlaceOrQuery || bookingOnlySorted.length === 0) return gridCourses;
+    const liveIds = new Set(gridCourses.map((c) => c.id));
+    const extras = bookingOnlySorted.filter((c) => !liveIds.has(c.id));
+    if (extras.length === 0) return gridCourses;
+    return [...gridCourses, ...extras].sort(sortCoursesByDistanceThenName);
+  }, [searchingPlaceOrQuery, gridCourses, bookingOnlySorted]);
+
+  /** Collapsed "coming soon" list — omit courses already shown in the main grid while searching. */
+  const bookingOnlySectionCourses = useMemo(() => {
+    if (!searchingPlaceOrQuery) return bookingOnlySorted;
+    return [];
+  }, [searchingPlaceOrQuery, bookingOnlySorted]);
+
+  const resultCountLabel = catalogLoading
+    ? 'Loading courses…'
+    : loadingTimes
+      ? attemptedSlugCount > 0
+        ? `Checking ${loadedSlugCount}/${attemptedSlugCount}…`
+        : 'Checking…'
+      : withTimesCount > 0
+        ? `${withTimesCount} open`
+        : `${displayCourses.length} courses`;
 
   const [showBookingOnly, setShowBookingOnly] = useState(false);
   const [planRound, setPlanRound] = useState<PlanRoundTarget | null>(null);
@@ -637,7 +657,7 @@ export function FinderPage() {
           />
         </div>
 
-        {!catalogLoading && !loadingTimes && !catalogError && searchPool.length === 0 && workerCourses.length > 0 ? (
+        {!catalogLoading && !loadingTimes && !catalogError && displayCourses.length === 0 && workerCourses.length > 0 ? (
           <div className="empty-search">
             <div className="empty-search-title">No courses match that search</div>
             <p>
@@ -707,11 +727,12 @@ export function FinderPage() {
             ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
             : null}
           {!showCatalogSkeleton &&
-            gridCourses.map((course) => {
+            displayCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const inFetchPool = fetchSlugSet.has(course.id);
-              const outOfScope = !inFetchPool && !fetchAllUtah;
-              const timesPending = inFetchPool && pendingSlugs.has(course.id);
+              const bookingLinkOnly = getPlatformCapability(course.platform) !== 'live_inventory';
+              const outOfScope = !bookingLinkOnly && !inFetchPool && !fetchAllUtah;
+              const timesPending = !bookingLinkOnly && inFetchPool && pendingSlugs.has(course.id);
               const detailHref = `/course/${course.id}?${courseDetailQueryString(params)}`;
               return (
                 <CourseMarketplaceCard
@@ -723,7 +744,8 @@ export function FinderPage() {
                   timesPending={timesPending}
                   outOfScope={outOfScope}
                   inventorySource={sourceBySlug.get(course.id)}
-                  batchLoading={loadingTimes}
+                  batchLoading={loadingTimes && !bookingLinkOnly}
+                  variant={bookingLinkOnly ? 'comingSoon' : 'inventory'}
                   dateYmd={params.date}
                   players={params.players}
                   holes={params.holes}
@@ -736,7 +758,7 @@ export function FinderPage() {
             })}
         </div>
 
-        {bookingOnlySorted.length > 0 ? (
+        {bookingOnlySectionCourses.length > 0 ? (
           <section className="booking-only-section">
             <button
               type="button"
@@ -745,7 +767,7 @@ export function FinderPage() {
               aria-expanded={showBookingOnly}
             >
               <span>
-                Coming soon <span className="booking-only-count">({bookingOnlySorted.length})</span>
+                Coming soon <span className="booking-only-count">({bookingOnlySectionCourses.length})</span>
               </span>
               <span className="booking-only-chevron" aria-hidden>
                 {showBookingOnly ? '−' : '+'}
@@ -757,7 +779,7 @@ export function FinderPage() {
                   These courses aren&apos;t on live inventory yet. We&apos;ll add tee times as platforms come online.
                 </p>
                 <div className="mp-grid booking-only-grid">
-                  {bookingOnlySorted.map((course) => (
+                  {bookingOnlySectionCourses.map((course) => (
                     <CourseMarketplaceCard
                       key={course.id}
                       course={course}
