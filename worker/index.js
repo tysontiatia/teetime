@@ -557,13 +557,14 @@ async function handleGolfPay(params) {
 
   let res;
   try {
+    // GolfPay’s Laravel tee-times endpoint often takes 15–30s cold.
     res = await fetchWithTimeout(url.toString(), {
       headers: {
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
         'User-Agent': GOLFPAY_USER_AGENT,
       },
-    });
+    }, 30000);
   } catch (err) {
     if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
     return corsResponse({ error: 'upstream_error' });
