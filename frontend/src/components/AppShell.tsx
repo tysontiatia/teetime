@@ -13,6 +13,7 @@ import { InstallAppBanner } from './InstallAppBanner';
 import { SignInPromptModal, type SignInPromptVariant } from './SignInPromptModal';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
+import { useKeyboardInsetCssVar } from '../hooks/useKeyboardInsetCssVar';
 import { AlertsIcon, PlanIcon } from './icons/AppIcons';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/teetimehq/';
@@ -46,6 +47,7 @@ function AppShellInner() {
   const location = useLocation();
   const navigate = useNavigate();
   const isCompact = useIsCompactShell();
+  useKeyboardInsetCssVar();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const accountBtnRef = useRef<HTMLButtonElement>(null);
