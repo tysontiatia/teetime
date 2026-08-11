@@ -37,6 +37,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   membersports: 'MemberSports',
   golfpay: 'GolfPay',
   tenfore: 'TenFore',
+  cps: 'Club Prophet',
   trutee: 'Trutee',
   teeitup: 'TeeItUp',
 };

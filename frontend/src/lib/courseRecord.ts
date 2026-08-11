@@ -30,6 +30,9 @@ export type CourseRecord = {
   trutee_course_id?: string;
   /** GolfPay `_gshcid` / data-course-id (Barn = 1466). */
   golfpay_course_id?: string;
+  /** Club Prophet Systems (CPS) Online Res — tenant subdomain + course id. */
+  cps_tenant?: string;
+  cps_course_id?: string;
   /** TeeItUp: numeric facility (query + deep link) + mongo courseId hash (poll mapping). */
   facility_id?: string;
   teeitup_course_id?: string;
