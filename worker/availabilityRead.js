@@ -10,9 +10,7 @@ const REOPENED_LOOKBACK_MS = 6 * 60 * 60 * 1000;
 export const TEE_TIMES_BATCH_MAX_IDS = 20;
 
 const MT_TZ = 'America/Denver';
-/** Prefer live fill when snapshot older than this (empty or non-empty). */
-const SNAPSHOT_REVALIDATE_AFTER_MS = 12 * 60 * 1000;
-const LIVE_FILL_CONCURRENCY = 6;
+const LIVE_FILL_CONCURRENCY = 8;
 const LIVE_FILL_TIMEOUT_MS = 12_000;
 const LIVE_FILL_SLOW_TIMEOUT_MS = 28_000;
 const SLOW_LIVE_PLATFORMS = new Set(['golfpay']);
@@ -412,21 +410,16 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
   });
 }
 
-function snapshotAgeMs(row, nowMs = Date.now()) {
-  if (!row?.last_polled_at) return null;
-  const age = nowMs - new Date(row.last_polled_at).getTime();
-  return Number.isFinite(age) ? age : null;
-}
-
 /** Exported for unit tests — when true, batch handler should vendor-fetch this slug. */
 export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.now()) {
-  if (!row || row.has_poll_coverage !== true) return true;
-  if (players > 1 && row.spots_known === false) return true;
-  const age = snapshotAgeMs(row, nowMs);
-  if (age == null || age < 0) return true;
-  // Refresh any aging row (including non-empty overnight). Trusting a 12h-old
-  // non-empty sheet under-counts openings that appeared after the last poll.
-  return age > SNAPSHOT_REVALIDATE_AFTER_MS;
+  // Always refresh from the vendor on Find reads. Poller snapshots are a fast
+  // fallback only when live fill fails — trusting a "fresh" empty/partial poll
+  // is what made grids look thinner than the booking tee sheet.
+  void row;
+  void players;
+  void playDateYmd;
+  void nowMs;
+  return true;
 }
 
 function wallClockToUtcInstant(y, mo, d, hh, mm) {

@@ -4,18 +4,19 @@ Tracked work that is intentionally deferred. Newest first.
 
 ## Batched Finder reads (phase 1 done)
 
-Finder uses **`GET /v1/tee-times?ids=`** (snapshot batch, ≤20 slugs). The Worker
-**live-fills** miss/stale/empty rows from vendors in that same request so the
-browser mostly sees 1–2 calls instead of a per-course waterfall. Freshness is
-tiered to match poller claim lag; overnight Find trusts last evening's non-empty
-snapshot while the poller sleeps. Client still falls back only when a slug is
-missing or `live_failed`. Course detail still uses `/v1/availability`.
+Finder uses **`GET /v1/tee-times?ids=`** (≤20 slugs). The Worker **always
+live-fills** every requested course from vendors in that request (snapshots are
+fallback only when a vendor call fails). Filter in Find still applies: selected
+**holes** and **players** — booking tee sheets often show 9+18 and 1-spot times
+together, which can look like “missing” inventory on our side.
+Course detail uses the same batch-of-1 path.
 
 **Poller:** each 5-minute tick claims hot dates (today+tomorrow) first in a large
 batch, then a small warm/cold residual; vendor polls run with concurrency 8 so
-hot snapshots approach the 5-minute target instead of 15–20+ minutes.
+alerts stay near-live.
 
-**Later:** stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore).
+**Later:** stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore);
+optional Find “any holes” mode; fix TeeItUp courses returning upstream 404.
 
 ## Per-course timezone (BLOCKER for out-of-state courses)
 
