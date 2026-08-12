@@ -349,6 +349,7 @@ export function CourseMarketplaceCard({
               </>
             ) : (
               <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onAlert}>
+                <AlertsIcon size={15} strokeWidth={1.8} />
                 Alert me
               </button>
             )}
