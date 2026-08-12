@@ -48,6 +48,11 @@
   --wx-cloud: #64748B;
   --wx-rain: #2563EB;
 
+  /* Find marketplace card footer — chips, empty, and loading share one footprint. */
+  --mp-tee-strip-height: 94px;
+  --mp-tee-chip-width: 108px;
+  --mp-tee-chip-height: 70px;
+
   font-family: var(--font);
   color: var(--ink);
   background: var(--paper);
@@ -1852,15 +1857,20 @@ html[data-theme='dark'] .app-banner--warn{
   align-items: center;
   justify-content: stretch;
   gap: 10px;
-  min-height: 0;
+  height: var(--mp-tee-strip-height);
+  min-height: var(--mp-tee-strip-height);
+  max-height: var(--mp-tee-strip-height);
   padding: 10px 14px 12px;
+  box-sizing: border-box;
 }
 .tee-strip-empty > .tee-empty-action--primary{
   flex: 1 1 auto;
   width: 100%;
   justify-content: center;
   text-align: center;
-  min-height: 44px;
+  height: var(--mp-tee-chip-height);
+  min-height: var(--mp-tee-chip-height);
+  max-height: var(--mp-tee-chip-height);
   box-sizing: border-box;
 }
 /* Message + action rows keep a compact split instead of a full-bleed CTA. */
@@ -1870,6 +1880,9 @@ html[data-theme='dark'] .app-banner--warn{
 .tee-strip-empty:has(.tee-empty-msg) > .tee-empty-action--primary{
   flex: 0 0 auto;
   width: auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
 }
 .tee-empty-msg{
   font-size: 13px;
@@ -2233,8 +2246,10 @@ html[data-theme='dark'] .app-banner--warn{
   scrollbar-color: color-mix(in srgb, var(--ink-3) 35%, transparent) transparent;
   background: color-mix(in srgb, var(--sand) 55%, var(--card));
   border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  min-height: 0;
-  align-items: stretch;
+  height: var(--mp-tee-strip-height);
+  min-height: var(--mp-tee-strip-height);
+  max-height: var(--mp-tee-strip-height);
+  align-items: center;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
@@ -2247,8 +2262,23 @@ html[data-theme='dark'] .app-banner--warn{
 .tee-strip-skeleton{
   gap: 8px;
   align-items: center;
-  min-height: 64px;
-  padding-inline: 10px;
+  padding-inline: 14px;
+}
+.tee-chip-skeleton{
+  width: var(--mp-tee-chip-width);
+  min-width: var(--mp-tee-chip-width);
+  max-width: var(--mp-tee-chip-width);
+  height: var(--mp-tee-chip-height);
+  min-height: var(--mp-tee-chip-height);
+  max-height: var(--mp-tee-chip-height);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.tee-chip-skeleton:nth-child(5){
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
 }
 /*
   Discovery strip: fixed chip footprint, horizontal scroll, up to 5 times + +N → course details.
@@ -2270,9 +2300,12 @@ html[data-theme='dark'] .app-banner--warn{
 }
 .tee-strip--discover > .tee-chip--compact:not(.more){
   flex: 0 0 auto;
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
+  width: var(--mp-tee-chip-width);
+  min-width: var(--mp-tee-chip-width);
+  max-width: var(--mp-tee-chip-width);
+  height: var(--mp-tee-chip-height);
+  min-height: var(--mp-tee-chip-height);
+  max-height: var(--mp-tee-chip-height);
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -2284,7 +2317,10 @@ html[data-theme='dark'] .app-banner--warn{
 }
 .tee-strip--discover > .tee-chip.more{
   flex: 0 0 auto;
-  align-self: stretch;
+  align-self: center;
+  height: var(--mp-tee-chip-height);
+  min-height: var(--mp-tee-chip-height);
+  max-height: var(--mp-tee-chip-height);
   min-width: 52px;
   width: auto;
   scroll-snap-align: start;
@@ -6664,7 +6700,9 @@ html[data-theme='dark'] .account-pref-menu-panel{
   .tee-strip{
     padding: 10px 14px 12px;
     gap: 8px;
-    min-height: 0;
+    --mp-tee-strip-height: 86px;
+    --mp-tee-chip-width: 96px;
+    --mp-tee-chip-height: 64px;
   }
   .tee-chip--compact{
     min-width: 0;
@@ -6672,10 +6710,18 @@ html[data-theme='dark'] .account-pref-menu-panel{
     gap: 5px;
   }
   .tee-strip--discover > .tee-chip--compact:not(.more){
-    width: 96px;
-    min-width: 96px;
-    max-width: 96px;
+    width: var(--mp-tee-chip-width);
+    min-width: var(--mp-tee-chip-width);
+    max-width: var(--mp-tee-chip-width);
+    height: var(--mp-tee-chip-height);
+    min-height: var(--mp-tee-chip-height);
+    max-height: var(--mp-tee-chip-height);
     padding: 10px 8px;
+  }
+  .tee-chip-skeleton:nth-child(5){
+    width: 64px;
+    min-width: 64px;
+    max-width: 64px;
   }
   .tee-chip--rich{
     min-width: 72px;
