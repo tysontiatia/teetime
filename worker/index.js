@@ -705,14 +705,23 @@ function normalizeChronogolfTimesWorker(data) {
 
 function normalizeChronogolfSlcTimesWorker(data, holes) {
   if (!Array.isArray(data)) return [];
+  const nh = parseInt(holes, 10) || 18;
   return data
-    .filter(t => !t.out_of_capacity && !t.frozen)
-    .map(t => ({
-      rawTime: t.start_time || '',
-      spots: null,
-      price: t.green_fees?.[0]?.green_fee ? '$' + parseFloat(t.green_fees[0].green_fee).toFixed(0) : null,
-      holes: parseInt(holes, 10),
-    }));
+    .filter((t) => {
+      if (t.out_of_capacity || t.frozen) return false;
+      // Unpriced rows are restricted for our public affiliation; Chronogolf hides them.
+      const fee = Number(t.green_fees?.[0]?.green_fee);
+      return Number.isFinite(fee) && fee > 0;
+    })
+    .map((t) => {
+      const fee = Number(t.green_fees[0].green_fee);
+      return {
+        rawTime: t.start_time || '',
+        spots: null,
+        price: '$' + Math.round(fee),
+        holes: nh,
+      };
+    });
 }
 
 function normalizeMemberSportsTimesWorker(data, holes) {

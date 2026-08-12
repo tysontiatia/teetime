@@ -54,17 +54,20 @@ function normalizeChronogolfSlcTimes(data: unknown[], holes: string): NormRow[] 
   return data
     .filter((t) => {
       const row = t as Record<string, unknown>;
-      return !row.out_of_capacity && !row.frozen;
+      if (row.out_of_capacity || row.frozen) return false;
+      // No green_fees ⇒ not bookable for our public affiliation (Chronogolf UI hides these).
+      const fee = Array.isArray(row.green_fees)
+        ? Number((row.green_fees as { green_fee?: number }[])[0]?.green_fee)
+        : NaN;
+      return Number.isFinite(fee) && fee > 0;
     })
     .map((t) => {
       const row = t as Record<string, unknown>;
+      const fee = Number((row.green_fees as { green_fee: number }[])[0]!.green_fee);
       return {
         rawTime: String(row.start_time || ''),
         spots: null,
-        price:
-          Array.isArray(row.green_fees) && (row.green_fees as { green_fee?: number }[])[0]?.green_fee != null
-            ? '$' + parseFloat(String((row.green_fees as { green_fee: number }[])[0].green_fee)).toFixed(0)
-            : null,
+        price: '$' + Math.round(fee),
         holes: nh,
       };
     });
