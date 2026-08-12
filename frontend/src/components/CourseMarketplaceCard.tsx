@@ -310,36 +310,33 @@ export function CourseMarketplaceCard({
         ) : (
           <div className="tee-strip tee-strip-empty">
             {bookingLinkOnly ? (
-              <>
-                <span className="tee-empty-msg">Book on course site</span>
-                <div className="tee-empty-actions">
-                  {openSiteHref ? (
-                    <a
-                      className="tee-empty-action tee-empty-action--primary"
-                      href={openSiteHref}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      See times
-                    </a>
-                  ) : (
-                    <Link to={detailHref} className="tee-empty-action tee-empty-action--primary">
-                      Details
-                    </Link>
-                  )}
-                  {callHref && record?.phone_number ? (
-                    <a
-                      className="tee-empty-action tee-empty-action--phone"
-                      href={callHref}
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
-                    >
-                      {record.phone_number.trim()}
-                    </a>
-                  ) : null}
-                </div>
-              </>
+              <div className="tee-empty-actions tee-empty-actions--booking">
+                {openSiteHref ? (
+                  <a
+                    className="tee-empty-action tee-empty-action--primary"
+                    href={openSiteHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    See times
+                  </a>
+                ) : (
+                  <Link to={detailHref} className="tee-empty-action tee-empty-action--primary">
+                    Details
+                  </Link>
+                )}
+                {callHref && record?.phone_number ? (
+                  <a
+                    className="tee-empty-action tee-empty-action--phone"
+                    href={callHref}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
+                  >
+                    {record.phone_number.trim()}
+                  </a>
+                ) : null}
+              </div>
             ) : outOfScope ? (
               <>
                 <span className="tee-empty-msg">Outside search radius</span>
