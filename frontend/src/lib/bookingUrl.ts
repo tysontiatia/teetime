@@ -182,9 +182,7 @@ function chronogolfClubBase(url: string): string {
 
 /**
  * Chronogolf's club overview ignores date/players alone. Jump to the tee sheet
- * with step=teetimes. Keep holes + groupSize unset/Any — forcing holes=18 or
- * groupSize=N makes some clubs (e.g. River Oaks) show Sold out even when times
- * exist for "Any" / both 9 and 18.
+ * with step=teetimes (+ holes / groupSize) the way the booking SPA expects.
  */
 function buildChronogolfTeeTimesUrl(
   source: BookingSource,
@@ -202,6 +200,7 @@ function buildChronogolfTeeTimesUrl(
   if (!base) return null;
 
   const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  const holes = String(params.holes === 9 ? 9 : 18);
   // Keep coursesIds empty. Filling catalog course_id (e.g. Rose Park 16310)
   // makes Chronogolf show "released shortly" instead of the live sheet.
   const courseId = '';
@@ -211,20 +210,20 @@ function buildChronogolfTeeTimesUrl(
     u.searchParams.set('date', params.dateYmd);
     u.searchParams.set('players', players);
     u.searchParams.set('step', 'teetimes');
-    u.searchParams.set('holes', '');
+    u.searchParams.set('holes', holes);
     u.searchParams.set('coursesIds', courseId);
     u.searchParams.set('deals', 'false');
-    u.searchParams.set('groupSize', '0');
+    u.searchParams.set('groupSize', players);
     return u.toString();
   } catch {
     const q = new URLSearchParams({
       date: params.dateYmd,
       players,
       step: 'teetimes',
-      holes: '',
+      holes,
       coursesIds: courseId,
       deals: 'false',
-      groupSize: '0',
+      groupSize: players,
     });
     return `${base}?${q.toString()}`;
   }
