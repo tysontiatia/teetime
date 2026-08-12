@@ -747,13 +747,14 @@ function normalizeMemberSportsTimesWorker(data, holes) {
 
 /**
  * TeeItUp `teetime` is UTC ISO. The shared diff pipeline treats `rawTime` as
- * America/Denver wall clock, so render the instant in MT first ("YYYY-MM-DD HH:MM").
+ * course wall clock, so render the instant in the course timezone first
+ * ("YYYY-MM-DD HH:MM"). Defaults to America/Denver for Utah catalog courses.
  */
-export function utcIsoToMtLocal(iso) {
+export function utcIsoToMtLocal(iso, timeZone = 'America/Denver') {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Denver',
+    timeZone: String(timeZone || '').trim() || 'America/Denver',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -775,6 +776,7 @@ export function utcIsoToMtLocal(iso) {
 export function normalizeTeeItUpTimesWorker(course, data) {
   if (!Array.isArray(data)) return [];
   const wantHash = String(course?.teeitup_course_id || '').trim();
+  const tz = String(course?.timezone || '').trim() || 'America/Denver';
   const rows = [];
   for (const entry of data) {
     if (!entry || !Array.isArray(entry.teetimes)) continue;
@@ -784,7 +786,7 @@ export function normalizeTeeItUpTimesWorker(course, data) {
       continue;
     }
     for (const tt of entry.teetimes) {
-      const localTime = utcIsoToMtLocal(tt.teetime);
+      const localTime = utcIsoToMtLocal(tt.teetime, tz);
       if (!localTime) continue;
       const spots = tt.maxPlayers != null ? tt.maxPlayers : null;
       if (spots != null && (!(Number.isFinite(Number(spots))) || Number(spots) <= 0)) continue;

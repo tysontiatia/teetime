@@ -6,6 +6,7 @@ import { publishRoundFromPlan, planFromCourseVisibleTimes } from '../lib/roundsA
 import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { formatDateShort, formatTime12h } from '../lib/time';
+import { courseTimezone } from '../lib/teeTimeInstant';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { ModalCloseButton } from './ModalCloseButton';
 
@@ -206,7 +207,9 @@ export function PlanRoundModal({
                       <label className={`plan-round-time${on ? ' is-on' : ''}`}>
                         <input type="checkbox" checked={on} onChange={() => toggleId(t.id)} />
                         <span className="plan-round-time-main">
-                          <span className="plan-round-time-label">{formatTime12h(t.startsAt)}</span>
+                          <span className="plan-round-time-label">
+                            {formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone))}
+                          </span>
                           <span className="plan-round-time-meta">
                             {typeof t.price === 'number' ? `$${t.price}` : null}
                             {typeof t.price === 'number' && typeof t.spots === 'number' ? ' · ' : null}

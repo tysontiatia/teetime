@@ -133,9 +133,9 @@ export function resolveCityQuery(query: string, courses: Course[]): ResolvedPlac
   };
 }
 
-/** ZIP centroid or city centroid from the catalog. */
+/** ZIP centroid (Utah file or catalog fallback) or city centroid from the catalog. */
 export function resolvePlaceAnchor(query: string, courses: Course[]): ResolvedPlaceAnchor | null {
-  const zip = resolveZipQuery(query);
+  const zip = resolveZipQuery(query, courses);
   if (zip) {
     return { kind: 'zip', label: zip.zip, anchor: zip.anchor };
   }

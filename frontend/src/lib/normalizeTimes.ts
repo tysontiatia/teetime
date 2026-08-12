@@ -101,12 +101,12 @@ function normalizeMemberSportsTimes(data: unknown[], holes: string): NormRow[] {
   return result;
 }
 
-/** TeeItUp `teetime` is UTC ISO — render in America/Denver so rawTeeTimeToIsoUtc reads it as wall clock. */
-function utcIsoToMtLocal(iso: string): string | null {
+/** TeeItUp `teetime` is UTC ISO — render in course TZ so rawTeeTimeToIsoUtc reads wall clock. */
+function utcIsoToCourseLocal(iso: string, timeZone: string): string | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Denver',
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -123,13 +123,14 @@ function utcIsoToMtLocal(iso: string): string | null {
 function normalizeTeeItUpTimes(course: CourseRecord, data: unknown): NormRow[] {
   if (!Array.isArray(data)) return [];
   const wantHash = String(course.teeitup_course_id || '').trim();
+  const tz = String(course.timezone || '').trim() || 'America/Denver';
   const rows: NormRow[] = [];
   for (const entry of data as Record<string, unknown>[]) {
     const teetimes = entry?.teetimes as Record<string, unknown>[] | undefined;
     if (!Array.isArray(teetimes)) continue;
     if (wantHash && entry.courseId && entry.courseId !== wantHash) continue;
     for (const tt of teetimes) {
-      const localTime = utcIsoToMtLocal(String(tt.teetime || ''));
+      const localTime = utcIsoToCourseLocal(String(tt.teetime || ''), tz);
       if (!localTime) continue;
       const spots = tt.maxPlayers != null ? Number(tt.maxPlayers) : null;
       if (spots != null && (!Number.isFinite(spots) || spots <= 0)) continue;

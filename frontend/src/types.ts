@@ -30,6 +30,8 @@ export type Course = {
   platform?: string;
   /** Catalog hole count — 9-only courses are excluded from 18-hole finder searches. */
   holes?: 9 | 18;
+  /** IANA timezone for tee-sheet wall clock (default America/Denver when omitted). */
+  timezone?: string;
 };
 
 export type WeatherPoint = {

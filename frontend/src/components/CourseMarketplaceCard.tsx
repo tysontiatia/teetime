@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { Course, TeeTime } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
 import { formatReopenedAgo, formatTime12h } from '../lib/time';
+import { courseTimezone } from '../lib/teeTimeInstant';
 import type { InventorySource } from '../hooks/useTimesByCourseMap';
 import type { HolesFilter } from '../lib/holesFilter';
 import { CoursePhoto } from './CoursePhoto';
@@ -110,6 +111,7 @@ export function CourseMarketplaceCard({
   const hotId = top[0]?.id;
   const meta = metaLine(course);
   const hasRating = typeof course.rating === 'number';
+  const tz = courseTimezone(record?.timezone ?? course.timezone);
   // Empty as soon as this course finishes — don't wait on the rest of the batch.
   const isEmpty = bookingLinkOnly || (!hasTimes && !timesPending);
   const moreCount = times.length > top.length ? times.length - top.length : 0;
@@ -131,7 +133,7 @@ export function CourseMarketplaceCard({
   const showSkeletonFooter = timesPending && !hasTimes;
   const openSiteHref =
     dateYmd != null
-      ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
+      ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
           dateYmd,
           players,
           holes: holes === 9 ? 9 : 18,
@@ -220,7 +222,7 @@ export function CourseMarketplaceCard({
             {top.map((t) => {
               const bookHref =
                 dateYmd != null
-                  ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
+                  ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
                       dateYmd,
                       players,
                       holes: t.holes === 9 || t.holes === 18 ? t.holes : holes === 9 ? 9 : 18,
@@ -230,7 +232,7 @@ export function CourseMarketplaceCard({
               const chipClass = `tee-chip tee-chip--compact${t.id === hotId ? ' hot' : ''}${
                 t.reopenedAt ? ' is-reopened' : ''
               }`;
-              const timeLabel = formatTime12h(t.startsAt);
+              const timeLabel = formatTime12h(t.startsAt, tz);
               const spots = typeof t.spots === 'number' ? t.spots : null;
               const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
               const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;

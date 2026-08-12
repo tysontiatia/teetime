@@ -23,6 +23,13 @@ test('UTC teetime renders as America/Denver wall clock (MDT)', () => {
   assert.equal(utcIsoToMtLocal('not-a-date'), null);
 });
 
+test('UTC teetime respects course timezone (Pacific)', () => {
+  assert.equal(
+    utcIsoToMtLocal('2026-07-22T14:00:00.000Z', 'America/Los_Angeles'),
+    '2026-07-22 07:00',
+  );
+});
+
 test('Palisade fans out one row PER RATE (9-hole + 18-hole on the same tee time)', () => {
   const rows = normalizeTeeItUpTimesWorker({ teeitup_course_id: PALISADE }, fixture);
   assert.equal(rows.length, 2, 'dual-rate tee time must emit two rows');

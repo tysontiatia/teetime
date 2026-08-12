@@ -422,9 +422,14 @@ export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.no
   return true;
 }
 
-function wallClockToUtcInstant(y, mo, d, hh, mm) {
+function courseTimezone(course) {
+  const tz = String(course?.timezone || '').trim();
+  return tz || MT_TZ;
+}
+
+function wallClockToUtcInstant(y, mo, d, hh, mm, timeZone = MT_TZ) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: MT_TZ,
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -446,8 +451,8 @@ function wallClockToUtcInstant(y, mo, d, hh, mm) {
   return new Date(Date.UTC(y, mo - 1, d, hh + 7, mm, 0));
 }
 
-/** Convert vendor rawTime + play date to UTC ISO (America/Denver wall clock). */
-export function rawTimeToStartsAtIso(dateYmd, rawTime) {
+/** Convert vendor rawTime + play date to UTC ISO (course wall clock; default Mountain). */
+export function rawTimeToStartsAtIso(dateYmd, rawTime, timeZone = MT_TZ) {
   const s = String(rawTime || '').trim();
   if (!s) return null;
   if (s.includes('T') && (/Z$/i.test(s) || /[+-]\d{2}:?\d{2}$/.test(s))) {
@@ -462,13 +467,14 @@ export function rawTimeToStartsAtIso(dateYmd, rawTime) {
       Number(full[3]),
       Number(full[4]),
       Number(full[5]),
+      timeZone,
     ).toISOString();
   }
   const timeOnly = s.match(/^(\d{1,2}):(\d{2})/);
   if (!timeOnly) return null;
   const [ys, ms, ds] = dateYmd.split('-').map(Number);
   if (!ys || !ms || !ds) return null;
-  return wallClockToUtcInstant(ys, ms, ds, Number(timeOnly[1]), Number(timeOnly[2])).toISOString();
+  return wallClockToUtcInstant(ys, ms, ds, Number(timeOnly[1]), Number(timeOnly[2]), timeZone).toISOString();
 }
 
 function parsePriceDollars(price) {
@@ -479,7 +485,7 @@ function parsePriceDollars(price) {
 }
 
 /** Map normalizeTimesWorker rows → batch time objects (player-filtered, future only). */
-export function normalizedRowsToBatchTimes(slug, dateYmd, holes, players, rows) {
+export function normalizedRowsToBatchTimes(slug, dateYmd, holes, players, rows, timeZone = MT_TZ) {
   const nowMs = Date.now();
   const out = [];
   let i = 0;
@@ -491,7 +497,7 @@ export function normalizedRowsToBatchTimes(slug, dateYmd, holes, players, rows) 
     if (spots != null && (!Number.isFinite(spots) || spots <= 0)) continue;
     if (players > 1 && spots == null) continue;
     if (spots != null && spots < players) continue;
-    const startsAt = rawTimeToStartsAtIso(dateYmd, row.rawTime);
+    const startsAt = rawTimeToStartsAtIso(dateYmd, row.rawTime, timeZone);
     if (!startsAt) continue;
     if (new Date(startsAt).getTime() <= nowMs) continue;
     out.push({
@@ -586,7 +592,14 @@ async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, 
       if (course.platform === 'chronogolf_slc') {
         rows = rows.map((row) => ({ ...row, spots: row.spots ?? players }));
       }
-      const times = normalizedRowsToBatchTimes(slug, play_date, holes, players, rows);
+      const times = normalizedRowsToBatchTimes(
+        slug,
+        play_date,
+        holes,
+        players,
+        rows,
+        courseTimezone(course),
+      );
       by_slug[slug] = {
         has_poll_coverage: true,
         spots_known: true,

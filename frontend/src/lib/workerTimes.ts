@@ -4,7 +4,7 @@ import { getWorkerBaseUrl } from './env';
 import type { HolesFilter } from './holesFilter';
 import { normalizeTimesWorker } from './normalizeTimes';
 import { teeItUpAlias, workerSupportedPlatform } from './platformRegistry';
-import { rawTeeTimeToIsoUtc } from './teeTimeInstant';
+import { courseTimezone, rawTeeTimeToIsoUtc } from './teeTimeInstant';
 
 type SnapshotAvailabilityResponse = {
   ok: boolean;
@@ -79,8 +79,10 @@ function rowsToTeeTimes(
   courseSlug: string,
   dateYmd: string,
   rows: ReturnType<typeof normalizeTimesWorker>,
-  holesFilter: 9 | 18
+  holesFilter: 9 | 18,
+  timeZone?: string | null,
 ): TeeTime[] {
+  const tz = courseTimezone(timeZone);
   const out: TeeTime[] = [];
   let i = 0;
   for (const row of rows) {
@@ -88,7 +90,7 @@ function rowsToTeeTimes(
     if (h !== holesFilter) continue;
     if (!row.rawTime) continue;
     if (row.spots != null && row.spots <= 0) continue;
-    const iso = rawTeeTimeToIsoUtc(dateYmd, row.rawTime);
+    const iso = rawTeeTimeToIsoUtc(dateYmd, row.rawTime, tz);
     out.push({
       id: `${courseSlug}-${dateYmd}-${h}-${i++}-${row.rawTime}`,
       courseId: courseSlug,
@@ -237,7 +239,9 @@ async function fetchTeeTimesLive(
     if (course.platform === 'chronogolf_slc') {
       rows = rows.map((row) => ({ ...row, spots: row.spots ?? players }));
     }
-    const times = excludePastTeeTimes(rowsToTeeTimes(courseSlug, dateYmd, rows, holes));
+    const times = excludePastTeeTimes(
+      rowsToTeeTimes(courseSlug, dateYmd, rows, holes, course.timezone),
+    );
     return { times, ok: true, source: 'live' };
   } catch {
     return { times: [], ok: false };

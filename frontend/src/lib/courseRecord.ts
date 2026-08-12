@@ -66,20 +66,26 @@ export function parseCourseTitle(fullName: string): { short: string; city: strin
   return { short: fullName.trim(), city: '' };
 }
 
-/** "305 W Pleasant View Dr, Ogden, UT 84414, USA" → "Ogden" */
+/**
+ * "305 W Pleasant View Dr, Ogden, UT 84414, USA" → "Ogden"
+ * Also works for other US states (e.g. ", Boise, ID 83702").
+ */
 export function cityFromAddress(address?: string): string {
   if (!address) return '';
-  const m = address.match(/,\s*([^,]+?),\s*UT\b/i);
-  return m ? m[1].trim() : '';
+  const withZip = address.match(/,\s*([^,]+?),\s*[A-Z]{2}\s+\d{5}\b/i);
+  if (withZip) return withZip[1]!.trim();
+  const stateOnly = address.match(/,\s*([^,]+?),\s*[A-Z]{2}\b/i);
+  return stateOnly ? stateOnly[1]!.trim() : '';
 }
 
 export function recordToCourse(record: CourseRecord, distanceMi?: number): Course {
   const { short, city } = parseCourseTitle(record.name);
+  const tz = String(record.timezone || '').trim();
   return {
     id: slugFromCourseName(record.name),
     catalogName: record.name,
     name: short,
-    city: city || cityFromAddress(record.address) || record.area || 'Utah',
+    city: city || cityFromAddress(record.address) || record.area || '',
     address: record.address,
     area: record.area,
     lat: record.lat,
@@ -91,5 +97,6 @@ export function recordToCourse(record: CourseRecord, distanceMi?: number): Cours
     bookingUrl: record.booking_url,
     platform: record.platform,
     holes: record.holes === 9 || record.holes === 18 ? record.holes : undefined,
+    timezone: tz || undefined,
   };
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, FetchRadiusMi, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { matchesPreset, minutesSince, toYmd, formatDateShort, formatDateCompact } from '../lib/time';
+import { courseTimezone } from '../lib/teeTimeInstant';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
 import {
   filterWorkerCourses,
@@ -193,14 +194,16 @@ export function FinderPage() {
   const timesByCourse = useMemo(() => {
     const map = new Map<string, TeeTime[]>();
     for (const [courseId, list] of rawTimesByCourse) {
+      const tz = courseTimezone(recordsBySlug.get(courseId)?.timezone);
       const filtered = list.filter(
-        (t) => matchesPreset(t.startsAt, params.timeOfDay) && teeTimeFitsPlayers(t, params.players),
+        (t) =>
+          matchesPreset(t.startsAt, params.timeOfDay, tz) && teeTimeFitsPlayers(t, params.players),
       );
       filtered.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
       map.set(courseId, filtered);
     }
     return map;
-  }, [rawTimesByCourse, params.timeOfDay, params.players]);
+  }, [rawTimesByCourse, params.timeOfDay, params.players, recordsBySlug]);
 
   const gridCourses = useMemo(() => {
     // Progressive open-first as results arrive (avoids looking "stuck" while a slow

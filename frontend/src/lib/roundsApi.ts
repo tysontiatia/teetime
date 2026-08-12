@@ -2,6 +2,7 @@ import type { Course, Plan, TeeTime } from '../types';
 import type { CourseRecord } from './courseRecord';
 import { supabase } from './supabase';
 import { formatDateShort, formatTime12h } from './time';
+import { courseTimezone } from './teeTimeInstant';
 import { buildBookingUrl } from './bookingUrl';
 
 const SLUG_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -67,7 +68,11 @@ export function planFromCourseVisibleTimes(
 ): Plan {
   const cap = maxSlots === undefined ? teeTimes.length : Math.min(teeTimes.length, Math.max(0, maxSlots));
   const slice = teeTimes.slice(0, cap);
-  const bookingSource = record ?? { bookingUrl: course.bookingUrl, platform: course.platform };
+  const bookingSource = record ?? {
+    bookingUrl: course.bookingUrl,
+    platform: course.platform,
+    timezone: course.timezone,
+  };
   return {
     id: crypto.randomUUID(),
     courseId: course.id,
@@ -155,6 +160,7 @@ export async function publishRoundFromPlan(params: {
           record ?? {
             bookingUrl: o.bookingUrl ?? c?.bookingUrl,
             platform: c?.platform,
+            timezone: c?.timezone ?? record?.timezone,
           },
           {
             dateYmd: plan.date,
@@ -166,12 +172,13 @@ export async function publishRoundFromPlan(params: {
         o.bookingUrl ??
         c?.bookingUrl ??
         null;
+      const tz = courseTimezone(record?.timezone ?? c?.timezone);
       return {
         round_id: roundRow.id,
         course_name: c?.catalogName ?? c?.name ?? o.courseId,
         course_id: o.courseId,
         date: plan.date,
-        time_display: formatTime12h(o.startsAt),
+        time_display: formatTime12h(o.startsAt, tz),
         starts_at: o.startsAt,
         holes: o.holes,
         players: o.players,
