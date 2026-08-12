@@ -160,7 +160,7 @@ export async function publishRoundFromPlan(params: {
           record ?? {
             bookingUrl: o.bookingUrl ?? c?.bookingUrl,
             platform: c?.platform,
-            timezone: c?.timezone ?? record?.timezone,
+            timezone: c?.timezone,
           },
           {
             dateYmd: plan.date,
