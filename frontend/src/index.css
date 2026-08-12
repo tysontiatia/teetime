@@ -629,15 +629,17 @@ html[data-theme='dark'] .install-step-icon{ color: var(--fairway); }
   animation: skeleton-shimmer-move 1.15s ease-in-out infinite;
 }
 html[data-theme='dark'] .skeleton-shimmer{
+  /* Solid base + brighter sweep — 6–14% white was invisible on dark tee strips. */
   background: linear-gradient(
     90deg,
-    rgba(255,255,255,0.06) 0%,
-    rgba(255,255,255,0.06) 40%,
-    rgba(255,255,255,0.14) 50%,
-    rgba(255,255,255,0.06) 60%,
-    rgba(255,255,255,0.06) 100%
+    rgba(255,255,255,0.10) 0%,
+    rgba(255,255,255,0.10) 38%,
+    rgba(255,255,255,0.28) 50%,
+    rgba(255,255,255,0.10) 62%,
+    rgba(255,255,255,0.10) 100%
   );
   background-size: 200% 100%;
+  background-color: rgba(255,255,255,0.08);
 }
 
 @keyframes live-pulse{
