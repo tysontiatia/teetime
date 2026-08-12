@@ -78,8 +78,8 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
   assert.deepEqual(by.gamma.times, []);
 });
 
-test('snapshotNeedsLiveFill for empty/stale/no coverage', () => {
-  const now = Date.parse('2026-08-11T18:00:00.000Z'); // ~noon MT golf hours
+test('snapshotNeedsLiveFill always refreshes for Find', () => {
+  const now = Date.parse('2026-08-11T18:00:00.000Z');
   assert.equal(
     snapshotNeedsLiveFill(
       { has_poll_coverage: false, spots_known: true, last_polled_at: null, times: [] },
@@ -94,22 +94,8 @@ test('snapshotNeedsLiveFill for empty/stale/no coverage', () => {
       {
         has_poll_coverage: true,
         spots_known: true,
-        last_polled_at: new Date(now - 5 * 60 * 1000).toISOString(),
-        times: [],
-      },
-      2,
-      '2026-08-12',
-      now,
-    ),
-    false,
-  );
-  assert.equal(
-    snapshotNeedsLiveFill(
-      {
-        has_poll_coverage: true,
-        spots_known: true,
-        last_polled_at: new Date(now - 30 * 60 * 1000).toISOString(),
-        times: [],
+        last_polled_at: new Date(now - 60 * 1000).toISOString(),
+        times: [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 4 }],
       },
       2,
       '2026-08-12',
@@ -122,28 +108,12 @@ test('snapshotNeedsLiveFill for empty/stale/no coverage', () => {
       {
         has_poll_coverage: true,
         spots_known: true,
-        last_polled_at: new Date(now - 5 * 60 * 1000).toISOString(),
-        times: [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 2 }],
+        last_polled_at: new Date(now - 60 * 1000).toISOString(),
+        times: [],
       },
       2,
       '2026-08-12',
       now,
-    ),
-    false,
-  );
-  // Overnight non-empty but aging — must still live-fill (was under-counting openings).
-  const night = Date.parse('2026-08-11T09:00:00.000Z'); // ~3am MT
-  assert.equal(
-    snapshotNeedsLiveFill(
-      {
-        has_poll_coverage: true,
-        spots_known: true,
-        last_polled_at: new Date(night - 6 * 60 * 60 * 1000).toISOString(),
-        times: [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 4 }],
-      },
-      2,
-      '2026-08-12',
-      night,
     ),
     true,
   );
