@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react';
 
-function Shimmer({ style }: { style?: CSSProperties }) {
+function Shimmer({ style, className }: { style?: CSSProperties; className?: string }) {
   return (
     <div
-      className="skeleton-shimmer"
+      className={className ? `skeleton-shimmer ${className}` : 'skeleton-shimmer'}
       style={{
         borderRadius: 10,
         minHeight: 12,
@@ -34,19 +34,19 @@ export function CourseCardSkeleton() {
   );
 }
 
+/**
+ * Placeholders sized to `.tee-chip.tee-chip--compact` via shared CSS
+ * (`--mp-tee-chip-width` / `--mp-tee-chip-height` + border + radius-sm).
+ */
 export function CourseCardTimesSkeleton() {
   return (
     <>
       {Array.from({ length: 5 }).map((_, i) => (
-        <Shimmer
+        <div
           key={i}
-          style={{
-            width: i === 4 ? 72 : 96,
-            height: 52,
-            borderRadius: 12,
-            flexShrink: 0,
-            opacity: 1 - i * 0.08,
-          }}
+          className="tee-chip-skeleton skeleton-shimmer"
+          style={{ opacity: 1 - i * 0.08 }}
+          aria-hidden
         />
       ))}
     </>

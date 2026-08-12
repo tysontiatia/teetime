@@ -48,6 +48,11 @@
   --wx-cloud: #64748B;
   --wx-rain: #2563EB;
 
+  /* Find marketplace card footer — chips, empty, and loading share one footprint. */
+  --mp-tee-strip-height: 94px;
+  --mp-tee-chip-width: 108px;
+  --mp-tee-chip-height: 70px;
+
   font-family: var(--font);
   color: var(--ink);
   background: var(--paper);
@@ -1852,15 +1857,21 @@ html[data-theme='dark'] .app-banner--warn{
   align-items: center;
   justify-content: stretch;
   gap: 10px;
-  min-height: 0;
+  height: var(--mp-tee-strip-height);
+  min-height: var(--mp-tee-strip-height);
+  max-height: var(--mp-tee-strip-height);
   padding: 10px 14px 12px;
+  box-sizing: border-box;
 }
 .tee-strip-empty > .tee-empty-action--primary{
   flex: 1 1 auto;
   width: 100%;
   justify-content: center;
   text-align: center;
-  min-height: 44px;
+  /* Compact CTA centered in the fixed footer — not full chip height. */
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
   box-sizing: border-box;
 }
 /* Message + action rows keep a compact split instead of a full-bleed CTA. */
@@ -1870,6 +1881,9 @@ html[data-theme='dark'] .app-banner--warn{
 .tee-strip-empty:has(.tee-empty-msg) > .tee-empty-action--primary{
   flex: 0 0 auto;
   width: auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
 }
 .tee-empty-msg{
   font-size: 13px;
@@ -1883,6 +1897,28 @@ html[data-theme='dark'] .app-banner--warn{
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+}
+/* Booking-link footers: equal pills, same height as Alert me (badge already explains). */
+.tee-empty-actions--booking{
+  width: 100%;
+  gap: 8px;
+}
+.tee-empty-actions--booking > .tee-empty-action--primary,
+.tee-empty-actions--booking > .tee-empty-action--phone{
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.tee-empty-actions--booking > .tee-empty-action--phone{
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tee-empty-action{
   flex-shrink: 0;
@@ -1997,6 +2033,8 @@ html[data-theme='dark'] .app-banner--warn{
   background: var(--sand);
   border: 1px solid rgba(30,77,59,0.06);
   transition: box-shadow .2s, transform .2s;
+  display: flex;
+  flex-direction: column;
 }
 .mp-course:hover .mp-course-media{
   box-shadow: var(--shadow-hover);
@@ -2008,6 +2046,8 @@ html[data-theme='dark'] .app-banner--warn{
   overflow: hidden;
   margin-bottom: 0;
   background: var(--sand);
+  flex: 0 0 auto;
+  width: 100%;
 }
 .mp-course-photo-link{
   display: block;
@@ -2104,11 +2144,15 @@ html[data-theme='dark'] .app-banner--warn{
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   border: 1px solid color-mix(in srgb, var(--pine) 28%, var(--line));
   background: color-mix(in srgb, var(--green-soft) 70%, var(--card));
   border-radius: 999px;
   padding: 8px 14px;
   text-decoration: none !important;
+}
+.tee-empty-action--primary svg{
+  flex-shrink: 0;
 }
 .tee-empty-action--primary:hover{
   background: color-mix(in srgb, var(--green-soft) 90%, var(--card));
@@ -2229,12 +2273,16 @@ html[data-theme='dark'] .app-banner--warn{
   /* Match mp-course-scrim horizontal inset so times line up with the course name. */
   padding: 10px 14px 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ink-3) 35%, transparent) transparent;
   background: color-mix(in srgb, var(--sand) 55%, var(--card));
   border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  min-height: 0;
-  align-items: stretch;
+  height: var(--mp-tee-strip-height);
+  min-height: var(--mp-tee-strip-height);
+  max-height: var(--mp-tee-strip-height);
+  flex: 0 0 var(--mp-tee-strip-height);
+  align-items: center;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
@@ -2247,14 +2295,14 @@ html[data-theme='dark'] .app-banner--warn{
 .tee-strip-skeleton{
   gap: 8px;
   align-items: center;
-  min-height: 64px;
-  padding-inline: 10px;
 }
 /*
   Discovery strip: fixed chip footprint, horizontal scroll, up to 5 times + +N → course details.
+  Skeletons use the same box as live compact chips (incl. hot).
 */
 .tee-strip--discover{
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x proximity;
   /* Keep chips inset when snap pulls the first/last item to the scrollport edge
      (sparse strips don't scroll, so padding alone looked fine; dense/has-more did not). */
@@ -2268,11 +2316,19 @@ html[data-theme='dark'] .app-banner--warn{
   mask-image: none;
   -webkit-mask-image: none;
 }
-.tee-strip--discover > .tee-chip--compact:not(.more){
+.tee-strip--discover > .tee-chip--compact:not(.more),
+.tee-chip-skeleton{
   flex: 0 0 auto;
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
+  width: var(--mp-tee-chip-width);
+  min-width: var(--mp-tee-chip-width);
+  max-width: var(--mp-tee-chip-width);
+  height: var(--mp-tee-chip-height);
+  min-height: var(--mp-tee-chip-height);
+  max-height: var(--mp-tee-chip-height);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+.tee-strip--discover > .tee-chip--compact:not(.more){
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -2280,11 +2336,16 @@ html[data-theme='dark'] .app-banner--warn{
   gap: 6px;
   padding: 11px 10px;
   scroll-snap-align: start;
-  box-sizing: border-box;
+}
+.tee-chip-skeleton{
+  border: 1px solid transparent;
 }
 .tee-strip--discover > .tee-chip.more{
   flex: 0 0 auto;
-  align-self: stretch;
+  align-self: center;
+  height: var(--mp-tee-chip-height);
+  min-height: var(--mp-tee-chip-height);
+  max-height: var(--mp-tee-chip-height);
   min-width: 52px;
   width: auto;
   scroll-snap-align: start;
@@ -6664,7 +6725,9 @@ html[data-theme='dark'] .account-pref-menu-panel{
   .tee-strip{
     padding: 10px 14px 12px;
     gap: 8px;
-    min-height: 0;
+    --mp-tee-strip-height: 86px;
+    --mp-tee-chip-width: 96px;
+    --mp-tee-chip-height: 64px;
   }
   .tee-chip--compact{
     min-width: 0;
@@ -6672,9 +6735,6 @@ html[data-theme='dark'] .account-pref-menu-panel{
     gap: 5px;
   }
   .tee-strip--discover > .tee-chip--compact:not(.more){
-    width: 96px;
-    min-width: 96px;
-    max-width: 96px;
     padding: 10px 8px;
   }
   .tee-chip--rich{
