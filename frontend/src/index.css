@@ -1868,9 +1868,10 @@ html[data-theme='dark'] .app-banner--warn{
   width: 100%;
   justify-content: center;
   text-align: center;
-  height: var(--mp-tee-chip-height);
-  min-height: var(--mp-tee-chip-height);
-  max-height: var(--mp-tee-chip-height);
+  /* Compact CTA centered in the fixed footer — not full chip height. */
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
   box-sizing: border-box;
 }
 /* Message + action rows keep a compact split instead of a full-bleed CTA. */
