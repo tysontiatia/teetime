@@ -1898,6 +1898,28 @@ html[data-theme='dark'] .app-banner--warn{
   gap: 12px;
   flex-shrink: 0;
 }
+/* Booking-link footers: equal pills, same height as Alert me (badge already explains). */
+.tee-empty-actions--booking{
+  width: 100%;
+  gap: 8px;
+}
+.tee-empty-actions--booking > .tee-empty-action--primary,
+.tee-empty-actions--booking > .tee-empty-action--phone{
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.tee-empty-actions--booking > .tee-empty-action--phone{
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tee-empty-action{
   flex-shrink: 0;
   border: none;
