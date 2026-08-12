@@ -34,15 +34,19 @@ export function CourseCardSkeleton() {
   );
 }
 
-/** Placeholders sized to match live discover chips (CSS vars; light + dark). */
+/**
+ * Placeholders sized to `.tee-chip.tee-chip--compact` via shared CSS
+ * (`--mp-tee-chip-width` / `--mp-tee-chip-height` + border + radius-sm).
+ */
 export function CourseCardTimesSkeleton() {
   return (
     <>
       {Array.from({ length: 5 }).map((_, i) => (
-        <Shimmer
+        <div
           key={i}
-          className="tee-chip-skeleton"
+          className="tee-chip-skeleton skeleton-shimmer"
           style={{ opacity: 1 - i * 0.08 }}
+          aria-hidden
         />
       ))}
     </>

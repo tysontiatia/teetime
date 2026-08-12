@@ -2010,6 +2010,8 @@ html[data-theme='dark'] .app-banner--warn{
   background: var(--sand);
   border: 1px solid rgba(30,77,59,0.06);
   transition: box-shadow .2s, transform .2s;
+  display: flex;
+  flex-direction: column;
 }
 .mp-course:hover .mp-course-media{
   box-shadow: var(--shadow-hover);
@@ -2021,6 +2023,8 @@ html[data-theme='dark'] .app-banner--warn{
   overflow: hidden;
   margin-bottom: 0;
   background: var(--sand);
+  flex: 0 0 auto;
+  width: 100%;
 }
 .mp-course-photo-link{
   display: block;
@@ -2242,6 +2246,7 @@ html[data-theme='dark'] .app-banner--warn{
   /* Match mp-course-scrim horizontal inset so times line up with the course name. */
   padding: 10px 14px 12px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ink-3) 35%, transparent) transparent;
   background: color-mix(in srgb, var(--sand) 55%, var(--card));
@@ -2249,6 +2254,7 @@ html[data-theme='dark'] .app-banner--warn{
   height: var(--mp-tee-strip-height);
   min-height: var(--mp-tee-strip-height);
   max-height: var(--mp-tee-strip-height);
+  flex: 0 0 var(--mp-tee-strip-height);
   align-items: center;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
@@ -2262,29 +2268,14 @@ html[data-theme='dark'] .app-banner--warn{
 .tee-strip-skeleton{
   gap: 8px;
   align-items: center;
-  padding-inline: 14px;
-}
-.tee-chip-skeleton{
-  width: var(--mp-tee-chip-width);
-  min-width: var(--mp-tee-chip-width);
-  max-width: var(--mp-tee-chip-width);
-  height: var(--mp-tee-chip-height);
-  min-height: var(--mp-tee-chip-height);
-  max-height: var(--mp-tee-chip-height);
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-.tee-chip-skeleton:nth-child(5){
-  width: 72px;
-  min-width: 72px;
-  max-width: 72px;
 }
 /*
   Discovery strip: fixed chip footprint, horizontal scroll, up to 5 times + +N → course details.
+  Skeletons use the same box as live compact chips (incl. hot).
 */
 .tee-strip--discover{
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x proximity;
   /* Keep chips inset when snap pulls the first/last item to the scrollport edge
      (sparse strips don't scroll, so padding alone looked fine; dense/has-more did not). */
@@ -2298,7 +2289,8 @@ html[data-theme='dark'] .app-banner--warn{
   mask-image: none;
   -webkit-mask-image: none;
 }
-.tee-strip--discover > .tee-chip--compact:not(.more){
+.tee-strip--discover > .tee-chip--compact:not(.more),
+.tee-chip-skeleton{
   flex: 0 0 auto;
   width: var(--mp-tee-chip-width);
   min-width: var(--mp-tee-chip-width);
@@ -2306,6 +2298,10 @@ html[data-theme='dark'] .app-banner--warn{
   height: var(--mp-tee-chip-height);
   min-height: var(--mp-tee-chip-height);
   max-height: var(--mp-tee-chip-height);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+.tee-strip--discover > .tee-chip--compact:not(.more){
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -2313,7 +2309,9 @@ html[data-theme='dark'] .app-banner--warn{
   gap: 6px;
   padding: 11px 10px;
   scroll-snap-align: start;
-  box-sizing: border-box;
+}
+.tee-chip-skeleton{
+  border: 1px solid transparent;
 }
 .tee-strip--discover > .tee-chip.more{
   flex: 0 0 auto;
@@ -6710,18 +6708,7 @@ html[data-theme='dark'] .account-pref-menu-panel{
     gap: 5px;
   }
   .tee-strip--discover > .tee-chip--compact:not(.more){
-    width: var(--mp-tee-chip-width);
-    min-width: var(--mp-tee-chip-width);
-    max-width: var(--mp-tee-chip-width);
-    height: var(--mp-tee-chip-height);
-    min-height: var(--mp-tee-chip-height);
-    max-height: var(--mp-tee-chip-height);
     padding: 10px 8px;
-  }
-  .tee-chip-skeleton:nth-child(5){
-    width: 64px;
-    min-width: 64px;
-    max-width: 64px;
   }
   .tee-chip--rich{
     min-width: 72px;
