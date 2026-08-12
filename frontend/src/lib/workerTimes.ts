@@ -582,6 +582,7 @@ export async function fetchTimesForCourseSlugs(
     return { bySlug: out, failedSlugs };
   }
 
+  const holeSize: 9 | 18 = holes;
   const out = new Map<string, TeeTime[]>();
   const failedSlugs: string[] = [];
   const revalidateStale = options?.revalidateStale !== false;
@@ -592,7 +593,7 @@ export async function fetchTimesForCourseSlugs(
   const batchMap = await fetchTeeTimesBatchFromSnapshot(
     workerEntries.map((e) => e.slug),
     dateYmd,
-    holes,
+    holeSize,
     players,
   );
 
@@ -641,7 +642,7 @@ export async function fetchTimesForCourseSlugs(
           record,
           slug,
           dateYmd,
-          holes,
+          holeSize,
           players,
         );
         if (mode === 'revalidate') {
