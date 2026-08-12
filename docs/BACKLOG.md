@@ -15,8 +15,13 @@ Course detail uses the same batch-of-1 path.
 batch, then a small warm/cold residual; vendor polls run with concurrency 8 so
 alerts stay near-live.
 
+**Done:** Find opt-in **Any holes** (`holes=any`) merges 9+18 client-side; default
+remains 18. Find keeps chips painted across refetch and shows a Checking badge
+while a course is pending.
+
 **Later:** stronger poller runtime for Cloudflare/captcha vendors (CPS, TenFore);
-optional Find “any holes” mode; fix TeeItUp courses returning upstream 404.
+fix TeeItUp courses returning upstream 404; optional Worker `holes=any` batch
+(and 18-first paint) if Any feels slow under load.
 
 ## Per-course timezone (BLOCKER for out-of-state courses)
 

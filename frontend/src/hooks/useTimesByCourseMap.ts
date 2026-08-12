@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Course } from '../types';
 import type { TeeTime } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
+import type { HolesFilter } from '../lib/holesFilter';
 import { fetchTimesForCourseSlugs } from '../lib/workerTimes';
 import { filterWorkerCourses } from '../lib/platformRegistry';
 
@@ -11,7 +12,7 @@ export function useTimesByCourseMap(
   courses: Course[],
   recordsBySlug: Map<string, CourseRecord>,
   dateYmd: string,
-  holes: 9 | 18,
+  holes: HolesFilter,
   players: 1 | 2 | 3 | 4,
   refreshNonce: number,
   catalogLoading: boolean
@@ -63,9 +64,30 @@ export function useTimesByCourseMap(
 
     let cancelled = false;
     const slugs = entries.map((e) => e.slug);
+    const slugSet = new Set(slugs);
 
-    setMap(new Map());
-    setSourceBySlug(new Map());
+    // Keep prior times painted across refetch (date/players/holes/retry). Drop slugs
+    // no longer in the pool; don't blank the whole grid at fetch start.
+    setMap((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Map<string, TeeTime[]>();
+      for (const [slug, times] of prev) {
+        if (slugSet.has(slug)) next.set(slug, times);
+        else changed = true;
+      }
+      return changed || next.size !== prev.size ? next : prev;
+    });
+    setSourceBySlug((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Map<string, InventorySource>();
+      for (const [slug, source] of prev) {
+        if (slugSet.has(slug)) next.set(slug, source);
+        else changed = true;
+      }
+      return changed || next.size !== prev.size ? next : prev;
+    });
     setFailedSlugs([]);
     setAttemptedSlugCount(entries.length);
     setPendingSlugs(new Set(slugs));

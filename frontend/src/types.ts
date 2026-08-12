@@ -54,7 +54,8 @@ export type SearchParams = {
   locationQuery: string;
   date: string; // YYYY-MM-DD
   players: 1 | 2 | 3 | 4;
-  holes: 9 | 18;
+  /** `any` = show 9 and 18 together (opt-in tee-sheet style). */
+  holes: 9 | 18 | 'any';
   timeOfDay: TimeOfDayPreset;
   sortBy: SortBy;
   fetchScope: FetchScope;

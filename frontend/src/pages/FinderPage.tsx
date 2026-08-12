@@ -19,6 +19,7 @@ import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
 import { FeedTeaser } from '../components/FeedTeaser';
 import { courseDetailQueryString } from '../lib/finderUrl';
+import { holesFilterLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
   buildTimesFetchScope,
   courseMatchesLocationQuery,
@@ -37,10 +38,6 @@ function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   return 4;
 }
 
-function clampHoles(n: number): 9 | 18 {
-  return n === 9 ? 9 : 18;
-}
-
 function sortCoursesByDistanceThenName(a: Course, b: Course): number {
   const da = typeof a.distanceMi === 'number' ? a.distanceMi : Number.POSITIVE_INFINITY;
   const db = typeof b.distanceMi === 'number' ? b.distanceMi : Number.POSITIVE_INFINITY;
@@ -51,7 +48,7 @@ function sortCoursesByDistanceThenName(a: Course, b: Course): number {
 function parseParams(sp: URLSearchParams): SearchParams {
   const date = sp.get('date') || toYmd(new Date());
   const players = clampPlayers(Number(sp.get('players') || 2));
-  const holes = clampHoles(Number(sp.get('holes') || 18));
+  const holes = parseHolesFilter(sp.get('holes'));
   const timeOfDay = (sp.get('tod') as TimeOfDayPreset) || 'any';
   const sortBy = (sp.get('sort') as SortBy) || 'distance';
   const locationQuery = sp.get('q') || '';
@@ -121,9 +118,9 @@ export function FinderPage() {
 
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
 
-  /** 18-hole search: skip true 9-only courses. 9-hole search: keep everyone. */
+  /** 18-hole search: skip true 9-only courses. 9 / any: keep everyone. */
   const holesCompatibleCourses = useMemo(() => {
-    if (params.holes === 9) return workerCourses;
+    if (params.holes === 9 || params.holes === 'any') return workerCourses;
     return workerCourses.filter((c) => c.holes !== 9);
   }, [workerCourses, params.holes]);
 
@@ -226,7 +223,7 @@ export function FinderPage() {
   /** Booking-link courses in the same geographic / search scope as the live grid. */
   const bookingOnlyInScope = useMemo(() => {
     let list = courses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
-    if (params.holes !== 9) list = list.filter((c) => c.holes !== 9);
+    if (params.holes !== 9 && params.holes !== 'any') list = list.filter((c) => c.holes !== 9);
 
     const q = locationDraft.trim();
     if (fetchAllUtah && !placeMatch && !q) {
@@ -403,6 +400,10 @@ export function FinderPage() {
       <option value="2-9">2 · 9 holes</option>
       <option value="3-9">3 · 9 holes</option>
       <option value="4-9">4 · 9 holes</option>
+      <option value="1-any">1 · Any holes</option>
+      <option value="2-any">2 · Any holes</option>
+      <option value="3-any">3 · Any holes</option>
+      <option value="4-any">4 · Any holes</option>
     </select>
   );
 
@@ -566,7 +567,7 @@ export function FinderPage() {
                   />
                 </svg>
                 <span className="finder-players-pill-value" aria-hidden>
-                  {params.players} · {params.holes}h
+                  {params.players} · {holesFilterLabel(params.holes)}
                 </span>
                 <select
                   aria-label="Players and holes"
@@ -588,6 +589,10 @@ export function FinderPage() {
                   <option value="2-9">2 · 9 holes</option>
                   <option value="3-9">3 · 9 holes</option>
                   <option value="4-9">4 · 9 holes</option>
+                  <option value="1-any">1 · Any holes</option>
+                  <option value="2-any">2 · Any holes</option>
+                  <option value="3-any">3 · Any holes</option>
+                  <option value="4-any">4 · Any holes</option>
                 </select>
               </label>
 
@@ -806,7 +811,7 @@ export function FinderPage() {
           record={recordsBySlug.get(planRound.course.id)}
           dateYmd={params.date}
           players={params.players}
-          holes={params.holes}
+          holes={params.holes === 'any' ? 18 : params.holes}
           times={planRound.times}
           initialSelectedId={planRound.initialSelectedId}
           coursesById={coursesById}
