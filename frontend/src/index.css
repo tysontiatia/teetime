@@ -2085,9 +2085,7 @@ html[data-theme='dark'] .app-banner--warn{
   background: rgba(20, 30, 25, 0.55);
 }
 .badge-live.is-pending{
-  min-width: 2.25rem;
-  justify-content: center;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.02em;
 }
 .tee-empty-action--primary{
   display: inline-flex;

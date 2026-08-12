@@ -1,6 +1,7 @@
 import type { TeeTime } from '../types';
 import type { CourseRecord } from './courseRecord';
 import { getWorkerBaseUrl } from './env';
+import type { HolesFilter } from './holesFilter';
 import { normalizeTimesWorker } from './normalizeTimes';
 import { teeItUpAlias, workerSupportedPlatform } from './platformRegistry';
 import { rawTeeTimeToIsoUtc } from './teeTimeInstant';
@@ -89,7 +90,7 @@ function rowsToTeeTimes(
     if (row.spots != null && row.spots <= 0) continue;
     const iso = rawTeeTimeToIsoUtc(dateYmd, row.rawTime);
     out.push({
-      id: `${courseSlug}-${dateYmd}-${i++}-${row.rawTime}`,
+      id: `${courseSlug}-${dateYmd}-${h}-${i++}-${row.rawTime}`,
       courseId: courseSlug,
       startsAt: iso,
       price: parsePrice(row.price),
@@ -123,15 +124,20 @@ function snapshotToTeeTimes(
 ): TeeTime[] {
   const out: TeeTime[] = rows
     .filter((row) => row.spots == null || row.spots > 0)
-    .map((row, i) => ({
-      id: row.id || `${courseSlug}-${dateYmd}-${i}-${row.startsAt}`,
-      courseId: courseSlug,
-      startsAt: row.startsAt,
-      price: row.price,
-      spots: row.spots,
-      holes: row.holes === 9 ? 9 : 18,
-      reopenedAt: row.reopenedAt,
-    }));
+    .map((row, i) => {
+      const holes = row.holes === 9 ? 9 : 18;
+      const baseId = row.id || `${courseSlug}-${dateYmd}-${i}-${row.startsAt}`;
+      return {
+        // Hole count in the id so 9+18 merges (holes=any) stay unique for React keys / selection.
+        id: baseId.endsWith(`-${holes}`) ? baseId : `${baseId}-${holes}`,
+        courseId: courseSlug,
+        startsAt: row.startsAt,
+        price: row.price,
+        spots: row.spots,
+        holes,
+        reopenedAt: row.reopenedAt,
+      };
+    });
   out.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   return excludePastTeeTimes(out);
 }
@@ -410,13 +416,36 @@ function canUseBatchRow(
   return canTrustSnapshotForPlayers(row, players, playDateYmd);
 }
 
+function mergeTeeTimesByStartAndHoles(a: TeeTime[], b: TeeTime[]): TeeTime[] {
+  const byKey = new Map<string, TeeTime>();
+  for (const t of [...a, ...b]) {
+    byKey.set(`${t.startsAt}|${t.holes}`, t);
+  }
+  return [...byKey.values()].sort(
+    (x, y) => new Date(x.startsAt).getTime() - new Date(y.startsAt).getTime(),
+  );
+}
+
 export async function fetchTeeTimesForCourse(
   course: CourseRecord,
   courseSlug: string,
   dateYmd: string,
-  holes: 9 | 18,
+  holes: HolesFilter,
   players: 1 | 2 | 3 | 4
 ): Promise<TeeTimeFetchResult> {
+  if (holes === 'any') {
+    const [r9, r18] = await Promise.all([
+      fetchTeeTimesForCourse(course, courseSlug, dateYmd, 9, players),
+      fetchTeeTimesForCourse(course, courseSlug, dateYmd, 18, players),
+    ]);
+    const live = r9.source === 'live' || r18.source === 'live';
+    return {
+      times: mergeTeeTimesByStartAndHoles(r9.times, r18.times),
+      ok: r9.ok || r18.ok,
+      source: live ? 'live' : r9.source ?? r18.source,
+    };
+  }
+
   // Same path as Find: /v1/tee-times live-fills miss/stale/empty so detail matches the grid.
   if (course.platform && workerSupportedPlatform(course.platform)) {
     const batchMap = await fetchTeeTimesBatchFromSnapshot([courseSlug], dateYmd, holes, players);
@@ -497,12 +526,62 @@ export type FetchTimesForCourseSlugsOptions = {
 export async function fetchTimesForCourseSlugs(
   entries: { slug: string; record: CourseRecord }[],
   dateYmd: string,
-  holes: 9 | 18,
+  holes: HolesFilter,
   players: 1 | 2 | 3 | 4,
   concurrency: number,
   onCourseComplete?: (update: CourseTimesUpdate) => void,
   options?: FetchTimesForCourseSlugsOptions,
 ): Promise<TimesBySlugFetchResult> {
+  if (holes === 'any') {
+    const bySlug = new Map<string, TeeTime[]>();
+    const okBySlug = new Map<string, boolean>();
+    const halfConcurrency = Math.max(1, Math.ceil(concurrency / 2));
+    let blockingLeft = 2;
+    const wrapOpts: FetchTimesForCourseSlugsOptions = {
+      revalidateStale: options?.revalidateStale,
+      onBlockingComplete: () => {
+        blockingLeft -= 1;
+        if (blockingLeft === 0) options?.onBlockingComplete?.();
+      },
+    };
+
+    const handle =
+      (holeSize: 9 | 18) =>
+      (update: CourseTimesUpdate) => {
+        const prev = bySlug.get(update.slug) ?? [];
+        const kept = prev.filter((t) => t.holes !== holeSize);
+        const next = mergeTeeTimesByStartAndHoles(kept, update.times);
+        bySlug.set(update.slug, next);
+        const prevOk = okBySlug.get(update.slug) === true;
+        const ok = prevOk || update.ok;
+        okBySlug.set(update.slug, ok);
+        onCourseComplete?.({
+          slug: update.slug,
+          times: next,
+          ok,
+          source: update.source,
+        });
+      };
+
+    const [r9, r18] = await Promise.all([
+      fetchTimesForCourseSlugs(entries, dateYmd, 9, players, halfConcurrency, handle(9), wrapOpts),
+      fetchTimesForCourseSlugs(entries, dateYmd, 18, players, halfConcurrency, handle(18), wrapOpts),
+    ]);
+
+    const failedSlugs = [...new Set([...r9.failedSlugs, ...r18.failedSlugs])].filter(
+      (slug) => r9.failedSlugs.includes(slug) && r18.failedSlugs.includes(slug),
+    );
+    const allSlugs = new Set([...r9.bySlug.keys(), ...r18.bySlug.keys()]);
+    const out = new Map<string, TeeTime[]>();
+    for (const slug of allSlugs) {
+      out.set(
+        slug,
+        mergeTeeTimesByStartAndHoles(r9.bySlug.get(slug) ?? [], r18.bySlug.get(slug) ?? []),
+      );
+    }
+    return { bySlug: out, failedSlugs };
+  }
+
   const out = new Map<string, TeeTime[]>();
   const failedSlugs: string[] = [];
   const revalidateStale = options?.revalidateStale !== false;

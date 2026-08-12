@@ -3,6 +3,7 @@ import type { Course, TeeTime } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
 import { formatReopenedAgo, formatTime12h } from '../lib/time';
 import type { InventorySource } from '../hooks/useTimesByCourseMap';
+import type { HolesFilter } from '../lib/holesFilter';
 import { CoursePhoto } from './CoursePhoto';
 import { CourseCardTimesSkeleton } from './CourseCardSkeleton';
 import { buildBookingUrl } from '../lib/bookingUrl';
@@ -72,7 +73,7 @@ type Props = {
   /** Finder search date — used to enrich booking deep links. */
   dateYmd?: string;
   players?: number;
-  holes?: number;
+  holes?: HolesFilter;
   onAlert?: () => void;
   onSearchAllUtah?: () => void;
   onShare?: () => void;
@@ -117,7 +118,7 @@ export function CourseMarketplaceCard({
   if (bookingLinkOnly) {
     badgeLabel = 'On course site';
   } else if (timesPending) {
-    badgeLabel = '…';
+    badgeLabel = 'Checking';
   } else if (hasTimes) {
     badgeLabel = `${times.length} open`;
   } else if (outOfScope) {
@@ -126,15 +127,14 @@ export function CourseMarketplaceCard({
     badgeLabel = 'No matches';
   }
 
-  // Only the course still in-flight shows a skeleton — don't hold the whole grid
-  // on "Checking…" for a slow vendor (e.g. GolfPay / Barn).
-  const showSkeletonFooter = timesPending;
+  // Skeleton only while pending with no times yet — keep chips painted on refresh.
+  const showSkeletonFooter = timesPending && !hasTimes;
   const openSiteHref =
     dateYmd != null
       ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
           dateYmd,
           players,
-          holes,
+          holes: holes === 9 ? 9 : 18,
         })
       : course.bookingUrl;
   const callHref = telHref(record?.phone_number);
@@ -223,7 +223,7 @@ export function CourseMarketplaceCard({
                   ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
                       dateYmd,
                       players,
-                      holes: t.holes === 9 || t.holes === 18 ? t.holes : holes,
+                      holes: t.holes === 9 || t.holes === 18 ? t.holes : holes === 9 ? 9 : 18,
                       startsAtIso: t.startsAt,
                     })
                   : null;
@@ -268,7 +268,7 @@ export function CourseMarketplaceCard({
               if (bookHref) {
                 return (
                   <a
-                    key={t.id}
+                    key={`${t.id}-${t.holes}`}
                     href={bookHref}
                     target="_blank"
                     rel="noreferrer"
@@ -282,7 +282,7 @@ export function CourseMarketplaceCard({
               }
               return (
                 <Link
-                  key={t.id}
+                  key={`${t.id}-${t.holes}`}
                   to={detailHref}
                   className={chipClass}
                   onClick={(e) => e.stopPropagation()}

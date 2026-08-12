@@ -13,6 +13,7 @@ import { PlanRoundModal } from '../components/PlanRoundModal';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 import { useAuth } from '../state/AuthContext';
 import { courseDetailQueryString } from '../lib/finderUrl';
+import { parseHolesFilter, type HolesFilter } from '../lib/holesFilter';
 import { parseFetchRadiusMi } from '../lib/timesFetchScope';
 import { buildBookingUrl } from '../lib/bookingUrl';
 import { teeTimeFitsPlayers } from '../lib/teeTimeFitsPlayers';
@@ -37,10 +38,6 @@ function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n === 2) return 2;
   if (n === 3) return 3;
   return 4;
-}
-
-function clampHoles(n: number): 9 | 18 {
-  return n === 9 ? 9 : 18;
 }
 
 const SLOT_PREVIEW = 12;
@@ -69,7 +66,7 @@ export function CoursePage() {
 
   const date = sp.get('date') || toYmd(new Date());
   const players = clampPlayers(Number(sp.get('players') || 2));
-  const holes = clampHoles(Number(sp.get('holes') || 18));
+  const holes: HolesFilter = parseHolesFilter(sp.get('holes'));
   const tod = ((sp.get('tod') as TimeOfDayPreset) || 'any') satisfies TimeOfDayPreset;
   const sort = ((sp.get('sort') as SortBy) || 'soonest') satisfies SortBy;
 
@@ -309,7 +306,7 @@ export function CoursePage() {
     ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
         dateYmd: date,
         players,
-        holes,
+        holes: holes === 'any' ? 18 : holes,
       })
     : null;
   const proShopPhone = record?.phone_number?.trim() || '';
@@ -514,6 +511,7 @@ export function CoursePage() {
               <select aria-label="Holes" value={holes} onChange={(e) => setParam('holes', e.target.value)}>
                 <option value="18">18 holes</option>
                 <option value="9">9 holes</option>
+                <option value="any">Any holes</option>
               </select>
             </label>
             <label className="rail-filter-chip">
@@ -590,7 +588,7 @@ export function CoursePage() {
                     {
                       dateYmd: date,
                       players,
-                      holes: t.holes === 9 || t.holes === 18 ? t.holes : holes,
+                      holes: t.holes === 9 || t.holes === 18 ? t.holes : holes === 9 ? 9 : 18,
                       startsAtIso: t.startsAt,
                     },
                   );
@@ -663,7 +661,7 @@ export function CoursePage() {
                   if (slotBookHref) {
                     return (
                       <a
-                        key={t.id}
+                        key={`${t.id}-${t.holes}`}
                         href={slotBookHref}
                         target="_blank"
                         rel="noreferrer"
@@ -676,7 +674,12 @@ export function CoursePage() {
                     );
                   }
                   return (
-                    <button key={t.id} type="button" className={slotClass} onClick={() => setSelectedSlotId(t.id)}>
+                    <button
+                      key={`${t.id}-${t.holes}`}
+                      type="button"
+                      className={slotClass}
+                      onClick={() => setSelectedSlotId(t.id)}
+                    >
                       {slotBody}
                     </button>
                   );
@@ -740,7 +743,7 @@ export function CoursePage() {
         record={record}
         dateYmd={date}
         players={players}
-        holes={holes}
+        holes={holes === 'any' ? 18 : holes}
         times={times}
         initialSelectedId={selectedSlotId}
         coursesById={coursesById}
