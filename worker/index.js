@@ -1172,8 +1172,8 @@ function buildChronogolfTeeTimesUrl(course, date, holes, players) {
   if (!base) return null;
 
   const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
-  const holesStr = String(holes === 9 || holes === '9' ? 9 : 18);
-  // Empty coursesIds — catalog course_id can make Chronogolf show "released shortly".
+  // Empty holes + groupSize 0 (Any). Forcing holes=18 / groupSize=N makes clubs
+  // like River Oaks show Sold out when the open sheet needs unfiltered filters.
   const courseId = '';
 
   try {
@@ -1181,20 +1181,20 @@ function buildChronogolfTeeTimesUrl(course, date, holes, players) {
     u.searchParams.set('date', date);
     u.searchParams.set('players', playersStr);
     u.searchParams.set('step', 'teetimes');
-    u.searchParams.set('holes', holesStr);
+    u.searchParams.set('holes', '');
     u.searchParams.set('coursesIds', courseId);
     u.searchParams.set('deals', 'false');
-    u.searchParams.set('groupSize', playersStr);
+    u.searchParams.set('groupSize', '0');
     return u.toString();
   } catch {
     const q = new URLSearchParams({
       date,
       players: playersStr,
       step: 'teetimes',
-      holes: holesStr,
+      holes: '',
       coursesIds: courseId,
       deals: 'false',
-      groupSize: playersStr,
+      groupSize: '0',
     });
     return `${base}?${q.toString()}`;
   }
