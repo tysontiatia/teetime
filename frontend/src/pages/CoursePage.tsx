@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { formatDateCompact, formatDateShort, formatReopenedAgo, formatTime12h, matchesPreset, toYmd } from '../lib/time';
+import { courseTimezone } from '../lib/teeTimeInstant';
 import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
@@ -221,8 +222,9 @@ export function CoursePage() {
   }, [course]);
 
   const times = useMemo(() => {
+    const tz = courseTimezone(record?.timezone ?? course?.timezone);
     const list = rawTimes
-      .filter((t) => matchesPreset(t.startsAt, tod))
+      .filter((t) => matchesPreset(t.startsAt, tod, tz))
       .filter((t) => teeTimeFitsPlayers(t, players))
       .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
@@ -230,7 +232,7 @@ export function CoursePage() {
       list.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     }
     return list;
-  }, [rawTimes, tod, players, sort]);
+  }, [rawTimes, tod, players, sort, record?.timezone, course?.timezone]);
 
   const weatherPoints = useCourseHourlyWeather(course?.lat, course?.lng, date, times.length > 0);
 
@@ -303,7 +305,7 @@ export function CoursePage() {
   const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
   const unsupported = !record || cap !== 'live_inventory';
   const bookingLinkHref = unsupported
-    ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform }, {
+    ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
         dateYmd: date,
         players,
         holes: holes === 'any' ? 18 : holes,
@@ -584,7 +586,7 @@ export function CoursePage() {
               <div className={`tee-slot-scroller${slotsExpanded && times.length > SLOT_PREVIEW ? ' is-expanded' : ''}`}>
                 {visibleSlots.map((t) => {
                   const slotBookHref = buildBookingUrl(
-                    record ?? { bookingUrl: course.bookingUrl, platform: course.platform },
+                    record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone },
                     {
                       dateYmd: date,
                       players,
@@ -602,7 +604,7 @@ export function CoursePage() {
                   const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
                   const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;
                   const bookAria = [
-                    `Book ${formatTime12h(t.startsAt)}`,
+                    `Book ${formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone))}`,
                     priceLabel,
                     reopenLabel ? `reopened ${reopenLabel}` : null,
                   ]
@@ -610,7 +612,9 @@ export function CoursePage() {
                     .join(', ');
                   const slotBody = (
                     <>
-                      <span className="tee-slot-card-time">{formatTime12h(t.startsAt)}</span>
+                      <span className="tee-slot-card-time">
+                        {formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone))}
+                      </span>
                       {reopenLabel ? (
                         <span className="tee-slot-card-new" title={reopenLabel}>
                           New

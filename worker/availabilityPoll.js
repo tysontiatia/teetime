@@ -105,9 +105,14 @@ function slugFromCourseName(name) {
     .replace(/^-|-$/g, '');
 }
 
-function wallClockToUtcInstant(y, mo, d, hh, mm) {
+function courseTimezone(course) {
+  const tz = String(course?.timezone || '').trim();
+  return tz || MT;
+}
+
+function wallClockToUtcInstant(y, mo, d, hh, mm, timeZone = MT) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: MT,
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -146,12 +151,12 @@ function rawTimeToLocalTime(dateYmd, rawTime) {
   return null;
 }
 
-function playStartsAtIso(dateYmd, rawTime) {
+function playStartsAtIso(dateYmd, rawTime, timeZone = MT) {
   const local = rawTimeToLocalTime(dateYmd, rawTime);
   if (!local) return new Date(0).toISOString();
   const [hh, mm] = local.split(':').map(Number);
   const [y, mo, d] = dateYmd.split('-').map(Number);
-  return wallClockToUtcInstant(y, mo, d, hh, mm).toISOString();
+  return wallClockToUtcInstant(y, mo, d, hh, mm, timeZone).toISOString();
 }
 
 function parsePriceCents(priceStr) {
@@ -465,7 +470,7 @@ async function applyPollDiff(env, {
 
     const price_cents = parsePriceCents(row.price);
     const spots_open = row.spots != null ? row.spots : null;
-    const play_starts_at = playStartsAtIso(play_date, row.rawTime);
+    const play_starts_at = playStartsAtIso(play_date, row.rawTime, courseTimezone(course));
     const prev = byKey.get(key);
 
     if (!prev) {

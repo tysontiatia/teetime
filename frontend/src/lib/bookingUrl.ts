@@ -1,4 +1,5 @@
 import type { CourseRecord } from './courseRecord';
+import { courseTimezone } from './teeTimeInstant';
 import { formatTime12h } from './time';
 
 export type BookingLinkParams = {
@@ -15,11 +16,15 @@ function foreupDateUs(ymd: string): string {
   return `${m}-${d}-${y}`;
 }
 
-function applyTemplate(template: string, params: BookingLinkParams): string {
+function applyTemplate(
+  template: string,
+  params: BookingLinkParams,
+  timeZone?: string | null,
+): string {
   const holes = String(params.holes === 9 ? 9 : 18);
   const time =
     params.startsAtIso != null && params.startsAtIso !== ''
-      ? encodeURIComponent(formatTime12h(params.startsAtIso))
+      ? encodeURIComponent(formatTime12h(params.startsAtIso, courseTimezone(timeZone)))
       : '';
   return template
     .replace(/\{date\}/g, params.dateYmd)
@@ -140,7 +145,7 @@ function buildForeUpTeeSheetUrl(
   if (templateOverride && !/\/booking\/index\//i.test(templateOverride)) {
     let sheet = templateOverride;
     if (sheet.includes('{')) {
-      sheet = applyTemplate(sheet, params);
+      sheet = applyTemplate(sheet, params, source.timezone);
     }
     return ensureForeUpDateOnTeeSheet(sheet, params, resolvedSchedule, resolvedClass);
   }
@@ -193,7 +198,7 @@ function buildChronogolfTeeTimesUrl(
 
   // Explicit templates with placeholders win (rare; prefer booking_url otherwise).
   if (templateOverride.includes('{')) {
-    return applyTemplate(templateOverride, params);
+    return applyTemplate(templateOverride, params, source.timezone);
   }
 
   const base = chronogolfClubBase(bookingUrl || templateOverride);
@@ -393,6 +398,8 @@ export type BookingSource = {
   teeitup_course_id?: string | null;
   cps_tenant?: string | null;
   cps_course_id?: string | null;
+  /** IANA timezone for `{time}` template formatting. */
+  timezone?: string | null;
 };
 
 /**
@@ -445,6 +452,8 @@ export function buildBookingUrl(
     'cps_tenant' in source && source.cps_tenant != null ? String(source.cps_tenant) : null;
   const cpsCourseId =
     'cps_course_id' in source && source.cps_course_id != null ? String(source.cps_course_id) : null;
+  const timeZone =
+    'timezone' in source && source.timezone != null ? String(source.timezone) : null;
 
   const bookingSource: BookingSource = {
     booking_url: bookingUrl,
@@ -461,6 +470,7 @@ export function buildBookingUrl(
     teeitup_course_id: teeitupCourseId,
     cps_tenant: cpsTenant,
     cps_course_id: cpsCourseId,
+    timezone: timeZone,
   };
 
   if (platform === 'foreup' || platform === 'foreup_login') {
@@ -497,7 +507,7 @@ export function buildBookingUrl(
   if (!template) return bookingUrl;
 
   if (template.includes('{')) {
-    return applyTemplate(template, params);
+    return applyTemplate(template, params, timeZone);
   }
   return template;
 }

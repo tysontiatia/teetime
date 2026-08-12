@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import type { Course, TeeTime } from '../types';
 import { formatTime12h } from '../lib/time';
+import { courseTimezone } from '../lib/teeTimeInstant';
 
 /** Matches `:root` --green-2 / --green in `index.css` */
 const PIN_FILL = '#2d7a3a';
@@ -117,7 +118,7 @@ export function MapView({
                             fontSize: 12,
                           }}
                         >
-                          {formatTime12h(t.startsAt)}
+                          {formatTime12h(t.startsAt, courseTimezone(c.timezone))}
                         </span>
                       ))}
                       {times.length > top.length ? <span style={{ fontSize: 12, color: '#666' }}>+{times.length - top.length} more</span> : null}

@@ -23,23 +23,15 @@ while a course is pending.
 fix TeeItUp courses returning upstream 404; optional Worker `holes=any` batch
 (and 18-first paint) if Any feels slow under load.
 
-## Per-course timezone (BLOCKER for out-of-state courses)
+## Per-course timezone — DONE
 
-**Do this before adding any course outside Utah / Mountain Time.**
+Threaded `course.timezone` (default `America/Denver`) through poller storage,
+batch live-fill, TeeItUp normalizers, and frontend display / time-of-day filters.
+Find ZIP search uses Utah centroids first, then catalog address ZIPs for other
+states; `cityFromAddress` parses any US state.
 
-The availability pipeline currently hardcodes `America/Denver` everywhere:
-
-- `worker/availabilityPoll.js` → `const MT = 'America/Denver'` drives `mtParts`,
-  `wallClockToUtcInstant`, `playStartsAtIso`, `rawTimeToLocalTime`, and golf-hours gating.
-- `worker/index.js` → `utcIsoToMtLocal()` (TeeItUp normalizer) hardcodes `America/Denver`.
-- `frontend/src/lib/teeTimeInstant.ts` → defaults to `UTAH_TEE_TIMEZONE`.
-
-A course in Pacific/Arizona/etc. would store and display tee times off by ≥1 hour.
-
-**Fix:** thread `course.timezone` (field already exists on the record, currently
-unused) through the poller storage + normalizers, defaulting to `America/Denver`
-so existing Utah courses are unchanged. Also revisit the Utah-only search
-centroids (`utahZipCentroids.json`) and default map anchor for real multi-state search.
+**Still needed before bulk out-of-state:** add courses with correct `timezone` in
+admin; optional nationwide ZIP centroid file if catalog ZIP fallback is thin.
 
 ## Promote booking-link-only platforms to live inventory
 

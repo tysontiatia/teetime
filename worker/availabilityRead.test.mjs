@@ -136,3 +136,30 @@ test('normalizedRowsToBatchTimes filters players/holes and builds startsAt', () 
   assert.equal(times[0].spots, 3);
   assert.ok(times[0].startsAt.includes('2099-06-01') || times[0].startsAt.startsWith('2099-'));
 });
+
+test('normalizedRowsToBatchTimes uses course timezone for wall clock', () => {
+  const playDate = '2099-06-01';
+  const mt = normalizedRowsToBatchTimes(
+    'utah-course',
+    playDate,
+    18,
+    1,
+    [{ rawTime: '08:00', spots: 4, price: '$40', holes: 18 }],
+    'America/Denver',
+  );
+  const pt = normalizedRowsToBatchTimes(
+    'pacific-course',
+    playDate,
+    18,
+    1,
+    [{ rawTime: '08:00', spots: 4, price: '$40', holes: 18 }],
+    'America/Los_Angeles',
+  );
+  assert.equal(mt.length, 1);
+  assert.equal(pt.length, 1);
+  // Same wall clock in Pacific is one hour later in UTC than Mountain (MDT vs PDT).
+  assert.equal(
+    new Date(pt[0].startsAt).getTime() - new Date(mt[0].startsAt).getTime(),
+    60 * 60 * 1000,
+  );
+});

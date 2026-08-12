@@ -1,5 +1,14 @@
-/** Utah catalog — tee sheets and vendor APIs use America/Denver wall time. */
-export const UTAH_TEE_TIMEZONE = 'America/Denver';
+/** Default when a course has no timezone — Utah / Mountain catalog. */
+export const DEFAULT_TEE_TIMEZONE = 'America/Denver';
+
+/** @deprecated Use DEFAULT_TEE_TIMEZONE — kept for existing imports. */
+export const UTAH_TEE_TIMEZONE = DEFAULT_TEE_TIMEZONE;
+
+/** Resolve IANA timezone for a course record (falls back to Mountain Time). */
+export function courseTimezone(timezone?: string | null): string {
+  const tz = String(timezone || '').trim();
+  return tz || DEFAULT_TEE_TIMEZONE;
+}
 
 /**
  * Find the UTC instant where `timeZone` shows y-mo-d hh:mm (wall clock).
@@ -32,10 +41,14 @@ function wallClockToUtcInstant(y: number, mo: number, d: number, hh: number, mm:
 /**
  * Convert vendor `rawTime` + selected calendar `dateYmd` to a UTC ISO string.
  * - ForeUp: `2026-04-24 16:20` (full local datetime)
- * - Chrono SLC: `07:50` (same-day wall time in Utah)
+ * - Chrono SLC: `07:50` (same-day wall time in the course timezone)
  * - ISO with Z / offset: pass through as absolute instant
  */
-export function rawTeeTimeToIsoUtc(dateYmd: string, rawTime: string, timeZone = UTAH_TEE_TIMEZONE): string {
+export function rawTeeTimeToIsoUtc(
+  dateYmd: string,
+  rawTime: string,
+  timeZone: string = DEFAULT_TEE_TIMEZONE,
+): string {
   const s = rawTime.trim();
   if (!s) return new Date(0).toISOString();
 
