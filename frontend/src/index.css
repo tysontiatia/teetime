@@ -628,6 +628,17 @@ html[data-theme='dark'] .install-step-icon{ color: var(--fairway); }
   background-size: 200% 100%;
   animation: skeleton-shimmer-move 1.15s ease-in-out infinite;
 }
+html[data-theme='dark'] .skeleton-shimmer{
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.06) 0%,
+    rgba(255,255,255,0.06) 40%,
+    rgba(255,255,255,0.14) 50%,
+    rgba(255,255,255,0.06) 60%,
+    rgba(255,255,255,0.06) 100%
+  );
+  background-size: 200% 100%;
+}
 
 @keyframes live-pulse{
   0%,100%{ opacity:1; transform:scale(1); }
