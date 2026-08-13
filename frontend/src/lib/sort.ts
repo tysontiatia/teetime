@@ -24,23 +24,25 @@ export function sortCourses(
 
   const copy = [...courses];
   copy.sort((a, b) => {
-    let primary = 0;
     switch (sortBy) {
-      case 'soonest':
-        primary = soonest(a.id) - soonest(b.id);
-        break;
-      case 'price':
-        primary = minPrice(a.id) - minPrice(b.id);
-        break;
-      case 'rating':
-        primary = rating(b) - rating(a);
-        break;
+      case 'soonest': {
+        const primary = soonest(a.id) - soonest(b.id);
+        return primary !== 0 ? primary : byName(a, b);
+      }
+      case 'price': {
+        const primary = minPrice(a.id) - minPrice(b.id);
+        return primary !== 0 ? primary : byName(a, b);
+      }
+      case 'rating': {
+        const primary = rating(b) - rating(a);
+        return primary !== 0 ? primary : byName(a, b);
+      }
       case 'distance':
-      default:
-        primary = distance(a) - distance(b);
-        break;
+      default: {
+        const primary = distance(a) - distance(b);
+        return primary !== 0 ? primary : byName(a, b);
+      }
     }
-    return primary !== 0 ? primary : byName(a, b);
   });
   return copy;
 }
