@@ -4,6 +4,7 @@ import type { CourseRecord } from '../lib/courseRecord';
 import { recordToCourse } from '../lib/courseRecord';
 import { slugFromCourseName } from '../lib/courseSlug';
 import { haversineMiles } from '../lib/geo';
+import { getWorkerBaseUrl } from '../lib/env';
 
 type Api = {
   loading: boolean;
@@ -20,16 +21,9 @@ type Api = {
 const CourseCatalogContext = createContext<Api | null>(null);
 
 function coursesJsonUrl(): string {
-  // Prefer the Worker registry when developing against a local/prod Worker so
-  // admin QA saves (Idaho stubs → ready) show up in Find without redeploying courses.json.
-  const worker = import.meta.env.VITE_WORKER_URL;
-  if (worker) {
-    return `${String(worker).replace(/\/$/, '')}/v1/courses`;
-  }
-  if (import.meta.env.DEV) {
-    return '/courses.json';
-  }
-  return 'https://utah-tee-times.tysontiatia.workers.dev/v1/courses';
+  // Same Worker as tee times (VITE_WORKER_URL or prod default) so local Find
+  // matches prod — not the stale static courses.json snapshot.
+  return `${getWorkerBaseUrl()}/v1/courses`;
 }
 
 export function CourseCatalogProvider({ children }: { children: React.ReactNode }) {

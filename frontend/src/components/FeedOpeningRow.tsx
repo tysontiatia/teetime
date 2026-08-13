@@ -3,7 +3,7 @@ import type { FeedItem } from '../lib/feedApi';
 import type { CourseRecord } from '../lib/courseRecord';
 import { buildBookingUrl } from '../lib/bookingUrl';
 import { coursePhotoUrl } from '../lib/coursePhotoUrl';
-import { parseCourseTitle } from '../lib/courseRecord';
+import { expandDisplayCity, parseCourseTitle, resolveCourseCity } from '../lib/courseRecord';
 import { formatDateShort } from '../lib/time';
 import {
   feedChipDetectedShort,
@@ -21,7 +21,8 @@ type Props = {
 };
 
 export function FeedOpeningRow({ item, record, minPlayers }: Props) {
-  const { short, city } = parseCourseTitle(item.course_name);
+  const { short, city: titleCity } = parseCourseTitle(item.course_name);
+  const city = record ? resolveCourseCity(record) : expandDisplayCity(titleCity);
   const photo = record ? coursePhotoUrl(record, 240) : undefined;
   const price = formatFeedPrice(item.price_cents);
   const spots = feedSpotsLabel(item.spots_open);

@@ -20,21 +20,6 @@ export type CourseCatalogMeta = {
   history_blurb: string | null;
 };
 
-export async function fetchCourseRatesExpanded(
-  courseSlug: string,
-): Promise<CourseRatesExpanded | null> {
-  const { data, error } = await supabase
-    .from('course_rates_expanded')
-    .select(
-      'course_slug, rate_weekday_walk_9, rate_weekday_walk_18, rate_weekend_walk_9, rate_weekend_walk_18, rate_weekday_cart_9, rate_weekday_cart_18, rate_weekend_cart_9, rate_weekend_cart_18',
-    )
-    .eq('course_slug', courseSlug)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return data as CourseRatesExpanded;
-}
-
 export async function fetchCourseCatalogMeta(courseSlug: string): Promise<CourseCatalogMeta | null> {
   const { data, error } = await supabase
     .from('course_catalog')
@@ -49,23 +34,4 @@ export async function fetchCourseCatalogMeta(courseSlug: string): Promise<Course
     signature_hole: data.signature_hole ?? null,
     history_blurb: data.history_blurb ?? null,
   };
-}
-
-export function ratesExpandedHasPrices(rates: CourseRatesExpanded | null): boolean {
-  if (!rates) return false;
-  return [
-    rates.rate_weekday_walk_9,
-    rates.rate_weekday_walk_18,
-    rates.rate_weekend_walk_9,
-    rates.rate_weekend_walk_18,
-    rates.rate_weekday_cart_9,
-    rates.rate_weekday_cart_18,
-    rates.rate_weekend_cart_9,
-    rates.rate_weekend_cart_18,
-  ].some((v) => v != null);
-}
-
-export function formatRateDollars(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return `$${n}`;
 }

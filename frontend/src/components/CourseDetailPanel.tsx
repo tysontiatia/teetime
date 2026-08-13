@@ -1,11 +1,8 @@
 import type { ReactNode } from 'react';
 import type { CourseRecord } from '../lib/courseRecord';
-import {
-  formatRateDollars,
-  ratesExpandedHasPrices,
-  type CourseCatalogMeta,
-  type CourseRatesExpanded,
-} from '../lib/courseCatalogApi';
+import type { CourseCatalogMeta } from '../lib/courseCatalogApi';
+import type { MapsCourse } from '../lib/mapsLinks';
+import { GetDirectionsButton } from './GetDirectionsButton';
 
 function walkabilityLabel(v: CourseRecord['walkability']): string | null {
   if (!v) return null;
@@ -21,59 +18,40 @@ function bookingWindowLine(record: CourseRecord): string | null {
   return `Books ${days} days out`;
 }
 
-type RateRow = {
-  label: string;
-  nine: number | null | undefined;
-  eighteen: number | null | undefined;
-};
-
-function buildRateRows(rates: CourseRatesExpanded): RateRow[] {
-  const rows: RateRow[] = [
-    {
-      label: 'Weekday walk',
-      nine: rates.rate_weekday_walk_9,
-      eighteen: rates.rate_weekday_walk_18,
-    },
-    {
-      label: 'Weekend walk',
-      nine: rates.rate_weekend_walk_9,
-      eighteen: rates.rate_weekend_walk_18,
-    },
-    {
-      label: 'Weekday w/ cart',
-      nine: rates.rate_weekday_cart_9,
-      eighteen: rates.rate_weekday_cart_18,
-    },
-    {
-      label: 'Weekend w/ cart',
-      nine: rates.rate_weekend_cart_9,
-      eighteen: rates.rate_weekend_cart_18,
-    },
-  ];
-  return rows.filter((r) => r.nine != null || r.eighteen != null);
-}
-
 type InfoRow = { label: string; value: ReactNode };
 
 type Props = {
   record: CourseRecord | undefined;
-  rates: CourseRatesExpanded | null;
   catalogMeta: CourseCatalogMeta | null;
-  ratesLoading: boolean;
+  course: MapsCourse;
 };
 
-export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: Props) {
+export function CourseDetailPanel({ record, catalogMeta, course }: Props) {
   const booking = record ? bookingWindowLine(record) : null;
   const walk = record ? walkabilityLabel(record.walkability) : null;
-  const rateRows = rates && ratesExpandedHasPrices(rates) ? buildRateRows(rates) : [];
-  const showNine = rateRows.some((r) => r.nine != null);
-  const showEighteen = rateRows.some((r) => r.eighteen != null);
 
   const aboutCopy =
     record?.editorial_note || catalogMeta?.history_blurb || record?.history_blurb || null;
 
   const infoRows: InfoRow[] = [];
-  if (record?.address) infoRows.push({ label: 'Address', value: record.address });
+  if (record?.address) {
+    infoRows.push({
+      label: 'Address',
+      value: (
+        <span className="course-info-address">
+          <span>{record.address}</span>
+          <GetDirectionsButton course={course} className="detail-text-link detail-text-link--btn" />
+        </span>
+      ),
+    });
+  } else {
+    infoRows.push({
+      label: 'Directions',
+      value: (
+        <GetDirectionsButton course={course} className="detail-text-link detail-text-link--btn" />
+      ),
+    });
+  }
   if (record?.phone_number) {
     infoRows.push({
       label: 'Phone',
@@ -110,9 +88,9 @@ export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: 
     });
   }
 
-  const hasAbout = aboutCopy || infoRows.length > 0;
+  const hasAbout = Boolean(aboutCopy || infoRows.length > 0);
 
-  if (!record && !ratesLoading && !rateRows.length) {
+  if (!hasAbout) {
     return (
       <div className="section">
         <p className="section-muted">Course details coming soon.</p>
@@ -121,53 +99,19 @@ export function CourseDetailPanel({ record, rates, catalogMeta, ratesLoading }: 
   }
 
   return (
-    <>
-      {hasAbout ? (
-        <div className="section">
-          <h2>About this course</h2>
-          {aboutCopy ? <p className="about-lead">{aboutCopy}</p> : null}
-          {infoRows.length > 0 ? (
-            <dl className="course-info-grid">
-              {infoRows.map((row) => (
-                <div key={row.label} className="course-info-item">
-                  <dt>{row.label}</dt>
-                  <dd>{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-        </div>
+    <div className="section">
+      <h2>About this course</h2>
+      {aboutCopy ? <p className="about-lead">{aboutCopy}</p> : null}
+      {infoRows.length > 0 ? (
+        <dl className="course-info-grid">
+          {infoRows.map((row) => (
+            <div key={row.label} className="course-info-item">
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
-
-      <div className="section">
-        <h2>Green fees</h2>
-        <p className="rate-fine rate-fine-lead">Published green fees, not live tee-time prices.</p>
-        {ratesLoading ? (
-          <p className="section-muted">Loading rates…</p>
-        ) : rateRows.length === 0 ? (
-          <p className="section-muted">Rates not cataloged yet.</p>
-        ) : (
-          <table className="rate-table">
-            <thead>
-              <tr>
-                <th>Rate</th>
-                {showNine ? <th className="num">9 holes</th> : null}
-                {showEighteen ? <th className="num">18 holes</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {rateRows.map((row) => (
-                <tr key={row.label}>
-                  <td>{row.label}</td>
-                  {showNine ? <td className="num">{formatRateDollars(row.nine)}</td> : null}
-                  {showEighteen ? <td className="num">{formatRateDollars(row.eighteen)}</td> : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {record?.rate_notes ? <p className="rate-fine" style={{ whiteSpace: 'pre-wrap' }}>{record.rate_notes}</p> : null}
-      </div>
-    </>
+    </div>
   );
 }

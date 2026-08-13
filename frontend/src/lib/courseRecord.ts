@@ -119,12 +119,69 @@ export function stateFromRecord(record: {
   if (area.startsWith('wyoming') || area.includes('wyoming ·')) return 'WY';
   const tz = String(record.timezone || '').trim();
   if (tz === 'America/Boise') return 'ID';
+  // Legacy Utah rows often omit state in thin records but use Denver.
+  if (tz === 'America/Denver') return 'UT';
+  if (area.includes('salt lake') || area.includes('utah') || area.includes('wasatch')) return 'UT';
   return '';
+}
+
+/**
+ * Older Utah title parens used abbreviations ("SLC", "Eagle Mtn"). Map those (and a
+ * few incomplete labels) to the canonical place name for UI display.
+ */
+const CITY_DISPLAY_ALIASES: Record<string, string> = {
+  slc: 'Salt Lake City',
+  'salt lake': 'Salt Lake City',
+  'n salt lake': 'North Salt Lake',
+  'north salt lake': 'North Salt Lake',
+  'eagle mtn': 'Eagle Mountain',
+  'eagle mountain': 'Eagle Mountain',
+  'west valley': 'West Valley City',
+  'west valley city': 'West Valley City',
+  stansbury: 'Stansbury Park',
+  'stansbury park': 'Stansbury Park',
+  's salt lake': 'South Salt Lake',
+  'so salt lake': 'South Salt Lake',
+  'south salt lake': 'South Salt Lake',
+  'st george': 'St. George',
+  'st. george': 'St. George',
+};
+
+function cityAliasKey(city: string): string {
+  return city
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Expand abbreviated / incomplete city labels for display. Drops bare state codes. */
+export function expandDisplayCity(city: string): string {
+  const raw = String(city || '').trim();
+  if (!raw) return '';
+  // Title parens sometimes stored the state ("Purple Sage (WY)") — not a city.
+  if (/^[A-Za-z]{2}$/.test(raw)) return '';
+  return CITY_DISPLAY_ALIASES[cityAliasKey(raw)] || raw;
+}
+
+/**
+ * Prefer the mailing-address city (canonical), then expand title-paren fallbacks
+ * like "(SLC)". Do not use regional `area` labels ("SALT LAKE CITY AREA").
+ */
+export function resolveCourseCity(record: {
+  name: string;
+  address?: string;
+  area?: string;
+}): string {
+  const fromAddress = expandDisplayCity(cityFromAddress(record.address));
+  if (fromAddress) return fromAddress;
+  const { city: titleCity } = parseCourseTitle(record.name);
+  return expandDisplayCity(titleCity);
 }
 
 /** Prefer "Eagle, ID" when state is known so multi-state catalogs stay unambiguous. */
 export function formatCityState(city?: string | null, state?: string | null): string {
-  const c = String(city || '').trim();
+  const c = expandDisplayCity(String(city || '').trim()) || String(city || '').trim();
   const st = String(state || '').trim().toUpperCase();
   if (!c) return st;
   if (!st) return c;
@@ -151,14 +208,14 @@ export function resolveCourseBookingMode(
 }
 
 export function recordToCourse(record: CourseRecord, distanceMi?: number): Course {
-  const { short, city } = parseCourseTitle(record.name);
+  const { short } = parseCourseTitle(record.name);
   const tz = String(record.timezone || '').trim();
   const state = stateFromRecord(record) || undefined;
   return {
     id: slugFromCourseName(record.name),
     catalogName: record.name,
     name: short,
-    city: city || cityFromAddress(record.address) || record.area || '',
+    city: resolveCourseCity(record),
     state,
     address: record.address,
     area: record.area,
