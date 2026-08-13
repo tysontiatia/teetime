@@ -25,6 +25,7 @@ import { holesFilterLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
   buildTimesFetchScope,
   courseMatchesLocationQuery,
+  courseMatchesResolvedPlace,
   distanceFromAnchor,
   filterCoursesWithinRadius,
   parseFetchRadiusMi,
@@ -120,32 +121,47 @@ export function FinderPage() {
 
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
 
+  /** When the location box holds a ZIP or city, resolve it to a map anchor. */
+  const placeMatch = useMemo(
+    () => resolvePlaceAnchor(locationDraft, courses),
+    [locationDraft, courses],
+  );
+
   /** 18-hole search: skip true 9-only courses. 9 / any: keep everyone. */
   const holesCompatibleCourses = useMemo(() => {
     if (params.holes === 9 || params.holes === 'any') return workerCourses;
     return workerCourses.filter((c) => c.holes !== 9);
   }, [workerCourses, params.holes]);
 
+  /** When a city/ZIP is selected, always keep courses in that place — even 9-only under an 18 filter. */
+  const placeResidentCourses = useMemo(() => {
+    if (!placeMatch) return [] as Course[];
+    return workerCourses.filter((c) => courseMatchesResolvedPlace(c, placeMatch));
+  }, [workerCourses, placeMatch]);
+
+  const scopedWorkerCourses = useMemo(() => {
+    if (placeResidentCourses.length === 0) return holesCompatibleCourses;
+    const byId = new Map(holesCompatibleCourses.map((c) => [c.id, c]));
+    for (const c of placeResidentCourses) {
+      if (!byId.has(c.id)) byId.set(c.id, c);
+    }
+    return [...byId.values()];
+  }, [holesCompatibleCourses, placeResidentCourses]);
+
   const timesFetchScope = useMemo(
     () =>
-      buildTimesFetchScope(holesCompatibleCourses, userLocation, {
+      buildTimesFetchScope(scopedWorkerCourses, userLocation, {
         fetchAllUtah,
         locationQuery: params.locationQuery,
         radiusMi,
         placeCourses: courses,
       }),
-    [holesCompatibleCourses, userLocation, fetchAllUtah, params.locationQuery, radiusMi, courses]
+    [scopedWorkerCourses, userLocation, fetchAllUtah, params.locationQuery, radiusMi, courses]
   );
 
   const fetchPool = timesFetchScope.fetchPool;
 
   const fetchSlugSet = useMemo(() => new Set(fetchPool.map((c) => c.id)), [fetchPool]);
-
-  /** When the location box holds a Utah ZIP or city, resolve it to a map anchor. */
-  const placeMatch = useMemo(
-    () => resolvePlaceAnchor(locationDraft, courses),
-    [locationDraft, courses],
-  );
 
   /** Filter to courses near the place centroid and re-express distance from it. */
   const coursesNearPlace = useCallback(
@@ -162,16 +178,35 @@ export function FinderPage() {
 
   const searchPool = useMemo(() => {
     const q = locationDraft.trim();
-    let pool = holesCompatibleCourses;
+    let pool = scopedWorkerCourses;
     if (placeMatch) {
-      pool = coursesNearPlace(pool);
+      const near = coursesNearPlace(pool);
+      const byId = new Map(near.map((c) => [c.id, c]));
+      const anchor = { ...placeMatch.anchor, source: 'default' as const };
+      for (const c of placeResidentCourses) {
+        if (!byId.has(c.id)) {
+          byId.set(c.id, {
+            ...c,
+            distanceMi: distanceFromAnchor(c, anchor) ?? undefined,
+          });
+        }
+      }
+      pool = [...byId.values()];
     } else if (q) {
       pool = pool.filter((c) => courseMatchesLocationQuery(c, q));
     } else if (!fetchAllUtah) {
       pool = pool.filter((c) => fetchSlugSet.has(c.id));
     }
     return pool;
-  }, [holesCompatibleCourses, locationDraft, placeMatch, coursesNearPlace, fetchAllUtah, fetchSlugSet]);
+  }, [
+    scopedWorkerCourses,
+    locationDraft,
+    placeMatch,
+    coursesNearPlace,
+    placeResidentCourses,
+    fetchAllUtah,
+    fetchSlugSet,
+  ]);
 
   const {
     timesByCourse: rawTimesByCourse,
@@ -227,14 +262,29 @@ export function FinderPage() {
   /** Booking-link courses in the same geographic / search scope as the live grid. */
   const bookingOnlyInScope = useMemo(() => {
     let list = courses.filter((c) => getPlatformCapability(c.platform) !== 'live_inventory');
-    if (params.holes !== 9 && params.holes !== 'any') list = list.filter((c) => c.holes !== 9);
+    if (params.holes !== 9 && params.holes !== 'any') {
+      list = list.filter(
+        (c) => c.holes !== 9 || (placeMatch != null && courseMatchesResolvedPlace(c, placeMatch)),
+      );
+    }
 
     const q = locationDraft.trim();
     if (fetchAllUtah && !placeMatch && !q) {
       return [...list].sort(sortCoursesByDistanceThenName);
     }
     if (placeMatch) {
-      return coursesNearPlace(list).sort(sortCoursesByDistanceThenName);
+      const near = coursesNearPlace(list);
+      const byId = new Map(near.map((c) => [c.id, c]));
+      const anchor = { ...placeMatch.anchor, source: 'default' as const };
+      for (const c of list) {
+        if (courseMatchesResolvedPlace(c, placeMatch) && !byId.has(c.id)) {
+          byId.set(c.id, {
+            ...c,
+            distanceMi: distanceFromAnchor(c, anchor) ?? undefined,
+          });
+        }
+      }
+      return [...byId.values()].sort(sortCoursesByDistanceThenName);
     }
     if (q) {
       return list

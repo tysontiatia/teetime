@@ -410,6 +410,23 @@ async function enrichForeUpFromPage(bookingUrl, scheduleId) {
 }
 
 /**
+ * Catalog `holes` means "9-only" or "18-only" for Find filtering.
+ * Chronogolf `course.holes` is the physical layout. `bookableHoles` is unreliable:
+ * Forest Dale lists [9,18] but public 18 slots are restricted/unpriced; Copper Club
+ * lists the same and actually sells priced 18. Prefer a single unambiguous bookable
+ * value, otherwise fall back to layout (conservative). Clear `holes` manually when a
+ * layout-9 club is verified to sell 18.
+ */
+export function catalogHolesFromChronogolfCourse(course) {
+  const bookable = Array.isArray(course?.bookableHoles)
+    ? [...new Set(course.bookableHoles.map(Number).filter((n) => n === 9 || n === 18))]
+    : [];
+  if (bookable.length === 1) return bookable[0];
+  const layout = Number(course?.holes);
+  return layout === 9 || layout === 18 ? layout : null;
+}
+
+/**
  * Chronogolf club pages embed __NEXT_DATA__ with numeric club/course ids and
  * defaultAffiliationTypeId. Marketplace v2 `/teetimes?course_ids=` often returns
  * status=closed for these clubs; the club teetimes API (chronogolf_slc shape) works.
@@ -501,7 +518,7 @@ async function enrichChronogolfFromPage(bookingUrl) {
       : null,
     phone_number: club.phone || null,
     website: club.website || null,
-    holes: club.courses?.[0]?.holes === 9 || club.courses?.[0]?.holes === 18 ? club.courses[0].holes : null,
+    holes: catalogHolesFromChronogolfCourse(club.courses?.[0]),
   };
   return out;
 }
