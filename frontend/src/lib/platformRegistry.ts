@@ -40,6 +40,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   cps: 'Club Prophet',
   trutee: 'Trutee',
   teeitup: 'TeeItUp',
+  other: 'Other / unsupported',
 };
 
 export function platformDisplayName(platform: string | undefined): string {

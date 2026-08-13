@@ -14,6 +14,8 @@ export type Course = {
   catalogName: string;
   name: string;
   city: string;
+  /** USPS state code from address when known (UT, ID, …). */
+  state?: string;
   /** Full street address from the catalog (used for city/zip text search). */
   address?: string;
   /** Catalog region label from `courses.json` (e.g. ST. GEORGE AND SOUTHWEST). */

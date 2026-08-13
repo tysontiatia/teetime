@@ -1,6 +1,7 @@
 import type { Course } from '../types';
 import { coursePhotoUrl } from './coursePhotoUrl';
 import { slugFromCourseName } from './courseSlug';
+import { getPlatformCapability } from './platformRegistry';
 
 /** One row from `public/courses.json` */
 export type CourseRecord = {
@@ -55,6 +56,20 @@ export type CourseRecord = {
   /** Course marketing site (distinct from platform booking_url). */
   website?: string;
   phone_number?: string;
+  /** Google Places place_id for later Details enrich (no Places call at import). */
+  google_place_id?: string;
+  /**
+   * Booking QA disposition.
+   * - pending: still needs QA (default for stubs)
+   * - ready: known platform + booking URL
+   * - phone: open course, no online booking
+   * - unsupported: online book exists, vendor not integrated yet
+   * - private: members-only / country club (hidden from public Find)
+   * - closed: not operational (hidden from public Find)
+   */
+  booking_status?: 'pending' | 'ready' | 'phone' | 'unsupported' | 'private' | 'closed';
+  /** Free-text note (unsupported vendor name, closed reason, etc.). */
+  booking_status_note?: string;
   poll_tier?: 'hot' | 'warm' | 'cold';
   booking_url_template?: string;
 };
@@ -69,23 +84,82 @@ export function parseCourseTitle(fullName: string): { short: string; city: strin
 /**
  * "305 W Pleasant View Dr, Ogden, UT 84414, USA" → "Ogden"
  * Also works for other US states (e.g. ", Boise, ID 83702").
+ * Tolerates a missing comma before the state ("Eagle Mountain UT 84005").
  */
 export function cityFromAddress(address?: string): string {
   if (!address) return '';
   const withZip = address.match(/,\s*([^,]+?),\s*[A-Z]{2}\s+\d{5}\b/i);
   if (withZip) return withZip[1]!.trim();
+  const missingComma = address.match(/,\s*([^,]+?)\s+[A-Z]{2}\s+\d{5}\b/i);
+  if (missingComma) return missingComma[1]!.trim();
   const stateOnly = address.match(/,\s*([^,]+?),\s*[A-Z]{2}\b/i);
   return stateOnly ? stateOnly[1]!.trim() : '';
+}
+
+/** "…, Eagle, ID 83616, USA" → "ID" (also "Eagle Mountain UT 84005"). */
+export function stateFromAddress(address?: string): string {
+  if (!address) return '';
+  const m =
+    address.match(/,\s*[^,]+?,\s*([A-Z]{2})\s+\d{5}\b/i) ||
+    address.match(/,\s*[^,]+?\s+([A-Z]{2})\s+\d{5}\b/i) ||
+    address.match(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/i);
+  return m?.[1] ? m[1].toUpperCase() : '';
+}
+
+/** Infer state when address is thin — area / timezone hints for multi-state catalog. */
+export function stateFromRecord(record: {
+  address?: string;
+  area?: string;
+  timezone?: string;
+}): string {
+  const fromAddress = stateFromAddress(record.address);
+  if (fromAddress) return fromAddress;
+  const area = String(record.area || '').trim().toLowerCase();
+  if (area.startsWith('idaho') || area.includes('idaho ·')) return 'ID';
+  if (area.startsWith('wyoming') || area.includes('wyoming ·')) return 'WY';
+  const tz = String(record.timezone || '').trim();
+  if (tz === 'America/Boise') return 'ID';
+  return '';
+}
+
+/** Prefer "Eagle, ID" when state is known so multi-state catalogs stay unambiguous. */
+export function formatCityState(city?: string | null, state?: string | null): string {
+  const c = String(city || '').trim();
+  const st = String(state || '').trim().toUpperCase();
+  if (!c) return st;
+  if (!st) return c;
+  if (new RegExp(`,\\s*${st}$`, 'i').test(c)) return c;
+  return `${c}, ${st}`;
+}
+
+/**
+ * How the public Find / course page should present booking.
+ * Phone disposition wins even if platform/booking_url are empty.
+ */
+export type CourseBookingMode = 'live' | 'booking_link' | 'phone';
+
+export function resolveCourseBookingMode(
+  record?: {
+    booking_status?: string | null;
+    platform?: string | null;
+  } | null,
+): CourseBookingMode {
+  const status = String(record?.booking_status || '').trim();
+  if (status === 'phone') return 'phone';
+  if (getPlatformCapability(record?.platform ?? undefined) === 'live_inventory') return 'live';
+  return 'booking_link';
 }
 
 export function recordToCourse(record: CourseRecord, distanceMi?: number): Course {
   const { short, city } = parseCourseTitle(record.name);
   const tz = String(record.timezone || '').trim();
+  const state = stateFromRecord(record) || undefined;
   return {
     id: slugFromCourseName(record.name),
     catalogName: record.name,
     name: short,
     city: city || cityFromAddress(record.address) || record.area || '',
+    state,
     address: record.address,
     area: record.area,
     lat: record.lat,

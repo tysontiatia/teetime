@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Course } from '../types';
+import { formatCityState } from '../lib/courseRecord';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export type LocationSearchSheetProps = {
@@ -15,12 +16,24 @@ export type LocationSearchSheetProps = {
   onSelectCourse: (course: Course) => void;
 };
 
+type LocationOption = {
+  /** Query committed on select — includes state when known ("Eagle, ID"). */
+  query: string;
+  title: string;
+  stateLabel: string;
+};
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
     .replace(/\./g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function isGenericCity(city: string): boolean {
+  const n = normalize(city);
+  return !n || n === 'utah' || n === 'idaho' || n === 'wy' || n === 'wyoming';
 }
 
 export function LocationSearchSheet({
@@ -54,27 +67,38 @@ export function LocationSearchSheet({
   }, [open, currentQuery, onClose]);
 
   const q = normalize(draft);
+  const currentQ = normalize(currentQuery);
 
   const matchedCourses = useMemo(() => {
     if (!q) return [] as Course[];
     return courses
       .filter((c) =>
-        [c.name, c.catalogName, c.city, c.area ?? '', c.address ?? ''].some((v) => normalize(v).includes(q)),
+        [c.name, c.catalogName, c.city, formatCityState(c.city, c.state), c.state ?? '', c.area ?? '', c.address ?? ''].some(
+          (v) => normalize(v).includes(q),
+        ),
       )
       .slice(0, 8);
   }, [courses, q]);
 
   const matchedLocations = useMemo(() => {
-    const cities = new Map<string, string>();
+    const cities = new Map<string, LocationOption>();
     for (const c of courses) {
       const city = c.city?.trim();
-      if (!city || city === 'Utah' || city === 'WY') continue;
-      const key = normalize(city);
-      if (!cities.has(key)) cities.set(key, city);
+      if (!city || isGenericCity(city)) continue;
+      const state = String(c.state || '').trim().toUpperCase();
+      const title = formatCityState(city, state);
+      const key = normalize(title);
+      if (!cities.has(key)) {
+        cities.set(key, {
+          query: title,
+          title,
+          stateLabel: state || '—',
+        });
+      }
     }
-    const all = [...cities.values()].sort((a, b) => a.localeCompare(b));
+    const all = [...cities.values()].sort((a, b) => a.title.localeCompare(b.title));
     if (!q) return all.slice(0, 8);
-    return all.filter((city) => normalize(city).includes(q)).slice(0, 8);
+    return all.filter((loc) => normalize(loc.title).includes(q) || normalize(loc.stateLabel).includes(q)).slice(0, 8);
   }, [courses, q]);
 
   if (!open) return null;
@@ -197,7 +221,9 @@ export function LocationSearchSheet({
                   </span>
                   <span className="location-sheet-row-text">
                     <span className="location-sheet-row-title">{c.name}</span>
-                    <span className="location-sheet-row-sub">{c.city || 'Utah'}</span>
+                    <span className="location-sheet-row-sub">
+                      {formatCityState(c.city, c.state) || c.city || '—'}
+                    </span>
                   </span>
                 </button>
               ))}
@@ -207,43 +233,46 @@ export function LocationSearchSheet({
           {matchedLocations.length > 0 ? (
             <div className="location-sheet-section">
               <div className="location-sheet-section-label">Locations</div>
-              {matchedLocations.map((city) => (
-                <button
-                  key={city}
-                  type="button"
-                  className={`location-sheet-row${normalize(currentQuery) === normalize(city) ? ' is-active' : ''}`}
-                  onClick={() => {
-                    onSelectQuery(city);
-                    onClose();
-                  }}
-                >
-                  <span className="location-sheet-row-icon" aria-hidden>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z"
-                        stroke="currentColor"
-                        strokeWidth="1.9"
-                        strokeLinejoin="round"
-                      />
-                      <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.9" />
-                    </svg>
-                  </span>
-                  <span className="location-sheet-row-text">
-                    <span className="location-sheet-row-title">{city}</span>
-                    <span className="location-sheet-row-sub">UT</span>
-                  </span>
-                  {normalize(currentQuery) === normalize(city) ? (
-                    <span className="location-sheet-check" aria-hidden>
-                      ✓
+              {matchedLocations.map((loc) => {
+                const active = currentQ === normalize(loc.query);
+                return (
+                  <button
+                    key={loc.query}
+                    type="button"
+                    className={`location-sheet-row${active ? ' is-active' : ''}`}
+                    onClick={() => {
+                      onSelectQuery(loc.query);
+                      onClose();
+                    }}
+                  >
+                    <span className="location-sheet-row-icon" aria-hidden>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z"
+                          stroke="currentColor"
+                          strokeWidth="1.9"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.9" />
+                      </svg>
                     </span>
-                  ) : null}
-                </button>
-              ))}
+                    <span className="location-sheet-row-text">
+                      <span className="location-sheet-row-title">{loc.title}</span>
+                      <span className="location-sheet-row-sub">{loc.stateLabel}</span>
+                    </span>
+                    {active ? (
+                      <span className="location-sheet-check" aria-hidden>
+                        ✓
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           ) : null}
 
           {q && matchedCourses.length === 0 && matchedLocations.length === 0 ? (
-            <p className="location-sheet-empty">No Utah courses or cities match “{draft.trim()}”.</p>
+            <p className="location-sheet-empty">No courses or cities match “{draft.trim()}”.</p>
           ) : null}
         </div>
       </div>

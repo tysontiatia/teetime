@@ -12,6 +12,8 @@ import { FeedPage } from './pages/FeedPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminCoursesListPage } from './pages/admin/AdminCoursesListPage';
 import { AdminCourseEditPage } from './pages/admin/AdminCourseEditPage';
+import { AdminCoursesImportPage } from './pages/admin/AdminCoursesImportPage';
+import { AdminCourseQaPage } from './pages/admin/AdminCourseQaPage';
 import { AuthProvider } from './state/AuthContext';
 import { LaunchDarklyProvider } from './state/LaunchDarklyContext';
 import { CourseCatalogProvider } from './state/CourseCatalogContext';
@@ -29,6 +31,9 @@ function RoutedApp() {
         <Route path="/feed" element={<FeedPage />} />
         <Route element={<AdminGuard />}>
           <Route path="/admin/courses" element={<AdminCoursesListPage />} />
+          <Route path="/admin/courses/import" element={<AdminCoursesImportPage />} />
+          <Route path="/admin/courses/qa" element={<AdminCourseQaPage />} />
+          <Route path="/admin/courses/qa/:slug" element={<AdminCourseQaPage />} />
           <Route path="/admin/courses/:slug" element={<AdminCourseEditPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />

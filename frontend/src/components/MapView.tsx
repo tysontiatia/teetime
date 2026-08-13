@@ -5,6 +5,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import type { Course, TeeTime } from '../types';
 import { formatTime12h } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
+import { formatCityState } from '../lib/courseRecord';
 
 /** Matches `:root` --green-2 / --green in `index.css` */
 const PIN_FILL = '#2d7a3a';
@@ -102,7 +103,7 @@ export function MapView({
                 <Popup>
                   <div style={{ minWidth: 220 }}>
                     <div style={{ fontWeight: 900 }}>{c.name}</div>
-                    <div style={{ color: '#666', fontSize: 12 }}>{c.city}</div>
+                    <div style={{ color: '#666', fontSize: 12 }}>{formatCityState(c.city, c.state) || c.city}</div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                       {top.map((t) => (
                         <span

@@ -8,6 +8,7 @@ import {
   filterWorkerCourses,
   getPlatformCapability,
 } from '../lib/platformRegistry';
+import { resolveCourseBookingMode } from '../lib/courseRecord';
 import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
@@ -758,26 +759,30 @@ export function FinderPage() {
             displayCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const inFetchPool = fetchSlugSet.has(course.id);
-              const bookingLinkOnly = getPlatformCapability(course.platform) !== 'live_inventory';
-              const outOfScope = !bookingLinkOnly && !inFetchPool && !fetchAllUtah;
-              const timesPending = !bookingLinkOnly && inFetchPool && pendingSlugs.has(course.id);
+              const record = recordsBySlug.get(course.id);
+              const bookingMode = resolveCourseBookingMode(record ?? { platform: course.platform });
+              const noLiveInventory = bookingMode !== 'live';
+              const outOfScope = !noLiveInventory && !inFetchPool && !fetchAllUtah;
+              const timesPending = !noLiveInventory && inFetchPool && pendingSlugs.has(course.id);
               const detailHref = `/course/${course.id}?${courseDetailQueryString(params)}`;
+              const variant =
+                bookingMode === 'phone' ? 'phone' : bookingMode === 'booking_link' ? 'bookingLink' : 'inventory';
               return (
                 <CourseMarketplaceCard
                   key={course.id}
                   course={course}
-                  record={recordsBySlug.get(course.id)}
+                  record={record}
                   times={times}
                   detailHref={detailHref}
                   timesPending={timesPending}
                   outOfScope={outOfScope}
                   inventorySource={sourceBySlug.get(course.id)}
-                  variant={bookingLinkOnly ? 'bookingLink' : 'inventory'}
+                  variant={variant}
                   dateYmd={params.date}
                   players={params.players}
                   holes={params.holes}
                   onAlert={
-                    bookingLinkOnly ? undefined : () => setNotifCourseId(course.id)
+                    noLiveInventory ? undefined : () => setNotifCourseId(course.id)
                   }
                   onSearchAllUtah={() => setRadiusMode('all')}
                   onShare={() => requestShareRound(course, times)}

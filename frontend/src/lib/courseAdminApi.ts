@@ -93,6 +93,13 @@ export async function lookupPlaces(query: string, lat?: number, lng?: number): P
   });
 }
 
+export async function lookupPlacesDetails(placeId: string): Promise<PlacesLookupResult & { place_id?: string }> {
+  return adminFetch<PlacesLookupResult & { place_id?: string }>('/admin/places/details', {
+    method: 'POST',
+    body: JSON.stringify({ place_id: placeId }),
+  });
+}
+
 export type ParseBookingUrlResult = {
   booking_url: string;
   platform: string | null;
@@ -113,5 +120,46 @@ export async function parseBookingUrl(url: string): Promise<ParseBookingUrlResul
   return adminFetch<ParseBookingUrlResult>('/admin/parse-booking-url', {
     method: 'POST',
     body: JSON.stringify({ url }),
+  });
+}
+
+export type CourseImportApiRow = {
+  slug?: string;
+  record?: CourseRecord;
+  name?: string;
+  area?: string;
+  address?: string;
+  phone_number?: string;
+  website?: string;
+  timezone?: string;
+  google_place_id?: string;
+};
+
+export type CourseImportResultItem = {
+  slug: string;
+  name?: string;
+  reason?: string;
+  matched_slug?: string;
+  matched_name?: string;
+  error?: string;
+  detail?: string | null;
+  dry_run?: boolean;
+};
+
+export type CourseImportResult = {
+  dry_run: boolean;
+  created: CourseImportResultItem[];
+  skipped: CourseImportResultItem[];
+  errors: CourseImportResultItem[];
+  counts: { created: number; skipped: number; errors: number };
+};
+
+export async function importAdminCourses(
+  rows: CourseImportApiRow[],
+  opts?: { dryRun?: boolean },
+): Promise<CourseImportResult> {
+  return adminFetch<CourseImportResult>('/admin/courses/import', {
+    method: 'POST',
+    body: JSON.stringify({ dry_run: Boolean(opts?.dryRun), rows }),
   });
 }

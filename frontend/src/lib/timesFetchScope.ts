@@ -1,6 +1,7 @@
 import type { Course } from '../types';
 import { haversineMiles } from './geo';
 import { resolveZipQuery } from './zipSearch';
+import { formatCityState } from './courseRecord';
 
 /** Default radius for regional tee-time fetches (near me, city, ZIP). */
 export const DEFAULT_FETCH_RADIUS_MI = 25;
@@ -58,6 +59,39 @@ function normalizeSearchText(value: string): string {
     .trim();
 }
 
+const STATE_NAME_TO_CODE: Record<string, string> = {
+  ut: 'UT',
+  utah: 'UT',
+  id: 'ID',
+  idaho: 'ID',
+  wy: 'WY',
+  wyoming: 'WY',
+  nv: 'NV',
+  nevada: 'NV',
+  az: 'AZ',
+  arizona: 'AZ',
+  co: 'CO',
+  colorado: 'CO',
+  mt: 'MT',
+  montana: 'MT',
+  nm: 'NM',
+  'new mexico': 'NM',
+};
+
+/** "Eagle ID" / "Eagle, Idaho" → { city: "eagle", state: "ID" }. */
+export function parseCityStateQuery(query: string): { city: string; state: string | null } {
+  const q = normalizeSearchText(query);
+  if (!q) return { city: '', state: null };
+  const m = q.match(
+    /^(.*?)(?:[,\s]+)([a-z]{2}|utah|idaho|wyoming|nevada|arizona|colorado|montana|new mexico)$/i,
+  );
+  if (!m) return { city: q, state: null };
+  const city = m[1]!.trim();
+  const state = STATE_NAME_TO_CODE[normalizeSearchText(m[2]!)] || null;
+  if (!city || !state) return { city: q, state: null };
+  return { city, state };
+}
+
 export function courseHasCoords(course: Course): course is Course & { lat: number; lng: number } {
   return typeof course.lat === 'number' && typeof course.lng === 'number';
 }
@@ -77,9 +111,24 @@ export function filterCoursesWithinRadius(courses: Course[], anchor: FetchAnchor
 export function courseMatchesLocationQuery(course: Course, query: string): boolean {
   const q = normalizeSearchText(query);
   if (!q) return false;
-  return [course.catalogName, course.name, course.city, course.area ?? '', course.address ?? ''].some(
-    (value) => normalizeSearchText(value).includes(q)
-  );
+  const { city, state } = parseCityStateQuery(query);
+  const cityState = formatCityState(course.city, course.state);
+  const haystacks = [
+    course.catalogName,
+    course.name,
+    course.city,
+    cityState,
+    course.state ?? '',
+    course.area ?? '',
+    course.address ?? '',
+  ];
+  if (state) {
+    const courseState = String(course.state || '').toUpperCase();
+    if (courseState && courseState !== state) return false;
+    const cityQ = normalizeSearchText(city);
+    return haystacks.some((value) => normalizeSearchText(value).includes(cityQ));
+  }
+  return haystacks.some((value) => normalizeSearchText(value).includes(q));
 }
 
 export function filterCoursesByLocationQuery(courses: Course[], query: string): Course[] {
@@ -90,19 +139,30 @@ export function filterCoursesByLocationQuery(courses: Course[], query: string): 
 
 function isGenericCityLabel(city: string): boolean {
   const n = normalizeSearchText(city);
-  return !n || n === 'utah' || n === 'wy' || n === 'wyoming';
+  return !n || n === 'utah' || n === 'idaho' || n === 'wy' || n === 'wyoming';
+}
+
+function centroidOf(courses: Array<Course & { lat: number; lng: number }>): { lat: number; lng: number } {
+  const lat = courses.reduce((sum, c) => sum + c.lat, 0) / courses.length;
+  const lng = courses.reduce((sum, c) => sum + c.lng, 0) / courses.length;
+  return { lat, lng };
 }
 
 /**
  * Resolve a free-text query to a city centroid from catalog courses
  * (e.g. "Orem" → average lat/lng of Orem courses). Used for near-city search.
+ * Same city in multiple states (Eagle UT vs Eagle ID) is not averaged together.
  */
 export function resolveCityQuery(query: string, courses: Course[]): ResolvedPlaceAnchor | null {
-  const q = normalizeSearchText(query);
+  const raw = normalizeSearchText(query);
+  if (raw.length < 3) return null;
+  const { city: cityQ, state: stateQ } = parseCityStateQuery(query);
+  const q = cityQ || raw;
   if (q.length < 3) return null;
 
   const cityCourses = courses.filter((c) => {
     if (!c.city || isGenericCityLabel(c.city)) return false;
+    if (stateQ && String(c.state || '').toUpperCase() !== stateQ) return false;
     const city = normalizeSearchText(c.city);
     return city === q || city.startsWith(`${q} `) || city.startsWith(q);
   });
@@ -124,12 +184,21 @@ export function resolveCityQuery(query: string, courses: Course[]): ResolvedPlac
     return null;
   }
 
-  const lat = withCoords.reduce((sum, c) => sum + c.lat, 0) / withCoords.length;
-  const lng = withCoords.reduce((sum, c) => sum + c.lng, 0) / withCoords.length;
+  // Ambiguous city name across states and no state in the query → text search instead
+  // of averaging Eagle UT + Eagle ID into a useless midpoint.
+  if (!stateQ) {
+    const states = new Set(
+      withCoords.map((c) => String(c.state || '').toUpperCase()).filter(Boolean),
+    );
+    if (states.size > 1) return null;
+  }
+
+  const anchor = centroidOf(withCoords);
+  const label = formatCityState(matched[0]!.city, stateQ || matched[0]!.state);
   return {
     kind: 'city',
-    label: matched[0]!.city,
-    anchor: { lat, lng },
+    label,
+    anchor,
   };
 }
 
