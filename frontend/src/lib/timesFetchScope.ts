@@ -211,6 +211,25 @@ export function resolvePlaceAnchor(query: string, courses: Course[]): ResolvedPl
   return resolveCityQuery(query, courses);
 }
 
+/** True when a course belongs to the resolved city / ZIP (exact city, or address contains ZIP). */
+export function courseMatchesResolvedPlace(course: Course, place: ResolvedPlaceAnchor): boolean {
+  if (place.kind === 'city') {
+    const { city, state } = parseCityStateQuery(place.label);
+    const q = normalizeSearchText(city || place.label);
+    if (!q) return false;
+    const courseCity = normalizeSearchText(course.city);
+    if (courseCity !== q) return false;
+    if (state) {
+      const courseState = String(course.state || '').toUpperCase();
+      if (courseState && courseState !== state) return false;
+    }
+    return true;
+  }
+  const zip = normalizeSearchText(place.label);
+  if (!zip) return false;
+  return normalizeSearchText(course.address || '').includes(zip);
+}
+
 export function buildTimesFetchScope(
   workerCourses: Course[],
   userLocation: { lat: number; lng: number } | null,

@@ -594,8 +594,31 @@ export async function fetchTimesForCourseSlugs(
   const workerEntries = entries.filter(
     (e) => e.record.platform && workerSupportedPlatform(e.record.platform),
   );
+  // 9-only catalog courses still need a fetch when the Find filter is 18 (city search).
+  const nineOnlyEntries = holeSize === 18 ? workerEntries.filter((e) => e.record.holes === 9) : [];
+  const standardEntries =
+    holeSize === 18 ? workerEntries.filter((e) => e.record.holes !== 9) : workerEntries;
+
+  if (nineOnlyEntries.length > 0) {
+    const nineResult = await fetchTimesForCourseSlugs(
+      nineOnlyEntries,
+      dateYmd,
+      9,
+      players,
+      concurrency,
+      onCourseComplete,
+      { revalidateStale: options?.revalidateStale },
+    );
+    for (const [slug, times] of nineResult.bySlug) out.set(slug, times);
+    failedSlugs.push(...nineResult.failedSlugs);
+    if (standardEntries.length === 0) {
+      options?.onBlockingComplete?.();
+      return { bySlug: out, failedSlugs };
+    }
+  }
+
   const batchMap = await fetchTeeTimesBatchFromSnapshot(
-    workerEntries.map((e) => e.slug),
+    standardEntries.map((e) => e.slug),
     dateYmd,
     holeSize,
     players,
@@ -604,7 +627,7 @@ export async function fetchTimesForCourseSlugs(
   const needLive: { slug: string; record: CourseRecord }[] = [];
   const needRevalidate: { slug: string; record: CourseRecord; ageMs: number }[] = [];
 
-  for (const entry of entries) {
+  for (const entry of standardEntries) {
     const snap = batchMap.get(entry.slug);
     if (snap && canUseBatchRow(snap, players, dateYmd)) {
       const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
