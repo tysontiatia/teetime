@@ -8,10 +8,11 @@ import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, workerSupportedPlatform } from '../lib/platformRegistry';
 import { WeatherStrip } from '../components/WeatherStrip';
 import { CoursePhoto } from '../components/CoursePhoto';
+import { TeeSlotTimesSkeleton } from '../components/CourseCardSkeleton';
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
-import { googleMapsPlaceUrl } from '../lib/mapsLinks';
+import { GetDirectionsButton } from '../components/GetDirectionsButton';
 import { useAuth } from '../state/AuthContext';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import { parseHolesFilter, type HolesFilter } from '../lib/holesFilter';
@@ -29,9 +30,7 @@ import { WeatherGlyph } from '../components/WeatherGlyph';
 import { chipWeatherLabel, weatherKindFromPrecip } from '../lib/weatherKind';
 import {
   fetchCourseCatalogMeta,
-  fetchCourseRatesExpanded,
   type CourseCatalogMeta,
-  type CourseRatesExpanded,
 } from '../lib/courseCatalogApi';
 import { fetchPlaceReviews, type PlaceReview } from '../lib/placeReviews';
 
@@ -121,9 +120,7 @@ export function CoursePage() {
     setSignInToShareOpen(false);
     setPlanAfterSignIn(false);
   }, []);
-  const [ratesExpanded, setRatesExpanded] = useState<CourseRatesExpanded | null>(null);
   const [catalogMeta, setCatalogMeta] = useState<CourseCatalogMeta | null>(null);
-  const [catalogDetailLoading, setCatalogDetailLoading] = useState(false);
   const [reviews, setReviews] = useState<PlaceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsMapsUrl, setReviewsMapsUrl] = useState<string | null>(null);
@@ -132,25 +129,13 @@ export function CoursePage() {
 
   useEffect(() => {
     if (!courseId) {
-      setRatesExpanded(null);
       setCatalogMeta(null);
       return;
     }
     let cancelled = false;
-    setCatalogDetailLoading(true);
     void (async () => {
-      try {
-        const [rates, meta] = await Promise.all([
-          fetchCourseRatesExpanded(courseId),
-          fetchCourseCatalogMeta(courseId),
-        ]);
-        if (!cancelled) {
-          setRatesExpanded(rates);
-          setCatalogMeta(meta);
-        }
-      } finally {
-        if (!cancelled) setCatalogDetailLoading(false);
-      }
+      const meta = await fetchCourseCatalogMeta(courseId);
+      if (!cancelled) setCatalogMeta(meta);
     })();
     return () => {
       cancelled = true;
@@ -268,11 +253,11 @@ export function CoursePage() {
     return (
       <div className="container">
         <div className="course-page-skeleton" aria-busy="true" aria-label="Loading course">
-          <div className="course-page-skeleton-hero skeleton-shimmer" />
-          <div className="course-page-skeleton-identity">
-            <div className="skeleton-shimmer" style={{ width: '55%', height: 28, borderRadius: 10 }} />
-            <div className="skeleton-shimmer" style={{ width: '38%', height: 14, marginTop: 12, borderRadius: 8 }} />
-            <div className="skeleton-shimmer" style={{ width: '72%', height: 14, marginTop: 10, borderRadius: 8 }} />
+          <div className="course-page-skeleton-hero skeleton-shimmer">
+            <div className="course-page-skeleton-scrim" aria-hidden>
+              <div className="skeleton-shimmer" style={{ width: '48%', height: 22, borderRadius: 8 }} />
+              <div className="skeleton-shimmer" style={{ width: '62%', height: 12, marginTop: 10, borderRadius: 6 }} />
+            </div>
           </div>
           <div className="course-page-skeleton-rail">
             <div className="skeleton-shimmer" style={{ width: '48%', height: 16, borderRadius: 8 }} />
@@ -410,34 +395,36 @@ export function CoursePage() {
             </button>
           ) : null}
         </div>
-      </div>
-
-      <header className="detail-identity">
-        <div className="detail-identity-main">
-          <h1 className="detail-identity-name">{course.name}</h1>
-          <div className="detail-identity-meta">
-            {heroMeta || null}
-            {heroMeta && typeof course.rating === 'number' ? (
-              <span className="sep" aria-hidden>
-                ·
-              </span>
-            ) : null}
-            {typeof course.rating === 'number' ? (
-              <span className="course-rating">
-                <span className="star-gold" aria-hidden>
-                  ★
-                </span>{' '}
-                {course.rating.toFixed(1)}
-                {typeof course.reviewCount === 'number' ? (
-                  <button type="button" className="detail-identity-reviews" onClick={openReviews}>
-                    ({course.reviewCount.toLocaleString()} reviews)
-                  </button>
-                ) : null}
-              </span>
-            ) : null}
-          </div>
+        <div className="detail-hero-scrim">
+          <h1 className="detail-hero-name">{course.name}</h1>
+          {typeof course.rating === 'number' || heroMeta ? (
+            <div className="detail-hero-meta">
+              {typeof course.rating === 'number' ? (
+                <span className="course-rating course-rating--muted">
+                  <span className="star-gold" aria-hidden>
+                    ★
+                  </span>{' '}
+                  {course.rating.toFixed(1)}
+                  {typeof course.reviewCount === 'number' ? (
+                    <>
+                      {' '}
+                      <button type="button" className="detail-hero-reviews" onClick={openReviews}>
+                        ({course.reviewCount.toLocaleString()} reviews)
+                      </button>
+                    </>
+                  ) : null}
+                </span>
+              ) : null}
+              {typeof course.rating === 'number' && heroMeta ? (
+                <span className="sep" aria-hidden>
+                  ·
+                </span>
+              ) : null}
+              {heroMeta || null}
+            </div>
+          ) : null}
         </div>
-      </header>
+      </div>
 
       <div className="course-stats-desktop">
         <CourseStatsBar
@@ -475,9 +462,8 @@ export function CoursePage() {
           </div>
           <CourseDetailPanel
             record={record}
-            rates={ratesExpanded}
             catalogMeta={catalogMeta}
-            ratesLoading={catalogDetailLoading}
+            course={course}
           />
           <div className="section">
             <h2>Conditions</h2>
@@ -487,13 +473,6 @@ export function CoursePage() {
               dateYmd={date}
               highlightTimeIso={selected?.startsAt ?? null}
             />
-          </div>
-          <div className="section">
-            <h2>Location</h2>
-            {record?.address ? <p className="detail-address">{record.address}</p> : null}
-            <a className="detail-text-link" href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer">
-              Get directions →
-            </a>
           </div>
         </div>
 
@@ -508,20 +487,22 @@ export function CoursePage() {
               </div>
               <div className="rail-empty">
                 <p>This course doesn’t take online tee times. Call the pro shop to reserve a tee time.</p>
-                <div className="rail-empty-actions">
+                <div className="rail-empty-actions rail-empty-actions--stack">
                   {proShopTelHref ? (
                     <a className="tee-empty-action tee-empty-action--primary" href={proShopTelHref}>
                       Call {proShopPhone}
                     </a>
                   ) : null}
-                  {courseWebsiteHref ? (
-                    <a className="tee-empty-action" href={courseWebsiteHref} target="_blank" rel="noreferrer">
-                      Website
-                    </a>
-                  ) : null}
-                  <a className="tee-empty-action" href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer">
-                    Directions
-                  </a>
+                  <div className="rail-empty-actions-links">
+                    {courseWebsiteHref ? (
+                      <a className="tee-empty-action" href={courseWebsiteHref} target="_blank" rel="noreferrer">
+                        Website
+                      </a>
+                    ) : null}
+                    <GetDirectionsButton course={course} className="tee-empty-action">
+                      Directions
+                    </GetDirectionsButton>
+                  </div>
                 </div>
               </div>
             </>
@@ -530,15 +511,28 @@ export function CoursePage() {
           <div className="tee-panel-head">
             <div className="tee-panel-head-text">
               <h2 className="tee-panel-title">Next available</h2>
-              <p className="tee-panel-date">{formatDateShort(date)}</p>
-            </div>
-            <div className="rail-date-nudge-row">
-              <button type="button" className="rail-date-nudge" aria-label="Previous day" onClick={() => shiftDate(-1)}>
-                ‹
-              </button>
-              <button type="button" className="rail-date-nudge" aria-label="Next day" onClick={() => shiftDate(1)}>
-                ›
-              </button>
+              <div className="rail-date-nudge-row tee-panel-date-control">
+                <button type="button" className="rail-date-nudge" aria-label="Previous day" onClick={() => shiftDate(-1)}>
+                  ‹
+                </button>
+                <span className="tee-panel-date-pill">
+                  <span className="tee-panel-date-label" aria-hidden>
+                    {formatDateShort(date)}
+                  </span>
+                  <input
+                    type="date"
+                    className="tee-panel-date-input"
+                    value={date}
+                    aria-label={`Date, ${formatDateShort(date)}`}
+                    onChange={(e) => {
+                      if (e.target.value) setParam('date', e.target.value);
+                    }}
+                  />
+                </span>
+                <button type="button" className="rail-date-nudge" aria-label="Next day" onClick={() => shiftDate(1)}>
+                  ›
+                </button>
+              </div>
             </div>
           </div>
 
@@ -570,16 +564,12 @@ export function CoursePage() {
                 ))}
               </select>
             </label>
-            <label className="rail-filter-chip rail-filter-chip--date">
-              <span className="visually-hidden">Date</span>
-              <input type="date" value={date} aria-label="Date" onChange={(e) => setParam('date', e.target.value)} />
-            </label>
           </div>
 
           {unsupported ? (
             <div className="rail-empty">
               <p>{capabilityHint(cap)}.</p>
-              <div className="rail-empty-actions">
+              <div className="rail-empty-actions rail-empty-actions--stack">
                 {bookingLinkHref ? (
                   <a
                     className="tee-empty-action tee-empty-action--primary"
@@ -592,37 +582,41 @@ export function CoursePage() {
                 ) : null}
                 {proShopTelHref ? (
                   <a className="tee-empty-action tee-empty-action--phone" href={proShopTelHref}>
-                    {proShopPhone}
+                    Call {proShopPhone}
                   </a>
                 ) : null}
               </div>
             </div>
           ) : loadingTimes ? (
-            <p className="rail-status">Checking tee times…</p>
+            <TeeSlotTimesSkeleton count={5} />
           ) : teeTimesFetchFailed ? (
             <div className="rail-empty">
               <p>Could not load tee times.</p>
-              <button type="button" className="tee-empty-action" onClick={() => setTimesRetryNonce((n) => n + 1)}>
-                Retry
-              </button>
+              <div className="rail-empty-actions rail-empty-actions--stack">
+                <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={() => setTimesRetryNonce((n) => n + 1)}>
+                  Retry
+                </button>
+              </div>
             </div>
           ) : visibleSlots.length === 0 ? (
             <div className="rail-empty">
               <p>
                 No tee times for {todLabel.toLowerCase()} on {formatDateCompact(date)}
               </p>
-              <div className="rail-empty-actions">
-                {tod !== 'any' ? (
-                  <button type="button" className="tee-empty-action" onClick={() => setParam('tod', 'any')}>
-                    Any time of day
-                  </button>
-                ) : null}
-                <button type="button" className="tee-empty-action" onClick={() => shiftDate(1)}>
-                  Try tomorrow
-                </button>
+              <div className="rail-empty-actions rail-empty-actions--stack">
                 <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={() => setNotifOpen(true)}>
                   Alert me
                 </button>
+                <div className="rail-empty-actions-links">
+                  {tod !== 'any' ? (
+                    <button type="button" className="tee-empty-action" onClick={() => setParam('tod', 'any')}>
+                      Any time of day
+                    </button>
+                  ) : null}
+                  <button type="button" className="tee-empty-action" onClick={() => shiftDate(1)}>
+                    Try tomorrow
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

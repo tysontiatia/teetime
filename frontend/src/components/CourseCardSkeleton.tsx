@@ -52,3 +52,23 @@ export function CourseCardTimesSkeleton() {
     </>
   );
 }
+
+/**
+ * Course-detail slot placeholders — same `.tee-slot-card` box as live rows
+ * (full-width desktop list; fixed-width horizontal cards on mobile). Solid shimmer
+ * like Find chips so every placeholder is identical (no wrapping inner bars).
+ */
+export function TeeSlotTimesSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div className="tee-slot-scroller" aria-busy="true" aria-label="Loading tee times">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="tee-slot-card tee-slot-card--skeleton"
+          style={{ opacity: 1 - i * 0.06 }}
+          aria-hidden
+        />
+      ))}
+    </div>
+  );
+}

@@ -123,8 +123,9 @@ export function CourseMarketplaceCard({
   const meta = metaLine(course);
   const hasRating = typeof course.rating === 'number';
   const tz = courseTimezone(record?.timezone ?? course.timezone);
-  // Empty as soon as this course finishes — don't wait on the rest of the batch.
-  const isEmpty = noLiveInventory || (!hasTimes && !timesPending);
+  // Grey the card only for live inventory with zero matching times — phone / booking-link
+  // courses stay full-color (still bookable another way).
+  const isNoMatches = !noLiveInventory && !hasTimes && !timesPending && !outOfScope;
   const moreCount = times.length > top.length ? times.length - top.length : 0;
 
   let badgeLabel: string;
@@ -156,7 +157,7 @@ export function CourseMarketplaceCard({
   const siteHref = websiteHref(record?.website);
 
   return (
-    <article className={`mp-course${isEmpty ? ' is-empty' : ''}`}>
+    <article className={`mp-course${isNoMatches ? ' is-empty' : ''}`}>
       <div className="mp-course-media">
         <div className="mp-course-photo">
           <Link to={detailHref} className="mp-course-photo-link" aria-label={`${course.name} details`}>
@@ -184,8 +185,8 @@ export function CourseMarketplaceCard({
           </Link>
 
           <span
-            className={`badge-live${isEmpty || timesPending ? ' is-muted' : ''}${
-              badgeLabel === 'No matches' ? ' is-soldout' : ''
+            className={`badge-live${!hasTimes ? ' is-muted' : ''}${
+              isNoMatches ? ' is-soldout' : ''
             }${timesPending ? ' is-pending' : ''}`}
             aria-label={timesPending ? 'Checking tee times' : undefined}
           >
@@ -196,7 +197,7 @@ export function CourseMarketplaceCard({
             {!noLiveInventory && onAlert ? (
               <button
                 type="button"
-                className={`mp-icon-btn${isEmpty ? ' is-emphasis' : ''}`}
+                className={`mp-icon-btn${isNoMatches ? ' is-emphasis' : ''}`}
                 aria-label={`Tee time alerts for ${course.name}`}
                 title="Alerts"
                 onClick={(e) => {
