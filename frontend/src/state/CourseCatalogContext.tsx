@@ -20,11 +20,16 @@ type Api = {
 const CourseCatalogContext = createContext<Api | null>(null);
 
 function coursesJsonUrl(): string {
+  // Prefer the Worker registry when developing against a local/prod Worker so
+  // admin QA saves (Idaho stubs → ready) show up in Find without redeploying courses.json.
+  const worker = import.meta.env.VITE_WORKER_URL;
+  if (worker) {
+    return `${String(worker).replace(/\/$/, '')}/v1/courses`;
+  }
   if (import.meta.env.DEV) {
     return '/courses.json';
   }
-  const worker = import.meta.env.VITE_WORKER_URL || 'https://utah-tee-times.tysontiatia.workers.dev';
-  return `${String(worker).replace(/\/$/, '')}/v1/courses`;
+  return 'https://utah-tee-times.tysontiatia.workers.dev/v1/courses';
 }
 
 export function CourseCatalogProvider({ children }: { children: React.ReactNode }) {

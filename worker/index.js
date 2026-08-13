@@ -1165,10 +1165,11 @@ const CHRONOGOLF_CLUB_SLUGS = {
 
 function chronogolfClubBase(url) {
   const cleaned = String(url || '').replace(/[?#].*$/, '').replace(/\/$/, '');
-  const m = cleaned.match(/^(https?:\/\/(?:www\.)?chronogolf\.com\/club\/)(\d+)$/i);
-  if (!m) return cleaned;
+  const withoutBooking = cleaned.replace(/\/booking$/i, '');
+  const m = withoutBooking.match(/^(https?:\/\/(?:www\.)?chronogolf\.com\/club\/)(\d+)$/i);
+  if (!m) return withoutBooking;
   const slug = CHRONOGOLF_CLUB_SLUGS[m[2]];
-  return slug ? `${m[1]}${slug}` : cleaned;
+  return slug ? `${m[1]}${slug}` : withoutBooking;
 }
 
 function buildChronogolfTeeTimesUrl(course, date, holes, players) {

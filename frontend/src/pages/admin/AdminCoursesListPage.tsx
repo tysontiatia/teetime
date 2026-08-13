@@ -1,14 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { listAdminCourses } from '../../lib/courseAdminApi';
 import type { AdminCourseListItem } from '../../lib/adminCourseTypes';
+import {
+  BOOKING_STATUS_LABELS,
+  needsBookingRecord,
+  resolveBookingStatus,
+  type BookingStatus,
+} from '../../lib/adminBookingQa';
 import { platformDisplayName } from '../../lib/platformRegistry';
+
+type ListFilter = 'all' | BookingStatus;
 
 export function AdminCoursesListPage() {
   const [courses, setCourses] = useState<AdminCourseListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
+  const [filter, setFilter] = useState<ListFilter>('all');
 
   useEffect(() => {
     void (async () => {
@@ -22,16 +31,82 @@ export function AdminCoursesListPage() {
     })();
   }, []);
 
+  const counts = useMemo(() => {
+    const out: Record<BookingStatus, number> = {
+      pending: 0,
+      ready: 0,
+      phone: 0,
+      unsupported: 0,
+      private: 0,
+      closed: 0,
+    };
+    for (const c of courses) out[resolveBookingStatus(c)] += 1;
+    return out;
+  }, [courses]);
+
+  const firstNeedsSlug = useMemo(
+    () => courses.find(needsBookingRecord)?.slug ?? null,
+    [courses],
+  );
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return courses;
-    return courses.filter(
-      (c) =>
+    return courses.filter((c) => {
+      const status = resolveBookingStatus(c);
+      if (filter !== 'all' && status !== filter) return false;
+      if (!needle) return true;
+      return (
         c.name.toLowerCase().includes(needle) ||
         c.slug.includes(needle) ||
-        (c.area || '').toLowerCase().includes(needle),
-    );
-  }, [courses, q]);
+        (c.area || '').toLowerCase().includes(needle) ||
+        (c.booking_status_note || '').toLowerCase().includes(needle)
+      );
+    });
+  }, [courses, q, filter]);
+
+  const chipStyle = (active: boolean): CSSProperties => ({
+    border: `1px solid ${active ? 'var(--pine)' : 'var(--border)'}`,
+    background: active ? 'color-mix(in srgb, var(--pine) 14%, var(--card))' : 'var(--card)',
+    color: active ? 'var(--pine-deep)' : 'var(--ink)',
+    borderRadius: 999,
+    padding: '6px 12px',
+    fontSize: 13,
+    fontWeight: active ? 700 : 500,
+    cursor: 'pointer',
+  });
+
+  const statusLabel = (c: AdminCourseListItem) => {
+    const status = resolveBookingStatus(c);
+    if (status === 'ready') return platformDisplayName(c.platform || undefined);
+    if (status === 'unsupported') {
+      const vendor = c.booking_status_note?.trim();
+      return vendor ? `Unsupported · ${vendor}` : BOOKING_STATUS_LABELS.unsupported;
+    }
+    return BOOKING_STATUS_LABELS[status];
+  };
+
+  const statusDetail = (c: AdminCourseListItem): { text: string; href?: string } | null => {
+    const status = resolveBookingStatus(c);
+    if (status === 'unsupported' && c.booking_url) {
+      try {
+        const host = new URL(c.booking_url).hostname.replace(/^www\./, '');
+        return { text: host, href: c.booking_url };
+      } catch {
+        return { text: c.booking_url, href: c.booking_url };
+      }
+    }
+    return null;
+  };
+
+  const filters: { id: ListFilter; label: string; count?: number }[] = [
+    { id: 'all', label: 'All', count: courses.length },
+    { id: 'pending', label: 'Needs booking', count: counts.pending },
+    { id: 'ready', label: 'Has booking', count: counts.ready },
+    { id: 'phone', label: 'Phone', count: counts.phone },
+    { id: 'unsupported', label: 'Unsupported', count: counts.unsupported },
+    { id: 'private', label: 'Private', count: counts.private },
+    { id: 'closed', label: 'Closed', count: counts.closed },
+  ];
 
   return (
     <div className="container" style={{ paddingBottom: 40 }}>
@@ -47,15 +122,40 @@ export function AdminCoursesListPage() {
             Edit enrichment, booking platform, and rate cards. Saves go live via the course registry (no redeploy needed after backfill).
           </p>
         </div>
-        <Link className="btn btn-primary" to="/admin/courses/new">
-          + Add course
-        </Link>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {firstNeedsSlug ? (
+            <Link className="btn btn-primary" to={`/admin/courses/qa/${firstNeedsSlug}`}>
+              Start booking QA
+            </Link>
+          ) : null}
+          <Link className="btn" to="/admin/courses/import">
+            Import CSV
+          </Link>
+          <Link className="btn" to="/admin/courses/new">
+            + Add course
+          </Link>
+        </div>
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {filters.map((f) => (
+          <button key={f.id} type="button" style={chipStyle(filter === f.id)} onClick={() => setFilter(f.id)}>
+            {f.label}
+            {typeof f.count === 'number' ? ` (${f.count})` : ''}
+          </button>
+        ))}
+        {!loading && !error ? (
+          <span style={{ marginLeft: 4, color: 'var(--muted)', fontSize: 13 }}>
+            {counts.pending} / {courses.length} need booking
+            {filter !== 'all' ? ` · showing ${filtered.length}` : ''}
+          </span>
+        ) : null}
+      </div>
+
+      <div style={{ marginTop: 12 }}>
         <input
           className="input"
-          placeholder="Search by name, slug, or area…"
+          placeholder="Search by name, slug, area, or note…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ width: '100%', maxWidth: 420 }}
@@ -68,7 +168,9 @@ export function AdminCoursesListPage() {
         <p className="admin-err" style={{ marginTop: 16 }}>{error}</p>
       ) : filtered.length === 0 ? (
         <p style={{ marginTop: 16, color: 'var(--muted)' }}>
-          No courses in registry yet. Run the backfill script, or add a new course.
+          {courses.length === 0
+            ? 'No courses in registry yet. Run the backfill script, import CSV, or add a new course.'
+            : 'No courses match this filter.'}
         </p>
       ) : (
         <div style={{ marginTop: 16, border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: 'var(--card)' }}>
@@ -76,32 +178,58 @@ export function AdminCoursesListPage() {
             <thead>
               <tr style={{ textAlign: 'left', background: 'color-mix(in srgb, var(--sand) 70%, var(--card))', color: 'var(--muted)', fontSize: 12 }}>
                 <th style={{ padding: '10px 12px' }}>Course</th>
-                <th style={{ padding: '10px 12px' }}>Platform</th>
+                <th style={{ padding: '10px 12px' }}>Status</th>
                 <th style={{ padding: '10px 12px' }}>Rates</th>
                 <th style={{ padding: '10px 12px' }}>Updated</th>
                 <th style={{ padding: '10px 12px' }} />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
-                <tr key={c.slug} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ padding: '10px 12px' }}>
-                    <div style={{ fontWeight: 800 }}>{c.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.slug}</div>
-                    {c.area ? <div style={{ fontSize: 12, color: 'var(--subtle)' }}>{c.area}</div> : null}
-                  </td>
-                  <td style={{ padding: '10px 12px' }}>{platformDisplayName(c.platform || undefined)}</td>
-                  <td style={{ padding: '10px 12px' }}>{c.has_rates ? '✓' : '—'}</td>
-                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>
-                    {c.updated_at ? new Date(c.updated_at).toLocaleDateString() : '—'}
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <Link className="btn" to={`/admin/courses/${c.slug}`}>
-                      Edit
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((c) => {
+                const status = resolveBookingStatus(c);
+                return (
+                  <tr key={c.slug} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 12px' }}>
+                      <div style={{ fontWeight: 800 }}>{c.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.slug}</div>
+                      {c.area ? <div style={{ fontSize: 12, color: 'var(--subtle)' }}>{c.area}</div> : null}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: status === 'pending' ? 'var(--muted)' : undefined }}>
+                      <div>{statusLabel(c)}</div>
+                      {(() => {
+                        const detail = statusDetail(c);
+                        if (!detail) return null;
+                        return detail.href ? (
+                          <a
+                            href={detail.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: 12, color: 'var(--subtle)', wordBreak: 'break-all' }}
+                          >
+                            {detail.text}
+                          </a>
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'var(--subtle)' }}>{detail.text}</div>
+                        );
+                      })()}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>{c.has_rates ? '✓' : '—'}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>
+                      {c.updated_at ? new Date(c.updated_at).toLocaleDateString() : '—'}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {status === 'pending' ? (
+                        <Link className="btn btn-primary" to={`/admin/courses/qa/${c.slug}`} style={{ marginRight: 8 }}>
+                          QA
+                        </Link>
+                      ) : null}
+                      <Link className="btn" to={`/admin/courses/${c.slug}`}>
+                        Edit
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -17,6 +17,9 @@ import {
   type AdminRatesForm,
 } from '../../lib/adminCourseTypes';
 import { capabilityHint, getPlatformCapability, platformDisplayName } from '../../lib/platformRegistry';
+import { BOOKING_STATUS_LABELS, type BookingStatus } from '../../lib/adminBookingQa';
+
+const BOOKING_STATUSES: BookingStatus[] = ['pending', 'ready', 'phone', 'unsupported', 'private', 'closed'];
 
 const PLATFORMS = [
   'foreup',
@@ -29,6 +32,7 @@ const PLATFORMS = [
   'golfpay',
   'tenfore',
   'cps',
+  'other',
 ];
 
 const WALKABILITY = ['flat', 'moderate', 'hilly', 'carts only'] as const;
@@ -179,11 +183,22 @@ export function AdminCourseEditPage() {
       const parsed = await parseBookingUrl(url);
       const hints = parsed.hints || {};
       const patch: Partial<CourseRecord> = { booking_url: parsed.booking_url || url };
-      if (parsed.platform) patch.platform = parsed.platform;
+      if (parsed.platform) {
+        patch.platform = parsed.platform;
+        patch.booking_status = 'ready';
+      }
       if (hints.schedule_id) patch.schedule_id = hints.schedule_id;
       if (hints.booking_class_id) patch.booking_class_id = hints.booking_class_id;
       if (hints.club_id) patch.club_id = hints.club_id;
       if (hints.course_id) patch.course_id = hints.course_id;
+      if (hints.affiliation_type_id) patch.affiliation_type_id = hints.affiliation_type_id;
+      if (hints.course_ids) {
+        const ids = String(hints.course_ids)
+          .split(',')
+          .map((s) => Number(s.trim()))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        if (ids.length) patch.course_ids = ids;
+      }
       if (hints.trutee_org_slug) patch.trutee_org_slug = hints.trutee_org_slug;
       if (hints.trutee_course_id) patch.trutee_course_id = hints.trutee_course_id;
       if (hints.golfpay_course_id) patch.golfpay_course_id = hints.golfpay_course_id;
@@ -416,6 +431,30 @@ export function AdminCourseEditPage() {
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--card)' }}>
           {section('Booking platform')}
+          <Field
+            label="Booking status"
+            hint="QA disposition — closed and private are hidden from Find; phone / unsupported leave the Needs booking queue"
+          >
+            <select
+              className="input"
+              value={record.booking_status || 'pending'}
+              onChange={(e) => patchRecord({ booking_status: e.target.value as BookingStatus })}
+            >
+              {BOOKING_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {BOOKING_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Status note" hint="Unsupported vendor name, closed reason, etc.">
+            <input
+              className="input"
+              value={record.booking_status_note || ''}
+              onChange={(e) => patchRecord({ booking_status_note: e.target.value })}
+              placeholder="Optional"
+            />
+          </Field>
           <Field label="Booking URL" hint="Paste from course site or Google, then Parse">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <input
@@ -465,12 +504,28 @@ export function AdminCourseEditPage() {
 
           {(record.platform === 'chronogolf' || record.platform === 'chronogolf_slc') && (
             <>
-              <Field label="club_id">
+              <Field label="club_id" hint="Chronogolf vanity slug (can look mangled — that’s Chronogolf’s data)">
                 <input className="input" value={record.club_id || ''} onChange={(e) => patchRecord({ club_id: e.target.value })} />
               </Field>
-              <Field label="course_id">
-                <input className="input" value={record.course_id || ''} onChange={(e) => patchRecord({ course_id: e.target.value })} />
-              </Field>
+              {record.platform === 'chronogolf' ? (
+                <Field label="course_ids" hint="Marketplace course id(s) for live inventory — comma-separated; filled by Parse">
+                  <input
+                    className="input"
+                    value={(record.course_ids || []).join(',')}
+                    onChange={(e) => {
+                      const ids = e.target.value
+                        .split(',')
+                        .map((s) => Number(s.trim()))
+                        .filter((n) => Number.isFinite(n) && n > 0);
+                      patchRecord({ course_ids: ids.length ? ids : undefined });
+                    }}
+                  />
+                </Field>
+              ) : (
+                <Field label="course_id">
+                  <input className="input" value={record.course_id || ''} onChange={(e) => patchRecord({ course_id: e.target.value })} />
+                </Field>
+              )}
               {record.platform === 'chronogolf_slc' && (
                 <Field label="affiliation_type_id">
                   <input

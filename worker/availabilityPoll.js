@@ -412,7 +412,11 @@ async function insertEvent(env, event) {
 
 function pollableCourses(courses) {
   return courses
-    .filter((c) => c.platform && SUPPORTED_PLATFORMS.has(c.platform))
+    .filter((c) => {
+      const status = String(c.booking_status || '').trim();
+      if (status === 'closed' || status === 'private' || status === 'phone' || status === 'unsupported') return false;
+      return c.platform && SUPPORTED_PLATFORMS.has(c.platform);
+    })
     .map((c) => ({ ...c, slug: slugFromCourseName(c.name) }));
 }
 

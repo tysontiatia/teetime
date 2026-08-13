@@ -12,6 +12,7 @@ import {
   windowToRange,
 } from '../lib/alertPrefs';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { formatCityState } from '../lib/courseRecord';
 import { SignInPromptModal } from './SignInPromptModal';
 import { ModalCloseButton } from './ModalCloseButton';
 
@@ -71,7 +72,10 @@ export function NotificationModal({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<AlertMessage | null>(null);
 
-  const title = useMemo(() => (course ? `${course.name} (${course.city})` : 'Course'), [course]);
+  const title = useMemo(
+    () => (course ? `${course.name} (${formatCityState(course.city, course.state) || course.city})` : 'Course'),
+    [course],
+  );
 
   useEffect(() => {
     if (!open) {

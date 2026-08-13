@@ -179,10 +179,12 @@ const CHRONOGOLF_CLUB_SLUGS: Record<string, string> = {
 
 function chronogolfClubBase(url: string): string {
   const cleaned = url.replace(/[?#].*$/, '').replace(/\/$/, '');
-  const m = cleaned.match(/^(https?:\/\/(?:www\.)?chronogolf\.com\/club\/)(\d+)$/i);
-  if (!m) return cleaned;
+  // Drop trailing /booking so deep-links land on the club tee-sheet SPA.
+  const withoutBooking = cleaned.replace(/\/booking$/i, '');
+  const m = withoutBooking.match(/^(https?:\/\/(?:www\.)?chronogolf\.com\/club\/)(\d+)$/i);
+  if (!m) return withoutBooking;
   const slug = CHRONOGOLF_CLUB_SLUGS[m[2]!];
-  return slug ? `${m[1]}${slug}` : cleaned;
+  return slug ? `${m[1]}${slug}` : withoutBooking;
 }
 
 /**

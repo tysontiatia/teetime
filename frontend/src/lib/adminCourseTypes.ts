@@ -6,6 +6,9 @@ export type AdminCourseListItem = {
   name: string;
   area: string | null;
   platform: string | null;
+  booking_url: string | null;
+  booking_status: string | null;
+  booking_status_note: string | null;
   updated_at: string | null;
   has_rates: boolean;
 };
@@ -61,6 +64,7 @@ export function emptyCourseRecord(name = '', area = ''): CourseRecord {
     area,
     platform: '',
     booking_url: '',
+    booking_status: 'pending',
   };
 }
 

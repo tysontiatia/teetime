@@ -8,12 +8,14 @@ import type { HolesFilter } from '../lib/holesFilter';
 import { CoursePhoto } from './CoursePhoto';
 import { CourseCardTimesSkeleton } from './CourseCardSkeleton';
 import { buildBookingUrl } from '../lib/bookingUrl';
+import { formatCityState } from '../lib/courseRecord';
 import { AlertsIcon, PlanIcon } from './icons/AppIcons';
 
 /** Location meta — rating is shown separately as a muted trust signal. */
 function metaLine(course: Course): string {
   const parts: string[] = [];
-  if (course.city) parts.push(course.city);
+  const place = formatCityState(course.city, course.state);
+  if (place) parts.push(place);
   if (typeof course.distanceMi === 'number') parts.push(`${course.distanceMi.toFixed(1)} mi`);
   return parts.join(' · ');
 }
@@ -69,8 +71,8 @@ type Props = {
   timesPending?: boolean;
   outOfScope?: boolean;
   inventorySource?: InventorySource;
-  /** `bookingLink` = no live inventory; deep-link + call instead. */
-  variant?: 'inventory' | 'bookingLink';
+  /** `bookingLink` = vendor site deep-link; `phone` = call / in-person only. */
+  variant?: 'inventory' | 'bookingLink' | 'phone';
   /** Finder search date — used to enrich booking deep links. */
   dateYmd?: string;
   players?: number;
@@ -86,6 +88,13 @@ function telHref(phone: string | undefined | null): string | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, '');
   return digits ? `tel:${digits}` : null;
+}
+
+function websiteHref(url: string | undefined | null): string | null {
+  const raw = String(url || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
 }
 
 export function CourseMarketplaceCard({
@@ -106,18 +115,22 @@ export function CourseMarketplaceCard({
   shareDisabled = true,
 }: Props) {
   const bookingLinkOnly = variant === 'bookingLink';
+  const phoneOnly = variant === 'phone';
+  const noLiveInventory = bookingLinkOnly || phoneOnly;
   const top = times.slice(0, 5);
-  const hasTimes = !bookingLinkOnly && times.length > 0;
+  const hasTimes = !noLiveInventory && times.length > 0;
   const hotId = top[0]?.id;
   const meta = metaLine(course);
   const hasRating = typeof course.rating === 'number';
   const tz = courseTimezone(record?.timezone ?? course.timezone);
   // Empty as soon as this course finishes — don't wait on the rest of the batch.
-  const isEmpty = bookingLinkOnly || (!hasTimes && !timesPending);
+  const isEmpty = noLiveInventory || (!hasTimes && !timesPending);
   const moreCount = times.length > top.length ? times.length - top.length : 0;
 
   let badgeLabel: string;
-  if (bookingLinkOnly) {
+  if (phoneOnly) {
+    badgeLabel = 'Call to book';
+  } else if (bookingLinkOnly) {
     badgeLabel = 'On course site';
   } else if (timesPending) {
     badgeLabel = 'Checking';
@@ -130,7 +143,7 @@ export function CourseMarketplaceCard({
   }
 
   // Skeleton only while pending with no times yet — keep chips painted on refresh.
-  const showSkeletonFooter = timesPending && !hasTimes;
+  const showSkeletonFooter = !noLiveInventory && timesPending && !hasTimes;
   const openSiteHref =
     dateYmd != null
       ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
@@ -140,6 +153,7 @@ export function CourseMarketplaceCard({
         })
       : course.bookingUrl;
   const callHref = telHref(record?.phone_number);
+  const siteHref = websiteHref(record?.website);
 
   return (
     <article className={`mp-course${isEmpty ? ' is-empty' : ''}`}>
@@ -179,7 +193,7 @@ export function CourseMarketplaceCard({
           </span>
 
           <div className="mp-course-actions">
-            {!bookingLinkOnly && onAlert ? (
+            {!noLiveInventory && onAlert ? (
               <button
                 type="button"
                 className={`mp-icon-btn${isEmpty ? ' is-emphasis' : ''}`}
@@ -194,7 +208,7 @@ export function CourseMarketplaceCard({
                 <AlertsIcon />
               </button>
             ) : null}
-            {!bookingLinkOnly ? (
+            {!noLiveInventory ? (
               <button
                 type="button"
                 className="mp-icon-btn mp-icon-btn--share"
@@ -311,7 +325,35 @@ export function CourseMarketplaceCard({
           </div>
         ) : (
           <div className="tee-strip tee-strip-empty">
-            {bookingLinkOnly ? (
+            {phoneOnly ? (
+              <div className="tee-empty-actions tee-empty-actions--booking">
+                {callHref && record?.phone_number ? (
+                  <a
+                    className="tee-empty-action tee-empty-action--primary"
+                    href={callHref}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
+                  >
+                    Call {record.phone_number.trim()}
+                  </a>
+                ) : (
+                  <Link to={detailHref} className="tee-empty-action tee-empty-action--primary">
+                    Details
+                  </Link>
+                )}
+                {siteHref ? (
+                  <a
+                    className="tee-empty-action"
+                    href={siteHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Website
+                  </a>
+                ) : null}
+              </div>
+            ) : bookingLinkOnly ? (
               <div className="tee-empty-actions tee-empty-actions--booking">
                 {openSiteHref ? (
                   <a

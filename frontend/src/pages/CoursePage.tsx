@@ -17,6 +17,7 @@ import { courseDetailQueryString } from '../lib/finderUrl';
 import { parseHolesFilter, type HolesFilter } from '../lib/holesFilter';
 import { parseFetchRadiusMi } from '../lib/timesFetchScope';
 import { buildBookingUrl } from '../lib/bookingUrl';
+import { formatCityState, resolveCourseBookingMode } from '../lib/courseRecord';
 import { teeTimeFitsPlayers } from '../lib/teeTimeFitsPlayers';
 import { CourseDetailPanel } from '../components/CourseDetailPanel';
 import { CourseReviewsSection } from '../components/CourseReviewsSection';
@@ -302,17 +303,25 @@ export function CoursePage() {
     );
   }
 
-  const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
-  const unsupported = !record || cap !== 'live_inventory';
-  const bookingLinkHref = unsupported
-    ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
-        dateYmd: date,
-        players,
-        holes: holes === 'any' ? 18 : holes,
-      })
-    : null;
+  const bookingMode = resolveCourseBookingMode(record);
+  const phoneOnly = bookingMode === 'phone';
+  const unsupported = bookingMode !== 'live';
+  const bookingLinkHref =
+    bookingMode === 'booking_link'
+      ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
+          dateYmd: date,
+          players,
+          holes: holes === 'any' ? 18 : holes,
+        })
+      : null;
   const proShopPhone = record?.phone_number?.trim() || '';
   const proShopTelHref = proShopPhone ? `tel:${proShopPhone.replace(/\D/g, '')}` : null;
+  const courseWebsite = String(record?.website || '').trim();
+  const courseWebsiteHref = courseWebsite
+    ? /^https?:\/\//i.test(courseWebsite)
+      ? courseWebsite
+      : `https://${courseWebsite}`
+    : null;
   const selected = times.find((t) => t.id === selectedSlotId) ?? times[0] ?? null;
   const hiddenSlotCount = Math.max(0, times.length - SLOT_PREVIEW);
   const visibleSlots = slotsExpanded || hiddenSlotCount === 0 ? times : times.slice(0, SLOT_PREVIEW);
@@ -328,7 +337,7 @@ export function CoursePage() {
   };
 
   const heroMeta = [
-    course.city || null,
+    formatCityState(course.city, course.state) || null,
     typeof course.distanceMi === 'number' ? `${course.distanceMi.toFixed(1)} mi` : null,
   ]
     .filter(Boolean)
@@ -337,6 +346,10 @@ export function CoursePage() {
   const canShare = !unsupported && times.length > 0;
   const openCount = times.length;
   const todLabel = TOD_OPTIONS.find((o) => o.value === tod)?.label ?? 'All day';
+  const detailTabs = phoneOnly
+    ? TABS.map((tab) => (tab.id === 'times' ? { ...tab, label: 'Book' } : tab))
+    : TABS;
+  const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
 
   const openReviews = () => {
     setDetailTab('reviews');
@@ -367,6 +380,8 @@ export function CoursePage() {
             <span className="pulse" aria-hidden />
             {openCount} open
           </span>
+        ) : phoneOnly ? (
+          <span className="badge-live is-muted detail-hero-open">Call to book</span>
         ) : unsupported ? (
           <span className="badge-live is-muted detail-hero-open">On course site</span>
         ) : null}
@@ -433,7 +448,7 @@ export function CoursePage() {
       </div>
 
       <div className="detail-tabs" role="tablist" aria-label="Course sections">
-        {TABS.map((tab) => (
+        {detailTabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -483,6 +498,35 @@ export function CoursePage() {
         </div>
 
         <aside className="tee-panel detail-panel detail-panel--times" id="course-panel-times">
+          {phoneOnly ? (
+            <>
+              <div className="tee-panel-head">
+                <div className="tee-panel-head-text">
+                  <h2 className="tee-panel-title">How to book</h2>
+                  <p className="tee-panel-date">Phone or in person</p>
+                </div>
+              </div>
+              <div className="rail-empty">
+                <p>This course doesn’t take online tee times. Call the pro shop to reserve a tee time.</p>
+                <div className="rail-empty-actions">
+                  {proShopTelHref ? (
+                    <a className="tee-empty-action tee-empty-action--primary" href={proShopTelHref}>
+                      Call {proShopPhone}
+                    </a>
+                  ) : null}
+                  {courseWebsiteHref ? (
+                    <a className="tee-empty-action" href={courseWebsiteHref} target="_blank" rel="noreferrer">
+                      Website
+                    </a>
+                  ) : null}
+                  <a className="tee-empty-action" href={googleMapsPlaceUrl(course)} target="_blank" rel="noreferrer">
+                    Directions
+                  </a>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
           <div className="tee-panel-head">
             <div className="tee-panel-head-text">
               <h2 className="tee-panel-title">Next available</h2>
@@ -727,6 +771,8 @@ export function CoursePage() {
               </button>
             </div>
           ) : null}
+            </>
+          )}
         </aside>
       </div>
 

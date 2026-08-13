@@ -5,7 +5,7 @@
 const PLATFORM_ID_FIELDS = {
   foreup: ['schedule_id', 'booking_class_id'],
   foreup_login: ['schedule_id', 'booking_class_id'],
-  chronogolf: ['club_id', 'course_id'],
+  chronogolf: ['club_id', 'course_id', 'course_ids'],
   chronogolf_slc: ['club_id', 'course_id', 'affiliation_type_id'],
   membersports: ['golf_club_id', 'golf_course_id'],
   trutee: ['trutee_org_slug', 'trutee_course_id'],
@@ -49,6 +49,137 @@ export function slugFromCourseName(name) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+const IMPORT_NAME_STOPWORDS = new Set([
+  'golf',
+  'course',
+  'club',
+  'country',
+  'the',
+  'at',
+  'and',
+  'resort',
+  'spa',
+  'a',
+  'of',
+  'cc',
+]);
+
+/** City label from "Name (City)" display names. */
+export function extractCityFromCourseName(name) {
+  const m = String(name || '').match(/\(([^)]+)\)\s*$/);
+  return m ? m[1].trim() : '';
+}
+
+export function normalizeCityKey(city) {
+  let s = String(city || '')
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/'/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const aliases = [
+    [/\bsalt lake city\b/g, 'slc'],
+    [/\bnorth salt lake\b/g, 'n salt lake'],
+    [/\beagle mountain\b/g, 'eagle mtn'],
+    [/\bheber city\b/g, 'heber'],
+    [/\bst george\b/g, 'st george'],
+    [/\bwest valley city\b/g, 'west valley'],
+    [/\bsaratoga springs\b/g, 'saratoga springs'],
+    [/\bstansbury park\b/g, 'stansbury'],
+  ];
+  for (const [re, to] of aliases) s = s.replace(re, to);
+  return s.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function tokenizeCourseName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((t) => !IMPORT_NAME_STOPWORDS.has(t));
+}
+
+/** Significant name tokens with city words removed (avoids "St. George" false matches). */
+export function courseNameMatchTokens(fullName) {
+  const city = extractCityFromCourseName(fullName);
+  const base = String(fullName || '').replace(/\([^)]*\)\s*$/, '').trim();
+  const raw = tokenizeCourseName(base);
+  if (!city) return raw;
+  const cityToks = new Set(tokenizeCourseName(city));
+  const filtered = raw.filter((t) => !cityToks.has(t));
+  // Facility name is the city (e.g. Cedar Hills) — keep tokens so we can still match.
+  if (filtered.length === 0 && raw.length > 0) return raw;
+  return filtered;
+}
+
+export function normalizeCourseBaseKey(fullName) {
+  return courseNameMatchTokens(fullName).join('');
+}
+
+export function citiesCompatible(a, b) {
+  const na = normalizeCityKey(a);
+  const nb = normalizeCityKey(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  return false;
+}
+
+export function inferCourseState(record) {
+  const addr = String(record?.address || '');
+  const area = String(record?.area || '');
+  const tz = String(record?.timezone || '').trim();
+  if (/\bID\b/.test(addr) || /^Idaho\b/i.test(area) || tz === 'America/Boise') return 'ID';
+  if (/\bUT\b/.test(addr) || /\bUtah\b/i.test(area) || tz === 'America/Denver') return 'UT';
+  // Legacy Utah area labels without "Utah" still use Denver.
+  if (tz === 'America/Denver') return 'UT';
+  return null;
+}
+
+/**
+ * True when import name likely refers to an existing catalog course in the same state.
+ * Prefers token-subset matches after stripping city words; falls back to compact base keys.
+ */
+export function courseNamesLikelyDuplicate(importName, existingName) {
+  const ta = courseNameMatchTokens(importName);
+  const tb = courseNameMatchTokens(existingName);
+  if (ta.length && tb.length) {
+    const [shorter, longer] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+    const setL = new Set(longer);
+    if (shorter.every((t) => setL.has(t))) {
+      if (shorter.length >= 2) return true;
+      if (shorter[0] && shorter[0].length >= 4) return true;
+    }
+  }
+  const ka = normalizeCourseBaseKey(importName);
+  const kb = normalizeCourseBaseKey(existingName);
+  if (!ka || !kb) return false;
+  if (ka === kb) return true;
+  const minLen = Math.min(ka.length, kb.length);
+  if (minLen >= 10 && (ka.startsWith(kb) || kb.startsWith(ka))) return true;
+  return false;
+}
+
+export function locationsCompatibleForImport(importRecord, existingRecord) {
+  const importCity =
+    extractCityFromCourseName(importRecord?.name) ||
+    String(importRecord?.address || '')
+      .split(',')[1]
+      ?.trim() ||
+    '';
+  const existingCity = extractCityFromCourseName(existingRecord?.name);
+  if (citiesCompatible(importCity, existingCity)) return true;
+  const addr = String(existingRecord?.address || '').toLowerCase();
+  const cityKey = normalizeCityKey(importCity);
+  if (cityKey && cityKey.length >= 4 && addr.includes(cityKey)) return true;
+  // First word of multi-word cities (e.g. "Washington" in full address).
+  const first = cityKey.split(/\s+/)[0];
+  if (first && first.length >= 5 && addr.includes(first)) return true;
+  return false;
 }
 
 export function parseBookingUrl(rawUrl) {
@@ -278,6 +409,103 @@ async function enrichForeUpFromPage(bookingUrl, scheduleId) {
   return out;
 }
 
+/**
+ * Chronogolf club pages embed __NEXT_DATA__ with numeric club/course ids and
+ * defaultAffiliationTypeId. Marketplace v2 `/teetimes?course_ids=` often returns
+ * status=closed for these clubs; the club teetimes API (chronogolf_slc shape) works.
+ */
+async function enrichChronogolfFromPage(bookingUrl) {
+  const out = {
+    club_id: null,
+    course_id: null,
+    course_ids: null,
+    affiliation_type_id: null,
+    booking_url: null,
+    use_club_teetimes: false,
+    meta: null,
+  };
+  if (!bookingUrl) return out;
+  let pageUrl = String(bookingUrl).trim();
+  try {
+    const u = new URL(pageUrl);
+    // Prefer the club overview URL (strip /booking and query).
+    const clubMatch = u.pathname.match(/^(\/club\/[^/]+)/i);
+    if (clubMatch) {
+      u.pathname = clubMatch[1];
+      u.search = '';
+      u.hash = '';
+      pageUrl = u.toString().replace(/\/$/, '');
+    }
+  } catch {
+    /* keep raw */
+  }
+
+  let html;
+  try {
+    const res = await fetch(pageUrl, {
+      headers: {
+        'User-Agent': 'TeeTimeIO/1.0 (+https://tee-time.io)',
+        Accept: 'text/html',
+        Referer: 'https://www.chronogolf.com/',
+      },
+    });
+    if (!res.ok) return out;
+    html = await res.text();
+  } catch {
+    return out;
+  }
+
+  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  if (!m) return out;
+  let data;
+  try {
+    data = JSON.parse(m[1]);
+  } catch {
+    return out;
+  }
+  const club = data?.props?.pageProps?.club;
+  if (!club) return out;
+
+  const slug = club.slug != null ? String(club.slug).trim() : '';
+  if (slug) {
+    out.booking_url = `https://www.chronogolf.com/club/${slug}`;
+  }
+
+  const numericClubId = Number(club.id);
+  if (Number.isFinite(numericClubId) && numericClubId > 0) {
+    out.club_id = String(numericClubId);
+  } else if (slug) {
+    out.club_id = slug;
+  }
+
+  const courseIds = Array.isArray(club.courses)
+    ? club.courses.map((c) => Number(c?.id)).filter((n) => Number.isFinite(n) && n > 0)
+    : [];
+  if (courseIds.length) {
+    out.course_ids = courseIds;
+    out.course_id = String(courseIds[0]);
+  }
+
+  const aff = Number(club.defaultAffiliationTypeId);
+  if (Number.isFinite(aff) && aff > 0) {
+    out.affiliation_type_id = String(aff);
+    out.use_club_teetimes = Boolean(out.club_id && out.course_id);
+  }
+
+  out.meta = {
+    name: club.name || null,
+    address: club.address
+      ? [club.address.address1, club.address.city, [club.address.stateCode, club.address.zipCode].filter(Boolean).join(' ')]
+          .filter(Boolean)
+          .join(', ')
+      : null,
+    phone_number: club.phone || null,
+    website: club.website || null,
+    holes: club.courses?.[0]?.holes === 9 || club.courses?.[0]?.holes === 18 ? club.courses[0].holes : null,
+  };
+  return out;
+}
+
 function parseDollars(v) {
   if (v == null || v === '') return null;
   const n = typeof v === 'number' ? v : parseInt(String(v).replace(/[^0-9]/g, ''), 10);
@@ -350,7 +578,19 @@ export async function fetchRegistryCourses(env) {
 }
 
 export function registryRowsToCourses(rows) {
-  return rows.map((r) => r.record).filter(Boolean);
+  return rows
+    .map((r) => r.record)
+    .filter((rec) => isPublicRegistryRecord(rec));
+}
+
+/** Public Find: hide closed, private, and unfinished QA stubs; keep legacy Utah rows with a platform. */
+export function isPublicRegistryRecord(rec) {
+  if (!rec) return false;
+  const status = String(rec.booking_status || '').trim();
+  if (status === 'closed' || status === 'private' || status === 'pending') return false;
+  if (status === 'ready' || status === 'phone' || status === 'unsupported') return true;
+  // Legacy rows without booking_status: only publish when a platform is set.
+  return Boolean(String(rec.platform || '').trim());
 }
 
 export async function fetchMergedCourse(env, slug) {
@@ -408,6 +648,53 @@ export async function placesLookup(env, { query, lat, lng }) {
     review_count: place.user_ratings_total ?? null,
     website: place.website ?? null,
     phone_number: place.formatted_phone_number ?? null,
+    photo_reference: ref ?? null,
+  };
+}
+
+/** Places Details by place_id — returns website/phone (Text Search often omits these). */
+export async function placesDetails(env, { place_id }) {
+  if (!env.GOOGLE_PLACES_KEY) {
+    return { error: 'places_not_configured', status: 503 };
+  }
+  const placeId = String(place_id || '').trim();
+  if (!placeId) return { error: 'missing_place_id', status: 400 };
+
+  const fields = [
+    'name',
+    'formatted_address',
+    'geometry',
+    'rating',
+    'user_ratings_total',
+    'website',
+    'formatted_phone_number',
+    'international_phone_number',
+    'photos',
+  ].join(',');
+  const url =
+    `https://maps.googleapis.com/maps/api/place/details/json` +
+    `?place_id=${encodeURIComponent(placeId)}` +
+    `&fields=${encodeURIComponent(fields)}` +
+    `&key=${env.GOOGLE_PLACES_KEY}`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.status !== 'OK' || !data.result) {
+    return { error: data.status === 'NOT_FOUND' ? 'not_found' : 'places_details_failed', status: 404, detail: data.status };
+  }
+
+  const place = data.result;
+  const ref = place.photos?.[0]?.photo_reference;
+  return {
+    place_id: placeId,
+    name: place.name,
+    address: place.formatted_address,
+    lat: place.geometry?.location?.lat,
+    lng: place.geometry?.location?.lng,
+    rating: place.rating ?? null,
+    review_count: place.user_ratings_total ?? null,
+    website: place.website ?? null,
+    phone_number: place.formatted_phone_number || place.international_phone_number || null,
     photo_reference: ref ?? null,
   };
 }
@@ -532,8 +819,28 @@ async function upsertRates(env, slug, rates, verifiedAt) {
 
 function getPlatformWarnings(record) {
   const warnings = [];
+  const status = String(record.booking_status || '').trim();
+  if (status === 'closed') {
+    warnings.push('Marked closed — hidden from public Find.');
+    return warnings;
+  }
+  if (status === 'private') {
+    warnings.push('Private / members-only — hidden from public Find.');
+    return warnings;
+  }
+  if (status === 'phone') {
+    warnings.push('Phone / in-person only — no online booking URL.');
+    return warnings;
+  }
+  if (status === 'unsupported' || record.platform === 'other') {
+    warnings.push('Unsupported booking platform — booking-link-only until we add an adapter.');
+    return warnings;
+  }
   const platform = record.platform;
   if (!platform) warnings.push('No platform set — poller will not run.');
+  if (platform === 'chronogolf' && !(Array.isArray(record.course_ids) && record.course_ids.length)) {
+    warnings.push('Chronogolf needs course_ids (marketplace course id) for live tee times — re-Parse the club URL.');
+  }
   if (platform === 'tenfore' || platform === 'cps') {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
   }
@@ -547,12 +854,127 @@ function getPlatformWarnings(record) {
     warnings.push('ForeUp requires schedule_id for live tee times.');
   }
   if (platform === 'chronogolf_slc' && (!record.club_id || !record.course_id || !record.affiliation_type_id)) {
-    warnings.push('Chronogolf SLC needs club_id, course_id, and affiliation_type_id.');
+    warnings.push('Chronogolf club teetimes need club_id, course_id, and affiliation_type_id — re-Parse the club URL.');
   }
   if (platform === 'teeitup' && (!record.facility_id || !record.teeitup_course_id)) {
     warnings.push('TeeItUp needs facility_id (deep link) and teeitup_course_id (poller mapping hash).');
   }
   return warnings;
+}
+
+const IMPORT_BATCH_MAX = 150;
+
+async function fetchExistingCourseIndex(env) {
+  const [regRes, catRes] = await Promise.all([
+    fetch(`${env.SUPABASE_URL}/rest/v1/course_registry?select=slug,record`, { headers: sbHeaders(env) }),
+    fetch(`${env.SUPABASE_URL}/rest/v1/course_catalog?select=slug,name`, { headers: sbHeaders(env) }),
+  ]);
+  const bySlug = new Map();
+  const byPlaceId = new Map();
+
+  const catRows = await supabaseJson(catRes);
+  const regRows = await supabaseJson(regRes);
+
+  if (Array.isArray(catRows)) {
+    for (const row of catRows) {
+      const slug = row?.slug;
+      if (!slug) continue;
+      bySlug.set(slug, {
+        slug,
+        name: row.name || slug,
+        address: '',
+        area: '',
+        timezone: '',
+        google_place_id: '',
+      });
+    }
+  }
+
+  if (Array.isArray(regRows)) {
+    for (const row of regRows) {
+      const slug = row?.slug;
+      if (!slug) continue;
+      const rec = row.record && typeof row.record === 'object' ? row.record : {};
+      const prev = bySlug.get(slug) || {
+        slug,
+        name: slug,
+        address: '',
+        area: '',
+        timezone: '',
+        google_place_id: '',
+      };
+      const merged = {
+        slug,
+        name: rec.name || prev.name || slug,
+        address: rec.address || prev.address || '',
+        area: rec.area || prev.area || '',
+        timezone: rec.timezone || prev.timezone || '',
+        google_place_id: String(rec.google_place_id || prev.google_place_id || '').trim(),
+      };
+      bySlug.set(slug, merged);
+      if (merged.google_place_id) byPlaceId.set(merged.google_place_id, merged);
+    }
+  }
+
+  return { bySlug, byPlaceId, list: [...bySlug.values()] };
+}
+
+function findImportDuplicate(index, slug, record) {
+  if (index.bySlug.has(slug)) {
+    const hit = index.bySlug.get(slug);
+    return { reason: 'exists', matched_slug: hit.slug, matched_name: hit.name };
+  }
+  const placeId = String(record.google_place_id || '').trim();
+  if (placeId && index.byPlaceId.has(placeId)) {
+    const hit = index.byPlaceId.get(placeId);
+    return { reason: 'place_id', matched_slug: hit.slug, matched_name: hit.name };
+  }
+  const importState = inferCourseState(record);
+  if (!importState || !record.name) return null;
+  for (const existing of index.list) {
+    if (inferCourseState(existing) !== importState) continue;
+    if (!locationsCompatibleForImport(record, existing)) continue;
+    if (!courseNamesLikelyDuplicate(record.name, existing.name)) continue;
+    return { reason: 'name_match', matched_slug: existing.slug, matched_name: existing.name };
+  }
+  return null;
+}
+
+function rememberImportedInIndex(index, slug, record) {
+  const entry = {
+    slug,
+    name: record.name || slug,
+    address: record.address || '',
+    area: record.area || '',
+    timezone: record.timezone || '',
+    google_place_id: String(record.google_place_id || '').trim(),
+  };
+  index.bySlug.set(slug, entry);
+  index.list.push(entry);
+  if (entry.google_place_id) index.byPlaceId.set(entry.google_place_id, entry);
+}
+
+function normalizeImportStubRecord(raw) {
+  const name = String(raw?.name || '').trim();
+  const area = String(raw?.area || '').trim();
+  const address = String(raw?.address || '').trim();
+  const phone = String(raw?.phone_number || '').trim();
+  const website = String(raw?.website || '').trim();
+  const timezone = String(raw?.timezone || '').trim() || 'America/Denver';
+  const placeId = String(raw?.google_place_id || '').trim();
+  const record = {
+    name,
+    area,
+    platform: '',
+    booking_url: '',
+    timezone,
+    booking_status: 'pending',
+  };
+  if (address) record.address = address;
+  if (phone) record.phone_number = phone;
+  if (website) record.website = website;
+  if (placeId) record.google_place_id = placeId;
+  return record;
 }
 
 export async function saveCourse(env, { slug, record, prepaid, rates, isNew }) {
@@ -630,6 +1052,19 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
           }
           if (enr.meta) parsed.meta = enr.meta;
         }
+        if (parsed.platform === 'chronogolf' || parsed.platform === 'chronogolf_slc') {
+          const enr = await enrichChronogolfFromPage(body.url || parsed.booking_url);
+          if (enr.club_id) parsed.hints.club_id = enr.club_id;
+          if (enr.course_id) parsed.hints.course_id = enr.course_id;
+          if (enr.affiliation_type_id) parsed.hints.affiliation_type_id = enr.affiliation_type_id;
+          if (enr.course_ids?.length) {
+            parsed.hints.course_ids = enr.course_ids.join(',');
+          }
+          if (enr.booking_url) parsed.booking_url = enr.booking_url;
+          // Club teetimes API (same as Utah SLC Chronogolf) — required for live inventory.
+          if (enr.use_club_teetimes) parsed.platform = 'chronogolf_slc';
+          if (enr.meta) parsed.meta = { ...(parsed.meta || {}), ...enr.meta };
+        }
         return corsResponse(parsed);
       }
 
@@ -648,6 +1083,23 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         return corsResponse(result);
       }
 
+      if (path === '/admin/places/details' && request.method === 'POST') {
+        const admin = await requireAdmin(env, request);
+        if (admin.error) return corsResponse({ error: admin.error }, admin.status);
+
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          return corsResponse({ error: 'invalid_body' }, 400);
+        }
+        const result = await placesDetails(env, body);
+        if (result.error) {
+          return corsResponse({ error: result.error, detail: result.detail || null }, result.status);
+        }
+        return corsResponse(result);
+      }
+
       if (path === '/admin/courses' && request.method === 'GET') {
         const admin = await requireAdmin(env, request);
         if (admin.error) return corsResponse({ error: admin.error }, admin.status);
@@ -655,11 +1107,15 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         const rows = await fetchRegistryCourses(env);
         const list = rows.map((r) => {
           const rec = r.record || {};
+          const bookingUrl = String(rec.booking_url || '').trim();
           return {
             slug: r.slug,
             name: rec.name || r.slug,
             area: rec.area || null,
             platform: rec.platform || null,
+            booking_url: bookingUrl || null,
+            booking_status: rec.booking_status || null,
+            booking_status_note: rec.booking_status_note || null,
             updated_at: r.updated_at,
             has_rates: false,
           };
@@ -678,6 +1134,85 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         }
 
         return corsResponse({ courses: list });
+      }
+
+      if (path === '/admin/courses/import' && request.method === 'POST') {
+        const admin = await requireAdmin(env, request);
+        if (admin.error) return corsResponse({ error: admin.error }, admin.status);
+
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          return corsResponse({ error: 'invalid_body' }, 400);
+        }
+
+        const rows = Array.isArray(body.rows) ? body.rows : null;
+        if (!rows) return corsResponse({ error: 'missing_rows' }, 400);
+        if (rows.length > IMPORT_BATCH_MAX) {
+          return corsResponse({ error: 'batch_too_large', max: IMPORT_BATCH_MAX }, 400);
+        }
+
+        const dryRun = Boolean(body.dry_run);
+        const existing = await fetchExistingCourseIndex(env);
+        const created = [];
+        const skipped = [];
+        const errors = [];
+
+        for (const row of rows) {
+          const record = normalizeImportStubRecord(row?.record || row);
+          const slug = String(row?.slug || '').trim() || slugFromCourseName(record.name || '');
+          if (!slug || !record.name) {
+            errors.push({ slug: slug || null, error: 'missing_slug_or_name' });
+            continue;
+          }
+          const dup = findImportDuplicate(existing, slug, record);
+          if (dup) {
+            skipped.push({
+              slug,
+              name: record.name,
+              reason: dup.reason,
+              matched_slug: dup.matched_slug,
+              matched_name: dup.matched_name,
+            });
+            continue;
+          }
+          if (dryRun) {
+            created.push({ slug, name: record.name, dry_run: true });
+            rememberImportedInIndex(existing, slug, record);
+            continue;
+          }
+
+          const result = await saveCourse(env, {
+            slug,
+            record,
+            prepaid: false,
+            rates: {},
+            isNew: true,
+          });
+          if (result.error) {
+            errors.push({ slug, name: record.name, error: result.error, detail: result.detail || null });
+            continue;
+          }
+          created.push({ slug, name: record.name });
+          rememberImportedInIndex(existing, slug, record);
+        }
+
+        if (!dryRun && created.length > 0) {
+          invalidateCoursesCache?.();
+        }
+
+        return corsResponse({
+          dry_run: dryRun,
+          created,
+          skipped,
+          errors,
+          counts: {
+            created: created.length,
+            skipped: skipped.length,
+            errors: errors.length,
+          },
+        });
       }
 
       const courseMatch = path.match(/^\/admin\/courses\/([^/]+)$/);
