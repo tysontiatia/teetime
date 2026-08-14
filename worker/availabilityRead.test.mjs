@@ -78,7 +78,7 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
   assert.deepEqual(by.gamma.times, []);
 });
 
-test('snapshotNeedsLiveFill always refreshes for Find', () => {
+test('snapshotNeedsLiveFill live-fills misses and empty sheets only', () => {
   const now = Date.parse('2026-08-11T18:00:00.000Z');
   assert.equal(
     snapshotNeedsLiveFill(
@@ -101,7 +101,7 @@ test('snapshotNeedsLiveFill always refreshes for Find', () => {
       '2026-08-12',
       now,
     ),
-    true,
+    false,
   );
   assert.equal(
     snapshotNeedsLiveFill(

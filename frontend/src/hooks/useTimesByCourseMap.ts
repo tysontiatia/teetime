@@ -3,7 +3,7 @@ import type { Course } from '../types';
 import type { TeeTime } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
 import type { HolesFilter } from '../lib/holesFilter';
-import { fetchTimesForCourseSlugs } from '../lib/workerTimes';
+import { fetchTimesForCourseSlugs, preferRicherSameHoles } from '../lib/workerTimes';
 import { filterWorkerCourses } from '../lib/platformRegistry';
 
 export type InventorySource = 'snapshot' | 'live';
@@ -93,58 +93,72 @@ export function useTimesByCourseMap(
     setPendingSlugs(new Set(slugs));
     setLoading(true);
 
-    void (async () => {
-      const failed: string[] = [];
-      let blockingDone = false;
-      await fetchTimesForCourseSlugs(
-        entries,
-        dateYmd,
-        holes,
-        players,
-        6,
-        ({ slug, times, ok, source }) => {
-          if (cancelled) return;
-          setMap((prev) => {
-            const next = new Map(prev);
-            next.set(slug, times);
-            return next;
-          });
-          if (source) {
-            setSourceBySlug((prev) => {
+    // Defer so React Strict Mode's mount→unmount→remount only runs one fetch.
+    // Without this, the cancelled first pass still hammers Chronogolf and the
+    // second pass often rate-limits holes=9 multi-course live fills to empty.
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const failed: string[] = [];
+        let blockingDone = false;
+        await fetchTimesForCourseSlugs(
+          entries,
+          dateYmd,
+          holes,
+          players,
+          6,
+          ({ slug, times, ok, source }) => {
+            if (cancelled) return;
+            setMap((prev) => {
+              const existing = prev.get(slug) ?? [];
+              // Never replace a painted sheet with [] — failed live, confirmed-empty
+              // blips, and Strict Mode double-fetch races were wiping good holes=9 inventory.
+              if (times.length === 0 && existing.length > 0) return prev;
+              // Keep denser same-hole inventory; drop hole sizes absent from this update
+              // (e.g. any→9 should not keep stale 18s once the 9 pass paints).
+              const merged =
+                ok && times.length > 0 ? preferRicherSameHoles(existing, times) : times;
               const next = new Map(prev);
-              next.set(slug, source);
+              next.set(slug, merged);
               return next;
             });
-          }
-          setPendingSlugs((prev) => {
-            if (!prev.has(slug)) return prev;
-            const next = new Set(prev);
-            next.delete(slug);
-            return next;
-          });
-          // Only count hard misses (no trusted snapshot) toward the failure banner.
-          if (!ok && !blockingDone) failed.push(slug);
-        },
-        {
-          onBlockingComplete: () => {
-            blockingDone = true;
-            if (cancelled) return;
-            setFailedSlugs([...failed]);
-            setPendingSlugs(new Set());
-            setLoading(false);
+            if (source) {
+              setSourceBySlug((prev) => {
+                const next = new Map(prev);
+                next.set(slug, source);
+                return next;
+              });
+            }
+            setPendingSlugs((prev) => {
+              if (!prev.has(slug)) return prev;
+              const next = new Set(prev);
+              next.delete(slug);
+              return next;
+            });
+            // Only count hard misses (no trusted snapshot) toward the failure banner.
+            if (!ok && !blockingDone) failed.push(slug);
           },
-        },
-      );
+          {
+            onBlockingComplete: () => {
+              blockingDone = true;
+              if (cancelled) return;
+              setFailedSlugs([...failed]);
+              setPendingSlugs(new Set());
+              setLoading(false);
+            },
+          },
+        );
 
-      if (!cancelled) {
-        setFailedSlugs([...failed]);
-        setPendingSlugs(new Set());
-        setLoading(false);
-      }
-    })();
+        if (!cancelled) {
+          setFailedSlugs([...failed]);
+          setPendingSlugs(new Set());
+          setLoading(false);
+        }
+      })();
+    }, 0);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, [slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug]);
 

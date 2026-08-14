@@ -233,6 +233,16 @@ async function fetchTeeTimesLive(
     } catch {
       return { times: [], ok: false };
     }
+    // Worker proxies often return HTTP 200 with `{ error, status: 429 }` on upstream
+    // rate limits. Treating that as ok+[] paints a fake empty sheet and wipes Find.
+    const payloadErr = workerProxyError(data);
+    if (payloadErr) {
+      return {
+        times: [],
+        ok: false,
+        rateLimited: payloadErr.rateLimited,
+      };
+    }
     let rows = normalizeTimesWorker(course, data, String(holes));
     // Chronogolf SLC capacity is applied upstream via affiliation_type_ids[] count;
     // the payload has no spot field — stamp the requested size so UI filters work.
@@ -246,6 +256,18 @@ async function fetchTeeTimesLive(
   } catch {
     return { times: [], ok: false };
   }
+}
+
+/** Worker route error body (HTTP may still be 200). */
+function workerProxyError(data: unknown): { rateLimited: boolean } | null {
+  if (!data || typeof data !== 'object') return null;
+  const err = (data as { error?: unknown }).error;
+  if (err == null || err === false || err === '') return null;
+  const status = Number((data as { status?: unknown }).status);
+  const msg = String(err);
+  return {
+    rateLimited: status === 429 || /429|rate.?limit/i.test(msg),
+  };
 }
 
 function mtNowParts(nowMs: number = Date.now()): { dateYmd: string; hour: number } {
@@ -372,38 +394,39 @@ async function fetchTeeTimesBatchFromSnapshot(
   if (slugs.length === 0) return out;
   const base = getWorkerBaseUrl();
 
-  await Promise.all(
-    chunkSlugs(slugs, TEE_TIMES_BATCH_CHUNK).map(async (chunk) => {
-      const url = new URL(`${base}/v1/tee-times`);
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('holes', String(holes));
-      url.searchParams.set('players', String(players));
-      url.searchParams.set('ids', chunk.join(','));
-      try {
-        const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, TEE_TIMES_BATCH_TIMEOUT_MS);
-        if (!res.ok) return;
-        const data = (await res.json()) as BatchTeeTimesResponse;
-        if (!data?.by_slug || typeof data.by_slug !== 'object') return;
-        for (const slug of chunk) {
-          const row = data.by_slug[slug];
-          if (!row) continue;
-          const batchSource = row.source === 'live' ? 'live' : 'snapshot';
-          out.set(slug, {
-            ok: true,
-            source: batchSource,
-            has_poll_coverage: row.has_poll_coverage === true,
-            spots_known: row.spots_known !== false,
-            last_polled_at: row.last_polled_at ?? null,
-            times: Array.isArray(row.times) ? row.times : [],
-            batchSource,
-            live_failed: row.live_failed === true,
-          });
-        }
-      } catch {
-        // miss → live fallback per course
+  // Serialize chunks. Parallel chunk live-fills stampede Chronogolf (each chunk runs
+  // up to 8 vendor calls server-side) and holes=9 multi-course inventory collapses
+  // to live_failed + empty snapshots (poller only stores canonical 18 for those).
+  for (const chunk of chunkSlugs(slugs, TEE_TIMES_BATCH_CHUNK)) {
+    const url = new URL(`${base}/v1/tee-times`);
+    url.searchParams.set('date', dateYmd);
+    url.searchParams.set('holes', String(holes));
+    url.searchParams.set('players', String(players));
+    url.searchParams.set('ids', chunk.join(','));
+    try {
+      const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, TEE_TIMES_BATCH_TIMEOUT_MS);
+      if (!res.ok) continue;
+      const data = (await res.json()) as BatchTeeTimesResponse;
+      if (!data?.by_slug || typeof data.by_slug !== 'object') continue;
+      for (const slug of chunk) {
+        const row = data.by_slug[slug];
+        if (!row) continue;
+        const batchSource = row.source === 'live' ? 'live' : 'snapshot';
+        out.set(slug, {
+          ok: true,
+          source: batchSource,
+          has_poll_coverage: row.has_poll_coverage === true,
+          spots_known: row.spots_known !== false,
+          last_polled_at: row.last_polled_at ?? null,
+          times: Array.isArray(row.times) ? row.times : [],
+          batchSource,
+          live_failed: row.live_failed === true,
+        });
       }
-    }),
-  );
+    } catch {
+      // miss → live fallback per course
+    }
+  }
 
   return out;
 }
@@ -414,7 +437,13 @@ function canUseBatchRow(
   players: 1 | 2 | 3 | 4,
   playDateYmd: string,
 ): boolean {
-  if (row.live_failed) return false;
+  // Server live fill failed — still paint a trustable non-empty poller snapshot instead
+  // of forcing a client live call that often 429s and used to wipe the card to [].
+  if (row.live_failed) {
+    return (
+      canTrustSnapshotForPlayers(row, players, playDateYmd) && (row.times?.length ?? 0) > 0
+    );
+  }
   // Server completed a vendor fill for this slug (including confirmed empty).
   if (row.batchSource === 'live') return Array.isArray(row.times);
   return canTrustSnapshotForPlayers(row, players, playDateYmd);
@@ -428,6 +457,23 @@ function mergeTeeTimesByStartAndHoles(a: TeeTime[], b: TeeTime[]): TeeTime[] {
   return [...byKey.values()].sort(
     (x, y) => new Date(x.startsAt).getTime() - new Date(y.startsAt).getTime(),
   );
+}
+
+/**
+ * Apply a fetch update without dropping richer same-hole inventory.
+ * Hole sizes present in `next` replace those sizes in `prev` (so holes=9 drops
+ * stale 18s from an any→9 switch). Within those sizes, keep the denser set when
+ * a live refresh returns a subset (Chronogolf 429 blips / partial fills).
+ */
+export function preferRicherSameHoles(prev: TeeTime[], next: TeeTime[]): TeeTime[] {
+  if (next.length === 0) return prev.length > 0 ? prev : next;
+  if (prev.length === 0) return next;
+  const nextHoles = new Set(next.map((t) => t.holes));
+  const prevMatching = prev.filter((t) => nextHoles.has(t.holes));
+  if (prevMatching.length > next.length) {
+    return mergeTeeTimesByStartAndHoles(prevMatching, next);
+  }
+  return next;
 }
 
 export async function fetchTeeTimesForCourse(
@@ -458,7 +504,7 @@ export async function fetchTeeTimesForCourse(
       return {
         times: snapshotToTeeTimes(courseSlug, dateYmd, row.times!),
         ok: true,
-        source: row.batchSource === 'live' ? 'live' : 'snapshot',
+        source: row.live_failed || row.batchSource !== 'live' ? 'snapshot' : 'live',
       };
     }
   }
@@ -481,10 +527,16 @@ export type CourseTimesUpdate = {
 
 /** Retry transient transport failures (network resets, ERR_INSUFFICIENT_RESOURCES, timeouts). */
 const MAX_FETCH_ATTEMPTS = 3;
+/** Chronogolf SLC 429s under Find load — retry with backoff instead of giving up. */
+const MAX_RATE_LIMIT_ATTEMPTS = 4;
 
 /** Platforms whose upstream is routinely multi-second — fetch last; don't thrash retries. */
 function isSlowLivePlatform(platform: string | undefined): boolean {
   return platform === 'golfpay';
+}
+
+function isRateLimitSensitivePlatform(platform: string | undefined): boolean {
+  return platform === 'chronogolf_slc' || platform === 'chronogolf';
 }
 
 function sleep(ms: number): Promise<void> {
@@ -501,6 +553,7 @@ async function fetchTeeTimesLiveWithRetry(
 ): Promise<TeeTimeFetchResult> {
   const maxAttempts = isSlowLivePlatform(record.platform) ? 1 : MAX_FETCH_ATTEMPTS;
   let last: TeeTimeFetchResult = { times: [], ok: false };
+  let rateLimitTries = 0;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       last = await fetchTeeTimesLive(record, slug, dateYmd, holes, players);
@@ -508,7 +561,19 @@ async function fetchTeeTimesLiveWithRetry(
       last = { times: [], ok: false };
     }
     if (last.ok) return last;
-    if (last.rateLimited) return last;
+    if (last.rateLimited) {
+      rateLimitTries += 1;
+      if (
+        !isRateLimitSensitivePlatform(record.platform) ||
+        rateLimitTries >= MAX_RATE_LIMIT_ATTEMPTS
+      ) {
+        return last;
+      }
+      // Honor upstream rate limit with jittered backoff, then retry the same attempt slot.
+      await sleep(400 * 2 ** (rateLimitTries - 1) + Math.random() * 300);
+      attempt -= 1;
+      continue;
+    }
     // Backoff with jitter so transient-error retries don't stampede the same origin at once.
     if (attempt < maxAttempts - 1) {
       await sleep(250 * 2 ** attempt + Math.random() * 200);
@@ -537,10 +602,22 @@ export async function fetchTimesForCourseSlugs(
   options?: FetchTimesForCourseSlugsOptions,
 ): Promise<TimesBySlugFetchResult> {
   if (holes === 'any') {
+    // 9-only catalog courses must be fetched once as holes=9. Running them through both
+    // the 9 pass and the 18→nineOnly redirect lets an empty result from one pass wipe
+    // good times from the other (handle(9) clears all 9-hole slots).
+    const nineOnlyEntries = entries.filter((e) => e.record.holes === 9);
+    const multiHoleEntries = entries.filter((e) => e.record.holes !== 9);
+
     const bySlug = new Map<string, TeeTime[]>();
     const okBySlug = new Map<string, boolean>();
     const halfConcurrency = Math.max(1, Math.ceil(concurrency / 2));
-    let blockingLeft = 2;
+    let blockingLeft =
+      (nineOnlyEntries.length > 0 ? 1 : 0) + (multiHoleEntries.length > 0 ? 2 : 0);
+    if (blockingLeft === 0) {
+      options?.onBlockingComplete?.();
+      return { bySlug: new Map(), failedSlugs: [] };
+    }
+
     const wrapOpts: FetchTimesForCourseSlugsOptions = {
       revalidateStale: options?.revalidateStale,
       onBlockingComplete: () => {
@@ -553,8 +630,20 @@ export async function fetchTimesForCourseSlugs(
       (holeSize: 9 | 18) =>
       (update: CourseTimesUpdate) => {
         const prev = bySlug.get(update.slug) ?? [];
+        // Empty update must not clear good times for this hole size (failed live or
+        // suspicious ok+[] after a richer paint / the other holes pass).
+        if (update.times.length === 0) {
+          const prevSame = prev.filter((t) => t.holes === holeSize);
+          if (prevSame.length > 0) return;
+          if (!update.ok && prev.length > 0) return;
+        }
         const kept = prev.filter((t) => t.holes !== holeSize);
-        const next = mergeTeeTimesByStartAndHoles(kept, update.times);
+        const prevSame = prev.filter((t) => t.holes === holeSize);
+        const holeTimes =
+          update.ok && update.times.length > 0
+            ? preferRicherSameHoles(prevSame, update.times)
+            : update.times;
+        const next = mergeTeeTimesByStartAndHoles(kept, holeTimes);
         bySlug.set(update.slug, next);
         const prevOk = okBySlug.get(update.slug) === true;
         const ok = prevOk || update.ok;
@@ -567,20 +656,91 @@ export async function fetchTimesForCourseSlugs(
         });
       };
 
-    const [r9, r18] = await Promise.all([
-      fetchTimesForCourseSlugs(entries, dateYmd, 9, players, halfConcurrency, handle(9), wrapOpts),
-      fetchTimesForCourseSlugs(entries, dateYmd, 18, players, halfConcurrency, handle(18), wrapOpts),
-    ]);
+    const paintNineOnly = (update: CourseTimesUpdate) => {
+      const prev = bySlug.get(update.slug) ?? [];
+      if (update.times.length === 0 && prev.length > 0) return;
+      const next =
+        update.ok && update.times.length > 0
+          ? preferRicherSameHoles(prev, update.times)
+          : update.times;
+      bySlug.set(update.slug, next);
+      okBySlug.set(update.slug, update.ok || okBySlug.get(update.slug) === true);
+      onCourseComplete?.({ ...update, times: next });
+    };
 
-    const failedSlugs = [...new Set([...r9.failedSlugs, ...r18.failedSlugs])].filter(
-      (slug) => r9.failedSlugs.includes(slug) && r18.failedSlugs.includes(slug),
-    );
-    const allSlugs = new Set([...r9.bySlug.keys(), ...r18.bySlug.keys()]);
+    const tasks: Promise<TimesBySlugFetchResult>[] = [];
+    if (nineOnlyEntries.length > 0) {
+      tasks.push(
+        fetchTimesForCourseSlugs(
+          nineOnlyEntries,
+          dateYmd,
+          9,
+          players,
+          concurrency,
+          paintNineOnly,
+          wrapOpts,
+        ),
+      );
+    }
+    if (multiHoleEntries.length > 0) {
+      tasks.push(
+        fetchTimesForCourseSlugs(
+          multiHoleEntries,
+          dateYmd,
+          9,
+          players,
+          halfConcurrency,
+          handle(9),
+          wrapOpts,
+        ),
+        fetchTimesForCourseSlugs(
+          multiHoleEntries,
+          dateYmd,
+          18,
+          players,
+          halfConcurrency,
+          handle(18),
+          wrapOpts,
+        ),
+      );
+    }
+
+    const results = await Promise.all(tasks);
+    const failedSlugs: string[] = [];
+    let nineOnlyResult: TimesBySlugFetchResult | null = null;
+    let multi9: TimesBySlugFetchResult | null = null;
+    let multi18: TimesBySlugFetchResult | null = null;
+    let offset = 0;
+    if (nineOnlyEntries.length > 0) {
+      nineOnlyResult = results[offset]!;
+      offset += 1;
+    }
+    if (multiHoleEntries.length > 0) {
+      multi9 = results[offset]!;
+      multi18 = results[offset + 1]!;
+    }
+    if (nineOnlyResult) failedSlugs.push(...nineOnlyResult.failedSlugs);
+    if (multi9 && multi18) {
+      failedSlugs.push(
+        ...[...new Set([...multi9.failedSlugs, ...multi18.failedSlugs])].filter(
+          (slug) => multi9!.failedSlugs.includes(slug) && multi18!.failedSlugs.includes(slug),
+        ),
+      );
+    }
+
+    const allSlugs = new Set<string>([
+      ...(nineOnlyResult?.bySlug.keys() ?? []),
+      ...(multi9?.bySlug.keys() ?? []),
+      ...(multi18?.bySlug.keys() ?? []),
+    ]);
     const out = new Map<string, TeeTime[]>();
     for (const slug of allSlugs) {
       out.set(
         slug,
-        mergeTeeTimesByStartAndHoles(r9.bySlug.get(slug) ?? [], r18.bySlug.get(slug) ?? []),
+        mergeTeeTimesByStartAndHoles(
+          nineOnlyResult?.bySlug.get(slug) ?? [],
+          mergeTeeTimesByStartAndHoles(multi9?.bySlug.get(slug) ?? [], multi18?.bySlug.get(slug) ?? []),
+        ),
       );
     }
     return { bySlug: out, failedSlugs };
@@ -594,31 +754,85 @@ export async function fetchTimesForCourseSlugs(
   const workerEntries = entries.filter(
     (e) => e.record.platform && workerSupportedPlatform(e.record.platform),
   );
-  // 9-only catalog courses still need a fetch when the Find filter is 18 (city search).
-  const nineOnlyEntries = holeSize === 18 ? workerEntries.filter((e) => e.record.holes === 9) : [];
-  const standardEntries =
-    holeSize === 18 ? workerEntries.filter((e) => e.record.holes !== 9) : workerEntries;
+  const nineOnlyEntries = workerEntries.filter((e) => e.record.holes === 9);
+  const standardEntries = workerEntries.filter((e) => e.record.holes !== 9);
 
-  if (nineOnlyEntries.length > 0) {
-    const nineResult = await fetchTimesForCourseSlugs(
+  // Split 9-only courses into their own holes=9 pass when Find filter is 18
+  // (city search still needs 9-only inventory). Nested nine-only-only calls fall through.
+  // For holes=9: do NOT split/await nine-only first — that burned the Chronogolf budget
+  // before multi-course holes=9 live fills (empty snapshots; poller stores canonical 18).
+  // Instead order nine-only first in one serialized batch pass below.
+  const splitNineOnly = holeSize === 18 && nineOnlyEntries.length > 0;
+
+  if (splitNineOnly) {
+    let resolveNineBlocking!: () => void;
+    const nineBlocking = new Promise<void>((r) => {
+      resolveNineBlocking = r;
+    });
+    let nineBlockingDone = false;
+    let standardBlockingDone = standardEntries.length === 0;
+    const maybeAllBlockingDone = () => {
+      if (nineBlockingDone && standardBlockingDone) options?.onBlockingComplete?.();
+    };
+
+    const ninePromise = fetchTimesForCourseSlugs(
       nineOnlyEntries,
       dateYmd,
       9,
       players,
       concurrency,
       onCourseComplete,
-      { revalidateStale: options?.revalidateStale },
+      {
+        revalidateStale: options?.revalidateStale,
+        onBlockingComplete: () => {
+          nineBlockingDone = true;
+          resolveNineBlocking();
+          maybeAllBlockingDone();
+        },
+      },
     );
-    for (const [slug, times] of nineResult.bySlug) out.set(slug, times);
-    failedSlugs.push(...nineResult.failedSlugs);
+
+    await nineBlocking;
+
     if (standardEntries.length === 0) {
-      options?.onBlockingComplete?.();
+      const nineResult = await ninePromise;
+      for (const [slug, times] of nineResult.bySlug) out.set(slug, times);
+      failedSlugs.push(...nineResult.failedSlugs);
       return { bySlug: out, failedSlugs };
     }
+
+    const standardPromise = fetchTimesForCourseSlugs(
+      standardEntries,
+      dateYmd,
+      holeSize,
+      players,
+      concurrency,
+      onCourseComplete,
+      {
+        revalidateStale: options?.revalidateStale,
+        onBlockingComplete: () => {
+          standardBlockingDone = true;
+          maybeAllBlockingDone();
+        },
+      },
+    );
+
+    const [nineResult, standardResult] = await Promise.all([ninePromise, standardPromise]);
+    for (const [slug, times] of nineResult.bySlug) out.set(slug, times);
+    for (const [slug, times] of standardResult.bySlug) out.set(slug, times);
+    failedSlugs.push(...nineResult.failedSlugs, ...standardResult.failedSlugs);
+    return { bySlug: out, failedSlugs };
   }
 
+  // Prefer 9-only catalog courses early in the holes=9 batch so they live-fill first
+  // without a separate pre-pass that rate-limits everyone else.
+  const batchEntries =
+    holeSize === 9
+      ? [...nineOnlyEntries, ...standardEntries]
+      : workerEntries;
+
   const batchMap = await fetchTeeTimesBatchFromSnapshot(
-    standardEntries.map((e) => e.slug),
+    batchEntries.map((e) => e.slug),
     dateYmd,
     holeSize,
     players,
@@ -627,18 +841,22 @@ export async function fetchTimesForCourseSlugs(
   const needLive: { slug: string; record: CourseRecord }[] = [];
   const needRevalidate: { slug: string; record: CourseRecord; ageMs: number }[] = [];
 
-  for (const entry of standardEntries) {
+  for (const entry of batchEntries) {
     const snap = batchMap.get(entry.slug);
     if (snap && canUseBatchRow(snap, players, dateYmd)) {
       const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
-      out.set(entry.slug, times);
-      const source = snap.batchSource === 'live' ? 'live' : 'snapshot';
-      onCourseComplete?.({ slug: entry.slug, times, ok: true, source });
-      // Only background-revalidate poller snapshots (server live rows are already fresh).
+      const prev = out.get(entry.slug) ?? [];
+      const next = preferRicherSameHoles(prev, times);
+      out.set(entry.slug, next);
+      // live_failed + trusted snapshot paints as snapshot (server live did not succeed).
+      const source =
+        snap.live_failed || snap.batchSource !== 'live' ? 'snapshot' : 'live';
+      onCourseComplete?.({ slug: entry.slug, times: next, ok: true, source });
+      // Background-revalidate poller snapshots, and always retry after a failed live fill.
       if (
         revalidateStale &&
-        source === 'snapshot' &&
-        shouldBackgroundRevalidate(snap, dateYmd, players)
+        (source === 'snapshot' || snap.live_failed) &&
+        (snap.live_failed || shouldBackgroundRevalidate(snap, dateYmd, players))
       ) {
         needRevalidate.push({
           slug: entry.slug,
@@ -673,15 +891,28 @@ export async function fetchTimesForCourseSlugs(
           players,
         );
         if (mode === 'revalidate') {
-          // Keep painted snapshot if live refresh fails.
+          // Keep painted snapshot if live refresh fails or returns a suspicious empty/subset.
           if (!ok) continue;
-          out.set(slug, times);
-          onCourseComplete?.({ slug, times, ok: true, source: source ?? 'live' });
+          const prev = out.get(slug) ?? [];
+          if (times.length === 0 && prev.length > 0) continue;
+          const next = preferRicherSameHoles(prev, times);
+          out.set(slug, next);
+          onCourseComplete?.({ slug, times: next, ok: true, source: source ?? 'live' });
           continue;
         }
-        out.set(slug, times);
-        if (!ok) failedSlugs.push(slug);
-        onCourseComplete?.({ slug, times, ok, source });
+        if (!ok) {
+          failedSlugs.push(slug);
+          // Do not wipe prior/snapshot times with a failed empty live response.
+          const prev = out.get(slug);
+          if (prev && prev.length > 0) continue;
+          out.set(slug, times);
+          onCourseComplete?.({ slug, times, ok: false, source });
+          continue;
+        }
+        const prev = out.get(slug) ?? [];
+        const next = preferRicherSameHoles(prev, times);
+        out.set(slug, next);
+        onCourseComplete?.({ slug, times: next, ok: true, source });
       }
     }
     const n = Math.max(1, Math.min(concurrency, ordered.length || 1));

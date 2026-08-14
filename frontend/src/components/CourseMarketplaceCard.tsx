@@ -132,7 +132,7 @@ export function CourseMarketplaceCard({
   if (phoneOnly) {
     badgeLabel = 'Call to book';
   } else if (bookingLinkOnly) {
-    badgeLabel = 'On course site';
+    badgeLabel = 'Book on site';
   } else if (timesPending) {
     badgeLabel = 'Checking';
   } else if (hasTimes) {
@@ -335,16 +335,16 @@ export function CourseMarketplaceCard({
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
                   >
-                    Call {record.phone_number.trim()}
+                    Call pro shop
                   </a>
                 ) : (
                   <Link to={detailHref} className="tee-empty-action tee-empty-action--primary">
-                    Details
+                    View details
                   </Link>
                 )}
                 {siteHref ? (
                   <a
-                    className="tee-empty-action"
+                    className="tee-empty-action tee-empty-action--secondary"
                     href={siteHref}
                     target="_blank"
                     rel="noreferrer"
@@ -364,21 +364,21 @@ export function CourseMarketplaceCard({
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    See times
+                    Book on site
                   </a>
                 ) : (
                   <Link to={detailHref} className="tee-empty-action tee-empty-action--primary">
-                    Details
+                    View details
                   </Link>
                 )}
                 {callHref && record?.phone_number ? (
                   <a
-                    className="tee-empty-action tee-empty-action--phone"
+                    className="tee-empty-action tee-empty-action--secondary"
                     href={callHref}
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
                   >
-                    {record.phone_number.trim()}
+                    Call
                   </a>
                 ) : null}
               </div>

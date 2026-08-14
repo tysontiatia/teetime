@@ -29,9 +29,27 @@ export function ymdInUtah(iso: string): string {
   return ymdInTimeZone(iso, UTAH_TEE_TIMEZONE);
 }
 
+/** Today’s calendar date in a timezone (default Mountain). */
+export function todayYmd(timeZone: string = DEFAULT_TEE_TIMEZONE): string {
+  return ymdInTimeZone(new Date().toISOString(), timeZone);
+}
+
 /** Today’s calendar date in Utah (America/Denver). */
 export function todayYmdUtah(): string {
-  return ymdInUtah(new Date().toISOString());
+  return todayYmd(UTAH_TEE_TIMEZONE);
+}
+
+/**
+ * Clamp a YYYY-MM-DD to today or later in `timeZone`.
+ * Invalid/empty values snap to today. Allows “today” any time of day.
+ */
+export function clampDateToTodayOrLater(
+  ymd: string,
+  timeZone: string = DEFAULT_TEE_TIMEZONE,
+): string {
+  const today = todayYmd(timeZone);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return today;
+  return ymd < today ? today : ymd;
 }
 
 /** Earliest calendar day (Utah) among tee-time instants — use as plan headline date. */
