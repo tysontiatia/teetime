@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { formatDateCompact, formatDateShort, formatReopenedAgo, formatTime12h, matchesPreset, toYmd } from '../lib/time';
+import {
+  formatDateCompact,
+  formatDateShort,
+  formatReopenedAgo,
+  formatTime12h,
+  matchesPreset,
+  toYmd,
+  todayYmdUtah,
+  clampDateToTodayOrLater,
+} from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
 import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
@@ -65,7 +74,9 @@ export function CoursePage() {
   const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
-  const date = sp.get('date') || toYmd(new Date());
+  const date = clampDateToTodayOrLater(sp.get('date') || todayYmdUtah());
+  const todayYmd = todayYmdUtah();
+  const prevDateDisabled = date <= todayYmd;
   const players = clampPlayers(Number(sp.get('players') || 2));
   const holes: HolesFilter = parseHolesFilter(sp.get('holes'));
   const tod = ((sp.get('tod') as TimeOfDayPreset) || 'any') satisfies TimeOfDayPreset;
@@ -81,11 +92,22 @@ export function CoursePage() {
     [sp, setSp],
   );
 
+  /** Past `?date=` (or invalid) → replace with today so the URL matches search. */
+  useEffect(() => {
+    const raw = sp.get('date');
+    if (!raw) return;
+    const clamped = clampDateToTodayOrLater(raw);
+    if (clamped === raw) return;
+    const next = new URLSearchParams(sp);
+    next.set('date', clamped);
+    setSp(next, { replace: true });
+  }, [sp, setSp]);
+
   const shiftDate = useCallback(
     (deltaDays: number) => {
       const [y, m, d] = date.split('-').map(Number);
       const next = new Date(y!, (m ?? 1) - 1, (d ?? 1) + deltaDays);
-      setParam('date', toYmd(next));
+      setParam('date', clampDateToTodayOrLater(toYmd(next)));
     },
     [date, setParam],
   );
@@ -368,7 +390,7 @@ export function CoursePage() {
         ) : phoneOnly ? (
           <span className="badge-live is-muted detail-hero-open">Call to book</span>
         ) : unsupported ? (
-          <span className="badge-live is-muted detail-hero-open">On course site</span>
+          <span className="badge-live is-muted detail-hero-open">Book on site</span>
         ) : null}
         <div className="mp-course-actions detail-hero-actions">
           {!unsupported ? (
@@ -489,8 +511,12 @@ export function CoursePage() {
                 <p>This course doesn’t take online tee times. Call the pro shop to reserve a tee time.</p>
                 <div className="rail-empty-actions rail-empty-actions--stack">
                   {proShopTelHref ? (
-                    <a className="tee-empty-action tee-empty-action--primary" href={proShopTelHref}>
-                      Call {proShopPhone}
+                    <a
+                      className="tee-empty-action tee-empty-action--primary"
+                      href={proShopTelHref}
+                      aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
+                    >
+                      Call pro shop
                     </a>
                   ) : null}
                   <div className="rail-empty-actions-links">
@@ -512,7 +538,13 @@ export function CoursePage() {
             <div className="tee-panel-head-text">
               <h2 className="tee-panel-title">Next available</h2>
               <div className="rail-date-nudge-row tee-panel-date-control">
-                <button type="button" className="rail-date-nudge" aria-label="Previous day" onClick={() => shiftDate(-1)}>
+                <button
+                  type="button"
+                  className="rail-date-nudge"
+                  aria-label="Previous day"
+                  disabled={prevDateDisabled}
+                  onClick={() => shiftDate(-1)}
+                >
                   ‹
                 </button>
                 <span className="tee-panel-date-pill">
@@ -522,10 +554,11 @@ export function CoursePage() {
                   <input
                     type="date"
                     className="tee-panel-date-input"
+                    min={todayYmd}
                     value={date}
                     aria-label={`Date, ${formatDateShort(date)}`}
                     onChange={(e) => {
-                      if (e.target.value) setParam('date', e.target.value);
+                      if (e.target.value) setParam('date', clampDateToTodayOrLater(e.target.value));
                     }}
                   />
                 </span>
@@ -577,12 +610,16 @@ export function CoursePage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    See times
+                    Book on site
                   </a>
                 ) : null}
                 {proShopTelHref ? (
-                  <a className="tee-empty-action tee-empty-action--phone" href={proShopTelHref}>
-                    Call {proShopPhone}
+                  <a
+                    className="tee-empty-action tee-empty-action--secondary"
+                    href={proShopTelHref}
+                    aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
+                  >
+                    Call pro shop
                   </a>
                 ) : null}
               </div>

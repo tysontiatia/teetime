@@ -412,14 +412,14 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
 
 /** Exported for unit tests — when true, batch handler should vendor-fetch this slug. */
 export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.now()) {
-  // Always refresh from the vendor on Find reads. Poller snapshots are a fast
-  // fallback only when live fill fails — trusting a "fresh" empty/partial poll
-  // is what made grids look thinner than the booking tee sheet.
-  void row;
+  // Live-fill misses / empty sheets. Non-empty poller snapshots are trusted for Find
+  // paint — always-live was stampeding Chronogolf on holes=9 (multi courses have no
+  // holes=9 snapshot until dual-hole polling lands) and thinning inventory via 429s.
   void players;
   void playDateYmd;
   void nowMs;
-  return true;
+  if (!row || row.has_poll_coverage !== true || !Array.isArray(row.times)) return true;
+  return row.times.length === 0;
 }
 
 function courseTimezone(course) {

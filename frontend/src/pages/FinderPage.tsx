@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, FetchRadiusMi, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
-import { matchesPreset, minutesSince, toYmd, formatDateShort, formatDateCompact } from '../lib/time';
+import {
+  matchesPreset,
+  minutesSince,
+  toYmd,
+  formatDateShort,
+  formatDateCompact,
+  todayYmdUtah,
+  clampDateToTodayOrLater,
+} from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
 import {
@@ -19,7 +27,6 @@ import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
-import { FeedTeaser } from '../components/FeedTeaser';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import { holesFilterLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
@@ -49,7 +56,7 @@ function sortCoursesByDistanceThenName(a: Course, b: Course): number {
 }
 
 function parseParams(sp: URLSearchParams): SearchParams {
-  const date = sp.get('date') || toYmd(new Date());
+  const date = clampDateToTodayOrLater(sp.get('date') || todayYmdUtah());
   const players = clampPlayers(Number(sp.get('players') || 2));
   const holes = parseHolesFilter(sp.get('holes'));
   const timeOfDay = (sp.get('tod') as TimeOfDayPreset) || 'any';
@@ -73,12 +80,24 @@ export function FinderPage() {
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const params = useMemo(() => parseParams(sp), [sp]);
+  const todayYmd = todayYmdUtah();
   const [locationDraft, setLocationDraft] = useState(() => params.locationQuery);
 
   /** Keep draft in sync when URL q changes externally (back button, shared link). */
   useEffect(() => {
     setLocationDraft(params.locationQuery);
   }, [params.locationQuery]);
+
+  /** Past `?date=` (or invalid) → replace with today so the URL matches search. */
+  useEffect(() => {
+    const raw = sp.get('date');
+    if (!raw) return;
+    const clamped = clampDateToTodayOrLater(raw);
+    if (clamped === raw) return;
+    const next = new URLSearchParams(sp);
+    next.set('date', clamped);
+    setSp(next, { replace: true });
+  }, [sp, setSp]);
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
@@ -229,17 +248,22 @@ export function FinderPage() {
 
   const timesByCourse = useMemo(() => {
     const map = new Map<string, TeeTime[]>();
+    const holesFilter = params.holes;
     for (const [courseId, list] of rawTimesByCourse) {
       const tz = courseTimezone(recordsBySlug.get(courseId)?.timezone);
-      const filtered = list.filter(
-        (t) =>
-          matchesPreset(t.startsAt, params.timeOfDay, tz) && teeTimeFitsPlayers(t, params.players),
-      );
+      const filtered = list.filter((t) => {
+        if (holesFilter === 9 || holesFilter === 18) {
+          if (t.holes !== holesFilter) return false;
+        }
+        return (
+          matchesPreset(t.startsAt, params.timeOfDay, tz) && teeTimeFitsPlayers(t, params.players)
+        );
+      });
       filtered.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
       map.set(courseId, filtered);
     }
     return map;
-  }, [rawTimesByCourse, params.timeOfDay, params.players, recordsBySlug]);
+  }, [rawTimesByCourse, params.timeOfDay, params.players, params.holes, recordsBySlug]);
 
   const gridCourses = useMemo(() => {
     // Progressive open-first as results arrive (avoids looking "stuck" while a slow
@@ -253,6 +277,11 @@ export function FinderPage() {
   const withTimesCount = useMemo(
     () => gridCourses.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) > 0).length,
     [gridCourses, timesByCourse]
+  );
+
+  const openTeeTimeCount = useMemo(
+    () => gridCourses.reduce((n, c) => n + (timesByCourse.get(c.id)?.length ?? 0), 0),
+    [gridCourses, timesByCourse],
   );
 
   const workerFetchTotalFailure =
@@ -323,15 +352,15 @@ export function FinderPage() {
 
   const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
-    : withTimesCount > 0
-      ? `${withTimesCount} open`
+    : openTeeTimeCount > 0
+      ? `${openTeeTimeCount} tee time${openTeeTimeCount === 1 ? '' : 's'}`
       : loadingTimes
         ? 'Finding tee times…'
         : `${displayCourses.length} courses`;
 
   const resultCountSecondary = catalogLoading
     ? null
-    : loadingTimes && withTimesCount > 0
+    : loadingTimes && openTeeTimeCount > 0
       ? 'still checking a few…'
       : loadingTimes
         ? null
@@ -394,7 +423,7 @@ export function FinderPage() {
       const [y, m, d] = params.date.split('-').map(Number);
       const dt = new Date(y!, m! - 1, d!);
       dt.setDate(dt.getDate() + deltaDays);
-      setParam('date', toYmd(dt));
+      setParam('date', clampDateToTodayOrLater(toYmd(dt)));
     },
     [params.date, setParam],
   );
@@ -469,12 +498,17 @@ export function FinderPage() {
       <input
         id={id}
         type="date"
+        min={todayYmd}
         value={params.date}
         aria-label="Date"
-        onChange={(e) => setParam('date', e.target.value)}
+        onChange={(e) => {
+          if (e.target.value) setParam('date', clampDateToTodayOrLater(e.target.value));
+        }}
       />
     </span>
   );
+
+  const prevDateDisabled = params.date <= todayYmd;
 
   const whereLabel =
     params.locationQuery.trim() ||
@@ -516,7 +550,13 @@ export function FinderPage() {
             <div className="sp-cell sp-cell-when">
               <span className="sp-label">When</span>
               <span className="sp-value sp-value-when">
-                <button type="button" className="sp-date-nudge" aria-label="Previous day" onClick={() => shiftDate(-1)}>
+                <button
+                  type="button"
+                  className="sp-date-nudge"
+                  aria-label="Previous day"
+                  disabled={prevDateDisabled}
+                  onClick={() => shiftDate(-1)}
+                >
                   ‹
                 </button>
                 {dateField('finder-date-desktop')}
@@ -574,6 +614,7 @@ export function FinderPage() {
                   type="button"
                   className="finder-date-nudge"
                   aria-label="Previous day"
+                  disabled={prevDateDisabled}
                   onClick={() => shiftDate(-1)}
                 >
                   ‹
@@ -586,10 +627,11 @@ export function FinderPage() {
                   <input
                     type="date"
                     className="finder-date-input"
+                    min={todayYmd}
                     value={params.date}
                     aria-label={`Date, ${formatDateCompact(params.date)}`}
                     onChange={(e) => {
-                      if (e.target.value) setParam('date', e.target.value);
+                      if (e.target.value) setParam('date', clampDateToTodayOrLater(e.target.value));
                     }}
                   />
                 </span>
@@ -707,13 +749,6 @@ export function FinderPage() {
           </div>
         </div>
 
-        <FeedTeaser
-          players={params.players}
-          fetchAllUtah={fetchAllUtah}
-          locationQuery={params.locationQuery}
-          radiusMi={radiusMi}
-        />
-
         <div className="result-meta">
           <span
             className={`result-count${
@@ -783,13 +818,15 @@ export function FinderPage() {
 
         {!catalogLoading && !loadingTimes && withTimesCount === 0 && searchPool.length > 0 ? (
           <div className="empty-openings-hint">
-            <p>
-              No tee times match your search for <strong>{formatDateShort(params.date)}</strong>. Tap the bell on a
-              course to get notified when times open, or try another day.
-            </p>
+            <div className="empty-openings-hint-copy">
+              <p className="empty-openings-hint-title">
+                No openings for {formatDateShort(params.date)}
+              </p>
+              <p>Set an alert on a course below, or try another day.</p>
+            </div>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary empty-openings-hint-cta"
               onClick={() => {
                 const d = new Date(params.date + 'T12:00:00');
                 d.setDate(d.getDate() + 1);

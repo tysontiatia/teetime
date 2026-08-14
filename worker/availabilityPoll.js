@@ -165,8 +165,11 @@ function parsePriceCents(priceStr) {
   return Number.isFinite(n) ? n * 100 : null;
 }
 
-function canonicalHolesForPoll(course) {
-  return course.holes === 9 ? 9 : 18;
+function holesToPoll(course) {
+  // 9-only catalog: one pass. Multi / unknown: poll both so Find holes=9 has snapshot
+  // fallback when Chronogolf live-fill 429s (canonical-18-only left those empty).
+  if (course.holes === 9) return ['9'];
+  return ['18', '9'];
 }
 
 function normalizeLocalTime(t) {
@@ -681,40 +684,45 @@ async function pollNormalizedRows(course, play_date, holes, fetchTimesForCourse,
 }
 
 async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesForCourse, normalizeTimesWorker) {
-  const holes = String(canonicalHolesForPoll(course));
   const started = Date.now();
-  const { rows, error } = await pollNormalizedRows(
-    course,
-    play_date,
-    holes,
-    fetchTimesForCourse,
-    normalizeTimesWorker,
-  );
+  const holePasses = holesToPoll(course);
+  /** @type {Array<{rawTime:string,spots:number|null,price:string|null,holes:number}>} */
+  const mergedRows = [];
+  let lastError = null;
 
-  if (error) {
-    return {
-      status: 'failed',
-      slots_written: 0,
-      events_written: 0,
-      latency_ms: Date.now() - started,
-      error_message: error,
-    };
+  for (const holes of holePasses) {
+    const { rows, error } = await pollNormalizedRows(
+      course,
+      play_date,
+      holes,
+      fetchTimesForCourse,
+      normalizeTimesWorker,
+    );
+    if (error) {
+      lastError = error;
+      continue;
+    }
+    if (rows == null) {
+      lastError = 'fetch_failed';
+      continue;
+    }
+    mergedRows.push(...rows);
   }
 
-  if (rows == null) {
+  if (mergedRows.length === 0 && lastError) {
     return {
       status: 'failed',
       slots_written: 0,
       events_written: 0,
       latency_ms: Date.now() - started,
-      error_message: 'fetch_failed',
+      error_message: lastError,
     };
   }
 
   const { slotsWritten, eventsWritten, notifyEvents, diffMeta } = await applyPollDiff(env, {
     course,
     play_date,
-    normalizedRows: rows,
+    normalizedRows: mergedRows,
     poll_run_id,
   });
 
