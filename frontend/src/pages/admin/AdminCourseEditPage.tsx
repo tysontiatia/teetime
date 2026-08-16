@@ -522,9 +522,27 @@ export function AdminCourseEditPage() {
                   />
                 </Field>
               ) : (
-                <Field label="course_id">
-                  <input className="input" value={record.course_id || ''} onChange={(e) => patchRecord({ course_id: e.target.value })} />
-                </Field>
+                <>
+                  <Field label="course_id" hint="Primary Chronogolf layout id">
+                    <input className="input" value={record.course_id || ''} onChange={(e) => patchRecord({ course_id: e.target.value })} />
+                  </Field>
+                  <Field
+                    label="course_ids"
+                    hint="Optional sibling layout ids (comma-separated). Club teetimes are fetched for each — e.g. Mountain Dell Canyon + Lake."
+                  >
+                    <input
+                      className="input"
+                      value={(record.course_ids || []).join(',')}
+                      onChange={(e) => {
+                        const ids = e.target.value
+                          .split(',')
+                          .map((s) => Number(s.trim()))
+                          .filter((n) => Number.isFinite(n) && n > 0);
+                        patchRecord({ course_ids: ids.length ? ids : undefined });
+                      }}
+                    />
+                  </Field>
+                </>
               )}
               {record.platform === 'chronogolf_slc' && (
                 <Field label="affiliation_type_id">

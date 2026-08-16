@@ -137,6 +137,21 @@ button, input, select{ font: inherit; }
   min-width: 0;
   max-width: 100%;
 }
+.finder-query-dock{
+  width: 100%;
+  min-width: 0;
+}
+.finder-query-summary{
+  display: none;
+}
+.finder-query-pinned-bar{
+  display: none;
+}
+.finder-query-sentinel{
+  width: 100%;
+  height: 0;
+  pointer-events: none;
+}
 
 .mono{ font-family: var(--font-mono); }
 
@@ -6123,6 +6138,96 @@ html[data-theme='dark'] .account-pref-menu-panel{
   .app-header-sign-in{
     padding: 8px 12px;
     font-size: 12px;
+  }
+
+  /* Sticky query dock: collapses to a summary chip while browsing results. */
+  .finder-query-dock{
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + var(--app-header-height));
+    z-index: calc(var(--z-header) - 10);
+    margin: 0 -4px;
+    padding: 8px 4px 10px;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .finder-query-dock.is-collapsed{
+    padding-top: 6px;
+    padding-bottom: 8px;
+  }
+  .finder-query-dock.is-pinned-open{
+    max-height: min(70vh, 520px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 10px 28px rgba(20, 30, 25, 0.08);
+  }
+  .finder-query-summary{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    box-shadow:
+      0 1px 2px rgba(20, 30, 25, 0.04),
+      0 8px 24px rgba(20, 30, 25, 0.08);
+  }
+  .finder-query-summary:focus-visible{
+    outline: 2px solid color-mix(in srgb, var(--pine) 45%, transparent);
+    outline-offset: 2px;
+  }
+  .finder-query-summary-text{
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .finder-query-summary-hint{
+    flex: 0 0 auto;
+    color: var(--pine);
+    font-size: 12.5px;
+    font-weight: 650;
+  }
+  .finder-query-pinned-bar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .finder-query-pinned-label{
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--ink-2);
+    letter-spacing: 0.02em;
+  }
+  .finder-query-done{
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--pine);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    padding: 6px 2px;
+    cursor: pointer;
+  }
+  .finder-query-done:focus-visible{
+    outline: 2px solid color-mix(in srgb, var(--pine) 45%, transparent);
+    outline-offset: 2px;
+    border-radius: 6px;
   }
 
   .empty-openings-hint{

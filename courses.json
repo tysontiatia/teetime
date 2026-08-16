@@ -822,6 +822,7 @@
     "platform": "chronogolf_slc",
     "timezone": "America/Denver",
     "course_id": "16290",
+    "course_ids": [16290, 16291],
     "poll_tier": "hot",
     "rate_notes": "Two 18s (Lake & Canyon), same rate. 18 holes only until 4pm Thu-Sun/holidays. Weekend/holiday 9-hole cart is $20/rider (vs $10 weekday). Advance reservation outside 7-day window: $20/player.",
     "booking_url": "https://www.chronogolf.com/club/mountain-dell-golf-club",
