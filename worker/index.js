@@ -97,18 +97,20 @@ function pickForeUpSessionCookie(res) {
  * Homepage PHPSESSID + api_key=no_limits can return phantom inventory (e.g. The Ridge
  * 18-hole chips that General Public never sees). Match the booking SPA: warm a session
  * on the facility tee-sheet page, then call times with an empty api_key.
+ *
+ * Returns the Cookie header value to use for this request. Do not rely on the
+ * process-global `foreupSession` alone — the poller fetches many courses concurrently
+ * and would otherwise clobber booking cookies mid-flight (reintroducing phantoms).
  */
 async function ensureForeUpBookingSession(facilityId, scheduleId) {
   if (!facilityId) {
     await ensureForeUpSession();
-    return;
+    return foreupSession || '';
   }
   const key = `${facilityId}|${scheduleId || ''}`;
   const cached = foreupBookingSessions.get(key);
   if (cached && Date.now() - cached.at < 30 * 60 * 1000) {
-    foreupSession = cached.cookie;
-    sessionFetchedAt = cached.at;
-    return;
+    return cached.cookie;
   }
 
   const sheet = scheduleId
@@ -131,14 +133,17 @@ async function ensureForeUpBookingSession(facilityId, scheduleId) {
       );
       const cookie = pickForeUpSessionCookie(res);
       if (cookie) {
+        const at = Date.now();
+        foreupBookingSessions.set(key, { cookie, at });
+        // Keep legacy global as a last-resort fallback for non-booking callers.
         foreupSession = cookie;
-        sessionFetchedAt = Date.now();
-        foreupBookingSessions.set(key, { cookie, at: sessionFetchedAt });
-        return;
+        sessionFetchedAt = at;
+        return cookie;
       }
     } catch {}
   }
   await ensureForeUpSession();
+  return foreupSession || '';
 }
 
 async function ensureForeUpSession() {
@@ -218,14 +223,15 @@ async function handleForeUpLogin(request) {
   });
 }
 
-async function fetchForeUpTimes(url, foreupJwt) {
+async function fetchForeUpTimes(url, foreupJwt, cookieOverride = null) {
+  const cookie = cookieOverride != null && cookieOverride !== '' ? cookieOverride : foreupSession;
   const fetchOptions = {
     headers: {
       'Accept': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Referer': 'https://foreupsoftware.com/',
-      ...(foreupSession ? { 'Cookie': foreupSession } : {}),
+      ...(cookie ? { 'Cookie': cookie } : {}),
     },
   };
   if (foreupJwt) fetchOptions.headers['Authorization'] = `Bearer ${foreupJwt}`;
@@ -259,7 +265,7 @@ async function handleForeUp(params, foreupJwt) {
   }
 
   const facilityId = String(facility_id || course_id || '').trim();
-  await ensureForeUpBookingSession(facilityId, schedule_id);
+  let sheetCookie = await ensureForeUpBookingSession(facilityId, schedule_id);
 
   // ForeUp expects MM-DD-YYYY; frontend sends YYYY-MM-DD
   const [y, m, d] = date.split('-');
@@ -279,7 +285,7 @@ async function handleForeUp(params, foreupJwt) {
 
   let res;
   try {
-    res = await fetchForeUpTimes(url.toString(), foreupJwt);
+    res = await fetchForeUpTimes(url.toString(), foreupJwt, sheetCookie);
   } catch (err) {
     if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
     return corsResponse({ error: 'upstream_error' });
@@ -292,9 +298,9 @@ async function handleForeUp(params, foreupJwt) {
     foreupSession = '';
     sessionFetchedAt = 0;
     if (facilityId) foreupBookingSessions.delete(`${facilityId}|${schedule_id || ''}`);
-    await ensureForeUpBookingSession(facilityId, schedule_id);
+    sheetCookie = await ensureForeUpBookingSession(facilityId, schedule_id);
     try {
-      res = await fetchForeUpTimes(url.toString(), foreupJwt);
+      res = await fetchForeUpTimes(url.toString(), foreupJwt, sheetCookie);
     } catch (err) {
       if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
       return corsResponse({ error: 'upstream_error' });

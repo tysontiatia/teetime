@@ -121,8 +121,9 @@ export function useTimesByCourseMap(
             if (cancelled) return;
             const existing = painted.get(slug) ?? [];
             let nextTimes: TeeTime[];
-            if (times.length === 0 && existing.length > 0) {
-              // Keep prior sheet — Chronogolf 429 / empty live must not alarm the banner.
+            // Confirmed live empty must clear ghosts (The Ridge 18-hole phantoms).
+            // Only keep a prior sheet when the update failed / was untrusted.
+            if (times.length === 0 && existing.length > 0 && !(ok && source === 'live')) {
               nextTimes = existing;
             } else if (ok && times.length > 0) {
               nextTimes = preferRicherSameHoles(existing, times);
