@@ -477,7 +477,9 @@ function mergeTeeTimesByStartAndHoles(a: TeeTime[], b: TeeTime[]): TeeTime[] {
  * a live refresh returns a subset (Chronogolf 429 blips / partial fills).
  */
 export function preferRicherSameHoles(prev: TeeTime[], next: TeeTime[]): TeeTime[] {
-  if (next.length === 0) return prev.length > 0 ? prev : next;
+  // Empty `next` means the caller already decided to clear or skip — don't resurrect
+  // a prior sheet here (that kept ForeUp phantoms after confirmed live empty).
+  if (next.length === 0) return next;
   if (prev.length === 0) return next;
   const nextHoles = new Set(next.map((t) => t.holes));
   const prevMatching = prev.filter((t) => nextHoles.has(t.holes));
@@ -647,9 +649,23 @@ export async function fetchTimesForCourseSlugs(
       (holeSize: 9 | 18) =>
       (update: CourseTimesUpdate) => {
         const prev = bySlug.get(update.slug) ?? [];
-        // Empty update must not clear good times for this hole size (failed live or
-        // suspicious ok+[] after a richer paint / the other holes pass).
+        // Empty update: keep prior on failed/untrusted fills (Chronogolf 429). Confirmed
+        // live empty must clear that hole size so ForeUp phantoms disappear.
         if (update.times.length === 0) {
+          if (update.ok && update.source === 'live') {
+            const kept = prev.filter((t) => t.holes !== holeSize);
+            bySlug.set(update.slug, kept);
+            const prevOk = okBySlug.get(update.slug) === true;
+            const ok = prevOk || update.ok;
+            okBySlug.set(update.slug, ok);
+            onCourseComplete?.({
+              slug: update.slug,
+              times: kept,
+              ok,
+              source: update.source,
+            });
+            return;
+          }
           const prevSame = prev.filter((t) => t.holes === holeSize);
           if (prevSame.length > 0) return;
           if (!update.ok && prev.length > 0) return;
@@ -675,7 +691,9 @@ export async function fetchTimesForCourseSlugs(
 
     const paintNineOnly = (update: CourseTimesUpdate) => {
       const prev = bySlug.get(update.slug) ?? [];
-      if (update.times.length === 0 && prev.length > 0) return;
+      if (update.times.length === 0 && prev.length > 0 && !(update.ok && update.source === 'live')) {
+        return;
+      }
       const next =
         update.ok && update.times.length > 0
           ? preferRicherSameHoles(prev, update.times)
@@ -914,10 +932,14 @@ export async function fetchTimesForCourseSlugs(
           players,
         );
         if (mode === 'revalidate') {
-          // Keep painted snapshot if live refresh fails or returns a suspicious empty/subset.
+          // Keep painted snapshot if live refresh fails. Confirmed empty must clear ghosts.
           if (!ok) continue;
           const prev = out.get(slug) ?? [];
-          if (times.length === 0 && prev.length > 0) continue;
+          if (times.length === 0) {
+            out.set(slug, []);
+            onCourseComplete?.({ slug, times: [], ok: true, source: source ?? 'live' });
+            continue;
+          }
           const next = preferRicherSameHoles(prev, times);
           out.set(slug, next);
           onCourseComplete?.({ slug, times: next, ok: true, source: source ?? 'live' });
