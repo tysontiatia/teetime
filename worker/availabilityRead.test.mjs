@@ -30,6 +30,7 @@ test('postgrestInList quotes slugs', () => {
 
 test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs', () => {
   const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const seenFresh = new Date().toISOString();
   const by = buildTeeTimesBySlug(
     ['alpha', 'beta', 'gamma'],
     [
@@ -45,6 +46,7 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
         price_cents: 4700,
         spots_open: 4,
         holes: 18,
+        last_seen_at: seenFresh,
       },
       {
         id: '2',
@@ -54,6 +56,7 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
         price_cents: 4700,
         spots_open: 1,
         holes: 18,
+        last_seen_at: seenFresh,
       },
     ],
     [
@@ -76,6 +79,42 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
   assert.deepEqual(by.beta.times, []);
   assert.equal(by.gamma.has_poll_coverage, false);
   assert.deepEqual(by.gamma.times, []);
+});
+
+test('buildTeeTimesBySlug hides open slots not seen recently (close-debounce ghosts)', () => {
+  const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const fresh = new Date().toISOString();
+  const stale = new Date(Date.now() - 9 * 60 * 1000).toISOString();
+  const by = buildTeeTimesBySlug(
+    ['ridge'],
+    [{ course_slug: 'ridge', last_success_at: fresh }],
+    [
+      {
+        id: 'live',
+        course_slug: 'ridge',
+        play_starts_at: future,
+        starts_at_local: '17:10:00',
+        price_cents: 5500,
+        spots_open: 2,
+        holes: 18,
+        last_seen_at: fresh,
+      },
+      {
+        id: 'ghost',
+        course_slug: 'ridge',
+        play_starts_at: future,
+        starts_at_local: '13:30:00',
+        price_cents: 5500,
+        spots_open: 4,
+        holes: 18,
+        last_seen_at: stale,
+      },
+    ],
+    [],
+    2,
+  );
+  assert.equal(by.ridge.times.length, 1);
+  assert.equal(by.ridge.times[0].id, 'live');
 });
 
 test('snapshotNeedsLiveFill live-fills misses, empty sheets, and stale snapshots', () => {

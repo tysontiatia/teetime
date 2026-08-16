@@ -165,6 +165,10 @@ async function fetchTeeTimesLive(
       url.searchParams.set('date', dateYmd);
       url.searchParams.set('holes', String(holes));
       if (course.booking_class_id) url.searchParams.set('booking_class_id', course.booking_class_id);
+      const facilityMatch = String(course.booking_url || '').match(
+        /\/booking\/(?:index\/)?(\d+)(?:\/(\d+))?/i,
+      );
+      if (facilityMatch?.[1]) url.searchParams.set('facility_id', facilityMatch[1]);
       break;
     }
     case 'chronogolf_slc': {

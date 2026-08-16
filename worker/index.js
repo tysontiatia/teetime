@@ -45,6 +45,8 @@ async function fetchWithTimeout(url, options = {}, ms = 8000) {
 
 let foreupSession = '';
 let sessionFetchedAt = 0;
+/** @type {Map<string, { cookie: string, at: number }>} */
+const foreupBookingSessions = new Map();
 
 let chronogolfSession = '';
 let chronogolfSessionFetchedAt = 0;
@@ -67,6 +69,78 @@ async function ensureChronogolfSession() {
   } catch {}
 }
 
+function foreupFacilityIdFromCourse(course) {
+  // ForeUp public booking URLs are /booking/{facility}/{schedule}.
+  const fromUrl = String(course?.booking_url || '').match(
+    /\/booking\/(?:index\/)?(\d+)(?:\/(\d+))?/i,
+  );
+  if (fromUrl?.[1]) return fromUrl[1];
+  return null;
+}
+
+function pickForeUpSessionCookie(res) {
+  const raw =
+    typeof res.headers.getSetCookie === 'function'
+      ? res.headers.getSetCookie()
+      : [res.headers.get('set-cookie')].filter(Boolean);
+  for (const line of raw) {
+    const part = String(line || '')
+      .split(';')[0]
+      .trim();
+    if (/^PHPSESSID=/i.test(part)) return part;
+  }
+  const first = raw[0] ? String(raw[0]).split(';')[0].trim() : '';
+  return first || '';
+}
+
+/**
+ * Homepage PHPSESSID + api_key=no_limits can return phantom inventory (e.g. The Ridge
+ * 18-hole chips that General Public never sees). Match the booking SPA: warm a session
+ * on the facility tee-sheet page, then call times with an empty api_key.
+ */
+async function ensureForeUpBookingSession(facilityId, scheduleId) {
+  if (!facilityId) {
+    await ensureForeUpSession();
+    return;
+  }
+  const key = `${facilityId}|${scheduleId || ''}`;
+  const cached = foreupBookingSessions.get(key);
+  if (cached && Date.now() - cached.at < 30 * 60 * 1000) {
+    foreupSession = cached.cookie;
+    sessionFetchedAt = cached.at;
+    return;
+  }
+
+  const sheet = scheduleId
+    ? `https://foreupsoftware.com/index.php/booking/${facilityId}/${scheduleId}`
+    : `https://foreupsoftware.com/index.php/booking/${facilityId}`;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchWithTimeout(
+        sheet,
+        {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+          redirect: 'follow',
+        },
+        8000,
+      );
+      const cookie = pickForeUpSessionCookie(res);
+      if (cookie) {
+        foreupSession = cookie;
+        sessionFetchedAt = Date.now();
+        foreupBookingSessions.set(key, { cookie, at: sessionFetchedAt });
+        return;
+      }
+    } catch {}
+  }
+  await ensureForeUpSession();
+}
+
 async function ensureForeUpSession() {
   if (foreupSession && Date.now() - sessionFetchedAt < 1800000) return;
   // Retry up to 2 times — cold-start worker instances lose session state
@@ -77,9 +151,9 @@ async function ensureForeUpSession() {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
       }, 5000);
-      const cookie = res.headers.get('set-cookie');
+      const cookie = pickForeUpSessionCookie(res);
       if (cookie) {
-        foreupSession = cookie.split(';')[0];
+        foreupSession = cookie;
         sessionFetchedAt = Date.now();
         return;
       }
@@ -171,12 +245,21 @@ function isSessionError(res, data) {
 }
 
 async function handleForeUp(params, foreupJwt) {
-  await ensureForeUpSession();
-  const { schedule_id, date, booking_class_id = '0', holes = '18' } = params;
+  const {
+    schedule_id,
+    date,
+    booking_class_id = '0',
+    holes = '18',
+    facility_id = '',
+    course_id = '',
+  } = params;
 
   if (!schedule_id || !date) {
     return corsResponse({ error: 'missing_params' });
   }
+
+  const facilityId = String(facility_id || course_id || '').trim();
+  await ensureForeUpBookingSession(facilityId, schedule_id);
 
   // ForeUp expects MM-DD-YYYY; frontend sends YYYY-MM-DD
   const [y, m, d] = date.split('-');
@@ -191,7 +274,8 @@ async function handleForeUp(params, foreupJwt) {
   url.searchParams.set('schedule_id', schedule_id);
   url.searchParams.append('schedule_ids[]', schedule_id);
   url.searchParams.set('specials_only', '0');
-  url.searchParams.set('api_key', 'no_limits');
+  // Empty api_key matches the public booking SPA. `no_limits` can invent non-bookable rows.
+  url.searchParams.set('api_key', '');
 
   let res;
   try {
@@ -207,7 +291,8 @@ async function handleForeUp(params, foreupJwt) {
   if (isSessionError(res, data)) {
     foreupSession = '';
     sessionFetchedAt = 0;
-    await ensureForeUpSession();
+    if (facilityId) foreupBookingSessions.delete(`${facilityId}|${schedule_id || ''}`);
+    await ensureForeUpBookingSession(facilityId, schedule_id);
     try {
       res = await fetchForeUpTimes(url.toString(), foreupJwt);
     } catch (err) {
@@ -690,11 +775,19 @@ async function loadCourses(env) {
 }
 
 // ── Normalize helpers (duplicated from app.html for worker context) ──
-function normalizeForeUpTimesWorker(data) {
+function normalizeForeUpTimesWorker(data, holes) {
   if (!Array.isArray(data)) return [];
+  const requested = parseInt(holes, 10);
+  const fallbackHoles = requested === 9 ? 9 : 18;
   return data
     .map(t => {
-      const spotsRaw = t.available_spots;
+      const holesNum = Number(t.holes);
+      const rowHoles = holesNum === 9 || holesNum === 18 ? holesNum : fallbackHoles;
+      const spotsSide =
+        rowHoles === 9
+          ? t.available_spots_9
+          : t.available_spots_18;
+      const spotsRaw = spotsSide != null && spotsSide !== '' ? spotsSide : t.available_spots;
       const spots =
         typeof spotsRaw === 'number' && Number.isFinite(spotsRaw)
           ? spotsRaw
@@ -705,10 +798,12 @@ function normalizeForeUpTimesWorker(data) {
         rawTime: t.time || '',
         spots: spots != null && Number.isFinite(spots) ? spots : null,
         price: t.green_fee != null && t.green_fee !== '' ? '$' + parseFloat(t.green_fee).toFixed(0) : null,
-        holes: t.holes,
+        holes: rowHoles,
       };
     })
-    .filter(t => t.spots == null || t.spots > 0);
+    .filter(t => t.spots == null || t.spots > 0)
+    // ForeUp sometimes returns 9-hole rows on an holes=18 request (or vice versa).
+    .filter(t => t.holes === fallbackHoles);
 }
 
 function normalizeChronogolfTimesWorker(data) {
@@ -831,7 +926,7 @@ export function normalizeTeeItUpTimesWorker(course, data) {
 function normalizeTimesWorker(course, data, holes) {
   if (!data || data.error) return [];
   switch (course.platform) {
-    case 'foreup':         return normalizeForeUpTimesWorker(data);
+    case 'foreup':         return normalizeForeUpTimesWorker(data, holes);
     case 'membersports':   return normalizeMemberSportsTimesWorker(data, holes);
     case 'chronogolf_slc': return normalizeChronogolfSlcTimesWorker(data, holes);
     case 'chronogolf':     return normalizeChronogolfTimesWorker(data);
@@ -1017,6 +1112,8 @@ async function fetchTimesForCourse(course, date, holes, players) {
   if (course.platform === 'foreup') {
     params.set('schedule_id', course.schedule_id);
     if (course.booking_class_id) params.set('booking_class_id', course.booking_class_id);
+    const facilityId = foreupFacilityIdFromCourse(course);
+    if (facilityId) params.set('facility_id', facilityId);
     params.set('holes', holes);
     handler = () => handleForeUp(Object.fromEntries(params.entries()), null);
   } else if (course.platform === 'chronogolf') {

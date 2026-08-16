@@ -114,7 +114,7 @@ async function loadOpenSlots(env, course_slug, play_date, holes) {
       `&play_date=eq.${play_date}` +
       `&holes=eq.${holes}` +
       `&status=eq.open` +
-      `&select=id,play_starts_at,starts_at_local,price_cents,spots_open,holes,last_polled_at` +
+      `&select=id,play_starts_at,starts_at_local,price_cents,spots_open,holes,last_polled_at,last_seen_at` +
       `&order=starts_at_local.asc`,
     { headers: sbHeaders(env) },
   );
@@ -146,8 +146,12 @@ async function loadRecentReopenedMap(env, course_slug, play_date) {
   return map;
 }
 
-function filterSlotsForPlayers(slots, players) {
-  const nowMs = Date.now();
+/**
+ * Drop open slots the poller has not actually observed recently.
+ * Close-debounce keeps status=open and refreshes last_polled_at while last_seen_at
+ * ages — without this gate Find paints sold-out chips until debounce expires.
+ */
+function filterSlotsForPlayers(slots, players, nowMs = Date.now()) {
   return slots.filter((slot) => {
     if (!slot.play_starts_at) return false;
     if (new Date(slot.play_starts_at).getTime() <= nowMs) return false;
@@ -155,6 +159,10 @@ function filterSlotsForPlayers(slots, players) {
     if (slot.spots_open != null && slot.spots_open < players) return false;
     // Without spot counts we cannot honor multi-player searches (chronogolf_slc legacy rows).
     if (players > 1 && slot.spots_open == null) return false;
+    const seenAt = slot.last_seen_at ? Date.parse(slot.last_seen_at) : NaN;
+    if (Number.isFinite(seenAt) && nowMs - seenAt > HOT_SNAPSHOT_LIVE_FILL_MAX_AGE_MS) {
+      return false;
+    }
     return true;
   });
 }
@@ -253,7 +261,7 @@ async function loadOpenSlotsBatch(env, slugs, play_date, holes) {
       `&play_date=eq.${play_date}` +
       `&holes=eq.${holes}` +
       `&status=eq.open` +
-      `&select=id,course_slug,play_starts_at,starts_at_local,price_cents,spots_open,holes,last_polled_at` +
+      `&select=id,course_slug,play_starts_at,starts_at_local,price_cents,spots_open,holes,last_polled_at,last_seen_at` +
       `&order=starts_at_local.asc`,
     { headers: sbHeaders(env) },
   );
