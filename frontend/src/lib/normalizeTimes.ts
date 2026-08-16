@@ -2,8 +2,10 @@ import type { CourseRecord } from './courseRecord';
 
 type NormRow = { rawTime: string; spots: number | null; price: string | null; holes: number };
 
-function normalizeForeUpTimes(data: unknown): NormRow[] {
+function normalizeForeUpTimes(data: unknown, holes: string): NormRow[] {
   if (!Array.isArray(data)) return [];
+  const requested = parseInt(holes, 10);
+  const fallbackHoles = requested === 9 ? 9 : 18;
   return data
     .map((t) => {
       const row = t as Record<string, unknown>;
@@ -14,14 +16,17 @@ function normalizeForeUpTimes(data: unknown): NormRow[] {
           : spotsRaw != null && spotsRaw !== ''
             ? Number(spotsRaw)
             : null;
+      const holesNum = Number(row.holes);
+      const rowHoles = holesNum === 9 || holesNum === 18 ? holesNum : fallbackHoles;
       return {
         rawTime: String(row.time || ''),
         spots: spots != null && Number.isFinite(spots) ? spots : null,
         price: row.green_fee != null && row.green_fee !== '' ? '$' + parseFloat(String(row.green_fee)).toFixed(0) : null,
-        holes: Number(row.holes) || 18,
+        holes: rowHoles,
       };
     })
-    .filter((row) => row.spots == null || row.spots > 0);
+    .filter((row) => row.spots == null || row.spots > 0)
+    .filter((row) => row.holes === fallbackHoles);
 }
 
 function normalizeChronogolfTimes(data: { teetimes?: unknown[] }): NormRow[] {
@@ -240,7 +245,7 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
     return [];
   switch (course.platform) {
     case 'foreup':
-      return normalizeForeUpTimes(data);
+      return normalizeForeUpTimes(data, holes);
     case 'membersports':
       return normalizeMemberSportsTimes(data as unknown[], holes);
     case 'chronogolf_slc':

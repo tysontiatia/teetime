@@ -690,8 +690,10 @@ async function loadCourses(env) {
 }
 
 // ── Normalize helpers (duplicated from app.html for worker context) ──
-function normalizeForeUpTimesWorker(data) {
+function normalizeForeUpTimesWorker(data, holes) {
   if (!Array.isArray(data)) return [];
+  const requested = parseInt(holes, 10);
+  const fallbackHoles = requested === 9 ? 9 : 18;
   return data
     .map(t => {
       const spotsRaw = t.available_spots;
@@ -701,14 +703,18 @@ function normalizeForeUpTimesWorker(data) {
           : spotsRaw != null && spotsRaw !== ''
             ? Number(spotsRaw)
             : null;
+      const holesNum = Number(t.holes);
+      const rowHoles = holesNum === 9 || holesNum === 18 ? holesNum : fallbackHoles;
       return {
         rawTime: t.time || '',
         spots: spots != null && Number.isFinite(spots) ? spots : null,
         price: t.green_fee != null && t.green_fee !== '' ? '$' + parseFloat(t.green_fee).toFixed(0) : null,
-        holes: t.holes,
+        holes: rowHoles,
       };
     })
-    .filter(t => t.spots == null || t.spots > 0);
+    .filter(t => t.spots == null || t.spots > 0)
+    // ForeUp sometimes returns 9-hole rows on an holes=18 request (or vice versa).
+    .filter(t => t.holes === fallbackHoles);
 }
 
 function normalizeChronogolfTimesWorker(data) {
@@ -831,7 +837,7 @@ export function normalizeTeeItUpTimesWorker(course, data) {
 function normalizeTimesWorker(course, data, holes) {
   if (!data || data.error) return [];
   switch (course.platform) {
-    case 'foreup':         return normalizeForeUpTimesWorker(data);
+    case 'foreup':         return normalizeForeUpTimesWorker(data, holes);
     case 'membersports':   return normalizeMemberSportsTimesWorker(data, holes);
     case 'chronogolf_slc': return normalizeChronogolfSlcTimesWorker(data, holes);
     case 'chronogolf':     return normalizeChronogolfTimesWorker(data);

@@ -601,15 +601,15 @@ async function applyPollDiff(env, {
 
     // Partial-fetch only protects recently-seen slots. Aged missing slots must
     // still close — otherwise zombies inflate openSlots and the guard deadlocks.
+    // Do not bump last_polled_at here — Find freshness uses last_seen_at, and a
+    // refreshed last_polled with a stale last_seen was painting sold-out chips.
     if (partialFetch && withinDebounce) {
       closesSkippedPartial++;
-      await patchSlot(env, slot.id, { last_polled_at: now });
       continue;
     }
 
     if (!partialFetch && withinDebounce) {
       closesSkippedDebounce++;
-      await patchSlot(env, slot.id, { last_polled_at: now });
       continue;
     }
 
