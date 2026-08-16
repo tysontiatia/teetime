@@ -9,15 +9,16 @@ function normalizeForeUpTimes(data: unknown, holes: string): NormRow[] {
   return data
     .map((t) => {
       const row = t as Record<string, unknown>;
-      const spotsRaw = row.available_spots;
+      const holesNum = Number(row.holes);
+      const rowHoles = holesNum === 9 || holesNum === 18 ? holesNum : fallbackHoles;
+      const spotsSide = rowHoles === 9 ? row.available_spots_9 : row.available_spots_18;
+      const spotsRaw = spotsSide != null && spotsSide !== '' ? spotsSide : row.available_spots;
       const spots =
         typeof spotsRaw === 'number' && Number.isFinite(spotsRaw)
           ? spotsRaw
           : spotsRaw != null && spotsRaw !== ''
             ? Number(spotsRaw)
             : null;
-      const holesNum = Number(row.holes);
-      const rowHoles = holesNum === 9 || holesNum === 18 ? holesNum : fallbackHoles;
       return {
         rawTime: String(row.time || ''),
         spots: spots != null && Number.isFinite(spots) ? spots : null,
