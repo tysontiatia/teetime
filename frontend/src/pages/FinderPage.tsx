@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, FetchRadiusMi, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import {
@@ -20,6 +20,7 @@ import { resolveCourseBookingMode } from '../lib/courseRecord';
 import { useAuth } from '../state/AuthContext';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
+import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
@@ -102,7 +103,46 @@ export function FinderPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const isCompactShell = useIsCompactShell();
+  const querySentinelRef = useRef<HTMLDivElement>(null);
+  const [queryScrolledAway, setQueryScrolledAway] = useState(false);
+  const [queryPinnedOpen, setQueryPinnedOpen] = useState(false);
   const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isCompactShell) {
+      setQueryScrolledAway(false);
+      setQueryPinnedOpen(false);
+      return;
+    }
+    const el = querySentinelRef.current;
+    if (!el) return;
+
+    const headerHeight = () => {
+      const headerEl = document.querySelector('.app-header');
+      return headerEl instanceof HTMLElement ? headerEl.getBoundingClientRect().height : 72;
+    };
+
+    const update = () => {
+      // Stay collapsed until the user is back near the top — avoids IO flicker when
+      // the dock shortens and the sentinel jumps upward.
+      if (window.scrollY <= 56) {
+        setQueryScrolledAway(false);
+        setQueryPinnedOpen(false);
+        return;
+      }
+      const top = el.getBoundingClientRect().top;
+      if (top < headerHeight() + 4) setQueryScrolledAway(true);
+    };
+
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [isCompactShell]);
 
   const {
     courses,
@@ -284,9 +324,21 @@ export function FinderPage() {
     [gridCourses, timesByCourse],
   );
 
+  // Only warn when failed courses actually have no times on screen (rate-limit misses that
+  // kept prior inventory should not trip the banner).
+  const emptyFailedCount = useMemo(
+    () => failedSlugs.filter((slug) => (timesByCourse.get(slug)?.length ?? 0) === 0).length,
+    [failedSlugs, timesByCourse],
+  );
   const workerFetchTotalFailure =
-    !loadingTimes && failedSlugs.length > 0 && failedSlugs.length === attemptedSlugCount && attemptedSlugCount > 0;
-  const workerFetchPartialFailure = !loadingTimes && failedSlugs.length > 0 && !workerFetchTotalFailure;
+    !loadingTimes && emptyFailedCount > 0 && emptyFailedCount === attemptedSlugCount && attemptedSlugCount > 0;
+  // Partial Chronogolf/live gaps are common when pivoting filters. Don't alarm when the
+  // grid already has openings — cards show empty/"No matches" for the misses.
+  const workerFetchPartialFailure =
+    !loadingTimes &&
+    emptyFailedCount > 0 &&
+    !workerFetchTotalFailure &&
+    withTimesCount === 0;
 
   /** Booking-link courses in the same geographic / search scope as the live grid. */
   const bookingOnlyInScope = useMemo(() => {
@@ -514,6 +566,38 @@ export function FinderPage() {
     params.locationQuery.trim() ||
     (timesFetchScope.anchor.source === 'gps' ? 'Near me' : 'Salt Lake area');
 
+  const todSummaryLabel =
+    params.timeOfDay === 'morning'
+      ? 'Morning'
+      : params.timeOfDay === 'afternoon'
+        ? 'Afternoon'
+        : params.timeOfDay === 'evening'
+          ? 'Twilight'
+          : 'Any';
+
+  const radiusSummaryLabel = fetchAllUtah ? 'Statewide' : `${radiusMi} mi`;
+
+  const partySummaryLabel =
+    params.holes === 'any'
+      ? String(params.players)
+      : `${params.players} · ${holesFilterLabel(params.holes)}`;
+
+  const querySummaryParts = [
+    formatDateCompact(params.date),
+    partySummaryLabel,
+    todSummaryLabel,
+    radiusSummaryLabel,
+  ];
+
+  const queryCollapsed = isCompactShell && queryScrolledAway && !queryPinnedOpen;
+  const queryDockClass = [
+    'finder-query-dock',
+    queryCollapsed ? 'is-collapsed' : '',
+    isCompactShell && queryScrolledAway && queryPinnedOpen ? 'is-pinned-open' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className="container">
       <div className="finder-page">
@@ -539,10 +623,44 @@ export function FinderPage() {
           </div>
         ) : workerFetchPartialFailure ? (
           <div className="app-banner app-banner--warn" role="status">
-            <strong>Some courses didn&apos;t refresh</strong> ({failedSlugs.length} of {attemptedSlugCount}). Results may
+            <strong>Some courses didn&apos;t refresh</strong> ({emptyFailedCount} of {attemptedSlugCount}). Results may
             be incomplete.
           </div>
         ) : null}
+
+        <div className={queryDockClass}>
+          {queryCollapsed ? (
+            <button
+              type="button"
+              className="finder-query-summary"
+              aria-expanded={false}
+              aria-controls="finder-query-details"
+              onClick={() => setQueryPinnedOpen(true)}
+            >
+              <span className="finder-query-summary-text">{querySummaryParts.join(' · ')}</span>
+              <span className="finder-query-summary-hint" aria-hidden>
+                Edit
+              </span>
+            </button>
+          ) : null}
+
+          <div
+            id="finder-query-details"
+            className="finder-query-details"
+            hidden={queryCollapsed}
+          >
+            {isCompactShell && queryScrolledAway && queryPinnedOpen ? (
+              <div className="finder-query-pinned-bar">
+                <span className="finder-query-pinned-label">Filters</span>
+                <button
+                  type="button"
+                  className="finder-query-done"
+                  onClick={() => setQueryPinnedOpen(false)}
+                >
+                  Done
+                </button>
+              </div>
+            ) : null}
 
         <div className="search-zone">
           {/* Desktop: When · Players · Where (search icon at end) */}
@@ -748,6 +866,9 @@ export function FinderPage() {
             </label>
           </div>
         </div>
+          </div>
+        </div>
+        <div className="finder-query-sentinel" ref={querySentinelRef} aria-hidden />
 
         <div className="result-meta">
           <span

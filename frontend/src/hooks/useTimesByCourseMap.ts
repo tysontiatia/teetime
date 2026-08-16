@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Course } from '../types';
 import type { TeeTime } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
@@ -26,6 +26,11 @@ export function useTimesByCourseMap(
   const [failedSlugs, setFailedSlugs] = useState<string[]>([]);
   const [attemptedSlugCount, setAttemptedSlugCount] = useState(0);
   const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(new Set());
+  const mapRef = useRef(map);
+
+  useEffect(() => {
+    mapRef.current = map;
+  }, [map]);
 
   useEffect(() => {
     if (catalogLoading) {
@@ -98,8 +103,14 @@ export function useTimesByCourseMap(
     // second pass often rate-limits holes=9 multi-course live fills to empty.
     const timer = window.setTimeout(() => {
       void (async () => {
-        const failed: string[] = [];
+        const failed = new Set<string>();
+        /** Sync mirror for this fetch — seeded from whatever is already on screen. */
+        const painted = new Map<string, TeeTime[]>();
+        for (const [slug, times] of mapRef.current) {
+          if (slugSet.has(slug) && times.length > 0) painted.set(slug, times);
+        }
         let blockingDone = false;
+
         await fetchTimesForCourseSlugs(
           entries,
           dateYmd,
@@ -108,19 +119,30 @@ export function useTimesByCourseMap(
           6,
           ({ slug, times, ok, source }) => {
             if (cancelled) return;
+            const existing = painted.get(slug) ?? [];
+            let nextTimes: TeeTime[];
+            if (times.length === 0 && existing.length > 0) {
+              // Keep prior sheet — Chronogolf 429 / empty live must not alarm the banner.
+              nextTimes = existing;
+            } else if (ok && times.length > 0) {
+              nextTimes = preferRicherSameHoles(existing, times);
+            } else {
+              nextTimes = times;
+            }
+            painted.set(slug, nextTimes);
+            if (nextTimes.length > 0) failed.delete(slug);
+            else if (!ok && !blockingDone) failed.add(slug);
+            else failed.delete(slug);
+
             setMap((prev) => {
-              const existing = prev.get(slug) ?? [];
-              // Never replace a painted sheet with [] — failed live, confirmed-empty
-              // blips, and Strict Mode double-fetch races were wiping good holes=9 inventory.
-              if (times.length === 0 && existing.length > 0) return prev;
-              // Keep denser same-hole inventory; drop hole sizes absent from this update
-              // (e.g. any→9 should not keep stale 18s once the 9 pass paints).
-              const merged =
-                ok && times.length > 0 ? preferRicherSameHoles(existing, times) : times;
               const next = new Map(prev);
-              next.set(slug, merged);
+              next.set(slug, nextTimes);
               return next;
             });
+            // Keep banner state in sync when a late live fill recovers a course.
+            if (blockingDone) {
+              setFailedSlugs([...failed]);
+            }
             if (source) {
               setSourceBySlug((prev) => {
                 const next = new Map(prev);
@@ -134,8 +156,6 @@ export function useTimesByCourseMap(
               next.delete(slug);
               return next;
             });
-            // Only count hard misses (no trusted snapshot) toward the failure banner.
-            if (!ok && !blockingDone) failed.push(slug);
           },
           {
             onBlockingComplete: () => {

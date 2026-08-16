@@ -10,10 +10,14 @@ const REOPENED_LOOKBACK_MS = 6 * 60 * 60 * 1000;
 export const TEE_TIMES_BATCH_MAX_IDS = 20;
 
 const MT_TZ = 'America/Denver';
-const LIVE_FILL_CONCURRENCY = 8;
+const LIVE_FILL_CONCURRENCY = 6;
 const LIVE_FILL_TIMEOUT_MS = 12_000;
 const LIVE_FILL_SLOW_TIMEOUT_MS = 28_000;
 const SLOW_LIVE_PLATFORMS = new Set(['golfpay']);
+/** Today/tomorrow: re-check vendors when snapshot is older than this (cuts ghost chips). */
+const HOT_SNAPSHOT_LIVE_FILL_MAX_AGE_MS = 8 * 60 * 1000;
+/** Other dates: still refresh, but less aggressively. */
+const WARM_SNAPSHOT_LIVE_FILL_MAX_AGE_MS = 25 * 60 * 1000;
 
 function corsResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -410,16 +414,39 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
   });
 }
 
+/** Mountain calendar date YYYY-MM-DD for an instant. */
+function mtDateYmd(nowMs = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: MT_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(nowMs));
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+function daysUntilPlayYmd(playDateYmd, nowMs = Date.now()) {
+  const today = mtDateYmd(nowMs);
+  const [y1, m1, d1] = String(playDateYmd).split('-').map(Number);
+  const [y2, m2, d2] = today.split('-').map(Number);
+  return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 86400000);
+}
+
 /** Exported for unit tests — when true, batch handler should vendor-fetch this slug. */
 export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.now()) {
-  // Live-fill misses / empty sheets. Non-empty poller snapshots are trusted for Find
-  // paint — always-live was stampeding Chronogolf on holes=9 (multi courses have no
-  // holes=9 snapshot until dual-hole polling lands) and thinning inventory via 429s.
   void players;
-  void playDateYmd;
-  void nowMs;
   if (!row || row.has_poll_coverage !== true || !Array.isArray(row.times)) return true;
-  return row.times.length === 0;
+  if (row.times.length === 0) return true;
+  const polled = row.last_polled_at ? Date.parse(row.last_polled_at) : NaN;
+  // Unknown age → refresh. Stale non-empty snapshots were the main cross-platform ghost source:
+  // Find painted open chips long after the vendor sheet sold out.
+  if (!Number.isFinite(polled)) return true;
+  const age = nowMs - polled;
+  if (age < 0) return true;
+  const days = daysUntilPlayYmd(playDateYmd, nowMs);
+  const maxAge = days <= 1 ? HOT_SNAPSHOT_LIVE_FILL_MAX_AGE_MS : WARM_SNAPSHOT_LIVE_FILL_MAX_AGE_MS;
+  return age > maxAge;
 }
 
 function courseTimezone(course) {

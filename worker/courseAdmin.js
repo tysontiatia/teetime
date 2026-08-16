@@ -6,7 +6,7 @@ const PLATFORM_ID_FIELDS = {
   foreup: ['schedule_id', 'booking_class_id'],
   foreup_login: ['schedule_id', 'booking_class_id'],
   chronogolf: ['club_id', 'course_id', 'course_ids'],
-  chronogolf_slc: ['club_id', 'course_id', 'affiliation_type_id'],
+  chronogolf_slc: ['club_id', 'course_id', 'course_ids', 'affiliation_type_id'],
   membersports: ['golf_club_id', 'golf_course_id'],
   trutee: ['trutee_org_slug', 'trutee_course_id'],
   golfpay: ['golfpay_course_id'],
@@ -495,9 +495,14 @@ async function enrichChronogolfFromPage(bookingUrl) {
     out.club_id = slug;
   }
 
-  const courseIds = Array.isArray(club.courses)
-    ? club.courses.map((c) => Number(c?.id)).filter((n) => Number.isFinite(n) && n > 0)
-    : [];
+  const clubCourses = Array.isArray(club.courses) ? club.courses : [];
+  const hasEighteen = clubCourses.some((c) => Number(c?.holes) === 18);
+  // Multi-layout clubs (Mountain Dell) expose a 9-only companion sheet — skip it when
+  // the club also has full 18-hole layouts so course_ids fans out Canyon + Lake only.
+  const courseIds = clubCourses
+    .filter((c) => !hasEighteen || Number(c?.holes) === 18)
+    .map((c) => Number(c?.id))
+    .filter((n) => Number.isFinite(n) && n > 0);
   if (courseIds.length) {
     out.course_ids = courseIds;
     out.course_id = String(courseIds[0]);

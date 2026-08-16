@@ -78,8 +78,17 @@ test('buildTeeTimesBySlug groups coverage, filters players, fills missing slugs'
   assert.deepEqual(by.gamma.times, []);
 });
 
-test('snapshotNeedsLiveFill live-fills misses and empty sheets only', () => {
+test('snapshotNeedsLiveFill live-fills misses, empty sheets, and stale snapshots', () => {
+  // MT calendar date for this instant is 2026-08-11 (noon Denver).
   const now = Date.parse('2026-08-11T18:00:00.000Z');
+  const hotTimes = [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 4 }];
+  const covered = (ageMs, times) => ({
+    has_poll_coverage: true,
+    spots_known: true,
+    last_polled_at: new Date(now - ageMs).toISOString(),
+    times,
+  });
+
   assert.equal(
     snapshotNeedsLiveFill(
       { has_poll_coverage: false, spots_known: true, last_polled_at: null, times: [] },
@@ -90,32 +99,55 @@ test('snapshotNeedsLiveFill live-fills misses and empty sheets only', () => {
     true,
   );
   assert.equal(
-    snapshotNeedsLiveFill(
-      {
-        has_poll_coverage: true,
-        spots_known: true,
-        last_polled_at: new Date(now - 60 * 1000).toISOString(),
-        times: [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 4 }],
-      },
-      2,
-      '2026-08-12',
-      now,
-    ),
+    snapshotNeedsLiveFill(covered(60 * 1000, hotTimes), 2, '2026-08-12', now),
     false,
+    'fresh non-empty hot snapshot should not live-fill',
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(covered(60 * 1000, []), 2, '2026-08-12', now),
+    true,
+    'empty sheet always live-fills',
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(covered(8 * 60 * 1000, hotTimes), 2, '2026-08-12', now),
+    false,
+    'hot snapshot at exactly 8m max age is still trusted',
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(covered(8 * 60 * 1000 + 1, hotTimes), 2, '2026-08-12', now),
+    true,
+    'hot snapshot older than 8m must live-fill (ghost / sold-out chips)',
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(covered(20 * 60 * 1000, hotTimes), 2, '2026-08-12', now),
+    true,
+    'stale hot-date snapshot must live-fill',
+  );
+  // Warm date (+4 days): 8–25m ages stay on snapshot; only beyond warm max live-fills.
+  assert.equal(
+    snapshotNeedsLiveFill(covered(20 * 60 * 1000, hotTimes), 2, '2026-08-15', now),
+    false,
+    'warm-date snapshot under 25m should not live-fill',
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(covered(25 * 60 * 1000 + 1, hotTimes), 2, '2026-08-15', now),
+    true,
+    'warm-date snapshot older than 25m must live-fill',
   );
   assert.equal(
     snapshotNeedsLiveFill(
       {
         has_poll_coverage: true,
         spots_known: true,
-        last_polled_at: new Date(now - 60 * 1000).toISOString(),
-        times: [],
+        last_polled_at: null,
+        times: hotTimes,
       },
       2,
       '2026-08-12',
       now,
     ),
     true,
+    'unknown last_polled_at must live-fill',
   );
 });
 

@@ -1,5 +1,6 @@
 import { handleAvailabilityPoll } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
+import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
 import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
 import { handleFeedRequest } from './feedRead.js';
@@ -320,14 +321,7 @@ async function handleMemberSports(params) {
   return corsResponse(data);
 }
 
-async function handleChronogolfSlc(params) {
-  await ensureChronogolfSession();
-  const { club_id, course_id, affiliation_type_id, nb_holes, date, players = '1' } = params;
-
-  if (!club_id || !course_id || !affiliation_type_id || !date) {
-    return corsResponse({ error: 'missing_params' });
-  }
-
+async function fetchChronogolfSlcTeetimes(club_id, course_id, affiliation_type_id, nb_holes, date, players) {
   const url = new URL(`https://www.chronogolf.com/marketplace/clubs/${club_id}/teetimes`);
   url.searchParams.set('date', date);
   url.searchParams.set('course_id', course_id);
@@ -349,22 +343,52 @@ async function handleChronogolfSlc(params) {
       },
     });
   } catch (err) {
-    if (err.message === 'timeout') return corsResponse({ error: 'timeout' });
-    return corsResponse({ error: 'upstream_error' });
+    if (err.message === 'timeout') return { error: 'timeout' };
+    return { error: 'upstream_error' };
   }
 
   if (!res.ok) {
-    return corsResponse({ error: 'upstream_error', status: res.status });
+    return { error: 'upstream_error', status: res.status };
   }
 
-  let data;
   try {
-    data = await res.json();
+    return await res.json();
   } catch {
-    return corsResponse({ error: 'parse_error' });
+    return { error: 'parse_error' };
+  }
+}
+
+async function handleChronogolfSlc(params) {
+  await ensureChronogolfSession();
+  const { club_id, course_id, affiliation_type_id, nb_holes, date, players = '1' } = params;
+  // Comma-separated course_id supports multi-layout clubs (Canyon + Lake).
+  const courseIds = String(course_id || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (!club_id || !courseIds.length || !affiliation_type_id || !date) {
+    return corsResponse({ error: 'missing_params' });
   }
 
-  return corsResponse(data);
+  const parts = await Promise.all(
+    courseIds.map((cid) =>
+      fetchChronogolfSlcTeetimes(club_id, cid, affiliation_type_id, nb_holes, date, players),
+    ),
+  );
+
+  const merged = [];
+  let lastError = null;
+  for (const part of parts) {
+    if (Array.isArray(part)) {
+      merged.push(...part);
+      continue;
+    }
+    if (part && typeof part === 'object' && part.error) lastError = part;
+  }
+
+  if (!merged.length && lastError) return corsResponse(lastError);
+  return corsResponse(merged);
 }
 
 // TeeItUp / Aspira (kenna.io) — one unauthenticated JSON endpoint serves all
@@ -1004,8 +1028,10 @@ async function fetchTimesForCourse(course, date, holes, players) {
     params.set('golf_course_id', course.golf_course_id);
     handler = () => handleMemberSports(Object.fromEntries(params.entries()));
   } else if (course.platform === 'chronogolf_slc') {
+    const courseIds = chronogolfSlcCourseIds(course);
+    if (!course.club_id || !courseIds.length || !course.affiliation_type_id) return null;
     params.set('club_id', course.club_id);
-    params.set('course_id', course.course_id);
+    params.set('course_id', courseIds.join(','));
     params.set('affiliation_type_id', course.affiliation_type_id);
     params.set('nb_holes', holes);
     params.set('players', players);

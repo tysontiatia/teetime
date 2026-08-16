@@ -1,5 +1,6 @@
 import type { TeeTime } from '../types';
 import type { CourseRecord } from './courseRecord';
+import { chronogolfSlcCourseIds } from './chronogolfSlc';
 import { getWorkerBaseUrl } from './env';
 import type { HolesFilter } from './holesFilter';
 import { normalizeTimesWorker } from './normalizeTimes';
@@ -33,7 +34,9 @@ type SnapshotAvailabilityResponse = {
  * Network shows as "each course being fetched."
  *
  * Tiered max age mirrors poller hot/warm/cold with claim-lag headroom. Outside
- * Mountain golf hours the poller sleeps — trust last evening's snapshot overnight.
+ * Mountain golf hours the poller sleeps — trust last evening's warm/cold snapshot
+ * overnight, but never give today/tomorrow the long grace (stale hot sheets must
+ * fall through to live).
  */
 const MT_TZ = 'America/Denver';
 const GOLF_HOUR_START = 6;
@@ -165,11 +168,12 @@ async function fetchTeeTimesLive(
       break;
     }
     case 'chronogolf_slc': {
-      const { club_id, course_id, affiliation_type_id } = course;
-      if (!club_id || !course_id || !affiliation_type_id) return emptyOk;
+      const { club_id, affiliation_type_id } = course;
+      const courseIds = chronogolfSlcCourseIds(course);
+      if (!club_id || !courseIds.length || !affiliation_type_id) return emptyOk;
       url = new URL(`${base}/chronogolf-slc`);
       url.searchParams.set('club_id', club_id);
-      url.searchParams.set('course_id', course_id);
+      url.searchParams.set('course_id', courseIds.join(','));
       url.searchParams.set('affiliation_type_id', affiliation_type_id);
       url.searchParams.set('nb_holes', String(holes));
       url.searchParams.set('date', dateYmd);
@@ -295,13 +299,16 @@ function daysUntilPlay(playDateYmd: string, todayMtYmd: string): number {
 /** Max snapshot age before Find falls back to live — mirrors poller tiers + claim lag. */
 function snapshotMaxAgeMs(playDateYmd: string, nowMs: number = Date.now()): number {
   const mt = mtNowParts(nowMs);
-  if (mt.hour < GOLF_HOUR_START || mt.hour >= GOLF_HOUR_END) {
+  const days = daysUntilPlay(playDateYmd, mt.dateYmd);
+  const offHours = mt.hour < GOLF_HOUR_START || mt.hour >= GOLF_HOUR_END;
+  // Off-hours grace is for warm/cold only. Today/tomorrow always use the hot gate so
+  // overnight ~15h poller rows (e.g. Sleepy Ridge) reject and live-fill from ForeUp.
+  if (offHours && days > 1) {
     return SNAPSHOT_OFF_HOURS_MAX_AGE_MS;
   }
-  const days = daysUntilPlay(playDateYmd, mt.dateYmd);
-  if (days <= 1) return 90 * 60 * 1000; // hot + claim-lag headroom
-  if (days <= 6) return 4 * 60 * 60 * 1000; // warm sweep
-  return 8 * 60 * 60 * 1000; // cold sweep
+  if (days <= 1) return 12 * 60 * 1000; // hot: refuse hour-old "open" chips
+  if (days <= 6) return 45 * 60 * 1000; // warm
+  return 3 * 60 * 60 * 1000; // cold
 }
 
 function snapshotIsFresh(
@@ -501,11 +508,17 @@ export async function fetchTeeTimesForCourse(
     const batchMap = await fetchTeeTimesBatchFromSnapshot([courseSlug], dateYmd, holes, players);
     const row = batchMap.get(courseSlug);
     if (row && canUseBatchRow(row, players, dateYmd)) {
-      return {
-        times: snapshotToTeeTimes(courseSlug, dateYmd, row.times!),
-        ok: true,
-        source: row.live_failed || row.batchSource !== 'live' ? 'snapshot' : 'live',
-      };
+      const times = snapshotToTeeTimes(courseSlug, dateYmd, row.times!);
+      const fromLive = row.batchSource === 'live' && !row.live_failed;
+      // Snapshot that paints empty (all past / filtered) — still try vendor live.
+      // Confirmed live empty stays empty.
+      if (times.length > 0 || fromLive) {
+        return {
+          times,
+          ok: true,
+          source: fromLive ? 'live' : 'snapshot',
+        };
+      }
     }
   }
 
@@ -845,6 +858,12 @@ export async function fetchTimesForCourseSlugs(
     const snap = batchMap.get(entry.slug);
     if (snap && canUseBatchRow(snap, players, dateYmd)) {
       const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
+      const fromLive = snap.batchSource === 'live' && !snap.live_failed;
+      // Snapshot that paints empty after past/filter — blocking live, not a fake sold-out.
+      if (times.length === 0 && !fromLive) {
+        needLive.push(entry);
+        continue;
+      }
       const prev = out.get(entry.slug) ?? [];
       const next = preferRicherSameHoles(prev, times);
       out.set(entry.slug, next);
@@ -901,10 +920,13 @@ export async function fetchTimesForCourseSlugs(
           continue;
         }
         if (!ok) {
-          failedSlugs.push(slug);
           // Do not wipe prior/snapshot times with a failed empty live response.
           const prev = out.get(slug);
-          if (prev && prev.length > 0) continue;
+          if (prev && prev.length > 0) {
+            // Still painted — not a hard miss for the Find banner.
+            continue;
+          }
+          failedSlugs.push(slug);
           out.set(slug, times);
           onCourseComplete?.({ slug, times, ok: false, source });
           continue;
