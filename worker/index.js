@@ -33,6 +33,36 @@ function corsResponse(body, status = 200) {
   });
 }
 
+/** Edge-cache GET JSON so repeat Finder/feed hits skip Supabase (egress). */
+async function cachedGetResponse(request, ttlSec, producer) {
+  const cache = caches.default;
+  const key = new Request(request.url, { method: 'GET' });
+  try {
+    const hit = await cache.match(key);
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set('X-Worker-Cache', 'hit');
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  } catch {
+    // Cache API unavailable in some local/test runtimes
+  }
+
+  const res = await producer();
+  if (!res.ok) return res;
+
+  const headers = new Headers(res.headers);
+  headers.set('Cache-Control', `public, max-age=${ttlSec}`);
+  headers.set('X-Worker-Cache', 'miss');
+  const out = new Response(res.body, { status: res.status, headers });
+  try {
+    await cache.put(key, out.clone());
+  } catch {
+    // ignore
+  }
+  return out;
+}
+
 function timeout(ms) {
   return new Promise((_, reject) =>
     setTimeout(() => reject(new Error('timeout')), ms)
@@ -2013,32 +2043,37 @@ export default {
     }
 
     if (path === '/v1/courses' && request.method === 'GET') {
-      return courseAdmin.handlePublicCourses(env);
+      return cachedGetResponse(request, 120, async () => {
+        const courses = await loadCourses(env);
+        return corsResponse(courses);
+      });
     }
 
     if (path === '/v1/feed' && request.method === 'GET') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.feed);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
-      return handleFeedRequest(env, params);
+      return cachedGetResponse(request, 30, () => handleFeedRequest(env, params));
     }
 
     if (path === '/v1/availability' && request.method === 'GET') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.availability);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
-      return handleAvailabilityRequest(env, params);
+      return cachedGetResponse(request, 45, () => handleAvailabilityRequest(env, params));
     }
 
     if (path === '/v1/tee-times' && request.method === 'GET') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.teeTimesBatch);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
-      return handleTeeTimesBatchRequest(env, params, {
-        loadCourses: () => loadCourses(env),
-        fetchTimesForCourse,
-        normalizeTimesWorker,
-      });
+      return cachedGetResponse(request, 45, () =>
+        handleTeeTimesBatchRequest(env, params, {
+          loadCourses: () => loadCourses(env),
+          fetchTimesForCourse,
+          normalizeTimesWorker,
+        }),
+      );
     }
 
     if (path.startsWith('/admin/')) {
