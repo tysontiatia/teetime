@@ -8,11 +8,10 @@ export type SignInPromptVariant = 'share' | 'alert' | 'you' | 'general';
 
 const COPY: Record<SignInPromptVariant, { title: string; body: (detail?: string) => ReactNode }> = {
   share: {
-    title: 'Log in or create an account',
+    title: 'Share with friends',
     body: () => (
       <>
-        Create a live vote link your group can open in one tap. If you&apos;re new to Tee-Time, we&apos;ll create an
-        account for you.
+        Google signs you in — or creates your account if you&apos;re new. Then you can send a live vote link.
       </>
     ),
   },

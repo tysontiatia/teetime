@@ -82,6 +82,8 @@ type Props = {
   onShare?: () => void;
   shareBusy?: boolean;
   shareDisabled?: boolean;
+  /** Opens Book / Share instead of jumping straight to the vendor URL. */
+  onSelectTime?: (time: TeeTime, bookHref: string | null) => void;
 };
 
 function telHref(phone: string | undefined | null): string | null {
@@ -113,6 +115,7 @@ export function CourseMarketplaceCard({
   onShare,
   shareBusy = false,
   shareDisabled = true,
+  onSelectTime,
 }: Props) {
   const bookingLinkOnly = variant === 'bookingLink';
   const phoneOnly = variant === 'phone';
@@ -281,7 +284,23 @@ export function CourseMarketplaceCard({
                   {priceLabel ? <span className="p">{priceLabel}</span> : null}
                 </>
               );
-              const bookLabel = `Book ${timeLabel} at ${course.name}${availTitle ? `, ${availTitle}` : ''}`;
+              const chooseLabel = `${timeLabel} at ${course.name}${availTitle ? `, ${availTitle}` : ''}`;
+              if (onSelectTime) {
+                return (
+                  <button
+                    key={`${t.id}-${t.holes}`}
+                    type="button"
+                    className={chipClass}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectTime(t, bookHref);
+                    }}
+                    aria-label={chooseLabel}
+                  >
+                    {chipBody}
+                  </button>
+                );
+              }
               if (bookHref) {
                 return (
                   <a
@@ -291,7 +310,7 @@ export function CourseMarketplaceCard({
                     rel="noreferrer"
                     className={chipClass}
                     onClick={(e) => e.stopPropagation()}
-                    aria-label={bookLabel}
+                    aria-label={`Book ${chooseLabel}`}
                   >
                     {chipBody}
                   </a>

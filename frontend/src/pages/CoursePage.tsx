@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import {
   formatDateCompact,
   formatDateShort,
@@ -22,7 +22,15 @@ import { NotificationModal } from '../components/NotificationModal';
 import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
 import { GetDirectionsButton } from '../components/GetDirectionsButton';
+import { SlotActionSheet, slotActionMeta } from '../components/SlotActionSheet';
 import { useAuth } from '../state/AuthContext';
+import {
+  authReturnPath,
+  clearPendingAuthAction,
+  peekPendingAuthAction,
+  savePendingAuthAction,
+  takePendingAuthAction,
+} from '../lib/pendingAuthAction';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import { parseHolesFilter, type HolesFilter } from '../lib/holesFilter';
 import { parseFetchRadiusMi } from '../lib/timesFetchScope';
@@ -69,8 +77,9 @@ const TABS: { id: DetailTab; label: string }[] = [
 
 export function CoursePage() {
   const { courseId } = useParams();
+  const location = useLocation();
   const [sp, setSp] = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
@@ -141,12 +150,19 @@ export function CoursePage() {
   const closeSignInToShare = useCallback(() => {
     setSignInToShareOpen(false);
     setPlanAfterSignIn(false);
+    clearPendingAuthAction();
   }, []);
   const [catalogMeta, setCatalogMeta] = useState<CourseCatalogMeta | null>(null);
   const [reviews, setReviews] = useState<PlaceReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsMapsUrl, setReviewsMapsUrl] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [slotAction, setSlotAction] = useState<{
+    time: TeeTime;
+    bookHref: string | null;
+    resumeBook?: boolean;
+  } | null>(null);
+  const [slotAuthBusy, setSlotAuthBusy] = useState(false);
   const [slotsExpanded, setSlotsExpanded] = useState(false);
 
   useEffect(() => {
@@ -271,6 +287,32 @@ export function CoursePage() {
     }
   }, [user?.id, planAfterSignIn]);
 
+  useEffect(() => {
+    if (!user?.id || authLoading || !courseId) return;
+    const pending = peekPendingAuthAction();
+    if (!pending || pending.courseId !== courseId) return;
+    if (catalogLoading) return;
+
+    if (pending.intent === 'share') {
+      if (loadingTimes) return;
+      takePendingAuthAction();
+      if (times.length === 0) return;
+      setSelectedSlotId(pending.time?.id ?? times[0]?.id ?? null);
+      setPlanRoundOpen(true);
+      setSignInToShareOpen(false);
+      setPlanAfterSignIn(false);
+      return;
+    }
+
+    if (pending.intent === 'book' && pending.bookHref && pending.time) {
+      takePendingAuthAction();
+      setSelectedSlotId(pending.time.id);
+      setSlotAction({ time: pending.time, bookHref: pending.bookHref, resumeBook: true });
+    }
+  }, [user?.id, authLoading, catalogLoading, courseId, loadingTimes, times]);
+
+  const returnTo = authReturnPath(location.pathname, location.search);
+
   if (catalogLoading && !course) {
     return (
       <div className="container">
@@ -333,9 +375,16 @@ export function CoursePage() {
   const hiddenSlotCount = Math.max(0, times.length - SLOT_PREVIEW);
   const visibleSlots = slotsExpanded || hiddenSlotCount === 0 ? times : times.slice(0, SLOT_PREVIEW);
 
-  const onShareTimes = () => {
+  const onShareTimes = (selectedId?: string | null) => {
     if (unsupported || times.length === 0) return;
+    if (selectedId) setSelectedSlotId(selectedId);
     if (!user?.id) {
+      savePendingAuthAction({
+        intent: 'share',
+        courseId: course.id,
+        time: times.find((t) => t.id === (selectedId ?? selectedSlotId)) ?? times[0] ?? null,
+        bookHref: null,
+      });
       setPlanAfterSignIn(true);
       setSignInToShareOpen(true);
       return;
@@ -679,7 +728,7 @@ export function CoursePage() {
                   const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
                   const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;
                   const bookAria = [
-                    `Book ${formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone))}`,
+                    formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone)),
                     priceLabel,
                     reopenLabel ? `reopened ${reopenLabel}` : null,
                   ]
@@ -737,27 +786,16 @@ export function CoursePage() {
                       </svg>
                     </>
                   );
-                  if (slotBookHref) {
-                    return (
-                      <a
-                        key={`${t.id}-${t.holes}`}
-                        href={slotBookHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={slotClass}
-                        onClick={() => setSelectedSlotId(t.id)}
-                        aria-label={bookAria}
-                      >
-                        {slotBody}
-                      </a>
-                    );
-                  }
                   return (
                     <button
                       key={`${t.id}-${t.holes}`}
                       type="button"
                       className={slotClass}
-                      onClick={() => setSelectedSlotId(t.id)}
+                      onClick={() => {
+                        setSelectedSlotId(t.id);
+                        setSlotAction({ time: t, bookHref: slotBookHref });
+                      }}
+                      aria-label={bookAria}
                     >
                       {slotBody}
                     </button>
@@ -781,7 +819,7 @@ export function CoursePage() {
                   {slotsExpanded ? 'Show fewer times' : `Show ${hiddenSlotCount} more`}
                 </button>
               ) : null}
-              <p className="tee-panel-note">Tap a time to book on the course site. No markup, ever.</p>
+              <p className="tee-panel-note">Tap a time to book or share. No markup, ever.</p>
             </>
           )}
 
@@ -816,7 +854,61 @@ export function CoursePage() {
         />
       </div>
 
-      <SignInPromptModal open={signInToShareOpen} onClose={closeSignInToShare} variant="share" />
+      <SlotActionSheet
+        open={Boolean(slotAction)}
+        onClose={() => {
+          if (!slotAuthBusy) clearPendingAuthAction();
+          setSlotAction(null);
+        }}
+        courseName={course.name}
+        timeLabel={
+          slotAction
+            ? formatTime12h(
+                slotAction.time.startsAt,
+                courseTimezone(record?.timezone ?? course.timezone),
+              )
+            : ''
+        }
+        metaLabel={slotAction ? slotActionMeta(slotAction.time) : ''}
+        bookHref={slotAction?.bookHref ?? null}
+        needsAuth={!user?.id}
+        resumeBook={Boolean(slotAction?.resumeBook)}
+        signingIn={slotAuthBusy}
+        onBook={() => {
+          if (!slotAction?.bookHref || user?.id) return;
+          savePendingAuthAction({
+            intent: 'book',
+            courseId: course.id,
+            time: slotAction.time,
+            bookHref: slotAction.bookHref,
+          });
+          setSlotAuthBusy(true);
+          void signInWithGoogle(returnTo).finally(() => setSlotAuthBusy(false));
+        }}
+        onShare={() => {
+          if (!slotAction) return;
+          if (!user?.id) {
+            savePendingAuthAction({
+              intent: 'share',
+              courseId: course.id,
+              time: slotAction.time,
+              bookHref: slotAction.bookHref,
+            });
+            setSlotAuthBusy(true);
+            void signInWithGoogle(returnTo).finally(() => setSlotAuthBusy(false));
+            return;
+          }
+          const selectedId = slotAction.time.id;
+          setSlotAction(null);
+          onShareTimes(selectedId);
+        }}
+      />
+      <SignInPromptModal
+        open={signInToShareOpen}
+        onClose={closeSignInToShare}
+        variant="share"
+        returnTo={returnTo}
+      />
       <PlanRoundModal
         open={planRoundOpen}
         onClose={() => setPlanRoundOpen(false)}

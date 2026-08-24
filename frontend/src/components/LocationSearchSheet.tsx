@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { Course } from '../types';
+import type { Course, FetchRadiusMi } from '../types';
 import { formatCityState } from '../lib/courseRecord';
+import { FETCH_RADIUS_OPTIONS_MI } from '../lib/timesFetchScope';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export type LocationSearchSheetProps = {
@@ -11,6 +12,10 @@ export type LocationSearchSheetProps = {
   currentQuery: string;
   /** True when GPS (or equivalent) is available for a true Near me. */
   locationAvailable?: boolean;
+  /** Hide radius for course-name text search — distance only applies to an area. */
+  showRadius?: boolean;
+  radiusValue: FetchRadiusMi | 'all';
+  onRadiusChange: (value: FetchRadiusMi | 'all') => void;
   onSelectNearMe: () => void;
   onSelectQuery: (query: string) => void;
   onSelectCourse: (course: Course) => void;
@@ -42,6 +47,9 @@ export function LocationSearchSheet({
   courses,
   currentQuery,
   locationAvailable = false,
+  showRadius = true,
+  radiusValue,
+  onRadiusChange,
   onSelectNearMe,
   onSelectQuery,
   onSelectCourse,
@@ -161,6 +169,40 @@ export function LocationSearchSheet({
           ) : null}
         </div>
 
+        {showRadius ? (
+          <div className="location-sheet-radius" role="radiogroup" aria-labelledby={`${titleId}-radius`}>
+            <div className="location-sheet-radius-label" id={`${titleId}-radius`}>
+              Within
+            </div>
+            <div className="location-sheet-radius-row">
+              {FETCH_RADIUS_OPTIONS_MI.map((mi) => {
+                const on = radiusValue === mi;
+                return (
+                  <button
+                    key={mi}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    className={`location-sheet-radius-chip${on ? ' is-on' : ''}`}
+                    onClick={() => onRadiusChange(mi)}
+                  >
+                    {mi} mi
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={radiusValue === 'all'}
+                className={`location-sheet-radius-chip${radiusValue === 'all' ? ' is-on' : ''}`}
+                onClick={() => onRadiusChange('all')}
+              >
+                Statewide
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="location-sheet-body">
           <button
             type="button"
@@ -186,9 +228,11 @@ export function LocationSearchSheet({
                 {locationAvailable ? 'Near me' : 'Salt Lake area'}
               </span>
               <span className="location-sheet-row-sub">
-                {locationAvailable
-                  ? 'Courses around your location'
-                  : 'Default area until location is available'}
+                {radiusValue === 'all'
+                  ? 'All live markets'
+                  : locationAvailable
+                    ? `Courses within ${radiusValue} miles`
+                    : `Default area within ${radiusValue} miles`}
               </span>
             </span>
             {nearMeActive && !q ? <span className="location-sheet-check" aria-hidden>✓</span> : null}
