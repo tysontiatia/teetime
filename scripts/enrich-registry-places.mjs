@@ -22,7 +22,7 @@
  *   --dry-run       print what would change; write nothing
  */
 
-import { findPlace, loadDotEnv, sleep } from './lib/courses-json.mjs';
+import { findPlace, loadDotEnv, sleep, stateFromAddress } from './lib/courses-json.mjs';
 
 loadDotEnv();
 
@@ -102,7 +102,13 @@ for (const row of rows) {
     continue;
   }
 
-  const place = await findPlace(record.name, record.lat, record.lng, API_KEY);
+  const place = await findPlace(
+    record.name,
+    record.lat,
+    record.lng,
+    API_KEY,
+    stateFromAddress(record.address),
+  );
   await sleep(300);
   if (!place) {
     console.log(`✗  ${row.slug}  — no Places match`);

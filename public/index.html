@@ -3,18 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Find live tee times across Utah golf courses in one place. Compare times and prices, create alerts, and plan rounds with your group. More states coming soon." />
-  <meta name="theme-color" content="#FBFBF8" />
+  <meta name="description" content="Find live tee times across Utah and Idaho golf courses in one place. Compare times and prices, create alerts, and plan rounds with your group. More states coming soon." />
+  <meta name="theme-color" content="#0B120E" />
   <script>
     (function () {
       try {
-        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (dark) {
-          document.documentElement.dataset.theme = 'dark';
-          document.documentElement.style.colorScheme = 'dark';
-          var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', '#0F1713');
-        }
+        // Dark-first, but honour a theme the visitor already chose inside /app/.
+        var stored = localStorage.getItem('tt-theme');
+        var preference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'dark';
+        var dark = preference === 'dark' || (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var theme = dark ? 'dark' : 'light';
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', dark ? '#0B120E' : '#FBFBF8');
       } catch (e) {}
     })();
   </script>
@@ -22,17 +24,17 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tee-time.io/" />
   <meta property="og:title" content="tee-time.io · Every tee time. One search." />
-  <meta property="og:description" content="Find live tee times across Utah: ForeUp, Chronogolf, MemberSports, and more in one search." />
+  <meta property="og:description" content="Find live tee times across Utah and Idaho: ForeUp, Chronogolf, MemberSports, and more in one search." />
   <meta property="og:site_name" content="tee-time.io" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="tee-time.io · Every tee time. One search." />
-  <meta name="twitter:description" content="67+ Utah courses in one Find. Plan with your group. Get alerted when slots open." />
+  <meta name="twitter:description" content="185+ Utah and Idaho courses in one Find. Plan with your group. Get alerted when slots open." />
   <title>tee-time.io · Every tee time. One search.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://utah-tee-times.tysontiatia.workers.dev" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Familjen+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -41,8 +43,11 @@
     "url": "https://tee-time.io",
     "applicationCategory": "SportsApplication",
     "operatingSystem": "Web",
-    "description": "Find golf tee times across ForeUp, Chronogolf, and MemberSports. Live in Utah with more states coming soon.",
-    "areaServed": { "@type": "State", "name": "Utah" },
+    "description": "Find golf tee times across ForeUp, Chronogolf, and MemberSports. Live in Utah and Idaho with more states coming soon.",
+    "areaServed": [
+      { "@type": "State", "name": "Utah" },
+      { "@type": "State", "name": "Idaho" }
+    ],
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
@@ -54,6 +59,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* brand:tokens:light — keep in sync with frontend/src/index.css (npm run brand:check) */
     :root {
       --paper: #FBFBF8;
       --ink: #141E19;
@@ -61,47 +67,56 @@
       --ink-3: #8A958F;
       --pine: #1E4D3B;
       --pine-deep: #143528;
-      --fairway: #B7EA3C;
-      --fairway-ink: #2A4405;
+      --fairway: #C6F24E;
+      --fairway-ink: #0B120E;
       --green-soft: #F0FADB;
       --sand: #EFECE3;
       --line: #E4E2DA;
       --card: #FFFFFF;
       --card-2: #F5F4EF;
       --border-strong: #D4D1C8;
+      --shadow-hover: 0 12px 32px rgba(20,30,25,.10), 0 2px 8px rgba(20,30,25,.06);
+      /* The ".io" in the wordmark: lime fails contrast on cream, so it darkens in light mode. */
+      --wordmark-accent: #4C7A22;
+/* brand:tokens:light:end */
       --accent: var(--fairway);
       --accent-ink: var(--fairway-ink);
-      --accent-hover: #C8F04A;
-      --shadow: 0 12px 32px rgba(20,30,25,.10), 0 2px 8px rgba(20,30,25,.06);
-      --shadow-hover: var(--shadow);
+      --accent-hover: #D2F86A;
+      --shadow: var(--shadow-hover);
       --radius: 18px;
       --radius-sm: 12px;
-      --font: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
-      --font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
-      --font-mono: 'Spline Sans Mono', ui-monospace, monospace;
+/* brand:tokens:type — keep in sync with frontend/src/index.css (npm run brand:check) */
+      --font: 'Schibsted Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --font-display: 'Familjen Grotesk', ui-sans-serif, system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+/* brand:tokens:type:end */
       --gutter: max(18px, env(safe-area-inset-left, 0px));
       color-scheme: light;
     }
 
+/* brand:tokens:dark — keep in sync with frontend/src/index.css (npm run brand:check) */
     html[data-theme='dark'] {
-      --paper: #0C100B;
-      --ink: #F2F5EA;
-      --ink-2: #97A38D;
-      --ink-3: #6B755F;
+      --paper: #0B120E;
+      --ink: #EEF2EC;
+      --ink-2: #9DAA9F;
+      --ink-3: #7C8B82;
       --pine: #3F8F68;
-      --pine-deep: #1E4620;
-      --fairway: #C9F542;
-      --fairway-ink: #1E4620;
-      --green-soft: #24352C;
-      --sand: #131A10;
-      --line: #26301D;
-      --card: #131A10;
-      --card-2: #172012;
-      --border-strong: #37452B;
-      --accent: #C9F542;
-      --accent-ink: #1E4620;
-      --accent-hover: #D6FF5C;
-      --shadow: 0 14px 36px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.22);
+      --pine-deep: #2F6B4E;
+      --fairway: #C6F24E;
+      --fairway-ink: #0B120E;
+      --green-soft: #1B2A20;
+      --sand: #121B15;
+      --line: #22302A;
+      --card: #121B15;
+      --card-2: #16211A;
+      --border-strong: #2E3D35;
+      --shadow-hover: 0 14px 36px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.22);
+      --wordmark-accent: var(--fairway);
+/* brand:tokens:dark:end */
+      --accent: var(--fairway);
+      --accent-ink: var(--fairway-ink);
+      --accent-hover: #D2F86A;
+      --shadow: var(--shadow-hover);
       color-scheme: dark;
     }
 
@@ -269,8 +284,7 @@
     .logo-img.is-dark { display: none; }
     html[data-theme='dark'] .logo-img.is-light { display: none; }
     html[data-theme='dark'] .logo-img.is-dark { display: block; }
-    .logo .io { color: #4C7A22; font-weight: 400; }
-    html[data-theme='dark'] .logo .io { color: var(--accent); }
+    .logo .io { color: var(--wordmark-accent); font-weight: 400; }
 
     .nav-links { display: flex; gap: 24px; font-size: 15px; color: var(--ink-2); }
     .nav-links a:hover { color: var(--ink); }
@@ -531,15 +545,11 @@
       display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 36px; align-items: center;
       padding: 48px; overflow: hidden;
     }
-    .alert-cta form { display: flex; gap: 10px; margin-top: 22px; max-width: 420px; flex-wrap: wrap; }
-    .alert-cta input {
-      flex: 1; min-width: 180px;
-      background: var(--paper); border: 1px solid var(--border-strong);
-      border-radius: 999px; padding: 12px 18px;
-      color: var(--ink); font-family: var(--font); font-size: 15px; outline: none;
+    .alert-actions {
+      display: flex; align-items: center; gap: 14px;
+      margin-top: 22px; flex-wrap: wrap;
     }
-    .alert-cta input:focus { border-color: var(--pine); }
-    html[data-theme='dark'] .alert-cta input:focus { border-color: var(--accent); }
+    .alert-note { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
     .phone {
       background: var(--paper); border: 1px solid var(--border-strong);
       border-radius: 26px; padding: 22px 18px; max-width: 320px; margin: 0 auto; width: 100%;
@@ -736,10 +746,9 @@
 
       .alert-cta { padding: 28px 22px; border-radius: 22px; text-align: center; }
       .alert-cta .lede { max-width: 22rem; margin-inline: auto; }
-      .alert-cta form {
+      .alert-actions {
         flex-direction: column; max-width: 420px; margin: 22px auto 0;
       }
-      .alert-cta input { width: 100%; min-width: 0; }
       .alert-cta .btn { width: 100%; }
       .phone { margin-top: 8px; }
 
@@ -856,14 +865,11 @@
   <header class="hero wrap hero-enter" id="heroEnter">
     <h1>Every tee time.<br><span class="accent">One search.</span></h1>
     <p class="sub">
-      Live availability across Utah courses — compare, book direct, and get alerted when a slot opens.
+      <span id="heroSub">Live availability across Utah and Idaho courses</span> — compare, book direct, and get alerted when a slot opens.
     </p>
 
+    <!-- Field order mirrors the app's desktop search pill: When · Players · Where. -->
     <form class="search" id="heroSearchForm" aria-label="Find tee times">
-      <div class="field">
-        <label for="heroQ">Where</label>
-        <input id="heroQ" name="q" type="search" placeholder="Course, city, or zip" autocomplete="off" maxlength="120" />
-      </div>
       <div class="field">
         <label for="heroDate">When</label>
         <span class="hero-date">
@@ -879,6 +885,10 @@
           <option value="3">3 players · 18 holes</option>
           <option value="4">4 players · 18 holes</option>
         </select>
+      </div>
+      <div class="field">
+        <label for="heroQ">Where</label>
+        <input id="heroQ" name="q" type="search" placeholder="Course, city, or zip" autocomplete="off" maxlength="120" />
       </div>
       <button type="submit" class="go" aria-label="Find tee times">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
@@ -898,7 +908,7 @@
         <article class="step">
           <p class="n">01 · Find</p>
           <h3>Search once</h3>
-          <p>Where, when, and how many. We check every tracked course at once so you stop juggling tabs.</p>
+          <p>When, how many, and where. We check every tracked course at once so you stop juggling tabs.</p>
         </article>
         <article class="step">
           <p class="n">02 · Alerts</p>
@@ -915,7 +925,7 @@
 
     <section class="band wrap band--tight" aria-label="Coverage">
       <div class="trust-strip">
-        <span><b id="courseCountStat">67</b> courses tracked</span>
+        <span><b id="courseCountStat">187</b> courses tracked</span>
         <span>ForeUp · Chronogolf · MemberSports</span>
         <span>refreshed every few minutes</span>
       </div>
@@ -950,10 +960,10 @@
           <p class="kicker">Alerts</p>
           <h2>The good times get taken. Get them back.</h2>
           <p class="lede">Tell us the course and the window you want. The moment a slot opens, it's in your inbox — usually while everyone else is still refreshing.</p>
-          <form id="alertForm">
-            <input type="email" id="alertEmail" placeholder="Your email" aria-label="Email" autocomplete="email" />
-            <button type="submit" class="btn">Create free alert</button>
-          </form>
+          <div class="alert-actions">
+            <button type="button" class="btn" onclick="openAuthModal('signin')">Create a free alert</button>
+            <span class="alert-note">Free · Google sign-in · unsubscribe anytime</span>
+          </div>
         </div>
         <div class="phone" aria-hidden="true">
           <p class="ph-head">Inbox · Today 7:02 AM</p>
@@ -980,10 +990,10 @@
     <section class="band wrap band--tight" id="states">
       <p class="kicker">Where we're live</p>
       <h2>Starting where the golf is underrated.</h2>
-      <p class="lede">Utah is live with <span id="stateCourseCount">67</span> public courses tracked. More states are on the way. Tell us where to go next.</p>
-      <div class="states">
-        <span class="state live"><span class="dot"></span>Utah · <span id="statePillCount">67</span> courses live</span>
-        <span class="state"><span class="dot"></span>Idaho · coming soon</span>
+      <p class="lede"><span id="statesLede">Utah and Idaho are live with <span id="stateCourseCount">187</span> public courses tracked.</span> More states are on the way. Tell us where to go next.</p>
+      <div class="states" id="statesList">
+        <span class="state live"><span class="dot"></span>Utah · 95 courses live</span>
+        <span class="state live"><span class="dot"></span>Idaho · 92 courses live</span>
         <span class="state"><span class="dot"></span>Arizona · coming soon</span>
         <span class="state"><span class="dot"></span>Colorado · coming soon</span>
         <button type="button" class="state waitlist" onclick="openAuthModal('signin')">+ Your state? Sign in with Google</button>
@@ -1190,7 +1200,7 @@
       if (fallback) fallback.hidden = true;
       setLiveActivityHead(
         'Fresh slots we’d alert you about',
-        items.length + ' openings in Utah in the last 6 hours. Create an alert and we’ll email you when the next one drops.',
+        items.length + ' openings in the last 6 hours. Create an alert and we’ll email you when the next one drops.',
       );
     }
 
@@ -1204,7 +1214,7 @@
       if (ctaWrap) ctaWrap.hidden = true;
       if (fallback) fallback.hidden = false;
       var detail = courseCount
-        ? 'Follow your favorite courses across ' + courseCount + " Utah tracks. We'll notify you when a cancellation or new release opens up."
+        ? 'Follow any of the ' + courseCount + " courses we track. We'll notify you when a cancellation or new release opens up."
         : "Follow your favorite courses. We'll notify you when a cancellation or new release opens up.";
       setLiveActivityHead('Follow your courses. Get the email.', detail);
     }
@@ -1245,10 +1255,88 @@
     function setCatalogCount(n) {
       const stat = document.getElementById('courseCountStat');
       if (stat) stat.textContent = String(n);
-      ['stateCourseCount', 'statePillCount'].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el) el.textContent = String(n);
+      const stateCount = document.getElementById('stateCourseCount');
+      if (stateCount) stateCount.textContent = String(n);
+    }
+
+    // Coverage copy is derived, never hardcoded — a state goes live the moment
+    // its courses land in the registry. Mirrors formatLiveMarkets() in the app.
+    const STATE_NAMES = {
+      UT: 'Utah', ID: 'Idaho', AZ: 'Arizona', CO: 'Colorado',
+      NV: 'Nevada', WY: 'Wyoming', NM: 'New Mexico', MT: 'Montana',
+    };
+    const ROADMAP_STATES = ['AZ', 'CO', 'NV'];
+    const LIVE_MARKET_MIN_COURSES = 5;
+
+    function stateOf(course) {
+      const s = String((course && course.state) || '').trim().toUpperCase();
+      if (s.length === 2) return s;
+      const m = /\b([A-Z]{2})[\s,]+\d{5}(?:-\d{4})?\b/.exec(String((course && course.address) || ''));
+      if (m) return m[1];
+      const tz = { 'America/Boise': 'ID', 'America/Denver': 'UT' };
+      return tz[String((course && course.timezone) || '')] || null;
+    }
+
+    function joinNames(names) {
+      if (names.length <= 1) return names[0] || '';
+      if (names.length === 2) return names[0] + ' and ' + names[1];
+      return names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1];
+    }
+
+    function setCoverage(courses) {
+      const list = document.getElementById('statesList');
+      const lede = document.getElementById('statesLede');
+      if (!Array.isArray(courses) || courses.length === 0) return;
+
+      const counts = new Map();
+      courses.forEach(function (c) {
+        const st = stateOf(c);
+        if (st) counts.set(st, (counts.get(st) || 0) + 1);
       });
+
+      const ranked = [...counts.entries()].sort(function (a, b) {
+        return b[1] - a[1] || a[0].localeCompare(b[0]);
+      });
+      // Drop one-off imports and bad geocodes so they never reach marketing copy.
+      let live = ranked.filter(function (e) { return e[1] >= LIVE_MARKET_MIN_COURSES; });
+      if (live.length === 0) live = ranked.slice(0, 1);
+
+      const liveTotal = live.reduce(function (n, e) { return n + e[1]; }, 0);
+      const liveNames = live.map(function (e) { return STATE_NAMES[e[0]] || e[0]; });
+
+      if (lede) {
+        lede.textContent =
+          joinNames(liveNames) +
+          (live.length === 1 ? ' is live with ' : ' are live with ') +
+          liveTotal + ' public courses tracked.';
+      }
+
+      const heroSub = document.getElementById('heroSub');
+      if (heroSub) {
+        heroSub.textContent = 'Live availability across ' + joinNames(liveNames) + ' courses';
+      }
+
+      // Advertise the live-market total, not the raw row count — strays outside a
+      // live state would otherwise inflate the headline number.
+      setCatalogCount(liveTotal);
+
+      if (!list) return;
+      const waitlist = list.querySelector('.waitlist');
+      const liveCodes = new Set(live.map(function (e) { return e[0]; }));
+      const pills = live
+        .map(function (e) {
+          return '<span class="state live"><span class="dot"></span>' +
+            (STATE_NAMES[e[0]] || e[0]) + ' · ' + e[1] + ' courses live</span>';
+        })
+        .concat(
+          ROADMAP_STATES.filter(function (code) { return !liveCodes.has(code); }).map(function (code) {
+            return '<span class="state"><span class="dot"></span>' +
+              (STATE_NAMES[code] || code) + ' · coming soon</span>';
+          }),
+        )
+        .join('');
+      list.innerHTML = pills;
+      if (waitlist) list.appendChild(waitlist);
     }
 
     function setHeroWash(courses) {
@@ -1274,6 +1362,7 @@
         .then(function (courses) {
           if (!Array.isArray(courses)) return;
           setCatalogCount(courses.length);
+          setCoverage(courses); // refines the count to live markets only
           setHeroWash(courses);
           const bySlug = {};
           courses.forEach(function (c) {
@@ -1339,11 +1428,6 @@
         });
       }
     })();
-
-    document.getElementById('alertForm')?.addEventListener('submit', function (e) {
-      e.preventDefault();
-      openAuthModal('signin');
-    });
 
     (function initMenu() {
       const btn = document.getElementById('menuBtn');

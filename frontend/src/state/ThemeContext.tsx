@@ -14,6 +14,9 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/** Brand default is dark; an explicit toggle still wins and persists. */
+const DEFAULT_PREFERENCE: ThemePreference = 'dark';
+
 function readStoredPreference(): ThemePreference {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -21,7 +24,7 @@ function readStoredPreference(): ThemePreference {
   } catch {
     // ignore
   }
-  return 'system';
+  return DEFAULT_PREFERENCE;
 }
 
 function systemPrefersDark(): boolean {
@@ -38,7 +41,7 @@ function applyResolvedTheme(resolved: ResolvedTheme) {
   root.dataset.theme = resolved;
   root.style.colorScheme = resolved;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0F1713' : '#1E4D3B');
+  if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0B120E' : '#FBFBF8');
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -46,7 +49,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     typeof window !== 'undefined' ? readStoredPreference() : 'system',
   );
   const [resolved, setResolved] = useState<ResolvedTheme>(() =>
-    typeof window !== 'undefined' ? resolvePreference(readStoredPreference()) : 'light',
+    typeof window !== 'undefined' ? resolvePreference(readStoredPreference()) : 'dark',
   );
 
   useEffect(() => {

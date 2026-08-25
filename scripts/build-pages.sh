@@ -2,6 +2,8 @@
 # Assemble Cloudflare Pages output: static public/ + Vite app at /app/
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+node scripts/brand-check.mjs
 cd "$ROOT/frontend"
 npm ci
 npm run lint

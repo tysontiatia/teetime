@@ -7,6 +7,7 @@
     "dev:worker": "npx wrangler dev --config worker/wrangler.toml",
     "lint": "npm run lint --prefix frontend",
     "test": "node --test worker/*.test.mjs",
+    "brand:check": "node scripts/brand-check.mjs",
     "preview": "npm run preview --prefix frontend",
     "check": "bash scripts/build-pages.sh",
     "export:catalog-csv": "node scripts/export-course-catalog-csv.mjs",
@@ -15,7 +16,8 @@
     "rates:sql": "node scripts/sheet-rates-to-sql.mjs",
     "registry:backfill": "node scripts/backfill-course-registry.mjs",
     "registry:sync": "node scripts/sync-courses-from-registry.mjs",
-    "registry:places": "node scripts/enrich-registry-places.mjs"
+    "registry:places": "node scripts/enrich-registry-places.mjs",
+    "courses:audit": "node scripts/audit-course-catalog.mjs"
   },
   "devDependencies": {
     "zipcodes": "^8.0.0"

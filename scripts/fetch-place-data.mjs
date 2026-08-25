@@ -1,4 +1,11 @@
-import { applyPlaceMetadata, findPlace, loadCourses, sleep, writeCourses } from './lib/courses-json.mjs';
+import {
+  applyPlaceMetadata,
+  findPlace,
+  loadCourses,
+  sleep,
+  stateFromAddress,
+  writeCourses,
+} from './lib/courses-json.mjs';
 
 const API_KEY = process.env.GOOGLE_PLACES_KEY;
 if (!API_KEY) {
@@ -23,7 +30,13 @@ for (const course of courses) {
     continue;
   }
 
-  const place = await findPlace(course.name, course.lat, course.lng, API_KEY);
+  const place = await findPlace(
+    course.name,
+    course.lat,
+    course.lng,
+    API_KEY,
+    stateFromAddress(course.address),
+  );
   if (!place) {
     console.log(`✗  ${course.name}  — not found`);
     course.rating = null;

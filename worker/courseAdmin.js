@@ -600,9 +600,41 @@ export async function fetchRegistryCourses(env) {
 }
 
 export function registryRowsToCourses(rows) {
-  return rows
-    .map((r) => r.record)
-    .filter((rec) => isPublicRegistryRecord(rec));
+  return withDerivedState(
+    rows
+      .map((r) => r.record)
+      .filter((rec) => isPublicRegistryRecord(rec)),
+  );
+}
+
+/**
+ * Registry records carry a postal address but no state column, so coverage copy
+ * ("live in Utah and Idaho") had nothing to read and silently fell back to Utah.
+ * Address is authoritative; timezone only breaks ties for rows missing a ZIP.
+ */
+const ADDRESS_STATE_RE = /\b([A-Z]{2})[\s,]+\d{5}(?:-\d{4})?\b/;
+// Only zones that pin down a single state. America/Denver covers UT, WY, CO, and MT,
+// so guessing Utah from it would mislabel every neighbour we expand into.
+const TIMEZONE_STATE = {
+  'America/Boise': 'ID',
+  'America/Phoenix': 'AZ',
+};
+
+export function deriveCourseState(rec) {
+  if (!rec) return null;
+  const existing = String(rec.state || '').trim().toUpperCase();
+  if (existing.length === 2) return existing;
+  const m = ADDRESS_STATE_RE.exec(String(rec.address || ''));
+  if (m) return m[1];
+  return TIMEZONE_STATE[String(rec.timezone || '')] || null;
+}
+
+export function withDerivedState(courses) {
+  if (!Array.isArray(courses)) return courses;
+  return courses.map((rec) => {
+    const state = deriveCourseState(rec);
+    return state ? { ...rec, state } : rec;
+  });
 }
 
 /** Public Find: hide closed, private, and unfinished QA stubs; keep legacy Utah rows with a platform. */

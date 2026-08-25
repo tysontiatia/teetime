@@ -40,8 +40,19 @@ export async function findPlaceByQuery(query, lat, lng, apiKey) {
   return data.results[0];
 }
 
-export async function findPlace(name, lat, lng, apiKey) {
-  return findPlaceByQuery(`${name} golf course Utah`, lat, lng, apiKey);
+/**
+ * `region` should be the course's own state — a hardcoded one mis-biases every course
+ * outside it, which is how out-of-state courses end up matched to same-named clubs
+ * thousands of miles away. Omit it and the lat/lng bias carries the search.
+ */
+export async function findPlace(name, lat, lng, apiKey, region) {
+  const query = [name, 'golf course', region].filter(Boolean).join(' ');
+  return findPlaceByQuery(query, lat, lng, apiKey);
+}
+
+/** `515 Duncan Ave, Jersey City, NJ 07306, USA` → `NJ` */
+export function stateFromAddress(address) {
+  return /\b([A-Z]{2})[\s,]+\d{5}(?:-\d{4})?\b/.exec(String(address || ''))?.[1] || '';
 }
 
 export function applyPlaceMetadata(course, place) {

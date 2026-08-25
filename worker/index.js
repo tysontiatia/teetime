@@ -1,5 +1,5 @@
 import { handleAvailabilityPoll } from './availabilityPoll.js';
-import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
+import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName, withDerivedState } from './courseAdmin.js';
 import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
 import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
@@ -805,7 +805,7 @@ async function loadCourses(env) {
   }
 
   const res = await fetch('https://tee-time.io/courses.json');
-  coursesCache = await res.json();
+  coursesCache = withDerivedState(await res.json());
   coursesCacheAt = Date.now();
   return coursesCache;
 }

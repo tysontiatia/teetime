@@ -4,11 +4,24 @@
   <meta charset="UTF-8" />
   <title>Signing in…</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <meta name="theme-color" content="#0B120E" />
   <style>
-    body { font-family: -apple-system, sans-serif; display: flex; align-items: center;
-           justify-content: center; min-height: 100vh; margin: 0; background: #F2F5F2; color: #111; }
-    p { font-size: 1rem; color: #637063; }
+    /* Dark by default so the sign-in hand-off doesn't flash white. */
+    body { font-family: 'Schibsted Grotesk', -apple-system, sans-serif; display: flex; align-items: center;
+           justify-content: center; min-height: 100vh; margin: 0; background: #0B120E; color: #EEF2EC; }
+    p { font-size: 1rem; color: #9DAA9F; }
+    html[data-theme='light'] body { background: #FBFBF8; color: #141E19; }
+    html[data-theme='light'] p { color: #4C5A53; }
   </style>
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('tt-theme') === 'light') {
+          document.documentElement.dataset.theme = 'light';
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <p>Signing in…</p>

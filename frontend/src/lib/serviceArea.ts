@@ -167,11 +167,27 @@ function normalize(value: string): string {
     .trim();
 }
 
-export function catalogStateCodes(courses: Array<{ state?: string | null }>): Set<string> {
+/** `NV 89014` / `UT, 84604-1234` — the state in a US postal address. */
+const ADDRESS_STATE_RE = /\b([A-Z]{2})[\s,]+\d{5}(?:-\d{4})?\b/;
+
+type CourseRegion = { state?: string | null; address?: string | null };
+
+/**
+ * The worker sends a derived `state`, but fall back to the address so coverage copy
+ * stays correct if that field is ever absent — without it the catalog reads as
+ * Utah-only, which silently understates where we're live.
+ */
+function courseState(course: CourseRegion): string {
+  const st = String(course.state || '').trim().toUpperCase();
+  if (st.length === 2) return st;
+  return ADDRESS_STATE_RE.exec(String(course.address || ''))?.[1] ?? '';
+}
+
+export function catalogStateCodes(courses: CourseRegion[]): Set<string> {
   const out = new Set<string>();
   for (const c of courses) {
-    const st = String(c.state || '').trim().toUpperCase();
-    if (st.length === 2) out.add(st);
+    const st = courseState(c);
+    if (st) out.add(st);
   }
   if (out.size === 0) out.add('UT');
   return out;
@@ -180,11 +196,11 @@ export function catalogStateCodes(courses: Array<{ state?: string | null }>): Se
 /** States with enough catalog to mention in copy (drops 1-off imports). */
 const LIVE_MARKET_MIN_COURSES = 5;
 
-export function formatLiveMarkets(courses: Array<{ state?: string | null }>): string {
+export function formatLiveMarkets(courses: CourseRegion[]): string {
   const counts = new Map<string, number>();
   for (const c of courses) {
-    const st = String(c.state || '').trim().toUpperCase();
-    if (st.length === 2) counts.set(st, (counts.get(st) || 0) + 1);
+    const st = courseState(c);
+    if (st) counts.set(st, (counts.get(st) || 0) + 1);
   }
   const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const primary = ranked.filter(([, n]) => n >= LIVE_MARKET_MIN_COURSES).map(([code]) => code);

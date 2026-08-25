@@ -69,10 +69,25 @@ function page({ appPath, title, ogTitle, ogDescription, ogImage, ogUrl }) {
   <meta property="og:description" content="${esc(ogDescription)}" />
   <meta name="twitter:title" content="${esc(ogTitle)}" />
   <meta name="twitter:description" content="${esc(ogDescription)}" />${imageTags}
+  <meta name="theme-color" content="#0B120E" />
   <meta http-equiv="refresh" content="0;url=${esc(appPath)}" />
   <script>location.replace(${JSON.stringify(appPath)} + location.search + location.hash);</script>
+  <style>
+    /* Dark-first to match the app, so a shared link never flashes white on open. */
+    html { color-scheme: dark; }
+    body {
+      margin: 0; padding: 2rem; background: #0B120E; color: #EEF2EC;
+      font-family: 'Schibsted Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    a { color: #C6F24E; }
+    @media (prefers-color-scheme: light) {
+      html { color-scheme: light; }
+      body { background: #FBFBF8; color: #141E19; }
+      a { color: #4C7A22; }
+    }
+  </style>
 </head>
-<body style="font-family:system-ui,sans-serif;padding:2rem;color:#141E19;background:#FBFBF8">
+<body>
   <p>Opening the round… <a href="${esc(appPath)}">Continue to tee-time.io</a></p>
 </body>
 </html>`;

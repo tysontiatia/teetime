@@ -1,4 +1,12 @@
-import { applyPlaceMetadata, findPlace, loadCourses, loadDotEnv, sleep, writeCourses } from './lib/courses-json.mjs';
+import {
+  applyPlaceMetadata,
+  findPlace,
+  loadCourses,
+  loadDotEnv,
+  sleep,
+  stateFromAddress,
+  writeCourses,
+} from './lib/courses-json.mjs';
 
 loadDotEnv();
 
@@ -21,7 +29,13 @@ for (const course of courses) {
     continue;
   }
 
-  const place = await findPlace(course.name, course.lat, course.lng, API_KEY);
+  const place = await findPlace(
+    course.name,
+    course.lat,
+    course.lng,
+    API_KEY,
+    stateFromAddress(course.address),
+  );
   if (!place) {
     console.log(`✗  ${course.name}  — not found`);
     delete course.photo_reference;
