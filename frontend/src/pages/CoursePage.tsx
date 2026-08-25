@@ -461,7 +461,7 @@ export function CoursePage() {
               aria-label={`Plan a round at ${course.name}`}
               title="Plan a round"
               disabled={!canShare || authLoading}
-              onClick={onShareTimes}
+              onClick={() => onShareTimes()}
             >
               <PlanIcon />
             </button>
@@ -834,7 +834,7 @@ export function CoursePage() {
                 type="button"
                 className="tee-panel-plan-link"
                 disabled={!canShare || authLoading}
-                onClick={onShareTimes}
+                onClick={() => onShareTimes()}
               >
                 <PlanIcon size={16} />
                 Plan a round
