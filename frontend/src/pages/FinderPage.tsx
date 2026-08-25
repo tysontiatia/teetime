@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, FetchRadiusMi, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
 import {
   matchesPreset,
@@ -7,6 +8,7 @@ import {
   toYmd,
   formatDateShort,
   formatDateCompact,
+  formatTime12h,
   todayYmdUtah,
   clampDateToTodayOrLater,
 } from '../lib/time';
@@ -28,6 +30,15 @@ import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
+import { SlotActionSheet } from '../components/SlotActionSheet';
+import { slotActionMeta } from '../lib/slotAction';
+import {
+  authReturnPath,
+  clearPendingAuthAction,
+  peekPendingAuthAction,
+  savePendingAuthAction,
+  takePendingAuthAction,
+} from '../lib/pendingAuthAction';
 import { courseDetailQueryString } from '../lib/finderUrl';
 import { holesFilterLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
@@ -40,6 +51,7 @@ import {
   resolvePlaceAnchor,
   DEFAULT_FETCH_RADIUS_MI,
 } from '../lib/timesFetchScope';
+import { resolveServiceArea } from '../lib/serviceArea';
 import { teeTimeFitsPlayers } from '../lib/teeTimeFitsPlayers';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
@@ -77,8 +89,18 @@ type PlanRoundTarget = {
   initialSelectedId: string | null;
 };
 
+type SlotActionTarget = {
+  course: Course;
+  time: TeeTime;
+  times: TeeTime[];
+  bookHref: string | null;
+  detailHref: string;
+  resumeBook?: boolean;
+};
+
 export function FinderPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [sp, setSp] = useSearchParams();
   const params = useMemo(() => parseParams(sp), [sp]);
   const todayYmd = todayYmdUtah();
@@ -105,42 +127,48 @@ export function FinderPage() {
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const isCompactShell = useIsCompactShell();
   const querySentinelRef = useRef<HTMLDivElement>(null);
+  const queryDockRef = useRef<HTMLDivElement>(null);
   const [queryScrolledAway, setQueryScrolledAway] = useState(false);
   const [queryPinnedOpen, setQueryPinnedOpen] = useState(false);
-  const { user, loading: authLoading } = useAuth();
+  const [queryDockHoldPx, setQueryDockHoldPx] = useState<number | null>(null);
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
 
   useEffect(() => {
     if (!isCompactShell) {
       setQueryScrolledAway(false);
       setQueryPinnedOpen(false);
+      setQueryDockHoldPx(null);
       return;
     }
     const el = querySentinelRef.current;
     if (!el) return;
 
-    const headerHeight = () => {
+    let io: IntersectionObserver | null = null;
+    const observe = () => {
+      io?.disconnect();
       const headerEl = document.querySelector('.app-header');
-      return headerEl instanceof HTMLElement ? headerEl.getBoundingClientRect().height : 72;
+      const headerH =
+        headerEl instanceof HTMLElement ? headerEl.getBoundingClientRect().height : 56;
+      io = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry) return;
+          const away = !entry.isIntersecting;
+          setQueryScrolledAway(away);
+          if (!away) {
+            setQueryPinnedOpen(false);
+            setQueryDockHoldPx(null);
+          }
+        },
+        { root: null, threshold: 0, rootMargin: `-${Math.round(headerH + 8)}px 0px 0px 0px` },
+      );
+      io.observe(el);
     };
 
-    const update = () => {
-      // Stay collapsed until the user is back near the top — avoids IO flicker when
-      // the dock shortens and the sentinel jumps upward.
-      if (window.scrollY <= 56) {
-        setQueryScrolledAway(false);
-        setQueryPinnedOpen(false);
-        return;
-      }
-      const top = el.getBoundingClientRect().top;
-      if (top < headerHeight() + 4) setQueryScrolledAway(true);
-    };
-
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
+    observe();
+    window.addEventListener('resize', observe);
     return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
+      io?.disconnect();
+      window.removeEventListener('resize', observe);
     };
   }, [isCompactShell]);
 
@@ -175,8 +203,6 @@ export function FinderPage() {
     },
     [sp, setSp]
   );
-
-  const radiusSelectValue: string = fetchAllUtah ? 'all' : String(radiusMi);
 
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
 
@@ -219,6 +245,20 @@ export function FinderPage() {
   );
 
   const fetchPool = timesFetchScope.fetchPool;
+
+  const serviceArea = useMemo(
+    () =>
+      resolveServiceArea({
+        courses: workerCourses,
+        userLocation,
+        locationQuery: params.locationQuery,
+        fetchAll: fetchAllUtah,
+        catalogHitsForQuery:
+          timesFetchScope.mode === 'search' ? timesFetchScope.searchMatchCount : 0,
+      }),
+    [workerCourses, userLocation, params.locationQuery, fetchAllUtah, timesFetchScope],
+  );
+  const showOutOfMarket = !catalogLoading && !catalogError && serviceArea.outside;
 
   const fetchSlugSet = useMemo(() => new Set(fetchPool.map((c) => c.id)), [fetchPool]);
 
@@ -404,7 +444,9 @@ export function FinderPage() {
 
   const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
-    : openTeeTimeCount > 0
+    : showOutOfMarket
+      ? 'Outside live markets'
+      : openTeeTimeCount > 0
       ? `${openTeeTimeCount} tee time${openTeeTimeCount === 1 ? '' : 's'}`
       : loadingTimes
         ? 'Finding tee times…'
@@ -425,11 +467,15 @@ export function FinderPage() {
 
   const [planRound, setPlanRound] = useState<PlanRoundTarget | null>(null);
   const [planAfterSignIn, setPlanAfterSignIn] = useState<PlanRoundTarget | null>(null);
+  const [slotAction, setSlotAction] = useState<SlotActionTarget | null>(null);
+  const [slotAuthBusy, setSlotAuthBusy] = useState(false);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
   const closeSignInToShare = useCallback(() => {
     setSignInToShareOpen(false);
     setPlanAfterSignIn(null);
+    clearPendingAuthAction();
   }, []);
+  const returnTo = authReturnPath(location.pathname, location.search);
 
   useEffect(() => {
     if (user?.id && planAfterSignIn) {
@@ -440,14 +486,20 @@ export function FinderPage() {
   }, [user?.id, planAfterSignIn]);
 
   const requestShareRound = useCallback(
-    (course: Course, courseTimes: TeeTime[]) => {
+    (course: Course, courseTimes: TeeTime[], selectedId?: string | null) => {
       if (courseTimes.length === 0) return;
       const target: PlanRoundTarget = {
         course,
         times: courseTimes,
-        initialSelectedId: courseTimes[0]?.id ?? null,
+        initialSelectedId: selectedId ?? courseTimes[0]?.id ?? null,
       };
       if (!user?.id) {
+        savePendingAuthAction({
+          intent: 'share',
+          courseId: course.id,
+          time: courseTimes.find((t) => t.id === target.initialSelectedId) ?? courseTimes[0] ?? null,
+          bookHref: null,
+        });
         setPlanAfterSignIn(target);
         setSignInToShareOpen(true);
         return;
@@ -456,6 +508,54 @@ export function FinderPage() {
     },
     [user?.id],
   );
+
+  useEffect(() => {
+    if (!user?.id || authLoading) return;
+    const pending = peekPendingAuthAction();
+    if (!pending) return;
+    const course = coursesById.get(pending.courseId);
+    if (!course) {
+      if (catalogLoading) return;
+      takePendingAuthAction();
+      return;
+    }
+
+    if (pending.intent === 'share') {
+      const times = timesByCourse.get(pending.courseId) ?? [];
+      if (times.length === 0 && (loadingTimes || pendingSlugs.has(pending.courseId))) return;
+      takePendingAuthAction();
+      if (times.length === 0) return;
+      setPlanRound({
+        course,
+        times,
+        initialSelectedId: pending.time?.id ?? times[0]?.id ?? null,
+      });
+      setSignInToShareOpen(false);
+      setPlanAfterSignIn(null);
+      return;
+    }
+
+    if (pending.intent === 'book' && pending.bookHref && pending.time) {
+      takePendingAuthAction();
+      setSlotAction({
+        course,
+        time: pending.time,
+        times: timesByCourse.get(pending.courseId) ?? [pending.time],
+        bookHref: pending.bookHref,
+        detailHref: `/course/${course.id}?${courseDetailQueryString(params)}`,
+        resumeBook: true,
+      });
+    }
+  }, [
+    user?.id,
+    authLoading,
+    catalogLoading,
+    coursesById,
+    timesByCourse,
+    pendingSlugs,
+    loadingTimes,
+    params,
+  ]);
 
   const setParam = useCallback(
     (key: string, value: string) => {
@@ -504,15 +604,29 @@ export function FinderPage() {
     setLastUpdatedAt(Date.now());
   }, [sp, setSp]);
 
-  const timeChip = (tod: TimeOfDayPreset, label: string) => (
-    <button
-      className={`chip${params.timeOfDay === tod ? ' on' : ''}`}
-      onClick={() => setParam('tod', tod)}
-      type="button"
-    >
-      {label}
-    </button>
-  );
+  const browseLiveMarket = useCallback(() => {
+    setLocationDraft('');
+    const next = new URLSearchParams(sp);
+    next.delete('q');
+    next.set('scope', 'all');
+    next.delete('radius');
+    setSp(next, { replace: true });
+    setLastUpdatedAt(Date.now());
+  }, [sp, setSp]);
+
+  const timeChip = (tod: Exclude<TimeOfDayPreset, 'any'>, label: string) => {
+    const selected = params.timeOfDay === tod;
+    return (
+      <button
+        className={`chip${selected ? ' on' : ''}`}
+        onClick={() => setParam('tod', selected ? '' : tod)}
+        type="button"
+        aria-pressed={selected}
+      >
+        {label}
+      </button>
+    );
+  };
 
   const playersHolesSelect = () => (
     <select
@@ -562,9 +676,18 @@ export function FinderPage() {
 
   const prevDateDisabled = params.date <= todayYmd;
 
-  const whereLabel =
+  const wherePlaceLabel =
     params.locationQuery.trim() ||
     (timesFetchScope.anchor.source === 'gps' ? 'Near me' : 'Salt Lake area');
+
+  const whereLabel = fetchAllUtah
+    ? 'Statewide'
+    : !isCompactShell && radiusMi !== DEFAULT_FETCH_RADIUS_MI
+      ? `${wherePlaceLabel} · ${radiusMi} mi`
+      : wherePlaceLabel;
+
+  const locationRadiusEnabled =
+    fetchAllUtah || !params.locationQuery.trim() || Boolean(placeMatch);
 
   const todSummaryLabel =
     params.timeOfDay === 'morning'
@@ -575,8 +698,6 @@ export function FinderPage() {
           ? 'Twilight'
           : 'Any';
 
-  const radiusSummaryLabel = fetchAllUtah ? 'Statewide' : `${radiusMi} mi`;
-
   const partySummaryLabel =
     params.holes === 'any'
       ? String(params.players)
@@ -585,18 +706,30 @@ export function FinderPage() {
   const querySummaryParts = [
     formatDateCompact(params.date),
     partySummaryLabel,
-    todSummaryLabel,
-    radiusSummaryLabel,
+    ...(params.timeOfDay === 'any' ? [] : [todSummaryLabel]),
+    fetchAllUtah ? 'Statewide' : wherePlaceLabel,
   ];
 
   const queryCollapsed = isCompactShell && queryScrolledAway && !queryPinnedOpen;
+  const queryPinned = isCompactShell && queryScrolledAway && queryPinnedOpen;
   const queryDockClass = [
     'finder-query-dock',
     queryCollapsed ? 'is-collapsed' : '',
-    isCompactShell && queryScrolledAway && queryPinnedOpen ? 'is-pinned-open' : '',
+    queryPinned ? 'is-pinned-open' : '',
   ]
     .filter(Boolean)
     .join(' ');
+
+  const openPinnedQuery = () => {
+    const h = queryDockRef.current?.offsetHeight;
+    setQueryDockHoldPx(typeof h === 'number' && h > 0 ? h : null);
+    setQueryPinnedOpen(true);
+  };
+
+  const closePinnedQuery = () => {
+    setQueryPinnedOpen(false);
+    setQueryDockHoldPx(null);
+  };
 
   return (
     <div className="container">
@@ -628,34 +761,44 @@ export function FinderPage() {
           </div>
         ) : null}
 
-        <div className={queryDockClass}>
-          {queryCollapsed ? (
-            <button
-              type="button"
-              className="finder-query-summary"
-              aria-expanded={false}
-              aria-controls="finder-query-details"
-              onClick={() => setQueryPinnedOpen(true)}
-            >
-              <span className="finder-query-summary-text">{querySummaryParts.join(' · ')}</span>
-              <span className="finder-query-summary-hint" aria-hidden>
-                Edit
-              </span>
-            </button>
-          ) : null}
+        {queryCollapsed
+          ? createPortal(
+              <div className="finder-query-collapsed">
+                <button
+                  type="button"
+                  className="finder-query-summary"
+                  aria-expanded={false}
+                  aria-controls="finder-query-details"
+                  onClick={openPinnedQuery}
+                >
+                  <span className="finder-query-summary-text">{querySummaryParts.join(' · ')}</span>
+                  <span className="finder-query-summary-hint">Edit</span>
+                </button>
+              </div>,
+              document.body,
+            )
+          : null}
 
+        <div
+          className="finder-query-dock-hold"
+          style={queryPinned && queryDockHoldPx != null ? { height: queryDockHoldPx } : undefined}
+        >
+        <div
+          ref={queryDockRef}
+          className={queryDockClass}
+          inert={queryCollapsed ? true : undefined}
+        >
           <div
             id="finder-query-details"
             className="finder-query-details"
-            hidden={queryCollapsed}
           >
-            {isCompactShell && queryScrolledAway && queryPinnedOpen ? (
+            {queryPinned ? (
               <div className="finder-query-pinned-bar">
                 <span className="finder-query-pinned-label">Filters</span>
                 <button
                   type="button"
                   className="finder-query-done"
-                  onClick={() => setQueryPinnedOpen(false)}
+                  onClick={closePinnedQuery}
                 >
                   Done
                 </button>
@@ -827,60 +970,56 @@ export function FinderPage() {
         </div>
 
         <div className="filter-toolbar">
-          <div className="filter-row">
-            {timeChip('any', 'Any time')}
+          <div className="filter-row" role="group" aria-label="Time of day">
             {timeChip('morning', 'Morning')}
             {timeChip('afternoon', 'Afternoon')}
             {timeChip('evening', 'Twilight')}
           </div>
-          <div className="filter-controls">
-            <label className="sort-control radius-control">
-              <span className="visually-hidden">Search radius</span>
-              <select
-                value={radiusSelectValue}
-                aria-label="Search radius"
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === 'all') setRadiusMode('all');
-                  else setRadiusMode(Number(v) as FetchRadiusMi);
-                }}
-              >
-                <option value="15">Within 15 mi</option>
-                <option value="25">Within 25 mi</option>
-                <option value="50">Within 50 mi</option>
-                <option value="all">Statewide</option>
-              </select>
-            </label>
-            <label className="sort-control">
-              <span className="visually-hidden">Sort</span>
-              <select
-                value={params.sortBy}
-                aria-label="Sort"
-                onChange={(e) => setParam('sort', e.target.value as SortBy)}
-              >
-                <option value="distance">Distance</option>
-                <option value="soonest">Soonest</option>
-                <option value="price">Price</option>
-                <option value="rating">Rating</option>
-              </select>
-            </label>
-          </div>
         </div>
           </div>
+        </div>
         </div>
         <div className="finder-query-sentinel" ref={querySentinelRef} aria-hidden />
 
         <div className="result-meta">
-          <span
-            className={`result-count${
-              loadingTimes && withTimesCount === 0 ? ' is-finding' : ''
-            }`}
-          >
-            <strong>{resultCountPrimary}</strong>
-            {resultCountSecondary ? (
-              <span className="result-count-secondary"> · {resultCountSecondary}</span>
+          <div className="result-meta-lead">
+            <span
+              className={`result-count${
+                loadingTimes && withTimesCount === 0 && !showOutOfMarket ? ' is-finding' : ''
+              }`}
+            >
+              <strong>{resultCountPrimary}</strong>
+            </span>
+            {!showOutOfMarket ? (
+              <>
+                <span className="result-meta-dot" aria-hidden>
+                  ·
+                </span>
+                <label className="result-sort">
+                  <span className="visually-hidden">Sort courses</span>
+                  <select
+                    value={params.sortBy}
+                    aria-label="Sort courses"
+                    onChange={(e) => setParam('sort', e.target.value as SortBy)}
+                  >
+                    <option value="distance">Closest</option>
+                    <option value="soonest">Soonest</option>
+                    <option value="price">Price</option>
+                    <option value="rating">Rating</option>
+                  </select>
+                </label>
+              </>
             ) : null}
-          </span>
+            {resultCountSecondary && !showOutOfMarket ? (
+              <span className="result-count-secondary">
+                <span className="result-meta-dot" aria-hidden>
+                  ·
+                </span>
+                {resultCountSecondary}
+              </span>
+            ) : null}
+          </div>
+          {!showOutOfMarket ? (
           <FinderDayOutlook
             dateYmd={params.date}
             lat={timesFetchScope.anchor.lat}
@@ -890,9 +1029,42 @@ export function FinderPage() {
               (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
             }
           />
+          ) : null}
         </div>
 
-        {!catalogLoading && !loadingTimes && !catalogError && displayCourses.length === 0 && workerCourses.length > 0 ? (
+        {showOutOfMarket ? (
+          <div className="empty-search empty-search--market">
+            <div className="empty-search-kicker">Coming soon</div>
+            <div className="empty-search-title">
+              {serviceArea.visitorRegion
+                ? `${serviceArea.visitorRegion.name} isn’t on Tee-Time yet`
+                : 'Tee-Time isn’t in your area yet'}
+            </div>
+            <p>
+              We’re live in {serviceArea.liveMarkets} today
+              {serviceArea.visitorRegion
+                ? `, and ${serviceArea.visitorRegion.name} is on the roadmap`
+                : ', and we’re expanding'}
+              . Browse {serviceArea.liveMarkets} if you’re heading that way, or follow along for
+              launch news.
+            </p>
+            <div className="empty-search-actions">
+              <button type="button" className="btn btn-primary" onClick={browseLiveMarket}>
+                Browse {serviceArea.liveMarkets} tee times
+              </button>
+              <a
+                className="btn"
+                href="https://www.instagram.com/teetimehq/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Follow @teetimehq
+              </a>
+            </div>
+          </div>
+        ) : null}
+
+        {!showOutOfMarket && !catalogLoading && !loadingTimes && !catalogError && displayCourses.length === 0 && workerCourses.length > 0 ? (
           <div className="empty-search">
             <div className="empty-search-title">No courses match that search</div>
             <p>
@@ -937,7 +1109,7 @@ export function FinderPage() {
           </div>
         ) : null}
 
-        {!catalogLoading && !loadingTimes && withTimesCount === 0 && searchPool.length > 0 ? (
+        {!showOutOfMarket && !catalogLoading && !loadingTimes && withTimesCount === 0 && searchPool.length > 0 ? (
           <div className="empty-openings-hint">
             <div className="empty-openings-hint-copy">
               <p className="empty-openings-hint-title">
@@ -963,7 +1135,7 @@ export function FinderPage() {
           {showCatalogSkeleton
             ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
             : null}
-          {!showCatalogSkeleton &&
+          {!showOutOfMarket && !showCatalogSkeleton &&
             displayCourses.map((course) => {
               const times = timesByCourse.get(course.id) ?? [];
               const inFetchPool = fetchSlugSet.has(course.id);
@@ -995,24 +1167,84 @@ export function FinderPage() {
                   onSearchAllUtah={() => setRadiusMode('all')}
                   onShare={() => requestShareRound(course, times)}
                   shareDisabled={times.length === 0 || timesPending || authLoading}
+                  onSelectTime={(time, bookHref) =>
+                    setSlotAction({ course, time, times, bookHref, detailHref })
+                  }
                 />
               );
             })}
         </div>
 
         <p className="finder-help">
-          Planning a group round? Tap the calendar icon on a course for a vote link — past links live under{' '}
-          <strong>Plan</strong>.
+          Tap a time to book or share with friends. Past vote links live under <strong>Plan</strong>.
         </p>
       </div>
 
-      <SignInPromptModal open={signInToShareOpen} onClose={closeSignInToShare} variant="share" />
+      <SlotActionSheet
+        open={Boolean(slotAction)}
+        onClose={() => {
+          if (!slotAuthBusy) clearPendingAuthAction();
+          setSlotAction(null);
+        }}
+        courseName={slotAction?.course.name ?? ''}
+        timeLabel={
+          slotAction
+            ? formatTime12h(
+                slotAction.time.startsAt,
+                courseTimezone(recordsBySlug.get(slotAction.course.id)?.timezone ?? slotAction.course.timezone),
+              )
+            : ''
+        }
+        metaLabel={slotAction ? slotActionMeta(slotAction.time) : ''}
+        bookHref={slotAction?.bookHref ?? null}
+        viewHref={slotAction?.detailHref}
+        needsAuth={!user?.id}
+        resumeBook={Boolean(slotAction?.resumeBook)}
+        signingIn={slotAuthBusy}
+        onBook={() => {
+          if (!slotAction?.bookHref || user?.id) return;
+          savePendingAuthAction({
+            intent: 'book',
+            courseId: slotAction.course.id,
+            time: slotAction.time,
+            bookHref: slotAction.bookHref,
+          });
+          setSlotAuthBusy(true);
+          void signInWithGoogle(returnTo).finally(() => setSlotAuthBusy(false));
+        }}
+        onShare={() => {
+          if (!slotAction) return;
+          if (!user?.id) {
+            savePendingAuthAction({
+              intent: 'share',
+              courseId: slotAction.course.id,
+              time: slotAction.time,
+              bookHref: slotAction.bookHref,
+            });
+            setSlotAuthBusy(true);
+            void signInWithGoogle(returnTo).finally(() => setSlotAuthBusy(false));
+            return;
+          }
+          const { course, times, time } = slotAction;
+          setSlotAction(null);
+          requestShareRound(course, times, time.id);
+        }}
+      />
+      <SignInPromptModal
+        open={signInToShareOpen}
+        onClose={closeSignInToShare}
+        variant="share"
+        returnTo={returnTo}
+      />
       <LocationSearchSheet
         open={locationSheetOpen}
         onClose={() => setLocationSheetOpen(false)}
         courses={courses}
         currentQuery={params.locationQuery}
         locationAvailable={Boolean(userLocation)}
+        showRadius={locationRadiusEnabled}
+        radiusValue={fetchAllUtah ? 'all' : radiusMi}
+        onRadiusChange={setRadiusMode}
         onSelectNearMe={applyNearMe}
         onSelectQuery={applyLocationQuery}
         onSelectCourse={(course) => {
