@@ -206,23 +206,26 @@ async function isPollingEnabled(env) {
 }
 
 async function createPollRun(env) {
+  const id = crypto.randomUUID();
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/availability_poll_runs`, {
     method: 'POST',
     headers: sbHeaders(env, {
       'Content-Type': 'application/json',
-      Prefer: 'return=representation',
+      Prefer: 'return=minimal',
     }),
-    body: JSON.stringify({ status: 'running' }),
+    body: JSON.stringify({ id, status: 'running' }),
   });
   if (!res.ok) return null;
-  const rows = await res.json();
-  return rows[0]?.id ?? null;
+  return id;
 }
 
 async function finishPollRun(env, id, patch) {
   await fetch(`${env.SUPABASE_URL}/rest/v1/availability_poll_runs?id=eq.${id}`, {
     method: 'PATCH',
-    headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
+    headers: sbHeaders(env, {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    }),
     body: JSON.stringify({ finished_at: new Date().toISOString(), ...patch }),
   });
 }
@@ -230,7 +233,10 @@ async function finishPollRun(env, id, patch) {
 async function insertPollRunCourse(env, row) {
   await fetch(`${env.SUPABASE_URL}/rest/v1/availability_poll_run_courses`, {
     method: 'POST',
-    headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
+    headers: sbHeaders(env, {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    }),
     body: JSON.stringify(row),
   });
 }
@@ -243,7 +249,10 @@ async function markScheduleSuccess(env, course_slug, play_date) {
       `&play_date=eq.${play_date}`,
     {
       method: 'PATCH',
-      headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
+      headers: sbHeaders(env, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      }),
       body: JSON.stringify({ last_success_at: new Date().toISOString() }),
     },
   );
@@ -359,56 +368,111 @@ async function mapPool(items, concurrency, fn) {
   return results;
 }
 
+const SLOT_SELECT =
+  'id,starts_at_local,holes,status,price_cents,spots_open,last_seen_at,play_date';
+const ID_IN_CHUNK = 80;
+const WRITE_CHUNK = 100;
+
+function chunk(arr, n) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
 async function loadExistingSlots(env, course_slug, play_date) {
   const res = await fetch(
     `${env.SUPABASE_URL}/rest/v1/tee_time_slots` +
       `?course_slug=eq.${encodeURIComponent(course_slug)}` +
       `&play_date=eq.${play_date}` +
       `&status=in.(open,closed)` +
-      `&select=*`,
+      `&select=${SLOT_SELECT}`,
     { headers: sbHeaders(env) },
   );
   if (!res.ok) return [];
   return res.json();
 }
 
-async function upsertSlot(env, row) {
-  const res = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/tee_time_slots?on_conflict=course_slug,play_date,starts_at_local,holes`,
-    {
+async function bulkInsert(env, table, rows, { onConflict } = {}) {
+  if (!rows.length) return true;
+  const url = onConflict
+    ? `${env.SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`
+    : `${env.SUPABASE_URL}/rest/v1/${table}`;
+  const prefer = onConflict
+    ? 'resolution=merge-duplicates,return=minimal'
+    : 'return=minimal';
+  for (const part of chunk(rows, WRITE_CHUNK)) {
+    const res = await fetch(url, {
       method: 'POST',
       headers: sbHeaders(env, {
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=representation',
+        Prefer: prefer,
       }),
-      body: JSON.stringify(row),
-    },
-  );
-  if (!res.ok) {
-    const text = await res.text();
-    console.error('[poll] slot upsert failed', res.status, text.slice(0, 300));
-    return null;
+      body: JSON.stringify(part),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[poll] bulk insert ${table} failed`, res.status, text.slice(0, 300));
+      return false;
+    }
   }
-  const rows = await res.json();
-  return rows[0] ?? null;
+  return true;
+}
+
+async function bulkPatchSlotsByIds(env, ids, patch) {
+  if (!ids.length) return true;
+  const body = JSON.stringify({ updated_at: new Date().toISOString(), ...patch });
+  for (const part of chunk(ids, ID_IN_CHUNK)) {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/tee_time_slots?id=in.(${part.join(',')})`,
+      {
+        method: 'PATCH',
+        headers: sbHeaders(env, {
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        }),
+        body,
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('[poll] bulk patch failed', res.status, text.slice(0, 300));
+      return false;
+    }
+  }
+  return true;
 }
 
 async function patchSlot(env, id, patch) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tee_time_slots?id=eq.${id}`, {
     method: 'PATCH',
-    headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
+    headers: sbHeaders(env, {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    }),
     body: JSON.stringify({ updated_at: new Date().toISOString(), ...patch }),
   });
   return res.ok;
 }
 
-async function insertEvent(env, event) {
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tee_time_slot_events`, {
+async function pruneAvailabilityHistory(env) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/prune_availability_history`, {
     method: 'POST',
     headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
-    body: JSON.stringify(event),
+    body: '{}',
   });
-  return res.ok;
+  if (!res.ok) {
+    const text = await res.text();
+    console.warn('[poll] prune_availability_history failed', res.status, text.slice(0, 200));
+    return;
+  }
+  try {
+    const summary = await res.json();
+    if (summary && (summary.expired || summary.slots_deleted || summary.events_deleted || summary.runs_deleted)) {
+      console.log('[poll] prune', summary);
+    }
+  } catch {
+    // empty body
+  }
 }
 
 // ── Schedule planning ───────────────────────────────────────────────
@@ -462,8 +526,11 @@ async function applyPollDiff(env, {
   }
 
   const seen = new Set();
-  let slotsWritten = 0;
-  let eventsWritten = 0;
+  const toInsert = [];
+  const toTouchIds = [];
+  const toReopen = [];
+  const toPatchMeta = [];
+  const events = [];
   /** @type {{ event_type: string, starts_at_local: string, holes: number, price_cents: number|null, spots_open: number|null }[]} */
   const notifyEvents = [];
 
@@ -481,7 +548,9 @@ async function applyPollDiff(env, {
     const prev = byKey.get(key);
 
     if (!prev) {
-      const inserted = await upsertSlot(env, {
+      const id = crypto.randomUUID();
+      toInsert.push({
+        id,
         course_slug: course.slug,
         play_date,
         starts_at_local: startsAtLocal,
@@ -495,43 +564,36 @@ async function applyPollDiff(env, {
         last_seen_at: now,
         last_polled_at: now,
       });
-      if (inserted) {
-        slotsWritten++;
-        if (await insertEvent(env, {
-          slot_id: inserted.id,
-          course_slug: course.slug,
-          play_date,
-          starts_at_local: startsAtLocal,
-          holes,
-          event_type: 'opened',
-          price_cents,
-          spots_open,
-          poll_run_id,
-        })) {
-          eventsWritten++;
-          notifyEvents.push({
-            event_type: 'opened',
-            starts_at_local: startsAtLocal,
-            holes,
-            price_cents,
-            spots_open,
-          });
-        }
-      }
+      events.push({
+        slot_id: id,
+        course_slug: course.slug,
+        play_date,
+        starts_at_local: startsAtLocal,
+        holes,
+        event_type: 'opened',
+        price_cents,
+        spots_open,
+        poll_run_id,
+      });
+      notifyEvents.push({
+        event_type: 'opened',
+        starts_at_local: startsAtLocal,
+        holes,
+        price_cents,
+        spots_open,
+      });
       continue;
     }
 
     if (prev.status === 'closed') {
-      await patchSlot(env, prev.id, {
-        status: 'open',
-        closed_at: null,
+      toReopen.push({
+        id: prev.id,
         price_cents,
         spots_open,
-        last_seen_at: now,
-        last_polled_at: now,
+        startsAtLocal,
+        holes,
       });
-      slotsWritten++;
-      if (await insertEvent(env, {
+      events.push({
         slot_id: prev.id,
         course_slug: course.slug,
         play_date,
@@ -541,26 +603,29 @@ async function applyPollDiff(env, {
         price_cents,
         spots_open,
         poll_run_id,
-      })) {
-        eventsWritten++;
-        notifyEvents.push({
-          event_type: 'reopened',
-          starts_at_local: startsAtLocal,
-          holes,
-          price_cents,
-          spots_open,
-        });
-      }
+      });
+      notifyEvents.push({
+        event_type: 'reopened',
+        starts_at_local: startsAtLocal,
+        holes,
+        price_cents,
+        spots_open,
+      });
       continue;
     }
 
-    const patch = { last_seen_at: now, last_polled_at: now, spots_open };
-    if (price_cents != null) patch.price_cents = price_cents;
-    await patchSlot(env, prev.id, patch);
-    slotsWritten++;
+    const spotsChanged = spots_open !== prev.spots_open;
+    const priceChanged = price_cents != null && price_cents !== prev.price_cents;
+    if (spotsChanged || priceChanged) {
+      const patch = { last_seen_at: now, last_polled_at: now, spots_open };
+      if (price_cents != null) patch.price_cents = price_cents;
+      toPatchMeta.push({ id: prev.id, patch });
+    } else {
+      toTouchIds.push(prev.id);
+    }
 
     if (price_cents != null && prev.price_cents != null && price_cents !== prev.price_cents) {
-      if (await insertEvent(env, {
+      events.push({
         slot_id: prev.id,
         course_slug: course.slug,
         play_date,
@@ -572,7 +637,7 @@ async function applyPollDiff(env, {
         price_cents,
         spots_open,
         poll_run_id,
-      })) eventsWritten++;
+      });
     }
   }
 
@@ -590,6 +655,7 @@ async function applyPollDiff(env, {
 
   let closesSkippedDebounce = 0;
   let closesSkippedPartial = 0;
+  const toCloseIds = [];
 
   for (const slot of existing) {
     const local = normalizeLocalTime(slot.starts_at_local);
@@ -613,13 +679,8 @@ async function applyPollDiff(env, {
       continue;
     }
 
-    await patchSlot(env, slot.id, {
-      status: 'closed',
-      closed_at: now,
-      last_polled_at: now,
-    });
-    slotsWritten++;
-    if (await insertEvent(env, {
+    toCloseIds.push(slot.id);
+    events.push({
       slot_id: slot.id,
       course_slug: course.slug,
       play_date: slot.play_date,
@@ -629,7 +690,7 @@ async function applyPollDiff(env, {
       price_cents: slot.price_cents,
       spots_open: slot.spots_open,
       poll_run_id,
-    })) eventsWritten++;
+    });
   }
 
   if (closesSkippedDebounce > 0) {
@@ -639,9 +700,54 @@ async function applyPollDiff(env, {
     );
   }
 
+  const insertedOk = await bulkInsert(env, 'tee_time_slots', toInsert, {
+    onConflict: 'course_slug,play_date,starts_at_local,holes',
+  });
+  if (!insertedOk) {
+    const openedIds = new Set(toInsert.map((r) => r.id));
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i].event_type === 'opened' && openedIds.has(events[i].slot_id)) {
+        events.splice(i, 1);
+      }
+    }
+    for (let i = notifyEvents.length - 1; i >= 0; i--) {
+      if (notifyEvents[i].event_type === 'opened') notifyEvents.splice(i, 1);
+    }
+  }
+
+  await bulkPatchSlotsByIds(env, toTouchIds, { last_seen_at: now, last_polled_at: now });
+
+  for (const row of toReopen) {
+    await patchSlot(env, row.id, {
+      status: 'open',
+      closed_at: null,
+      price_cents: row.price_cents,
+      spots_open: row.spots_open,
+      last_seen_at: now,
+      last_polled_at: now,
+    });
+  }
+  for (const row of toPatchMeta) {
+    await patchSlot(env, row.id, row.patch);
+  }
+
+  await bulkPatchSlotsByIds(env, toCloseIds, {
+    status: 'closed',
+    closed_at: now,
+    last_polled_at: now,
+  });
+
+  const eventsOk = await bulkInsert(env, 'tee_time_slot_events', events);
+  const slotsWritten =
+    (insertedOk ? toInsert.length : 0) +
+    toTouchIds.length +
+    toReopen.length +
+    toPatchMeta.length +
+    toCloseIds.length;
+
   return {
     slotsWritten,
-    eventsWritten,
+    eventsWritten: eventsOk ? events.length : 0,
     notifyEvents,
     diffMeta: {
       partialFetch,
@@ -901,6 +1007,7 @@ export async function handleAvailabilityPoll(env, deps) {
         courses_claimed: 0,
       });
     }
+    await pruneAvailabilityHistory(env);
     return;
   }
 
