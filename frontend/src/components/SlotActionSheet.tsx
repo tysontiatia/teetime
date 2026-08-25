@@ -1,17 +1,6 @@
 import { useEffect, useId } from 'react';
 import { Link } from 'react-router-dom';
-import type { TeeTime } from '../types';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
-
-export function slotActionMeta(time: TeeTime): string {
-  return [
-    typeof time.price === 'number' ? `$${Math.round(time.price)}` : null,
-    typeof time.spots === 'number' ? `${time.spots} spot${time.spots === 1 ? '' : 's'}` : null,
-    `${time.holes} holes`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-}
 
 export function SlotActionSheet({
   open,

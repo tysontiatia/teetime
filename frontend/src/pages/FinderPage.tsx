@@ -30,7 +30,8 @@ import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
-import { SlotActionSheet, slotActionMeta } from '../components/SlotActionSheet';
+import { SlotActionSheet } from '../components/SlotActionSheet';
+import { slotActionMeta } from '../lib/slotAction';
 import {
   authReturnPath,
   clearPendingAuthAction,

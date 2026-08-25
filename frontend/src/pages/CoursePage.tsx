@@ -22,7 +22,8 @@ import { NotificationModal } from '../components/NotificationModal';
 import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
 import { GetDirectionsButton } from '../components/GetDirectionsButton';
-import { SlotActionSheet, slotActionMeta } from '../components/SlotActionSheet';
+import { SlotActionSheet } from '../components/SlotActionSheet';
+import { slotActionMeta } from '../lib/slotAction';
 import { useAuth } from '../state/AuthContext';
 import {
   authReturnPath,
