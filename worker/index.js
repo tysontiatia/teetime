@@ -1,11 +1,24 @@
-import { handleAvailabilityPoll } from './availabilityPoll.js';
+import { handleAlertMicroPoll, handleAvailabilityPoll, pollAlertCourseDate } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName, withDerivedState } from './courseAdmin.js';
 import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
-import { notifyOnPollEvents, runNotificationBackstop } from './notifications.js';
+import {
+  evalDatesForPref,
+  loadPreferenceForUser,
+  notifyOnPollEvents,
+  notifyPrefAgainstOpenInventory,
+  runNotificationBackstop,
+} from './notifications.js';
 import { handleFeedRequest } from './feedRead.js';
 import { checkIpRateLimit, rateLimitResponse, RATE_LIMITS } from './rateLimit.js';
 import { getVapidPublicKey, sendWebPush, vapidConfigured } from './webPush.js';
+import {
+  bookingHolesForSlots,
+  buildAlertEmail as buildAlertEmailHtml,
+  buildAlertSmsBody,
+  displayCourseName,
+  formatTime12h,
+} from './alertCopy.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -1127,16 +1140,7 @@ async function handlePlaceReviews(params, env) {
   }
 }
 
-function formatTime12h(timeStr) {
-  const match = timeStr.match(/(\d{1,2}):(\d{2})/);
-  if (!match) return timeStr;
-  let h = parseInt(match[1], 10);
-  const m = match[2];
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  if (h > 12) h -= 12;
-  if (h === 0) h = 12;
-  return `${h}:${m} ${ampm}`;
-}
+// formatTime12h imported from alertCopy.js
 
 // ── Fetch tee times for a course (reuses existing API logic) ─────────
 // Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports.
@@ -1600,13 +1604,8 @@ function normalizePhone(phone) {
 
 // ── Build SMS alert ──────────────────────────────────────────────────
 function buildAlertSms(course, times, date, players) {
-  const dateFormatted = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-  });
-  const top = times.slice(0, 5).map(t => formatTime12h(t.rawTime)).join(', ');
-  const more = times.length > 5 ? ` +${times.length - 5} more` : '';
-  const bookingUrl = buildBookingUrlWorker(course, date, '18', players);
-  return `⛳ ${times.length} tee time${times.length !== 1 ? 's' : ''} at ${course.name} on ${dateFormatted}\n${top}${more}\nBook: ${bookingUrl}`;
+  const bookingUrl = buildBookingUrlWorker(course, date, bookingHolesForSlots(times), players);
+  return buildAlertSmsBody(course, times, date, players, 'opened', bookingUrl);
 }
 
 function resendConfigured(env) {
@@ -1648,158 +1647,17 @@ async function sendEmail(env, to, subject, html) {
 
 // ── Build notification email ─────────────────────────────────────────
 
-const EMAIL_BRAND = {
-  paper: '#FBFBF8',
-  card: '#FFFFFF',
-  ink: '#141E19',
-  muted: '#4C5A53',
-  subtle: '#8A958F',
-  pine: '#1E4D3B',
-  pineDeep: '#143528',
-  fairway: '#B7EA3C',
-  fairwayInk: '#2A4405',
-  greenSoft: '#F0FADB',
-  line: '#E4E2DA',
-  sand: '#EFECE3',
-  logoUrl: 'https://tee-time.io/logo-icon-light.svg',
-  siteUrl: 'https://tee-time.io',
-  accountUrl: 'https://tee-time.io/app/account/',
-};
-
 function displayCourseNameEmail(name) {
-  const i = String(name || '').indexOf(' (');
-  return i > 0 ? name.slice(0, i) : name;
+  return displayCourseName(name);
 }
 
 function buildAlertEmail(course, times, date, players, options = {}) {
-  const { eventType, alertPrefLine } = options;
-  const dateFormatted = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'America/Denver',
+  const holes = bookingHolesForSlots(times);
+  const bookingUrl = buildBookingUrlWorker(course, date, holes, String(players));
+  return buildAlertEmailHtml(course, times, date, players, {
+    ...options,
+    bookingUrl,
   });
-  const bookingUrl = buildBookingUrlWorker(course, date, '18', String(players));
-  const courseLabel = displayCourseNameEmail(course.name);
-  const b = EMAIL_BRAND;
-
-  const isSingle = times.length === 1;
-  const headline = isSingle && eventType === 'reopened'
-    ? `${formatTime12h(times[0].rawTime)} just reopened`
-    : isSingle && eventType === 'opened'
-      ? `${formatTime12h(times[0].rawTime)} just opened`
-      : isSingle
-        ? 'Tee time available'
-        : `${times.length} tee times available`;
-
-  const badge = eventType === 'reopened' ? 'Reopened' : eventType === 'opened' ? 'New' : 'Alert';
-
-  let timesBlock;
-  if (isSingle) {
-    const t = times[0];
-    const time = formatTime12h(t.rawTime);
-    const price = t.price || '—';
-    const spots = t.spots != null ? `${t.spots} spot${t.spots !== 1 ? 's' : ''}` : '—';
-    timesBlock = `
-      <div style="background:${b.greenSoft};border:1px solid ${b.line};border-radius:14px;padding:18px 20px;margin:18px 0 4px">
-        <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${b.pine};margin-bottom:8px">${badge}</div>
-        <div style="font-size:28px;font-weight:700;color:${b.ink};line-height:1.15;margin-bottom:6px">${time}</div>
-        <div style="font-size:15px;color:${b.muted}">${price}${price !== '—' && spots !== '—' ? ' · ' : ''}${spots !== '—' ? spots : ''}</div>
-      </div>`;
-  } else {
-    const timeRows = times.slice(0, 12).map((t) => {
-      const time = formatTime12h(t.rawTime);
-      const price = t.price || '—';
-      const spots = t.spots != null ? `${t.spots} spot${t.spots !== 1 ? 's' : ''}` : '—';
-      return `<tr>
-        <td style="padding:12px 16px;border-bottom:1px solid ${b.line};font-size:15px;color:${b.ink};font-weight:600">${time}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid ${b.line};font-size:15px;color:${b.muted}">${price}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid ${b.line};font-size:15px;color:${b.muted}">${spots}</td>
-      </tr>`;
-    }).join('');
-    const moreText = times.length > 12
-      ? `<p style="color:${b.subtle};font-size:13px;margin:12px 0 0">+ ${times.length - 12} more times available</p>`
-      : '';
-    timesBlock = `
-      <table role="presentation" style="width:100%;border-collapse:collapse;margin:18px 0 4px;border:1px solid ${b.line};border-radius:14px;overflow:hidden">
-        <thead>
-          <tr style="background:${b.sand}">
-            <th style="padding:10px 16px;text-align:left;font-size:11px;color:${b.subtle};font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Time</th>
-            <th style="padding:10px 16px;text-align:left;font-size:11px;color:${b.subtle};font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Price</th>
-            <th style="padding:10px 16px;text-align:left;font-size:11px;color:${b.subtle};font-weight:700;text-transform:uppercase;letter-spacing:0.06em">Spots</th>
-          </tr>
-        </thead>
-        <tbody>${timeRows}</tbody>
-      </table>
-      ${moreText}`;
-  }
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
-  <title>Tee-Time.io alert</title>
-</head>
-<body style="margin:0;padding:0;background:${b.paper};font-family:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0">${headline} at ${courseLabel} on ${dateFormatted}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${b.paper};padding:32px 16px">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px">
-          <tr>
-            <td style="background:${b.pineDeep};border-radius:18px 18px 0 0;padding:22px 24px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="vertical-align:middle;width:40px">
-                    <img src="${b.logoUrl}" width="36" height="36" alt="" style="display:block;border-radius:9px">
-                  </td>
-                  <td style="vertical-align:middle;padding-left:12px">
-                    <div style="font-size:18px;font-weight:700;color:#FFFFFF;letter-spacing:-0.02em;font-family:'Sora',-apple-system,BlinkMacSystemFont,sans-serif">
-                      Tee-Time<span style="color:${b.fairway}">.io</span>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:${b.card};border:1px solid ${b.line};border-top:none;border-radius:0 0 18px 18px;padding:24px;box-shadow:0 12px 32px rgba(20,30,25,0.08)">
-              <div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${b.pine};margin-bottom:8px">Tee time alert</div>
-              <h1 style="margin:0 0 6px;font-size:24px;line-height:1.2;color:${b.ink};font-weight:700;font-family:'Sora',-apple-system,BlinkMacSystemFont,sans-serif">${headline}</h1>
-              <h2 style="margin:0 0 4px;font-size:17px;color:${b.ink};font-weight:600">${courseLabel}</h2>
-              ${alertPrefLine ? `<p style="margin:0 0 6px;color:${b.pine};font-size:13px;font-weight:600;line-height:1.4">${alertPrefLine}</p>` : ''}
-              <p style="margin:0 0 4px;color:${b.muted};font-size:14px;line-height:1.5">${dateFormatted} · ${players} player${players !== 1 ? 's' : ''}</p>
-              ${timesBlock}
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:22px">
-                <tr>
-                  <td align="center">
-                    <a href="${bookingUrl}" style="display:inline-block;background:${b.pine};color:#FFFFFF;padding:14px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px">Book now →</a>
-                  </td>
-                </tr>
-              </table>
-              <p style="color:${b.subtle};font-size:12px;text-align:center;line-height:1.55;margin:20px 0 0">
-                You received this because you set a tee time alert on
-                <a href="${b.siteUrl}" style="color:${b.pine};font-weight:600;text-decoration:none">tee-time.io</a>.
-                <a href="${b.accountUrl}" style="color:${b.pine};font-weight:600;text-decoration:none">Manage alerts</a>
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:18px 8px 0;text-align:center;font-size:11px;color:${b.subtle};line-height:1.5">
-              Tee-Time.io · Every tee time. One search.<br>
-              Not affiliated with any booking provider.
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
 }
 
 // ── Date helpers (UTC date strings YYYY-MM-DD) ─────────────────────────
@@ -2008,6 +1866,107 @@ async function handlePollWithAlerts(env) {
   });
 }
 
+async function handleAlertMicroPollWithNotify(env) {
+  const courses = await loadCourses(env);
+  const ctx = createAlertContext(env, courses);
+  await handleAlertMicroPoll(env, {
+    loadCourses: async () => courses,
+    fetchTimesForCourse,
+    normalizeTimesWorker,
+    onPollNotifyEvents: (payload) => notifyOnPollEvents(ctx, payload),
+  });
+}
+
+/** POST /v1/alerts/check — poll watched date(s) right after a preference is created. */
+async function handleAlertCreateCheck(request, env) {
+  const auth = await getUserIdFromAccessToken(env, request);
+  if (auth.error) return corsResponse({ error: auth.error }, auth.status || 401);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return corsResponse({ error: 'invalid_body' }, 400);
+  }
+  const preferenceId = body.preference_id || body.preferenceId;
+  if (!preferenceId) return corsResponse({ error: 'missing_preference_id' }, 400);
+
+  const pref = await loadPreferenceForUser(env, preferenceId, auth.userId);
+  if (!pref || !pref.active) return corsResponse({ error: 'preference_not_found' }, 404);
+
+  const courses = await loadCourses(env);
+  const ctx = createAlertContext(env, courses);
+  const course = findCourseByCatalogId(courses, pref.course_id);
+  if (!course) return corsResponse({ error: 'course_not_found' }, 404);
+
+  const courseWithSlug = { ...course, slug: slugFromCourseName(course.name) };
+  const todayMt = (() => {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Denver',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = fmt.formatToParts(new Date());
+    const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  })();
+
+  const dates = evalDatesForPref(pref, todayMt);
+  if (!dates.length) return corsResponse({ ok: true, checked: 0, reason: 'no_dates' });
+
+  const onPollNotifyEvents = (payload) => notifyOnPollEvents(ctx, payload);
+  let checked = 0;
+  let inventoryNotified = 0;
+
+  for (const playDate of dates) {
+    const result = await pollAlertCourseDate(env, {
+      course: courseWithSlug,
+      playDate,
+      fetchTimesForCourse,
+      normalizeTimesWorker,
+      onPollNotifyEvents,
+      todayMt,
+    });
+    checked++;
+
+    // Always offer already-open matching inventory (create-time backstop).
+    const snapshot = await fetchSnapshotNormalizedTimes(
+      env,
+      courseWithSlug.slug,
+      playDate,
+      '18',
+      pref.players || pref.min_spots || 1,
+    );
+    let times = snapshot.has_poll_coverage ? snapshot.times : null;
+    if (!times) {
+      const data = await fetchTimesForCourse(
+        courseWithSlug,
+        playDate,
+        '18',
+        String(pref.players || pref.min_spots || 1),
+      );
+      if (data && data !== false && !(typeof data === 'object' && data.error)) {
+        times = normalizeTimesWorker(courseWithSlug, data, '18');
+      }
+    }
+    if (times?.length) {
+      const { sent } = await notifyPrefAgainstOpenInventory(ctx, {
+        pref,
+        playDate,
+        times,
+      });
+      if (sent) inventoryNotified++;
+    }
+
+    if (result.status !== 'ok') {
+      console.warn(`[alert-check] poll failed ${courseWithSlug.slug} ${playDate}:`, result.error_message);
+    }
+  }
+
+  return corsResponse({ ok: true, checked, inventory_notified: inventoryNotified });
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -2076,6 +2035,12 @@ export default {
       );
     }
 
+    if (path === '/v1/alerts/check' && request.method === 'POST') {
+      const rl = await checkIpRateLimit(request, RATE_LIMITS.alertCheck);
+      if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
+      return handleAlertCreateCheck(request, env);
+    }
+
     if (path.startsWith('/admin/')) {
       const adminRes = await courseAdmin.handleAdminRequest(request, env, path);
       if (adminRes) return adminRes;
@@ -2140,6 +2105,10 @@ export default {
 
   async scheduled(event, env, ctx) {
     const cron = event.cron || '';
+    // Alert micro-poller: every minute, watched (course, date) pairs only, 24/7.
+    if (cron === '* * * * *') {
+      ctx.waitUntil(handleAlertMicroPollWithNotify(env));
+    }
     if (cron === '*/5 * * * *') {
       ctx.waitUntil(handlePollWithAlerts(env));
     }

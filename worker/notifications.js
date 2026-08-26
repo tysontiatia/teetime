@@ -7,6 +7,13 @@
  * • Backstop cron: catch anything missed; only sends slots not notified in 24h.
  */
 
+import {
+  buildAlertPushMessage,
+  buildAlertSmsBody,
+  buildAlertSubject,
+  describeAlertPreference,
+} from './alertCopy.js';
+
 const MT = 'America/Denver';
 const SLOT_REOPEN_COOLDOWN_MS = 15 * 60 * 1000;
 const SLOT_OPEN_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -57,48 +64,9 @@ function localToRawTime(startsAtLocal) {
   return `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
 }
 
-function formatTime12h(timeStr) {
-  const match = String(timeStr || '').match(/(\d{1,2}):(\d{2})/);
-  if (!match) return timeStr;
-  let h = parseInt(match[1], 10);
-  const m = match[2];
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  if (h > 12) h -= 12;
-  if (h === 0) h = 12;
-  return `${h}:${m} ${ampm}`;
-}
-
 function formatPrice(cents) {
   if (cents == null) return null;
   return `$${Math.round(cents / 100)}`;
-}
-
-function displayCourseName(name) {
-  const i = String(name || '').indexOf(' (');
-  return i > 0 ? name.slice(0, i) : name;
-}
-
-const DOW_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
-const DOW_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-function formatAlertPrefLine(pref) {
-  if (pref.target_date) {
-    const label = new Date(`${pref.target_date}T12:00:00`).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: MT,
-    });
-    return `Alert for ${label}`;
-  }
-  const days = (Array.isArray(pref.days_of_week) ? pref.days_of_week : [])
-    .slice()
-    .sort((a, b) => a - b);
-  if (days.length === 1) {
-    return `Weekly alert · ${DOW_PLURAL[days[0]] ?? '—'}`;
-  }
-  const dayLabels = days.map((i) => DOW_FULL[i] ?? '?').join(', ');
-  return `Weekly alert · ${dayLabels || '—'}`;
 }
 
 function prefAppliesOnDate(pref, playDate, todayMt) {
@@ -133,66 +101,21 @@ function eventToSlot(event) {
   };
 }
 
-function buildOpeningSms(ctx, course, slots, playDate, players, eventType) {
-  const bookingUrl = ctx.buildBookingUrlWorker(course, playDate, '18', String(players));
-  const dateFormatted = new Date(playDate + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    timeZone: MT,
-  });
-  const courseLabel = displayCourseName(course.name);
-
-  if (slots.length === 1) {
-    const s = slots[0];
-    const time = formatTime12h(s.rawTime);
-    const verb = eventType === 'reopened' ? 'just reopened' : 'just opened';
-    const price = s.price ? ` — ${s.price}` : '';
-    return (
-      `⛳ ${time} ${verb} at ${courseLabel} on ${dateFormatted}${price}. ` +
-      `${players} player${players !== 1 ? 's' : ''}.\nBook: ${bookingUrl}`
-    );
-  }
-
-  return ctx.buildAlertSms(course, slots, playDate, players);
+function buildOpeningSms(ctx, course, slots, playDate, players, eventType, alertSummary) {
+  const holes =
+    slots.length === 1 && (slots[0].holes === 9 || slots[0].holes === 18)
+      ? String(slots[0].holes)
+      : '18';
+  const bookingUrl = ctx.buildBookingUrlWorker(course, playDate, holes, String(players));
+  return buildAlertSmsBody(course, slots, playDate, players, eventType, bookingUrl, alertSummary);
 }
 
 function buildOpeningEmailSubject(course, slots, eventType) {
-  const verb = eventType === 'reopened' ? 'reopened' : 'opened';
-  if (slots.length === 1) {
-    return `⛳ ${formatTime12h(slots[0].rawTime)} ${verb} at ${displayCourseName(course.name)}`;
-  }
-  return `⛳ ${slots.length} tee time${slots.length !== 1 ? 's' : ''} at ${displayCourseName(course.name)}`;
+  return buildAlertSubject(course, slots, eventType);
 }
 
-function slugFromCourseName(name) {
-  return String(name || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function buildPushPayloadMessage(course, slots, playDate, players, eventType) {
-  const courseLabel = displayCourseName(course.name);
-  const verb = eventType === 'reopened' ? 'reopened' : 'opened';
-  const title =
-    slots.length === 1
-      ? `${formatTime12h(slots[0].rawTime)} ${verb} at ${courseLabel}`
-      : `${slots.length} times at ${courseLabel}`;
-  const dateLabel = new Date(`${playDate}T12:00:00`).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    timeZone: MT,
-  });
-  const body = `${dateLabel} · ${players} player${players === 1 ? '' : 's'}`;
-  const slug = slugFromCourseName(course.name);
-  return {
-    title,
-    body,
-    url: `https://tee-time.io/app/course/${encodeURIComponent(slug)}?date=${encodeURIComponent(playDate)}`,
-    tag: `alert-${slug}-${playDate}`,
-  };
+function buildPushPayloadMessage(course, slots, playDate, players, eventType, alertSummary) {
+  return buildAlertPushMessage(course, slots, playDate, players, eventType, alertSummary);
 }
 
 async function loadPushSubscriptions(env, userId) {
@@ -284,10 +207,12 @@ function filterSlotsForNotify(slots, pref, logs, playDate, { eventMode, channel 
 
     if (eventMode) {
       const lastAt = slotLastNotifiedAt(logs, pref.user_id, pref.course_id, playDate, channel, slot.slotKey);
-      const cooldown = slot.event_type === 'reopened' ? SLOT_REOPEN_COOLDOWN_MS : SLOT_OPEN_COOLDOWN_MS;
+      const isReopenLike =
+        slot.event_type === 'reopened' || slot.event_type === 'spots_available';
+      const cooldown = isReopenLike ? SLOT_REOPEN_COOLDOWN_MS : SLOT_OPEN_COOLDOWN_MS;
       if (lastAt && Date.now() - lastAt < cooldown) continue;
-      // Reopened: allow even if in 24h set, as long as reopen cooldown passed
-      if (slot.event_type !== 'reopened') {
+      // Reopened / spots freed: allow even if in 24h set, as long as reopen cooldown passed
+      if (!isReopenLike) {
         const recent = recentlyNotifiedKeys(
           logs, pref.user_id, pref.course_id, playDate, channel, SLOT_OPEN_COOLDOWN_MS,
         );
@@ -323,6 +248,7 @@ function slotsForAlertEmail(slots) {
     rawTime: s.rawTime,
     price: s.price,
     spots: s.spots_open ?? s.spots ?? null,
+    holes: s.holes === 9 ? 9 : 18,
   }));
 }
 
@@ -400,6 +326,7 @@ async function deliverToUser(ctx, {
   if (!course) return;
 
   const eventMode = notifyReason === 'event';
+  const alertSummary = describeAlertPreference(pref, playDate);
 
   if (wantEmail && user.email) {
     if (!ctx.resendConfigured?.(env)) {
@@ -414,10 +341,9 @@ async function deliverToUser(ctx, {
       });
       if (emailSlots.length) {
         const subject = buildOpeningEmailSubject(course, emailSlots, primaryEvent);
-        const alertPrefLine = formatAlertPrefLine(pref);
         const html = ctx.buildAlertEmail(course, slotsForAlertEmail(emailSlots), playDate, players, {
           eventType: primaryEvent,
-          alertPrefLine,
+          alertSummary,
         });
         const sent = await ctx.sendEmail(env, user.email, subject, html);
         if (sent) {
@@ -455,11 +381,7 @@ async function deliverToUser(ctx, {
     });
     if (!smsSlots.length) return;
 
-    const alertPrefLine = formatAlertPrefLine(pref);
-    let body = eventMode
-      ? buildOpeningSms(ctx, course, smsSlots, playDate, players, primaryEvent)
-      : ctx.buildAlertSms(course, smsSlots, playDate, String(players));
-    if (alertPrefLine) body = `${alertPrefLine}\n${body}`;
+    const body = buildOpeningSms(ctx, course, smsSlots, playDate, players, primaryEvent, alertSummary);
 
     const sent = await ctx.sendSms(env, phoneE164, body);
     if (sent) {
@@ -492,7 +414,14 @@ async function deliverToUser(ctx, {
     if (pushSlots.length) {
       const subs = await loadPushSubscriptions(env, pref.user_id);
       if (subs.length) {
-        const message = buildPushPayloadMessage(course, pushSlots, playDate, players, primaryEvent);
+        const message = buildPushPayloadMessage(
+          course,
+          pushSlots,
+          playDate,
+          players,
+          primaryEvent,
+          alertSummary,
+        );
         let anySent = false;
         for (const sub of subs) {
           const result = await ctx.sendWebPush(env, sub, message);
@@ -526,12 +455,17 @@ async function deliverToUser(ctx, {
 }
 
 /**
- * Called immediately after poll diff detects opened/reopened slots.
+ * Called immediately after poll diff detects opened/reopened/spots_available slots.
  */
 export async function notifyOnPollEvents(ctx, { course, playDate, notifyEvents, todayMt }) {
   if (!notifyEvents?.length || !ctx?.env?.SUPABASE_URL) return;
 
-  const interesting = notifyEvents.filter((e) => e.event_type === 'opened' || e.event_type === 'reopened');
+  const interesting = notifyEvents.filter(
+    (e) =>
+      e.event_type === 'opened' ||
+      e.event_type === 'reopened' ||
+      e.event_type === 'spots_available',
+  );
   if (!interesting.length) return;
 
   const prefs = await loadPrefsForCourseDate(ctx.env, course.name, playDate, todayMt || mtTodayYmd());
@@ -542,7 +476,11 @@ export async function notifyOnPollEvents(ctx, { course, playDate, notifyEvents, 
   const logSince = addDaysToYmd(mtTodayYmd(), -45);
   const logs = await loadRecentLogs(ctx.env, userIds, logSince);
 
-  const primaryEvent = interesting.some((e) => e.event_type === 'reopened') ? 'reopened' : 'opened';
+  const primaryEvent = interesting.some(
+    (e) => e.event_type === 'reopened' || e.event_type === 'spots_available',
+  )
+    ? 'reopened'
+    : 'opened';
 
   for (const pref of prefs) {
     const matching = filterSlotsForNotify(slots, pref, logs, playDate, { eventMode: true });
@@ -556,6 +494,85 @@ export async function notifyOnPollEvents(ctx, { course, playDate, notifyEvents, 
       logs,
     });
   }
+}
+
+/**
+ * After alert create: notify this preference against already-open inventory (backstop-style).
+ */
+export async function notifyPrefAgainstOpenInventory(ctx, {
+  pref,
+  playDate,
+  times,
+}) {
+  if (!pref || !times?.length || !ctx?.env?.SUPABASE_URL) return { sent: false };
+
+  const slots = times
+    .filter((t) =>
+      slotMatchesPref(pref, {
+        rawTime: t.rawTime,
+        spots_open: t.spots ?? null,
+        holes: 18,
+      }),
+    )
+    .map((t) => ({
+      rawTime: t.rawTime,
+      holes: 18,
+      spots_open: t.spots ?? null,
+      price: t.price || null,
+      slotKey: slotNotifyKey(`${t.rawTime}:00`, 18),
+      event_type: 'opened',
+    }));
+
+  if (!slots.length) return { sent: false };
+
+  const logs = await loadRecentLogs(ctx.env, [pref.user_id], addDaysToYmd(mtTodayYmd(), -45));
+  const newSlots = filterSlotsForNotify(slots, pref, logs, playDate, { eventMode: false });
+  if (!newSlots.length) return { sent: false };
+
+  await deliverToUser(ctx, {
+    pref,
+    playDate,
+    slots: newSlots,
+    notifyReason: 'backstop',
+    eventType: 'opened',
+    logs,
+  });
+  return { sent: true };
+}
+
+/**
+ * Resolve play dates to check immediately after creating an alert.
+ */
+export function evalDatesForPref(pref, todayMt = mtTodayYmd()) {
+  if (pref.target_date) {
+    return pref.target_date >= todayMt ? [pref.target_date] : [];
+  }
+  if (pref.look_ahead_days == null) return [];
+  const horizon = Math.min(Math.max(Number(pref.look_ahead_days) || 14, 1), 60);
+  const dowAllow =
+    Array.isArray(pref.days_of_week) && pref.days_of_week.length
+      ? pref.days_of_week
+      : [0, 1, 2, 3, 4, 5, 6];
+  const dates = [];
+  for (let d = 0; d < horizon && dates.length < 3; d++) {
+    const evalDate = addDaysToYmd(todayMt, d);
+    if (!dowAllow.includes(ymdWeekday(evalDate))) continue;
+    dates.push(evalDate);
+  }
+  return dates;
+}
+
+export async function loadPreferenceForUser(env, preferenceId, userId) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/notification_preferences` +
+      `?id=eq.${encodeURIComponent(preferenceId)}` +
+      `&user_id=eq.${encodeURIComponent(userId)}` +
+      `&select=*`,
+    { headers: sbHeaders(env) },
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return rows[0] || null;
 }
 
 /**

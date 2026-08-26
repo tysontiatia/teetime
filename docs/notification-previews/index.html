@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tee-Time.io · Alert notification previews</title>
+  <style>
+    :root {
+      --paper: #0B120E;
+      --ink: #EEF2EC;
+      --ink-2: #9DAA9F;
+      --card: #121B15;
+      --line: #22302A;
+      --fairway: #C6F24E;
+      --font: 'Schibsted Grotesk', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 20px 64px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font);
+      line-height: 1.5;
+    }
+    h1 { font-size: 28px; letter-spacing: -0.035em; margin: 0 0 8px; }
+    .lede { color: var(--ink-2); max-width: 52rem; margin: 0 0 28px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .card h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: -0.02em; }
+    dl { margin: 0 0 16px; }
+    dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); margin-top: 10px; }
+    dd { margin: 4px 0 0; }
+    code, pre {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    iframe {
+      width: 100%;
+      max-width: 560px;
+      height: 780px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #FBFBF8;
+    }
+    a { color: var(--fairway); }
+  </style>
+</head>
+<body>
+  <h1>Alert notification previews</h1>
+  <p class="lede">
+    Each email restates <strong>your Alert</strong> (one-time vs weekly, window, players),
+    then shows the <strong>matched tee times</strong>.
+    Re-run with <code>npm run preview:notifications</code>.
+  </p>
+  
+    <section class="card">
+      <h2>One-time · Morning · reopened 18</h2>
+      <dl>
+        <dt>Alert context</dt><dd><code>One-time · Fri, Aug 28 · Morning · 2 players</code></dd>
+        <dt>Email subject</dt><dd><code>11:51 AM · 18 holes reopened at The Ridge</code></dd>
+        <dt>Push title</dt><dd><code>11:51 AM · 18 holes reopened</code></dd>
+        <dt>Push body</dt><dd><code>The Ridge · One-time · Fri, Aug 28 · 2 players · $55</code></dd>
+        <dt>SMS</dt><dd><pre>One-time · Fri, Aug 28 · Morning · 2 players
+11:51 AM · 18 holes reopened at The Ridge · Fri, Aug 28 · $55.
+https://foreupsoftware.com/index.php/booking/22131/9898#/teetimes</pre></dd>
+      </dl>
+      <iframe src="./onetime-morning-reopen.html" title="One-time · Morning · reopened 18"></iframe>
+    </section>
+
+    <section class="card">
+      <h2>One-time · Morning · 18 + 9 same clock (Ridge)</h2>
+      <dl>
+        <dt>Alert context</dt><dd><code>One-time · Fri, Aug 28 · Morning · 2 players</code></dd>
+        <dt>Email subject</dt><dd><code>2 times reopened at The Ridge</code></dd>
+        <dt>Push title</dt><dd><code>2 times reopened</code></dd>
+        <dt>Push body</dt><dd><code>The Ridge · One-time · Fri, Aug 28 · 2 players</code></dd>
+        <dt>SMS</dt><dd><pre>One-time · Fri, Aug 28 · Morning · 2 players
+2 times reopened at The Ridge · Fri, Aug 28
+11:40 AM (18h), 11:40 AM (9h)
+https://foreupsoftware.com/index.php/booking/22131/9898#/teetimes</pre></dd>
+      </dl>
+      <iframe src="./onetime-morning-mixed.html" title="One-time · Morning · 18 + 9 same clock (Ridge)"></iframe>
+    </section>
+
+    <section class="card">
+      <h2>Weekly · Fridays · Afternoon</h2>
+      <dl>
+        <dt>Alert context</dt><dd><code>Weekly · Fridays · Afternoon · 2 players</code></dd>
+        <dt>Email subject</dt><dd><code>2:40 PM · 18 holes opened at The Ridge</code></dd>
+        <dt>Push title</dt><dd><code>2:40 PM · 18 holes opened</code></dd>
+        <dt>Push body</dt><dd><code>The Ridge · Weekly · Fri, Aug 28 · 2 players · $55</code></dd>
+        <dt>SMS</dt><dd><pre>Weekly · Fridays · Afternoon · 2 players
+2:40 PM · 18 holes opened at The Ridge · Fri, Aug 28 · $55.
+https://foreupsoftware.com/index.php/booking/22131/9898#/teetimes</pre></dd>
+      </dl>
+      <iframe src="./weekly-friday-afternoon.html" title="Weekly · Fridays · Afternoon"></iframe>
+    </section>
+
+    <section class="card">
+      <h2>Weekly · Fridays · multiple afternoon times</h2>
+      <dl>
+        <dt>Alert context</dt><dd><code>Weekly · Fridays · Afternoon · 2 players</code></dd>
+        <dt>Email subject</dt><dd><code>3 times opened at The Ridge</code></dd>
+        <dt>Push title</dt><dd><code>3 times opened</code></dd>
+        <dt>Push body</dt><dd><code>The Ridge · Weekly · Fri, Aug 28 · 2 players</code></dd>
+        <dt>SMS</dt><dd><pre>Weekly · Fridays · Afternoon · 2 players
+3 times opened at The Ridge · Fri, Aug 28
+1:10 PM (18h), 2:40 PM (18h), 3:20 PM (18h)
+https://foreupsoftware.com/index.php/booking/22131/9898#/teetimes</pre></dd>
+      </dl>
+      <iframe src="./weekly-friday-multi.html" title="Weekly · Fridays · multiple afternoon times"></iframe>
+    </section>
+
+    <section class="card">
+      <h2>One-time · All day · backstop style</h2>
+      <dl>
+        <dt>Alert context</dt><dd><code>One-time · Fri, Aug 28 · All day · 2 players</code></dd>
+        <dt>Email subject</dt><dd><code>7:30 AM · 18 holes opened at The Ridge</code></dd>
+        <dt>Push title</dt><dd><code>7:30 AM · 18 holes opened</code></dd>
+        <dt>Push body</dt><dd><code>The Ridge · One-time · Fri, Aug 28 · 2 players · $42</code></dd>
+        <dt>SMS</dt><dd><pre>One-time · Fri, Aug 28 · All day · 2 players
+7:30 AM · 18 holes opened at The Ridge · Fri, Aug 28 · $42.
+https://foreupsoftware.com/index.php/booking/22131/9898#/teetimes</pre></dd>
+      </dl>
+      <iframe src="./onetime-allday.html" title="One-time · All day · backstop style"></iframe>
+    </section>
+</body>
+</html>
