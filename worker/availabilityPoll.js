@@ -47,6 +47,13 @@ const SUPPORTED_PLATFORMS = new Set([
 const MIN_OPEN_SLOTS_FOR_PARTIAL_GUARD = 8;
 const PARTIAL_FETCH_MIN_RATIO = 0.35;
 const CLOSE_DEBOUNCE_MS = 20 * 60 * 1000;
+/** Alert micro-poller: faster closes so real cancels become reopens quickly. */
+const ALERT_CLOSE_DEBOUNCE_MS = 2.5 * 60 * 1000;
+/** Skip alert pairs polled this recently (dedupe vs full poller / prior tick). */
+const ALERT_POLL_MIN_INTERVAL_MS = 75 * 1000;
+const ALERT_POLL_CONCURRENCY = 6;
+/** Cap vendor fetches per alert cron tick. */
+const ALERT_POLL_MAX_PAIRS = 40;
 
 // ── Mountain Time helpers ───────────────────────────────────────────
 
@@ -516,9 +523,11 @@ async function applyPollDiff(env, {
   play_date,
   normalizedRows,
   poll_run_id,
+  closeDebounceMs = CLOSE_DEBOUNCE_MS,
 }) {
   const now = new Date().toISOString();
   const nowMs = Date.now();
+  const debounceMs = Number.isFinite(closeDebounceMs) ? closeDebounceMs : CLOSE_DEBOUNCE_MS;
   const existing = await loadExistingSlots(env, course.slug, play_date);
   const byKey = new Map();
   for (const slot of existing) {
@@ -624,6 +633,22 @@ async function applyPollDiff(env, {
       toTouchIds.push(prev.id);
     }
 
+    // Spots freed while row stayed open (partial book/cancel) — notify path only;
+    // not persisted to tee_time_slot_events (DB check constraint).
+    if (
+      spots_open != null &&
+      prev.spots_open != null &&
+      spots_open > prev.spots_open
+    ) {
+      notifyEvents.push({
+        event_type: 'spots_available',
+        starts_at_local: startsAtLocal,
+        holes,
+        price_cents,
+        spots_open,
+      });
+    }
+
     if (price_cents != null && prev.price_cents != null && price_cents !== prev.price_cents) {
       events.push({
         slot_id: prev.id,
@@ -663,7 +688,7 @@ async function applyPollDiff(env, {
     if (seen.has(key) || slot.status === 'closed') continue;
 
     const lastSeenMs = slot.last_seen_at ? Date.parse(slot.last_seen_at) : 0;
-    const withinDebounce = lastSeenMs && nowMs - lastSeenMs < CLOSE_DEBOUNCE_MS;
+    const withinDebounce = lastSeenMs && nowMs - lastSeenMs < debounceMs;
 
     // Partial-fetch only protects recently-seen slots. Aged missing slots must
     // still close — otherwise zombies inflate openSlots and the guard deadlocks.
@@ -696,7 +721,7 @@ async function applyPollDiff(env, {
   if (closesSkippedDebounce > 0) {
     console.warn(
       `[poll] close debounce: ${course.slug} ${play_date} ` +
-        `skipped ${closesSkippedDebounce} close(s) (<${CLOSE_DEBOUNCE_MS / 60000}m since last_seen)`,
+        `skipped ${closesSkippedDebounce} close(s) (<${debounceMs / 60000}m since last_seen)`,
     );
   }
 
@@ -789,7 +814,15 @@ async function pollNormalizedRows(course, play_date, holes, fetchTimesForCourse,
   return { rows: Array.from(byTime.values()) };
 }
 
-async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesForCourse, normalizeTimesWorker) {
+async function pollCourseDate(
+  env,
+  course,
+  play_date,
+  poll_run_id,
+  fetchTimesForCourse,
+  normalizeTimesWorker,
+  { closeDebounceMs = CLOSE_DEBOUNCE_MS } = {},
+) {
   const started = Date.now();
   const holePasses = holesToPoll(course);
   /** @type {Array<{rawTime:string,spots:number|null,price:string|null,holes:number}>} */
@@ -830,6 +863,7 @@ async function pollCourseDate(env, course, play_date, poll_run_id, fetchTimesFor
     play_date,
     normalizedRows: mergedRows,
     poll_run_id,
+    closeDebounceMs,
   });
 
   const partialGuard =
@@ -919,6 +953,7 @@ async function pollOneClaimedCourse(env, {
   fetchTimesForCourse,
   normalizeTimesWorker,
   onPollNotifyEvents,
+  closeDebounceMs = CLOSE_DEBOUNCE_MS,
 }) {
   const started = Date.now();
   const baseRow = {
@@ -935,6 +970,7 @@ async function pollOneClaimedCourse(env, {
       pollRunId,
       fetchTimesForCourse,
       normalizeTimesWorker,
+      { closeDebounceMs },
     );
 
     await insertPollRunCourse(env, {
@@ -988,6 +1024,276 @@ async function pollOneClaimedCourse(env, {
       error_message: message,
     };
   }
+}
+
+/** Mark schedule row as recently polled so the full poller claim skips it soon. */
+async function touchSchedulePolled(env, course_slug, play_date) {
+  const now = new Date().toISOString();
+  await fetch(
+    `${env.SUPABASE_URL}/rest/v1/availability_poll_schedule` +
+      `?course_slug=eq.${encodeURIComponent(course_slug)}` +
+      `&play_date=eq.${play_date}`,
+    {
+      method: 'PATCH',
+      headers: sbHeaders(env, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      }),
+      body: JSON.stringify({ last_polled_at: now, last_success_at: now }),
+    },
+  );
+}
+
+async function loadScheduleLastPolledMap(env, pairs) {
+  /** @type {Map<string, number>} */
+  const map = new Map();
+  if (!pairs.length) return map;
+  const chunks = chunk(pairs, 40);
+  for (const part of chunks) {
+    const or = part
+      .map(({ course_slug, play_date }) => {
+        const slug = String(course_slug).replace(/[^a-z0-9-]/gi, '');
+        return `and(course_slug.eq."${slug}",play_date.eq.${play_date})`;
+      })
+      .join(',');
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/availability_poll_schedule` +
+        `?or=(${or})&select=course_slug,play_date,last_polled_at`,
+      { headers: sbHeaders(env) },
+    );
+    if (!res.ok) continue;
+    const rows = await res.json();
+    for (const row of rows || []) {
+      const ts = row.last_polled_at ? Date.parse(row.last_polled_at) : 0;
+      map.set(`${row.course_slug}|${row.play_date}`, Number.isFinite(ts) ? ts : 0);
+    }
+  }
+  return map;
+}
+
+/**
+ * Expand active notification_preferences into distinct (course, play_date) watches.
+ * @returns {Promise<{ course: object, course_slug: string, play_date: string }[]>}
+ */
+async function loadAlertWatchPairs(env, courses, todayMt) {
+  const byName = new Map(courses.map((c) => [c.name, c]));
+
+  const [specRes, openRes] = await Promise.all([
+    fetch(
+      `${env.SUPABASE_URL}/rest/v1/notification_preferences` +
+        `?active=eq.true&target_date=not.is.null&target_date=gte.${todayMt}` +
+        `&select=course_id,target_date`,
+      { headers: sbHeaders(env) },
+    ),
+    fetch(
+      `${env.SUPABASE_URL}/rest/v1/notification_preferences` +
+        `?active=eq.true&target_date=is.null&look_ahead_days=not.is.null` +
+        `&select=course_id,days_of_week,look_ahead_days`,
+      { headers: sbHeaders(env) },
+    ),
+  ]);
+
+  const specific = specRes.ok ? await specRes.json() : [];
+  const weekly = openRes.ok ? await openRes.json() : [];
+  /** @type {Map<string, { course: object, course_slug: string, play_date: string }>} */
+  const pairs = new Map();
+
+  const add = (course, play_date) => {
+    if (!course || !play_date || play_date < todayMt) return;
+    if (daysUntil(play_date, todayMt) > POLL_MAX_DAY_OFFSET) return;
+    const key = `${course.slug}|${play_date}`;
+    if (!pairs.has(key)) pairs.set(key, { course, course_slug: course.slug, play_date });
+  };
+
+  for (const pref of specific) {
+    const course = byName.get(pref.course_id);
+    if (!course) continue;
+    add(course, pref.target_date);
+  }
+
+  for (const pref of weekly) {
+    const course = byName.get(pref.course_id);
+    if (!course) continue;
+    const horizon = Math.min(Math.max(Number(pref.look_ahead_days) || 14, 1), 60);
+    const dowAllow =
+      Array.isArray(pref.days_of_week) && pref.days_of_week.length
+        ? pref.days_of_week
+        : [0, 1, 2, 3, 4, 5, 6];
+    for (let d = 0; d < horizon; d++) {
+      const play_date = addDaysYmd(todayMt, d);
+      const [y, m, day] = play_date.split('-').map(Number);
+      const dow = new Date(Date.UTC(y, m - 1, day)).getUTCDay();
+      if (!dowAllow.includes(dow)) continue;
+      add(course, play_date);
+    }
+  }
+
+  return [...pairs.values()];
+}
+
+/**
+ * 24/7 micro-poller for (course, date) pairs with active alerts.
+ * Uses a shorter close debounce so cancels reopen quickly enough to notify.
+ */
+export async function handleAlertMicroPoll(env, deps) {
+  const { loadCourses, fetchTimesForCourse, normalizeTimesWorker, onPollNotifyEvents } = deps;
+
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
+    console.error('[alert-poll] missing Supabase credentials');
+    return { polled: 0 };
+  }
+
+  if (!(await isPollingEnabled(env))) {
+    console.warn('[alert-poll] skipped_kill_switch');
+    return { polled: 0, skipped: 'kill_switch' };
+  }
+
+  const courses = pollableCourses(await loadCourses(env));
+  if (!courses.length) return { polled: 0 };
+
+  const todayMt = mtParts().dateYmd;
+  const allPairs = await loadAlertWatchPairs(env, courses, todayMt);
+  if (!allPairs.length) return { polled: 0 };
+
+  await ensureScheduleRows(
+    env,
+    allPairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
+  );
+
+  const lastPolled = await loadScheduleLastPolledMap(env, allPairs);
+  const nowMs = Date.now();
+  const due = allPairs
+    .map((p) => {
+      const ts = lastPolled.get(`${p.course_slug}|${p.play_date}`) || 0;
+      return { ...p, lastPolledMs: ts };
+    })
+    .filter((p) => nowMs - p.lastPolledMs >= ALERT_POLL_MIN_INTERVAL_MS)
+    .sort((a, b) => a.lastPolledMs - b.lastPolledMs)
+    .slice(0, ALERT_POLL_MAX_PAIRS);
+
+  if (!due.length) return { polled: 0, skipped: 'recent' };
+
+  const pollRunId = await createPollRun(env);
+  let polled = 0;
+  let failed = 0;
+
+  await mapPool(due, ALERT_POLL_CONCURRENCY, async (row) => {
+    const result = await pollCourseDate(
+      env,
+      row.course,
+      row.play_date,
+      pollRunId,
+      fetchTimesForCourse,
+      normalizeTimesWorker,
+      { closeDebounceMs: ALERT_CLOSE_DEBOUNCE_MS },
+    );
+
+    if (result.status === 'ok') {
+      polled++;
+      await touchSchedulePolled(env, row.course_slug, row.play_date);
+      if (result.notify_events?.length && onPollNotifyEvents) {
+        try {
+          await onPollNotifyEvents({
+            course: row.course,
+            playDate: row.play_date,
+            notifyEvents: result.notify_events,
+            todayMt,
+          });
+        } catch (notifyErr) {
+          console.error(`[alert-poll] notify failed ${row.course_slug} ${row.play_date}:`, notifyErr);
+        }
+      }
+    } else {
+      failed++;
+      console.warn(
+        `[alert-poll] failed ${row.course_slug} ${row.play_date}: ${result.error_message || 'unknown'}`,
+      );
+    }
+
+    if (pollRunId) {
+      await insertPollRunCourse(env, {
+        poll_run_id: pollRunId,
+        course_slug: row.course_slug,
+        play_date: row.play_date,
+        status: result.status,
+        slots_written: result.slots_written,
+        events_written: result.events_written,
+        latency_ms: result.latency_ms,
+        error_message: result.error_message
+          ? `alert_micro:${result.error_message}`.slice(0, 500)
+          : 'alert_micro',
+      });
+    }
+  });
+
+  if (pollRunId) {
+    await finishPollRun(env, pollRunId, {
+      status: failed && polled ? 'partial' : failed ? 'failed' : 'ok',
+      courses_claimed: due.length,
+      courses_ok: polled,
+      courses_failed: failed,
+      error_summary: failed ? `alert_micro failed=${failed}` : null,
+    });
+  }
+
+  console.log(`[alert-poll] due=${due.length} ok=${polled} failed=${failed}`);
+  return { polled, failed, due: due.length };
+}
+
+/**
+ * Poll one (course, date) with alert-sensitive debounce — used on alert create.
+ */
+export async function pollAlertCourseDate(env, {
+  course,
+  playDate,
+  fetchTimesForCourse,
+  normalizeTimesWorker,
+  onPollNotifyEvents,
+  todayMt,
+}) {
+  const pollRunId = await createPollRun(env);
+  await ensureScheduleRows(env, [{ course_slug: course.slug, play_date: playDate }]);
+  const result = await pollCourseDate(
+    env,
+    course,
+    playDate,
+    pollRunId,
+    fetchTimesForCourse,
+    normalizeTimesWorker,
+    { closeDebounceMs: ALERT_CLOSE_DEBOUNCE_MS },
+  );
+  if (result.status === 'ok') {
+    await touchSchedulePolled(env, course.slug, playDate);
+    if (result.notify_events?.length && onPollNotifyEvents) {
+      await onPollNotifyEvents({
+        course,
+        playDate,
+        notifyEvents: result.notify_events,
+        todayMt: todayMt || mtParts().dateYmd,
+      });
+    }
+  }
+  if (pollRunId) {
+    await insertPollRunCourse(env, {
+      poll_run_id: pollRunId,
+      course_slug: course.slug,
+      play_date: playDate,
+      status: result.status,
+      slots_written: result.slots_written || 0,
+      events_written: result.events_written || 0,
+      latency_ms: result.latency_ms || 0,
+      error_message: result.error_message
+        ? `alert_create:${result.error_message}`.slice(0, 500)
+        : 'alert_create',
+    });
+    await finishPollRun(env, pollRunId, {
+      status: result.status === 'ok' ? 'ok' : 'failed',
+      courses_claimed: 1,
+      courses_ok: result.status === 'ok' ? 1 : 0,
+      courses_failed: result.status === 'ok' ? 0 : 1,
+    });
+  }
+  return result;
 }
 
 export async function handleAvailabilityPoll(env, deps) {

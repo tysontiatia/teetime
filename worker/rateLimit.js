@@ -80,4 +80,6 @@ export const RATE_LIMITS = {
   feed: { bucket: 'feed', limit: 120, windowSec: 60 },
   vendorLive: { bucket: 'vendor-live', limit: 300, windowSec: 60 },
   places: { bucket: 'places', limit: 400, windowSec: 60 },
+  /** Immediate check after creating an alert. */
+  alertCheck: { bucket: 'alert-check', limit: 30, windowSec: 60 },
 };

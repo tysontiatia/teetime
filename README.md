@@ -91,14 +91,16 @@ Signed-in users set an alert from the 🔔 modal: **specific date** (one play da
 
 1. User taps 🔔 on a course card → modal opens (`NotificationModal`)
 2. User chooses **Specific date** or **Weekly**, time window, players → row in `notification_preferences`
-3. **Availability poller** runs every **5 min** (`*/5 * * * *`): snapshots vendor sheets, diffs into `tee_time_slots` / `tee_time_slot_events`
-4. **Event-driven alerts** fire immediately after poll diff detects **`opened`** or **`reopened`** slots that match an active alert (typically within ~5–20 min depending on poll cadence; alert courses are prioritized in the poll queue)
-5. **Backstop cron** every **15 min** (6 AM–11 PM UTC): `*/15 6-23 * * *` — catches anything the event path missed
-6. Dedupe is **per tee time slot** (`HH:MM:SS|holes` in `notification_log.notified_slot_keys`), not per calendar date forever — a **reopened** slot can alert again after a **15 min** anti-spam window
-7. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
-8. Multi-slot alert emails list matching times (SMS copy paths remain in code but are not sent while SMS is paused)
+3. **Availability poller** runs every **5 min** (`*/5 * * * *`): snapshots vendor sheets, diffs into `tee_time_slots` / `tee_time_slot_events` (golf hours 6–23 MT). Finder uses these snapshots.
+4. **Alert micro-poller** runs every **1 min** (`* * * * *`), **24/7**, only for `(course, date)` pairs with active alerts — shorter close debounce (~2.5 min) so cancels reopen fast enough to notify
+5. **Event-driven alerts** fire after poll diff detects **`opened`**, **`reopened`**, or **spots increased** on matching slots (alert-watched pairs typically within ~1–3 minutes)
+6. **On alert create**, the app calls **`POST /v1/alerts/check`** for an immediate vendor poll + notify if matching inventory already exists
+7. **Backstop cron** every **15 min** (6 AM–11 PM UTC): `*/15 6-23 * * *` — catches anything the event path missed
+8. Dedupe is **per tee time slot** (`HH:MM:SS|holes` in `notification_log.notified_slot_keys`), not per calendar date forever — a **reopened** / spots-freed slot can alert again after a **15 min** anti-spam window
+9. Filters slots by each user’s `earliest_time` / `latest_time` and `min_spots` / `players`
+10. Multi-slot alert emails list matching times (SMS copy paths remain in code but are not sent while SMS is paused)
 
-**Honest latency:** vendor APIs are polled, not streamed — a book-then-cancel test may take up to one **hot** poll cycle (target ~5 minutes for today/tomorrow) plus the **20 min close debounce** before a reopen is detected. Phantom-churn guards suppress false closes on flaky API responses. Find also live-fetches on empty/stale snapshots so the grid is not limited to poll cadence alone.
+**Honest latency:** Alerts for watched courses target **~1–3 minutes** via the alert micro-poller (including overnight). The full catalog poller still runs on a ~5 min hot cadence during golf hours for Finder. A very short book→cancel may still need the ~2.5 min alert close debounce before a reopen is detected. Phantom-churn guards suppress false closes on flaky API responses. Find also live-fetches on empty/stale snapshots so the grid is not limited to poll cadence alone.
 
 **Finder inventory:** the app loads tee times via batched **`GET /v1/tee-times?date=&holes=&players=&ids=`** (chunks of ≤20 course slugs). The Worker serves poller snapshots and **live-fills** miss/stale/empty rows from vendors in the same response. The browser only live-proxies a course when that fill fails. Course detail still uses single-slug **`GET /v1/availability`** then live.
 

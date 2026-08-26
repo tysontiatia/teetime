@@ -24,4 +24,7 @@ VAPID_SUBJECT = "mailto:alerts@tee-time.io"
 
 [triggers]
 # UTC heartbeats — golf hours and tiers are gated in America/Denver inside the worker.
-crons = ["*/5 * * * *", "*/15 6-23 * * *"]
+# * * * * *     → alert micro-poller (watched pairs only, 24/7)
+# */5 * * * *   → full catalog poller (Finder snapshots; golf hours only)
+# */15 6-23     → notification backstop
+crons = ["* * * * *", "*/5 * * * *", "*/15 6-23 * * *"]

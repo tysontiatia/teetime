@@ -8,6 +8,7 @@
     "lint": "npm run lint --prefix frontend",
     "test": "node --test worker/*.test.mjs",
     "brand:check": "node scripts/brand-check.mjs",
+    "preview:notifications": "node scripts/preview-notifications.mjs",
     "preview": "npm run preview --prefix frontend",
     "check": "bash scripts/build-pages.sh",
     "export:catalog-csv": "node scripts/export-course-catalog-csv.mjs",

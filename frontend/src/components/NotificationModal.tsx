@@ -13,6 +13,7 @@ import {
 } from '../lib/alertPrefs';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { formatCityState } from '../lib/courseRecord';
+import { getWorkerBaseUrl } from '../lib/env';
 import { SignInPromptModal } from './SignInPromptModal';
 import { ModalCloseButton } from './ModalCloseButton';
 
@@ -172,12 +173,37 @@ export function NotificationModal({
     };
 
     setSaving(true);
-    const { error } = await supabase.from('notification_preferences').insert(row);
+    const { data: inserted, error } = await supabase
+      .from('notification_preferences')
+      .insert(row)
+      .select('id')
+      .single();
     setSaving(false);
 
     if (error) {
       setMessage({ type: 'err', text: error.message });
       return;
+    }
+
+    // Fire-and-forget immediate vendor check so matching times can notify without waiting for cron.
+    if (inserted?.id) {
+      void (async () => {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          if (!token) return;
+          await fetch(`${getWorkerBaseUrl()}/v1/alerts/check`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ preference_id: inserted.id }),
+          });
+        } catch {
+          // Alert is saved; cron micro-poller will pick it up.
+        }
+      })();
     }
 
     setMessage({ type: 'ok', text: 'Alert saved. We’ll email you when times match — turn on push in your account menu for instant alerts.' });
