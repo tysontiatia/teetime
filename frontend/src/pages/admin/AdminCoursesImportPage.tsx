@@ -171,8 +171,9 @@ export function AdminCoursesImportPage() {
           Import course stubs
         </h1>
         <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14, maxWidth: 560 }}>
-          Paste or upload the Tee Time Master CSV (Idaho or Utah). Dry-run skips existing courses by slug, Google Place
+          Paste or upload a Tee Time Master CSV (any state). Dry-run skips existing courses by slug, Google Place
           ID, or same-state name/city match — then confirm creates empty platform / booking URL stubs for QA.
+          Large files (100+ courses) are sent in batches automatically.
         </p>
       </div>
 

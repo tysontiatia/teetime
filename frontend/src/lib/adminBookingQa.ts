@@ -1,5 +1,6 @@
 import type { CourseRecord } from './courseRecord';
 import type { ParseBookingUrlResult } from './courseAdminApi';
+import { getPlatformCapability, platformDisplayName, detectPlatformFromBookingUrl } from './platformRegistry';
 
 export type BookingStatus = 'pending' | 'ready' | 'phone' | 'unsupported' | 'private' | 'closed';
 
@@ -23,7 +24,16 @@ export function applyParsedBookingUrl(
     ...record,
     booking_url: parsed.booking_url || pastedUrl,
   };
-  if (parsed.platform) next.platform = parsed.platform;
+  if (parsed.platform) {
+    next.platform = parsed.platform;
+  } else {
+    const fromHost = detectPlatformFromBookingUrl(parsed.booking_url || pastedUrl);
+    if (fromHost) next.platform = fromHost;
+  }
+  if (next.platform) {
+    const status = bookingStatusFromPlatform(next.platform);
+    if (status) next.booking_status = status;
+  }
   if (hints.schedule_id) next.schedule_id = hints.schedule_id;
   if (hints.booking_class_id) next.booking_class_id = hints.booking_class_id;
   if (hints.club_id) next.club_id = hints.club_id;
@@ -55,6 +65,28 @@ export function applyParsedBookingUrl(
     if ((meta.holes === 9 || meta.holes === 18) && next.holes == null) next.holes = meta.holes;
   }
   return next;
+}
+
+/**
+ * Live adapter → ready (supported). Known vendor without live inventory → unsupported.
+ * Unknown host → null (caller should ask).
+ */
+export function bookingStatusFromPlatform(platform: string | null | undefined): 'ready' | 'unsupported' | null {
+  const key = String(platform || '').trim();
+  if (!key) return null;
+  return getPlatformCapability(key) === 'live_inventory' ? 'ready' : 'unsupported';
+}
+
+export function parseDetectionMessage(platform: string | null | undefined): string {
+  const key = String(platform || '').trim();
+  if (!key) {
+    return 'Could not detect the vendor from this URL — pick one from the list, or mark Other.';
+  }
+  const name = platformDisplayName(key);
+  if (getPlatformCapability(key) === 'live_inventory') {
+    return `${name} — live tee times. We’ll poll this course.`;
+  }
+  return `${name} — no live adapter yet. Marked unsupported; the booking link still works in Find.`;
 }
 
 export function externalHttpUrl(raw: string | null | undefined): string | null {

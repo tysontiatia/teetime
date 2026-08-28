@@ -16,24 +16,20 @@ import {
 import {
   applyParsedBookingUrl,
   BOOKING_STATUS_LABELS,
+  bookingStatusFromPlatform,
   externalHttpUrl,
   needsBookingRecord,
+  parseDetectionMessage,
   type BookingStatus,
 } from '../../lib/adminBookingQa';
-import { capabilityHint, getPlatformCapability, platformDisplayName } from '../../lib/platformRegistry';
-
-const PLATFORMS = [
-  'foreup',
-  'foreup_login',
-  'chronogolf',
-  'chronogolf_slc',
-  'membersports',
-  'teeitup',
-  'trutee',
-  'golfpay',
-  'tenfore',
-  'cps',
-];
+import {
+  backlogPlatformSelectOptions,
+  canonicalizePlatform,
+  discoveredBacklogPlatformKeys,
+  livePlatformSelectOptions,
+  platformDisplayName,
+  vendorKeyFromLabel,
+} from '../../lib/platformRegistry';
 
 type Step = 1 | 2 | 3;
 /** QA outcome chosen on step 2 (maps to booking_status on save). */
@@ -53,6 +49,7 @@ export function AdminCourseQaPage() {
 
   const [queue, setQueue] = useState<string[]>([]);
   const [queueTotal, setQueueTotal] = useState(0);
+  const [discoveredPlatforms, setDiscoveredPlatforms] = useState<string[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
   const [queueError, setQueueError] = useState<string | null>(null);
 
@@ -66,6 +63,7 @@ export function AdminCourseQaPage() {
   const [step, setStep] = useState<Step>(1);
   const [outcome, setOutcome] = useState<QaOutcome>('online');
   const [bookingUrlInput, setBookingUrlInput] = useState('');
+  const [lastParsedUrl, setLastParsedUrl] = useState('');
   const [statusNote, setStatusNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +76,7 @@ export function AdminCourseQaPage() {
     setQueueError(null);
     try {
       const courses = await listAdminCourses();
+      setDiscoveredPlatforms(discoveredBacklogPlatformKeys(courses));
       const needs = courses.filter(needsBookingRecord).sort((a, b) => a.slug.localeCompare(b.slug));
       setQueueTotal(needs.length);
       const slugs = needs.map((c) => c.slug);
@@ -123,6 +122,7 @@ export function AdminCourseQaPage() {
       setStep(1);
       setOutcome('online');
       setStatusNote('');
+      setLastParsedUrl('');
       try {
         const detail = await getAdminCourse(slug);
         if (cancelled) return;
@@ -133,9 +133,13 @@ export function AdminCourseQaPage() {
           booking_url: '',
           booking_status: 'pending',
         };
-        setRecord(rec);
+        const fromNote = canonicalizePlatform(rec.booking_status_note);
+        const fromPlat = canonicalizePlatform(rec.platform);
+        const platform =
+          fromPlat && fromPlat !== 'other' ? fromPlat : fromNote || rec.platform || '';
+        setRecord({ ...rec, platform });
         setBookingUrlInput(rec.booking_url || '');
-        setStatusNote(rec.booking_status_note || '');
+        setStatusNote(fromPlat === 'other' || !fromNote ? rec.booking_status_note || '' : '');
         setPrepaid(Boolean(detail.catalog?.prepaid));
         setRates(ratesFromExpanded(detail.rates));
       } catch (e) {
@@ -215,6 +219,7 @@ export function AdminCourseQaPage() {
   const onParse = async () => {
     const url = bookingUrlInput.trim();
     if (!url || !record) return;
+    if (url === lastParsedUrl) return;
     setBusy(true);
     setError(null);
     setWarnings([]);
@@ -223,10 +228,11 @@ export function AdminCourseQaPage() {
       const next = applyParsedBookingUrl(record, parsed, url);
       setRecord(next);
       setBookingUrlInput(next.booking_url || url);
-      setOutcome('online');
-      if (!parsed.platform) {
-        setWarnings(['Could not detect platform from URL — pick one manually, or mark Unsupported platform.']);
-      }
+      setLastParsedUrl(next.booking_url || url);
+      const status = bookingStatusFromPlatform(next.platform);
+      if (status === 'ready') setOutcome('online');
+      else setOutcome('unsupported');
+      setWarnings([parseDetectionMessage(next.platform)]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not parse booking URL');
     } finally {
@@ -263,7 +269,10 @@ export function AdminCourseQaPage() {
       return Boolean(bookingUrlInput.trim() && record?.platform?.trim() && record.platform !== 'other');
     }
     if (outcome === 'unsupported') {
-      return Boolean(bookingUrlInput.trim() && statusNote.trim());
+      const vendor = canonicalizePlatform(record?.platform) || record?.platform?.trim();
+      if (!bookingUrlInput.trim() || !vendor) return false;
+      if (vendor === 'other') return Boolean(statusNote.trim());
+      return true;
     }
     if (outcome === 'phone') {
       return true;
@@ -299,12 +308,15 @@ export function AdminCourseQaPage() {
     if (outcome === 'unsupported') {
       const booking = bookingUrlInput.trim() || record.booking_url;
       if (!booking) return null;
+      const selected = canonicalizePlatform(record.platform) || record.platform.trim() || 'other';
+      const minted = selected === 'other' ? vendorKeyFromLabel(note) : selected;
+      const vendor = minted || selected;
       return {
         ...record,
-        platform: 'other',
+        platform: vendor,
         booking_url: booking,
         booking_status: status,
-        booking_status_note: note || 'unknown',
+        booking_status_note: vendor === 'other' ? note || 'unknown' : undefined,
       };
     }
     // private / closed — keep contact info; clear live booking fields for private
@@ -539,12 +551,13 @@ export function AdminCourseQaPage() {
           {step === 2 ? (
             <div style={{ marginTop: 20, display: 'grid', gap: 12 }}>
               <p style={{ margin: 0, fontSize: 14, color: 'var(--muted)' }}>
-                How should golfers book this course?
+                Paste the book / tee-sheet URL. Parse marks it supported (live times) or unsupported (booking link
+                only) from the vendor — you don’t pick that by hand.
               </p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {outcomeChip('online', 'Online booking')}
+                {outcomeChip('online', 'Online · live')}
+                {outcomeChip('unsupported', 'Online · unsupported')}
                 {outcomeChip('phone', 'Phone / in-person')}
-                {outcomeChip('unsupported', 'Unsupported platform')}
                 {outcomeChip('private', 'Private / members-only')}
                 {outcomeChip('closed', 'Closed')}
               </div>
@@ -559,42 +572,53 @@ export function AdminCourseQaPage() {
                 <>
                   <label style={{ display: 'block' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 4 }}>
-                      {outcome === 'unsupported' ? 'Booking URL (required — kept for platform backlog)' : 'Booking URL'}
+                      Booking URL
                     </div>
                     <input
                       className="input"
                       value={bookingUrlInput}
                       onChange={(e) => setBookingUrlInput(e.target.value)}
+                      onBlur={() => {
+                        const url = bookingUrlInput.trim();
+                        if (url && /^https?:\/\//i.test(url)) void onParse();
+                      }}
                       placeholder="https://…"
                       style={{ width: '100%' }}
                     />
                   </label>
-                  {outcome === 'online' ? (
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={busy || !bookingUrlInput.trim()}
-                        onClick={() => void onParse()}
-                      >
-                        {busy ? 'Parsing…' : 'Parse URL'}
-                      </button>
-                    </div>
-                  ) : null}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={busy || !bookingUrlInput.trim()}
+                      onClick={() => void onParse()}
+                    >
+                      {busy ? 'Parsing…' : 'Parse URL'}
+                    </button>
+                  </div>
                 </>
               ) : null}
 
-              {outcome === 'online' ? (
+              {outcome === 'online' || outcome === 'unsupported' ? (
                 <label style={{ display: 'block' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 4 }}>Platform</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 4 }}>Vendor</div>
                   <select
                     className="input"
                     value={record.platform || ''}
-                    onChange={(e) => patchRecord({ platform: e.target.value })}
+                    onChange={(e) => {
+                      const platform = e.target.value;
+                      patchRecord({ platform });
+                      const status = bookingStatusFromPlatform(platform);
+                      if (status === 'ready') setOutcome('online');
+                      else if (status === 'unsupported') setOutcome('unsupported');
+                    }}
                     style={{ width: '100%', maxWidth: 320 }}
                   >
                     <option value="">Select…</option>
-                    {PLATFORMS.map((p) => (
+                    {(outcome === 'online'
+                      ? livePlatformSelectOptions(record.platform)
+                      : backlogPlatformSelectOptions(record.platform, discoveredPlatforms)
+                    ).map((p) => (
                       <option key={p} value={p}>
                         {platformDisplayName(p)}
                       </option>
@@ -602,31 +626,25 @@ export function AdminCourseQaPage() {
                   </select>
                   {record.platform ? (
                     <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 4 }}>
-                      {capabilityHint(getPlatformCapability(record.platform))}
+                      {parseDetectionMessage(record.platform)}
                     </div>
                   ) : null}
                 </label>
               ) : null}
 
-              {outcome === 'unsupported' ? (
-                <>
-                  <p style={{ margin: 0, fontSize: 14, color: 'var(--muted)' }}>
-                    Save the real book/tee-sheet URL plus the vendor name. We keep both for a later “which platforms to
-                    build” backlog — the course can still show as a booking link in Find.
-                  </p>
-                  <label style={{ display: 'block' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 4 }}>
-                      Vendor name (required)
-                    </div>
-                    <input
-                      className="input"
-                      value={statusNote}
-                      onChange={(e) => setStatusNote(e.target.value)}
-                      placeholder="e.g. GolfNow, EZLinks, Chronogolf private…"
-                      style={{ width: '100%', maxWidth: 420 }}
-                    />
-                  </label>
-                </>
+              {outcome === 'unsupported' && record.platform === 'other' ? (
+                <label style={{ display: 'block' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 4 }}>
+                    Vendor name — saved onto the list for next time
+                  </div>
+                  <input
+                    className="input"
+                    value={statusNote}
+                    onChange={(e) => setStatusNote(e.target.value)}
+                    placeholder="Official product name, e.g. Pace of Play"
+                    style={{ width: '100%', maxWidth: 420 }}
+                  />
+                </label>
               ) : null}
 
               {outcome === 'phone' ? (

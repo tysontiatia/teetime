@@ -60,4 +60,5 @@ test('locationsCompatibleForImport uses address when cities differ', () => {
 test('inferCourseState prefers address / Idaho area', () => {
   assert.equal(inferCourseState({ address: 'Eagle, ID 83616', timezone: 'America/Boise', area: 'Idaho · Treasure Valley' }), 'ID');
   assert.equal(inferCourseState({ address: 'Salt Lake City, UT 84108', timezone: 'America/Denver', area: 'SALT LAKE CITY AREA' }), 'UT');
+  assert.equal(inferCourseState({ address: 'Phoenix, AZ 85018', timezone: 'America/Phoenix', area: 'Arizona · Phoenix' }), 'AZ');
 });

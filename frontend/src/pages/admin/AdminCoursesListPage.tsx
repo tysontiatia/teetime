@@ -8,7 +8,7 @@ import {
   resolveBookingStatus,
   type BookingStatus,
 } from '../../lib/adminBookingQa';
-import { platformDisplayName } from '../../lib/platformRegistry';
+import { platformDisplayName, platformGroupKey, rollupPlatforms } from '../../lib/platformRegistry';
 
 type ListFilter = 'all' | BookingStatus;
 
@@ -43,6 +43,9 @@ export function AdminCoursesListPage() {
     for (const c of courses) out[resolveBookingStatus(c)] += 1;
     return out;
   }, [courses]);
+
+  const platformRollup = useMemo(() => rollupPlatforms(courses), [courses]);
+  const backlogRollup = platformRollup.filter((r) => !r.live);
 
   const firstNeedsSlug = useMemo(
     () => courses.find(needsBookingRecord)?.slug ?? null,
@@ -79,8 +82,8 @@ export function AdminCoursesListPage() {
     const status = resolveBookingStatus(c);
     if (status === 'ready') return platformDisplayName(c.platform || undefined);
     if (status === 'unsupported') {
-      const vendor = c.booking_status_note?.trim();
-      return vendor ? `Unsupported · ${vendor}` : BOOKING_STATUS_LABELS.unsupported;
+      const vendor = platformGroupKey(c.platform, c.booking_status_note);
+      return vendor ? `Unsupported · ${platformDisplayName(vendor)}` : BOOKING_STATUS_LABELS.unsupported;
     }
     return BOOKING_STATUS_LABELS[status];
   };
@@ -151,6 +154,41 @@ export function AdminCoursesListPage() {
           </span>
         ) : null}
       </div>
+
+      {!loading && !error && platformRollup.length > 0 ? (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 14,
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            background: 'var(--card)',
+            display: 'grid',
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>What to build next</div>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)', maxWidth: 640 }}>
+              Vendors we don’t poll yet, including ones you’ve already saved (Play18, GolfRev, …). Live adapters
+              stay off this list.
+            </p>
+          </div>
+          {backlogRollup.length > 0 ? (
+            <div>
+              <div style={{ marginTop: 0, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {backlogRollup.map((r) => (
+                  <span key={r.key} style={{ ...chipStyle(false), cursor: 'default' }}>
+                    {r.label} ({r.count})
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>No unsupported vendors yet.</p>
+          )}
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 12 }}>
         <input

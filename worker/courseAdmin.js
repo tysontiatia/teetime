@@ -133,8 +133,9 @@ export function inferCourseState(record) {
   const addr = String(record?.address || '');
   const area = String(record?.area || '');
   const tz = String(record?.timezone || '').trim();
+  if (/\bAZ\b/.test(addr) || /^Arizona\b/i.test(area) || tz === 'America/Phoenix') return 'AZ';
   if (/\bID\b/.test(addr) || /^Idaho\b/i.test(area) || tz === 'America/Boise') return 'ID';
-  if (/\bUT\b/.test(addr) || /\bUtah\b/i.test(area) || tz === 'America/Denver') return 'UT';
+  if (/\bUT\b/.test(addr) || /\bUtah\b/i.test(area)) return 'UT';
   // Legacy Utah area labels without "Utah" still use Denver.
   if (tz === 'America/Denver') return 'UT';
   return null;
@@ -259,6 +260,43 @@ export function parseBookingUrl(rawUrl) {
 
   if (host.includes('tenfore')) {
     out.platform = 'tenfore';
+    return out;
+  }
+
+  if (host.includes('golfnow')) {
+    out.platform = 'golfnow';
+    return out;
+  }
+
+  if (host.includes('ezlinksgolf') || host.endsWith('ezlinks.com') || host.includes('.ezlinks.com')) {
+    out.platform = 'ezlinks';
+    return out;
+  }
+
+  if (host.includes('teesnap')) {
+    out.platform = 'teesnap';
+    return out;
+  }
+
+  if (host.includes('clubessential')) {
+    out.platform = 'clubessentials';
+    return out;
+  }
+
+  if (host.includes('teeoff.com')) {
+    out.platform = 'teeoff';
+    return out;
+  }
+
+  if (host.includes('golfrev.com')) {
+    out.platform = 'golfrev';
+    const courseId = u.searchParams.get('courseid') || u.searchParams.get('courseId');
+    if (courseId) out.hints.golfrev_course_id = courseId;
+    return out;
+  }
+
+  if (host.includes('play18.com') || host.includes('sagacitygolf.com')) {
+    out.platform = 'sagacity';
     return out;
   }
 
@@ -895,7 +933,9 @@ function getPlatformWarnings(record) {
   if (platform === 'chronogolf' && !(Array.isArray(record.course_ids) && record.course_ids.length)) {
     warnings.push('Chronogolf needs course_ids (marketplace course id) for live tee times — re-Parse the club URL.');
   }
-  if (platform === 'tenfore' || platform === 'cps') {
+  if (platform === 'tenfore' || platform === 'cps' || platform === 'golfnow' || platform === 'ezlinks' || platform === 'teesnap' || platform === 'clubessentials' || platform === 'lightspeed' || platform === 'teeoff' || platform === 'golfrev' || platform === 'sagacity' || platform === 'play18') {
+    warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
+  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login'].includes(platform)) {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
   }
   if (platform === 'golfpay' && !record.golfpay_course_id) {
@@ -916,7 +956,7 @@ function getPlatformWarnings(record) {
   return warnings;
 }
 
-const IMPORT_BATCH_MAX = 150;
+const IMPORT_BATCH_MAX = 300;
 
 async function fetchExistingCourseIndex(env) {
   const [regRes, catRes] = await Promise.all([
@@ -1204,7 +1244,14 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         const rows = Array.isArray(body.rows) ? body.rows : null;
         if (!rows) return corsResponse({ error: 'missing_rows' }, 400);
         if (rows.length > IMPORT_BATCH_MAX) {
-          return corsResponse({ error: 'batch_too_large', max: IMPORT_BATCH_MAX }, 400);
+          return corsResponse(
+            {
+              error: 'batch_too_large',
+              max: IMPORT_BATCH_MAX,
+              detail: `This import has ${rows.length} courses; max is ${IMPORT_BATCH_MAX} per request.`,
+            },
+            400,
+          );
         }
 
         const dryRun = Boolean(body.dry_run);
