@@ -8,6 +8,12 @@ export function toYmd(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+export function shiftYmd(ymd: string, deltaDays: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const next = new Date(y!, (m ?? 1) - 1, (d ?? 1) + deltaDays);
+  return toYmd(next);
+}
+
 /** Calendar YYYY-MM-DD in a timezone for an ISO instant (default Mountain). */
 export function ymdInTimeZone(iso: string, timeZone: string = DEFAULT_TEE_TIMEZONE): string {
   const d = new Date(iso);
@@ -67,6 +73,12 @@ export function formatDateShort(ymd: string) {
   const [y, m, d] = ymd.split('-').map(Number);
   const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+export function formatDateLong(ymd: string) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
+  return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 /** Compact calendar label without weekday — better for dense mobile meta. */

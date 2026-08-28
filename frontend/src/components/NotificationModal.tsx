@@ -5,35 +5,31 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../state/AuthContext';
 import { toYmd } from '../lib/time';
 import {
-  ALERT_DOW_KEYS,
   ALERT_DOW_MAP,
   clampAlertPlayers,
-  type AlertTimeWindow,
+  describeAlertDraft,
+  dowKeyFromYmd,
   windowToRange,
+  type AlertDraftSummary,
+  type AlertScheduleValue,
+  type AlertTimeWindow,
 } from '../lib/alertPrefs';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { formatCityState } from '../lib/courseRecord';
 import { getWorkerBaseUrl } from '../lib/env';
+import {
+  countPushSubscriptions,
+  enablePushAlerts,
+  pushSupported,
+} from '../lib/pushAlerts';
 import { SignInPromptModal } from './SignInPromptModal';
 import { ModalCloseButton } from './ModalCloseButton';
-
-type Mode = 'specific' | 'weekly';
+import { AlertScheduleFields } from './AlertScheduleFields';
+import { AlertCourseSearch } from './AlertCourseSearch';
 
 function todToWindow(tod: TimeOfDayPreset | AlertTimeWindow | undefined): AlertTimeWindow {
   if (tod === 'morning' || tod === 'afternoon' || tod === 'evening' || tod === 'any') return tod;
   return 'any';
-}
-
-function dowKeyFromYmd(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number);
-  const day = new Date(y!, (m ?? 1) - 1, d ?? 1).getDay();
-  return ALERT_DOW_KEYS[day] ?? 'sat';
-}
-
-function shiftYmd(ymd: string, deltaDays: number): string {
-  const [y, m, d] = ymd.split('-').map(Number);
-  const next = new Date(y!, (m ?? 1) - 1, (d ?? 1) + deltaDays);
-  return toYmd(next);
 }
 
 type AlertMessage = {
@@ -48,10 +44,23 @@ type ExistingPref = {
   days_of_week: number[] | null;
 };
 
+function emptySchedule(date: string, players: 1 | 2 | 3 | 4, window: AlertTimeWindow): AlertScheduleValue {
+  return {
+    mode: 'specific',
+    targetDate: date,
+    dayOfWeek: dowKeyFromYmd(date),
+    timeWindow: window,
+    players,
+  };
+}
+
 export function NotificationModal({
   open,
   onClose,
   course,
+  catalog,
+  onSaved,
+  fromAccount = false,
   defaultDate,
   defaultPlayers,
   defaultTimeOfDay,
@@ -59,38 +68,54 @@ export function NotificationModal({
   open: boolean;
   onClose: () => void;
   course: Course | null;
+  /** When set and `course` is null, search then schedule in this modal. */
+  catalog?: Course[];
+  onSaved?: () => void;
+  /** Hide “Manage Alerts” — caller is already on the Alerts page. */
+  fromAccount?: boolean;
   defaultDate?: string;
   defaultPlayers?: number;
   defaultTimeOfDay?: TimeOfDayPreset | AlertTimeWindow;
 }) {
   const { user } = useAuth();
   const todayYmd = toYmd(new Date());
-  const [mode, setMode] = useState<Mode>('specific');
-  const [dayOfWeek, setDayOfWeek] = useState('sat');
-  const [timeWindow, setTimeWindow] = useState<AlertTimeWindow>('any');
-  const [players, setPlayers] = useState<1 | 2 | 3 | 4>(2);
-  const [targetDate, setTargetDate] = useState(() => defaultDate || todayYmd);
+  const [picked, setPicked] = useState<Course | null>(null);
+  const [schedule, setSchedule] = useState<AlertScheduleValue>(() =>
+    emptySchedule(defaultDate || todayYmd, 2, 'any'),
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<AlertMessage | null>(null);
+  const [saved, setSaved] = useState<AlertDraftSummary | null>(null);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
 
-  const title = useMemo(
-    () => (course ? `${course.name} (${formatCityState(course.city, course.state) || course.city})` : 'Course'),
-    [course],
-  );
+  const activeCourse = course ?? picked;
+  const picking = Boolean(catalog) && !course && !activeCourse && !saved;
+
+  const title = useMemo(() => {
+    if (activeCourse) {
+      return `${activeCourse.name} (${formatCityState(activeCourse.city, activeCourse.state) || activeCourse.city})`;
+    }
+    if (catalog) return 'Search a course we track live';
+    return 'Course';
+  }, [activeCourse, catalog]);
 
   useEffect(() => {
     if (!open) {
+      setPicked(null);
       setMessage(null);
       setSaving(false);
+      setSaved(null);
+      setPushMsg(null);
       return;
     }
     const date = defaultDate && defaultDate >= todayYmd ? defaultDate : todayYmd;
-    setMode('specific');
-    setTargetDate(date);
-    setDayOfWeek(dowKeyFromYmd(date));
-    setPlayers(clampAlertPlayers(defaultPlayers ?? 2));
-    setTimeWindow(todToWindow(defaultTimeOfDay));
+    setSchedule(emptySchedule(date, clampAlertPlayers(defaultPlayers ?? 2), todToWindow(defaultTimeOfDay)));
     setMessage(null);
+    setSaved(null);
+    setPushMsg(null);
+    setPicked(null);
   }, [open, defaultDate, defaultPlayers, defaultTimeOfDay, todayYmd]);
 
   useBodyScrollLock(open && Boolean(user));
@@ -103,6 +128,17 @@ export function NotificationModal({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open || !user?.id || !saved) return;
+    let cancelled = false;
+    void countPushSubscriptions(user.id).then((n) => {
+      if (!cancelled) setPushOn(n > 0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user?.id, saved]);
 
   if (!open) return null;
 
@@ -121,21 +157,21 @@ export function NotificationModal({
 
   const save = async () => {
     setMessage(null);
-    if (!course) return;
+    if (!activeCourse) return;
 
-    if (mode === 'specific' && targetDate < todayYmd) {
+    if (schedule.mode === 'specific' && schedule.targetDate < todayYmd) {
       setMessage({ type: 'err', text: 'Pick today or a future date.' });
       return;
     }
 
-    const { earliest, latest } = windowToRange(timeWindow);
-    const days_of_week = mode === 'weekly' ? [ALERT_DOW_MAP[dayOfWeek] ?? 6] : [];
+    const { earliest, latest } = windowToRange(schedule.timeWindow);
+    const days_of_week = schedule.mode === 'weekly' ? [ALERT_DOW_MAP[schedule.dayOfWeek] ?? 6] : [];
 
     const { data: existingRows, error: existingErr } = await supabase
       .from('notification_preferences')
       .select('id, active, target_date, days_of_week')
       .eq('user_id', user.id)
-      .eq('course_id', course.catalogName)
+      .eq('course_id', activeCourse.catalogName)
       .eq('active', true);
 
     if (existingErr) {
@@ -145,31 +181,33 @@ export function NotificationModal({
 
     const existing = (existingRows ?? []) as ExistingPref[];
     const duplicate = existing.find((row) => {
-      if (mode === 'specific') return row.target_date === targetDate;
+      if (schedule.mode === 'specific') return row.target_date === schedule.targetDate;
       if (row.target_date) return false;
       const days = row.days_of_week ?? [];
-      return days.length === 1 && days[0] === (ALERT_DOW_MAP[dayOfWeek] ?? 6);
+      return days.length === 1 && days[0] === (ALERT_DOW_MAP[schedule.dayOfWeek] ?? 6);
     });
 
     if (duplicate) {
       setMessage({
         type: 'dup',
-        text: 'You already have an active alert for this course and schedule.',
+        text: fromAccount
+          ? 'You already have this Alert. Pause or edit it on this page.'
+          : 'You already have this Alert. Pause or edit it in Alerts.',
       });
       return;
     }
 
     const row = {
       user_id: user.id,
-      course_id: course.catalogName,
+      course_id: activeCourse.catalogName,
       days_of_week,
       earliest_time: earliest,
       latest_time: latest,
-      min_spots: players,
+      min_spots: schedule.players,
       active: true,
-      target_date: mode === 'specific' ? targetDate : null,
-      players,
-      look_ahead_days: mode === 'weekly' ? 14 : null,
+      target_date: schedule.mode === 'specific' ? schedule.targetDate : null,
+      players: schedule.players,
+      look_ahead_days: schedule.mode === 'weekly' ? 14 : null,
     };
 
     setSaving(true);
@@ -206,8 +244,22 @@ export function NotificationModal({
       })();
     }
 
-    setMessage({ type: 'ok', text: 'Alert saved. We’ll email you when times match — turn on push in your account menu for instant alerts.' });
-    setTimeout(() => onClose(), 900);
+    setSaved(describeAlertDraft(schedule));
+    onSaved?.();
+  };
+
+  const onEnablePush = async () => {
+    if (!user.id || pushBusy) return;
+    setPushBusy(true);
+    setPushMsg(null);
+    const res = await enablePushAlerts(user.id);
+    setPushBusy(false);
+    if (!res.ok) {
+      setPushMsg(res.message);
+      return;
+    }
+    setPushOn(true);
+    setPushMsg('Push on — we’ll notify this device.');
   };
 
   return (
@@ -224,167 +276,119 @@ export function NotificationModal({
         <div className="modal-header">
           <div>
             <h2 id="notif-modal-title" className="modal-header-title">
-              Create alert
+              {saved ? 'Alert saved' : 'Create Alert'}
             </h2>
             <p className="modal-header-sub">{title}</p>
+            {!course && catalog && activeCourse && !saved ? (
+              <button type="button" className="alert-course-change" onClick={() => setPicked(null)}>
+                Change course
+              </button>
+            ) : null}
           </div>
           <ModalCloseButton onClick={onClose} />
         </div>
 
-        <div className="modal-body">
-          <div className="modal-seg">
-            <button
-              className={`btn modal-seg-btn${mode === 'specific' ? ' on' : ''}`}
-              type="button"
-              onClick={() => {
-                setMode('specific');
-                setMessage(null);
-              }}
-            >
-              Specific date
-            </button>
-            <button
-              className={`btn modal-seg-btn${mode === 'weekly' ? ' on' : ''}`}
-              type="button"
-              onClick={() => {
-                setMode('weekly');
-                setMessage(null);
-              }}
-            >
-              Weekly
-            </button>
-          </div>
-
-          {mode === 'weekly' ? (
-            <div className="modal-grid-2">
-              <div>
-                <label className="modal-label">Day</label>
-                <select className="input" value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)}>
-                  <option value="mon">Monday</option>
-                  <option value="tue">Tuesday</option>
-                  <option value="wed">Wednesday</option>
-                  <option value="thu">Thursday</option>
-                  <option value="fri">Friday</option>
-                  <option value="sat">Saturday</option>
-                  <option value="sun">Sunday</option>
-                </select>
+        {saved ? (
+          <>
+            <div className="modal-body">
+              <p className="alert-confirm-lede">We’ll email you when times match. Checking now for anything already open.</p>
+              <div className="alert-summary">
+                <div className="alert-summary-kicker">{saved.title}</div>
+                <div className="alert-summary-schedule">{saved.scheduleLine}</div>
+                <div className="alert-summary-filters">{saved.filtersLine}</div>
               </div>
-              <div>
-                <label className="modal-label">Window</label>
-                <select
-                  className="input"
-                  value={timeWindow}
-                  onChange={(e) => setTimeWindow(e.target.value as AlertTimeWindow)}
-                >
-                  <option value="any">All day</option>
-                  <option value="morning">Morning</option>
-                  <option value="afternoon">Afternoon</option>
-                  <option value="evening">Twilight</option>
-                </select>
-              </div>
-            </div>
-          ) : (
-            <div className="modal-grid-2">
-              <div>
-                <label className="modal-label">Date</label>
-                <div className="modal-date-nudge">
+              {pushSupported() && !pushOn ? (
+                <div className="alert-push-prompt">
+                  <div className="alert-push-copy">
+                    <div className="alert-push-title">Also notify this device</div>
+                    <p className="alert-push-hint">Instant banner when a time opens. Email still goes to {user.email}.</p>
+                  </div>
                   <button
                     type="button"
-                    className="modal-date-nudge-btn"
-                    aria-label="Previous day"
-                    disabled={targetDate <= todayYmd}
-                    onClick={() => {
-                      const next = shiftYmd(targetDate, -1);
-                      if (next >= todayYmd) {
-                        setTargetDate(next);
-                        setMessage(null);
-                      }
-                    }}
+                    className="btn btn-primary alert-push-btn"
+                    disabled={pushBusy}
+                    onClick={() => void onEnablePush()}
                   >
-                    ‹
-                  </button>
-                  <input
-                    className="input"
-                    type="date"
-                    min={todayYmd}
-                    value={targetDate}
-                    onChange={(e) => {
-                      setTargetDate(e.target.value);
-                      setMessage(null);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="modal-date-nudge-btn"
-                    aria-label="Next day"
-                    onClick={() => {
-                      setTargetDate(shiftYmd(targetDate, 1));
-                      setMessage(null);
-                    }}
-                  >
-                    ›
+                    {pushBusy ? '…' : 'Enable push'}
                   </button>
                 </div>
-              </div>
-              <div>
-                <label className="modal-label">Window</label>
-                <select
-                  className="input"
-                  value={timeWindow}
-                  onChange={(e) => setTimeWindow(e.target.value as AlertTimeWindow)}
-                >
-                  <option value="any">All day</option>
-                  <option value="morning">Morning</option>
-                  <option value="afternoon">Afternoon</option>
-                  <option value="evening">Twilight</option>
-                </select>
-              </div>
+              ) : (
+                <p className="alert-confirm-email">Email goes to {user.email}{pushOn ? ' · push is on' : ''}.</p>
+              )}
+              {pushMsg ? <p className="alert-push-msg">{pushMsg}</p> : null}
             </div>
-          )}
+            <div className="modal-footer">
+              {fromAccount ? null : (
+                <Link to="/account" className="btn" onClick={onClose}>
+                  Manage Alerts
+                </Link>
+              )}
+              <button className="btn btn-primary" type="button" onClick={onClose}>
+                Done
+              </button>
+            </div>
+          </>
+        ) : picking ? (
+          <>
+            <div className="modal-body">
+              {catalog ? (
+                <AlertCourseSearch courses={catalog} onPick={setPicked} />
+              ) : (
+                <p className="alert-course-search-hint">No live courses are available to alert on right now.</p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn" type="button" onClick={onClose}>
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="modal-body">
+              <AlertScheduleFields value={schedule} onChange={setSchedule} todayYmd={todayYmd} />
+              <p className="alert-email-footnote">Sends to {user.email}</p>
 
-          <div className="modal-grid-2">
-            <div>
-              <label className="modal-label">Players</label>
-              <select className="input" value={players} onChange={(e) => setPlayers(Number(e.target.value) as 1 | 2 | 3 | 4)}>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-              </select>
-            </div>
-            <div className="modal-email-hint">
-              <span className="modal-label">Sends to</span>
-              <p className="modal-email-value">{user.email}</p>
-            </div>
-          </div>
-
-          {message ? (
-            <div className={`modal-msg ${message.type === 'dup' ? 'ok' : message.type}`}>
-              <div>{message.text}</div>
-              {message.type === 'dup' ? (
-                <div className="modal-msg-extra">
-                  <Link to="/account" className="detail-text-link" onClick={onClose}>
-                    Manage alerts →
-                  </Link>
+              {message ? (
+                <div className={`modal-msg ${message.type === 'dup' ? 'ok' : message.type}`}>
+                  <div>{message.text}</div>
+                  {message.type === 'dup' && !fromAccount ? (
+                    <div className="modal-msg-extra">
+                      <Link to="/account" className="detail-text-link" onClick={onClose}>
+                        Manage Alerts →
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
-          ) : null}
-        </div>
 
-        <div className="modal-footer">
-          <button className="btn" type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={saving}
-            onClick={() => void save()}
-          >
-            {saving ? 'Saving…' : 'Save alert'}
-          </button>
-        </div>
+            <div className="modal-footer">
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  if (!course && catalog) {
+                    setPicked(null);
+                    setMessage(null);
+                    return;
+                  }
+                  onClose();
+                }}
+              >
+                {!course && catalog ? 'Back' : 'Cancel'}
+              </button>
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={saving || !activeCourse}
+                onClick={() => void save()}
+              >
+                {saving ? 'Saving…' : 'Save Alert'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
