@@ -15,6 +15,7 @@ export function SlotActionSheet({
   signingIn = false,
   onBook,
   onShare,
+  onOpenedBooking,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,6 +31,8 @@ export function SlotActionSheet({
   signingIn?: boolean;
   onBook?: () => void;
   onShare: () => void;
+  /** Fired when the user opens the course booking site (new tab). */
+  onOpenedBooking?: () => void;
 }) {
   const titleId = useId();
   useBodyScrollLock(open);
@@ -104,7 +107,10 @@ export function SlotActionSheet({
               href={bookHref}
               target="_blank"
               rel="noreferrer"
-              onClick={onClose}
+              onClick={() => {
+                onOpenedBooking?.();
+                onClose();
+              }}
             >
               {bookLabel}
             </a>

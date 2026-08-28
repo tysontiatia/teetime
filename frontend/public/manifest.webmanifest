@@ -1,7 +1,7 @@
 {
   "name": "Tee-Time",
   "short_name": "Tee-Time",
-  "description": "Search Utah golf tee times, plan rounds with your group, and get alerted when slots open.",
+  "description": "Search live golf tee times, plan rounds with your group, and get alerted when slots open.",
   "id": "/app/",
   "start_url": "/app/",
   "scope": "/app/",

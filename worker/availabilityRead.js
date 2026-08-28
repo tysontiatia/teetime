@@ -390,6 +390,7 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
   }
 
   const slugs = parsed.slugs;
+  const forceFresh = params.fresh === '1' || params.fresh === 'true';
   const [scheduleRows, slotRows, eventRows] = await Promise.all([
     loadPollCoverageBatch(env, slugs, play_date),
     loadOpenSlotsBatch(env, slugs, play_date, holes),
@@ -402,7 +403,9 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
   let live_failed = 0;
   if (deps?.loadCourses && deps?.fetchTimesForCourse && deps?.normalizeTimesWorker) {
     try {
-      const fill = await liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps);
+      const fill = await liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps, {
+        forceFresh,
+      });
       live_filled = fill.filled;
       live_failed = fill.failed;
     } catch (err) {
@@ -442,8 +445,9 @@ function daysUntilPlayYmd(playDateYmd, nowMs = Date.now()) {
 }
 
 /** Exported for unit tests — when true, batch handler should vendor-fetch this slug. */
-export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.now()) {
+export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.now(), forceFresh = false) {
   void players;
+  if (forceFresh) return true;
   if (!row || row.has_poll_coverage !== true || !Array.isArray(row.times)) return true;
   if (row.times.length === 0) return true;
   const polled = row.last_polled_at ? Date.parse(row.last_polled_at) : NaN;
@@ -577,8 +581,11 @@ async function mapPool(items, concurrency, fn) {
   return results;
 }
 
-async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps) {
-  const need = slugs.filter((slug) => snapshotNeedsLiveFill(by_slug[slug], players, play_date));
+async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps, options = {}) {
+  const forceFresh = options.forceFresh === true;
+  const need = slugs.filter((slug) =>
+    snapshotNeedsLiveFill(by_slug[slug], players, play_date, Date.now(), forceFresh),
+  );
   if (!need.length) return { filled: 0, failed: 0 };
 
   const courses = await deps.loadCourses();

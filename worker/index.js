@@ -2026,13 +2026,21 @@ export default {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.teeTimesBatch);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
-      return cachedGetResponse(request, 45, () =>
+      const produce = () =>
         handleTeeTimesBatchRequest(env, params, {
           loadCourses: () => loadCourses(env),
           fetchTimesForCourse,
           normalizeTimesWorker,
-        }),
-      );
+        });
+      // Course detail passes fresh=1 after booking so we must not serve a cached sheet.
+      if (params.fresh === '1' || params.fresh === 'true') {
+        const res = await produce();
+        const headers = new Headers(res.headers);
+        headers.set('Cache-Control', 'no-store');
+        headers.set('X-Worker-Cache', 'bypass');
+        return new Response(res.body, { status: res.status, headers });
+      }
+      return cachedGetResponse(request, 45, produce);
     }
 
     if (path === '/v1/alerts/check' && request.method === 'POST') {
