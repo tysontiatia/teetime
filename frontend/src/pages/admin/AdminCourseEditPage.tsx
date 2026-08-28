@@ -5,6 +5,7 @@ import { slugFromCourseName } from '../../lib/courseSlug';
 import {
   createAdminCourse,
   getAdminCourse,
+  listAdminCourses,
   lookupPlaces,
   parseBookingUrl,
   updateAdminCourse,
@@ -16,24 +17,23 @@ import {
   ratesPayload,
   type AdminRatesForm,
 } from '../../lib/adminCourseTypes';
-import { capabilityHint, getPlatformCapability, platformDisplayName } from '../../lib/platformRegistry';
-import { BOOKING_STATUS_LABELS, type BookingStatus } from '../../lib/adminBookingQa';
+import {
+  backlogPlatformSelectOptions,
+  discoveredBacklogPlatformKeys,
+  livePlatformSelectOptions,
+  capabilityHint,
+  getPlatformCapability,
+  platformDisplayName,
+} from '../../lib/platformRegistry';
+import {
+  applyParsedBookingUrl,
+  BOOKING_STATUS_LABELS,
+  bookingStatusFromPlatform,
+  parseDetectionMessage,
+  type BookingStatus,
+} from '../../lib/adminBookingQa';
 
 const BOOKING_STATUSES: BookingStatus[] = ['pending', 'ready', 'phone', 'unsupported', 'private', 'closed'];
-
-const PLATFORMS = [
-  'foreup',
-  'foreup_login',
-  'chronogolf',
-  'chronogolf_slc',
-  'membersports',
-  'teeitup',
-  'trutee',
-  'golfpay',
-  'tenfore',
-  'cps',
-  'other',
-];
 
 const WALKABILITY = ['flat', 'moderate', 'hilly', 'carts only'] as const;
 
@@ -77,8 +77,15 @@ export function AdminCourseEditPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
+  const [discoveredPlatforms, setDiscoveredPlatforms] = useState<string[]>([]);
 
   const slug = isNew ? slugFromCourseName(record.name) : routeSlug || '';
+
+  useEffect(() => {
+    void listAdminCourses()
+      .then((courses) => setDiscoveredPlatforms(discoveredBacklogPlatformKeys(courses)))
+      .catch(() => setDiscoveredPlatforms([]));
+  }, []);
 
   useEffect(() => {
     if (isNew || !routeSlug) return;
@@ -181,45 +188,10 @@ export function AdminCourseEditPage() {
     setSaveError(null);
     try {
       const parsed = await parseBookingUrl(url);
-      const hints = parsed.hints || {};
-      const patch: Partial<CourseRecord> = { booking_url: parsed.booking_url || url };
-      if (parsed.platform) {
-        patch.platform = parsed.platform;
-        patch.booking_status = 'ready';
-      }
-      if (hints.schedule_id) patch.schedule_id = hints.schedule_id;
-      if (hints.booking_class_id) patch.booking_class_id = hints.booking_class_id;
-      if (hints.club_id) patch.club_id = hints.club_id;
-      if (hints.course_id) patch.course_id = hints.course_id;
-      if (hints.affiliation_type_id) patch.affiliation_type_id = hints.affiliation_type_id;
-      if (hints.course_ids) {
-        const ids = String(hints.course_ids)
-          .split(',')
-          .map((s) => Number(s.trim()))
-          .filter((n) => Number.isFinite(n) && n > 0);
-        if (ids.length) patch.course_ids = ids;
-      }
-      if (hints.trutee_org_slug) patch.trutee_org_slug = hints.trutee_org_slug;
-      if (hints.trutee_course_id) patch.trutee_course_id = hints.trutee_course_id;
-      if (hints.golfpay_course_id) patch.golfpay_course_id = hints.golfpay_course_id;
-      if (hints.cps_tenant) patch.cps_tenant = hints.cps_tenant;
-      if (hints.cps_course_id) patch.cps_course_id = hints.cps_course_id;
-      if (hints.facility_id) patch.facility_id = hints.facility_id;
-      if (hints.teeitup_alias) patch.teeitup_alias = hints.teeitup_alias;
-
-      // Prefill course metadata scraped from the vendor page, but never clobber
-      // values the user has already entered.
-      const meta = parsed.meta;
-      if (meta) {
-        if (meta.name && !record.name.trim()) patch.name = meta.name;
-        if (meta.address && !record.address) patch.address = meta.address;
-        if (meta.lat != null && record.lat == null) patch.lat = meta.lat;
-        if (meta.lng != null && record.lng == null) patch.lng = meta.lng;
-        if (meta.phone_number && !record.phone_number) patch.phone_number = meta.phone_number;
-        if (meta.website && !record.website) patch.website = meta.website;
-        if ((meta.holes === 9 || meta.holes === 18) && record.holes == null) patch.holes = meta.holes;
-      }
-      patchRecord(patch);
+      const next = applyParsedBookingUrl(record, parsed, url);
+      setRecord(next);
+      setBookingUrlInput(next.booking_url || url);
+      setWarnings(next.platform ? [parseDetectionMessage(next.platform)] : [parseDetectionMessage(null)]);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Could not parse booking URL');
     } finally {
@@ -473,18 +445,34 @@ export function AdminCourseEditPage() {
             <select
               className="input"
               value={record.platform}
-              onChange={(e) => patchRecord({ platform: e.target.value })}
+              onChange={(e) => {
+                const platform = e.target.value;
+                const status = bookingStatusFromPlatform(platform);
+                patchRecord({
+                  platform,
+                  ...(status ? { booking_status: status } : {}),
+                });
+              }}
             >
               <option value="">Select…</option>
-              {PLATFORMS.map((p) => (
-                <option key={p} value={p}>
-                  {platformDisplayName(p)}
-                </option>
-              ))}
+              <optgroup label="Live tee times">
+                {livePlatformSelectOptions(record.platform).map((p) => (
+                  <option key={p} value={p}>
+                    {platformDisplayName(p)}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Unsupported / backlog">
+                {backlogPlatformSelectOptions(record.platform, discoveredPlatforms).map((p) => (
+                  <option key={p} value={p}>
+                    {platformDisplayName(p)}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </Field>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
-            {platformDisplayName(record.platform)}. {capHint}
+            {record.platform ? parseDetectionMessage(record.platform) : capHint}
           </p>
 
           {(record.platform === 'foreup' || record.platform === 'foreup_login') && (

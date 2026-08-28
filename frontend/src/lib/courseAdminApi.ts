@@ -22,6 +22,14 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (body.error === 'batch_too_large') {
+      const max = typeof body.max === 'number' ? body.max : null;
+      throw new Error(
+        max
+          ? `This import is too large (max ${max} courses per request). Try a smaller CSV, or refresh — large files are split automatically.`
+          : 'This import is too large for one request.',
+      );
+    }
     const msg = typeof body.error === 'string' ? body.error : `HTTP ${res.status}`;
     throw new Error(msg);
   }
@@ -154,12 +162,41 @@ export type CourseImportResult = {
   counts: { created: number; skipped: number; errors: number };
 };
 
+/** Stay at or under worker IMPORT_BATCH_MAX (150 in production until the worker is redeployed). */
+const IMPORT_CHUNK_SIZE = 100;
+
+function chunkRows<T>(rows: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
+  return out;
+}
+
 export async function importAdminCourses(
   rows: CourseImportApiRow[],
   opts?: { dryRun?: boolean },
 ): Promise<CourseImportResult> {
-  return adminFetch<CourseImportResult>('/admin/courses/import', {
-    method: 'POST',
-    body: JSON.stringify({ dry_run: Boolean(opts?.dryRun), rows }),
-  });
+  const dryRun = Boolean(opts?.dryRun);
+  const batches = chunkRows(rows, IMPORT_CHUNK_SIZE);
+  const merged: CourseImportResult = {
+    dry_run: dryRun,
+    created: [],
+    skipped: [],
+    errors: [],
+    counts: { created: 0, skipped: 0, errors: 0 },
+  };
+  for (const batch of batches) {
+    const result = await adminFetch<CourseImportResult>('/admin/courses/import', {
+      method: 'POST',
+      body: JSON.stringify({ dry_run: dryRun, rows: batch }),
+    });
+    merged.created.push(...(result.created ?? []));
+    merged.skipped.push(...(result.skipped ?? []));
+    merged.errors.push(...(result.errors ?? []));
+  }
+  merged.counts = {
+    created: merged.created.length,
+    skipped: merged.skipped.length,
+    errors: merged.errors.length,
+  };
+  return merged;
 }

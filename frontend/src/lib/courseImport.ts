@@ -53,6 +53,24 @@ function headerKey(h: string): string {
   return h.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+const STATE_NAME_TO_CODE: Record<string, string> = {
+  arizona: 'AZ',
+  idaho: 'ID',
+  utah: 'UT',
+  wyoming: 'WY',
+  colorado: 'CO',
+  nevada: 'NV',
+  'new mexico': 'NM',
+};
+
+/** CSV “State” may be AZ or Arizona. */
+export function normalizeStateCode(state: string): string {
+  const raw = state.trim();
+  if (!raw) return '';
+  if (/^[A-Za-z]{2}$/.test(raw)) return raw.toUpperCase();
+  return STATE_NAME_TO_CODE[raw.toLowerCase()] || raw.toUpperCase();
+}
+
 const COL = {
   courseName: 'course name',
   streetAddress: 'street address',
@@ -125,16 +143,19 @@ export function formatUsAddress(street: string, city: string, state: string, zip
 }
 
 export function timezoneForState(state: string): string {
-  const st = state.trim().toUpperCase();
+  const st = normalizeStateCode(state);
   if (st === 'ID') return 'America/Boise';
+  if (st === 'AZ') return 'America/Phoenix';
   return 'America/Denver';
 }
 
 export function areaLabelForState(state: string, region: string): string {
-  const st = state.trim().toUpperCase();
+  const st = normalizeStateCode(state);
   const reg = region.trim();
   if (st === 'ID') return reg ? `Idaho · ${reg}` : 'Idaho';
   if (st === 'UT') return reg ? `Utah · ${reg}` : 'Utah';
+  if (st === 'AZ') return reg ? `Arizona · ${reg}` : 'Arizona';
+  if (st === 'WY') return reg ? `Wyoming · ${reg}` : 'Wyoming';
   return reg || st || 'Unknown';
 }
 
@@ -142,8 +163,8 @@ export function areaLabelForState(state: string, region: string): string {
 export function masterFieldsToImportRow(fields: MasterCsvFields): CourseImportRow {
   const city = fields.city.trim();
   const name = city ? `${fields.courseName.trim()} (${city})` : fields.courseName.trim();
-  const state = fields.state.trim() || 'UT';
-  const address = formatUsAddress(fields.streetAddress, fields.city, state, fields.zip);
+  const state = normalizeStateCode(fields.state);
+  const address = formatUsAddress(fields.streetAddress, fields.city, state || fields.state.trim(), fields.zip);
   const record: CourseRecord = {
     name,
     area: areaLabelForState(state, fields.region),

@@ -2,6 +2,23 @@
 
 Tracked work that is intentionally deferred. Newest first.
 
+## Outbound booking click analytics
+
+Stamp campaign params on vendor booking URLs at click/send time (not on stored
+catalog `booking_url`s) so courses/vendors can attribute traffic: e.g.
+`utm_source=tee-time`, `utm_medium` by surface (find / course / alert / share).
+ForeUp hash routes (`#/teetimes`) need query params *before* the hash.
+
+UTMs only show up in the destination’s analytics, and many tee-sheet SPAs drop
+unknown params. Don’t treat this as Tee-Time’s own metrics.
+
+Better first step we already half-have: log outbound clicks on our side
+(`onOpenedBooking` on the slot sheet) by course, vendor, and surface. Conversion
+(completed booking) still needs a vendor partnership or affiliate ID.
+
+`rel="noreferrer"` on Book links currently strips referrer, so UTMs would beat
+referrer for partner reports if they survive.
+
 ## Batched Finder reads (phase 1 done)
 
 Finder uses **`GET /v1/tee-times?ids=`** (≤20 slugs). The Worker **always
