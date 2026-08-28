@@ -3,7 +3,6 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import {
   formatDateCompact,
   formatDateShort,
-  formatReopenedAgo,
   formatTime12h,
   matchesPreset,
   toYmd,
@@ -18,6 +17,7 @@ import { capabilityHint, getPlatformCapability, workerSupportedPlatform } from '
 import { WeatherStrip } from '../components/WeatherStrip';
 import { CoursePhoto } from '../components/CoursePhoto';
 import { TeeSlotTimesSkeleton } from '../components/CourseCardSkeleton';
+import { TeeSlotCard } from '../components/TeeSlotCard';
 import { NotificationModal } from '../components/NotificationModal';
 import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
@@ -43,9 +43,6 @@ import { CourseReviewsSection } from '../components/CourseReviewsSection';
 import { AlertsIcon, PlanIcon } from '../components/icons/AppIcons';
 import { CourseStatsBar } from '../components/CourseStatsBar';
 import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
-import { pickNearestHour } from '../lib/weather';
-import { WeatherGlyph } from '../components/WeatherGlyph';
-import { chipWeatherLabel, weatherKindFromPrecip } from '../lib/weatherKind';
 import {
   fetchCourseCatalogMeta,
   type CourseCatalogMeta,
@@ -57,12 +54,6 @@ function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n === 2) return 2;
   if (n === 3) return 3;
   return 4;
-}
-
-function splitTime12h(label: string): { clock: string; meridiem: string } {
-  const m = label.match(/^(.*)\s+(AM|PM)$/i);
-  if (!m) return { clock: label, meridiem: '' };
-  return { clock: m[1]!, meridiem: m[2]!.toUpperCase() };
 }
 
 const SLOT_PREVIEW = 12;
@@ -432,7 +423,7 @@ export function CoursePage() {
   const canShare = !unsupported && times.length > 0;
   const openCount = times.length;
   const todLabel = TOD_OPTIONS.find((o) => o.value === tod)?.label ?? 'All day';
-  const detailTabs = phoneOnly
+  const detailTabs = unsupported
     ? TABS.map((tab) => (tab.id === 'times' ? { ...tab, label: 'Book' } : tab))
     : TABS;
   const cap = record ? getPlatformCapability(record.platform) : 'booking_link_only';
@@ -578,36 +569,66 @@ export function CoursePage() {
         </div>
 
         <aside className="tee-panel detail-panel detail-panel--times" id="course-panel-times">
-          {phoneOnly ? (
+          {unsupported ? (
             <>
               <div className="tee-panel-head">
                 <div className="tee-panel-head-text">
                   <h2 className="tee-panel-title">How to book</h2>
-                  <p className="tee-panel-date">Phone or in person</p>
+                  <p className="tee-panel-date">{phoneOnly ? 'Phone or in person' : 'On their site'}</p>
                 </div>
               </div>
               <div className="rail-empty">
-                <p>This course doesn’t take online tee times. Call the pro shop to reserve a tee time.</p>
+                <p>
+                  {phoneOnly
+                    ? 'This course doesn’t take online tee times. Call the pro shop to reserve a tee time.'
+                    : `${capabilityHint(cap)}.`}
+                </p>
                 <div className="rail-empty-actions rail-empty-actions--stack">
-                  {proShopTelHref ? (
-                    <a
-                      className="tee-empty-action tee-empty-action--primary"
-                      href={proShopTelHref}
-                      aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
-                    >
-                      Call pro shop
-                    </a>
-                  ) : null}
-                  <div className="rail-empty-actions-links">
-                    {courseWebsiteHref ? (
-                      <a className="tee-empty-action" href={courseWebsiteHref} target="_blank" rel="noreferrer">
-                        Website
-                      </a>
-                    ) : null}
-                    <GetDirectionsButton course={course} className="tee-empty-action">
-                      Directions
-                    </GetDirectionsButton>
-                  </div>
+                  {phoneOnly ? (
+                    <>
+                      {proShopTelHref ? (
+                        <a
+                          className="tee-empty-action tee-empty-action--primary"
+                          href={proShopTelHref}
+                          aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
+                        >
+                          Call pro shop
+                        </a>
+                      ) : null}
+                      <div className="rail-empty-actions-links">
+                        {courseWebsiteHref ? (
+                          <a className="tee-empty-action" href={courseWebsiteHref} target="_blank" rel="noreferrer">
+                            Website
+                          </a>
+                        ) : null}
+                        <GetDirectionsButton course={course} className="tee-empty-action">
+                          Directions
+                        </GetDirectionsButton>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {bookingLinkHref ? (
+                        <a
+                          className="tee-empty-action tee-empty-action--primary"
+                          href={bookingLinkHref}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Book on site
+                        </a>
+                      ) : null}
+                      {proShopTelHref ? (
+                        <a
+                          className="tee-empty-action tee-empty-action--secondary"
+                          href={proShopTelHref}
+                          aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
+                        >
+                          Call pro shop
+                        </a>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               </div>
             </>
@@ -678,32 +699,7 @@ export function CoursePage() {
             </label>
           </div>
 
-          {unsupported ? (
-            <div className="rail-empty">
-              <p>{capabilityHint(cap)}.</p>
-              <div className="rail-empty-actions rail-empty-actions--stack">
-                {bookingLinkHref ? (
-                  <a
-                    className="tee-empty-action tee-empty-action--primary"
-                    href={bookingLinkHref}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Book on site
-                  </a>
-                ) : null}
-                {proShopTelHref ? (
-                  <a
-                    className="tee-empty-action tee-empty-action--secondary"
-                    href={proShopTelHref}
-                    aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
-                  >
-                    Call pro shop
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          ) : loadingTimes ? (
+          {loadingTimes ? (
             <TeeSlotTimesSkeleton count={5} />
           ) : teeTimesFetchFailed ? (
             <div className="rail-empty">
@@ -748,89 +744,22 @@ export function CoursePage() {
                       startsAtIso: t.startsAt,
                     },
                   );
-                  const wx = weatherPoints ? pickNearestHour(weatherPoints, t.startsAt) : null;
-                  const wxLabel = chipWeatherLabel(wx);
-                  const precip = wx?.precipProb ?? 0;
-                  const wxKind = weatherKindFromPrecip(precip);
-                  const slotClass = `tee-slot-card${t.id === selected?.id ? ' is-sel' : ''}${
-                    t.reopenedAt ? ' is-reopened' : ''
-                  }`;
-                  const timeLabel = formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone));
-                  const { clock, meridiem } = splitTime12h(timeLabel);
-                  const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
-                  const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;
-                  const bookAria = [
-                    timeLabel,
-                    priceLabel,
-                    reopenLabel ? `reopened ${reopenLabel}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(', ');
-                  const slotBody = (
-                    <>
-                      <span className="tee-slot-card-top">
-                        <span className="tee-slot-card-time">
-                          <span className="tee-slot-card-clock">{clock}</span>
-                          {meridiem ? <span className="tee-slot-card-meridiem">{meridiem}</span> : null}
-                          {reopenLabel ? (
-                            <span className="tee-slot-card-new" title={reopenLabel}>
-                              New
-                            </span>
-                          ) : null}
-                        </span>
-                        {priceLabel ? (
-                          <span className="tee-slot-card-price">{priceLabel}</span>
-                        ) : (
-                          <span className="tee-slot-card-price is-muted">—</span>
-                        )}
-                      </span>
-                      {wxLabel ? (
-                        <span className={`tee-slot-card-wx tee-slot-card-wx--${wxKind}`}>
-                          <WeatherGlyph precipProb={precip} />
-                          {wxLabel}
-                        </span>
-                      ) : (
-                        <span className="tee-slot-card-wx is-empty" aria-hidden>
-                          &nbsp;
-                        </span>
-                      )}
-                      <span className="tee-slot-card-meta">
-                        {typeof t.spots === 'number' ? (
-                          <span title={`${t.spots} spot${t.spots === 1 ? '' : 's'}`}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
-                              <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
-                              <path
-                                d="M3.5 19c.8-3 2.8-4.5 5.5-4.5S13.7 16 14.5 19"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                            {t.spots}
-                          </span>
-                        ) : null}
-                        <span title={`${t.holes} holes`}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
-                            <path d="M6 21V5l9 4.5L6 14" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                          </svg>
-                          {t.holes}
-                        </span>
-                      </span>
-                    </>
-                  );
                   return (
-                    <button
+                    <TeeSlotCard
                       key={`${t.id}-${t.holes}`}
-                      type="button"
-                      className={slotClass}
+                      startsAt={t.startsAt}
+                      timeZone={courseTimezone(record?.timezone ?? course.timezone)}
+                      price={t.price}
+                      spots={t.spots}
+                      holes={t.holes}
+                      reopenedAt={t.reopenedAt}
+                      weatherPoints={weatherPoints}
+                      selected={t.id === selected?.id}
                       onClick={() => {
                         setSelectedSlotId(t.id);
                         setSlotAction({ time: t, bookHref: slotBookHref });
                       }}
-                      aria-label={bookAria}
-                    >
-                      {slotBody}
-                    </button>
+                    />
                   );
                 })}
               </div>

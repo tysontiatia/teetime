@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
-import type { Course, TeeTime } from '../types';
+import type { Course, TeeTime, TimeOfDayPreset } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
-import { formatReopenedAgo, formatTime12h } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
 import type { InventorySource } from '../hooks/useTimesByCourseMap';
+import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
 import type { HolesFilter } from '../lib/holesFilter';
+import { liveTimesEmptyBadge } from '../lib/liveTimesEmpty';
 import { CoursePhoto } from './CoursePhoto';
 import { CourseCardTimesSkeleton } from './CourseCardSkeleton';
+import { TeeSlotCard } from './TeeSlotCard';
 import { buildBookingUrl } from '../lib/bookingUrl';
 import { formatCityState } from '../lib/courseRecord';
 import { AlertsIcon, PlanIcon } from './icons/AppIcons';
@@ -31,38 +33,6 @@ function RatingMark({ rating }: { rating: number }) {
   );
 }
 
-/** Tee-sheet style: two player silhouettes. */
-function PlayersIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9" cy="7.5" r="2.6" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M4.2 19c.7-3.1 2.7-4.6 4.8-4.6s4.1 1.5 4.8 4.6"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <circle cx="16.2" cy="8.2" r="2.2" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M13.4 19c.5-2.3 1.8-3.4 3.5-3.4 1.4 0 2.5.7 3.2 2"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-/** Tee-sheet style: flagstick in a cup. */
-function HolesIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M7 20.5V4.5l10 4.2L7 13" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-      <ellipse cx="7" cy="20.5" rx="3.2" ry="1.2" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
 type Props = {
   course: Course;
   record?: CourseRecord;
@@ -77,6 +47,7 @@ type Props = {
   dateYmd?: string;
   players?: number;
   holes?: HolesFilter;
+  timeOfDay?: TimeOfDayPreset;
   onAlert?: () => void;
   onSearchAllUtah?: () => void;
   onShare?: () => void;
@@ -110,6 +81,7 @@ export function CourseMarketplaceCard({
   dateYmd,
   players = 2,
   holes = 18,
+  timeOfDay = 'any',
   onAlert,
   onSearchAllUtah,
   onShare,
@@ -122,13 +94,16 @@ export function CourseMarketplaceCard({
   const noLiveInventory = bookingLinkOnly || phoneOnly;
   const top = times.slice(0, 5);
   const hasTimes = !noLiveInventory && times.length > 0;
+  const weatherPoints = useCourseHourlyWeather(course.lat, course.lng, dateYmd, hasTimes);
   const hotId = top[0]?.id;
   const meta = metaLine(course);
   const hasRating = typeof course.rating === 'number';
   const tz = courseTimezone(record?.timezone ?? course.timezone);
-  // Grey the card only for live inventory with zero matching times — phone / booking-link
-  // courses stay full-color (still bookable another way).
-  const isNoMatches = !noLiveInventory && !hasTimes && !timesPending && !outOfScope;
+  const emptyLive = liveTimesEmptyBadge(timeOfDay, holes);
+  // Grey only an all-day miss. A morning/9-hole filter is not a dead course.
+  // Phone / booking-link stay full-color (still bookable another way).
+  const isSoldOut = !noLiveInventory && !hasTimes && !timesPending && !outOfScope && emptyLive.greyscale;
+  const emptyLiveSheet = !noLiveInventory && !hasTimes && !timesPending && !outOfScope;
   const moreCount = times.length > top.length ? times.length - top.length : 0;
 
   let badgeLabel: string;
@@ -143,7 +118,7 @@ export function CourseMarketplaceCard({
   } else if (outOfScope) {
     badgeLabel = 'Nearby only';
   } else {
-    badgeLabel = 'No matches';
+    badgeLabel = emptyLive.label;
   }
 
   // Skeleton only while pending with no times yet — keep chips painted on refresh.
@@ -160,7 +135,7 @@ export function CourseMarketplaceCard({
   const siteHref = websiteHref(record?.website);
 
   return (
-    <article className={`mp-course${isNoMatches ? ' is-empty' : ''}`}>
+    <article className={`mp-course${isSoldOut ? ' is-empty' : ''}`}>
       <div className="mp-course-media">
         <div className="mp-course-photo">
           <Link to={detailHref} className="mp-course-photo-link" aria-label={`${course.name} details`}>
@@ -189,7 +164,7 @@ export function CourseMarketplaceCard({
 
           <span
             className={`badge-live${!hasTimes ? ' is-muted' : ''}${
-              isNoMatches ? ' is-soldout' : ''
+              isSoldOut ? ' is-soldout' : ''
             }${timesPending ? ' is-pending' : ''}`}
             aria-label={timesPending ? 'Checking tee times' : undefined}
           >
@@ -200,7 +175,7 @@ export function CourseMarketplaceCard({
             {!noLiveInventory && onAlert ? (
               <button
                 type="button"
-                className={`mp-icon-btn${isNoMatches ? ' is-emphasis' : ''}`}
+                className={`mp-icon-btn${emptyLiveSheet ? ' is-emphasis' : ''}`}
                 aria-label={`Tee time alerts for ${course.name}`}
                 title="Alerts"
                 onClick={(e) => {
@@ -247,100 +222,39 @@ export function CourseMarketplaceCard({
                       startsAtIso: t.startsAt,
                     })
                   : null;
-              const chipClass = `tee-chip tee-chip--compact${t.id === hotId ? ' hot' : ''}${
-                t.reopenedAt ? ' is-reopened' : ''
-              }`;
-              const timeLabel = formatTime12h(t.startsAt, tz);
-              const spots = typeof t.spots === 'number' ? t.spots : null;
-              const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
-              const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;
-              const availParts = [
-                spots != null ? `${spots} spot${spots === 1 ? '' : 's'}` : null,
-                `${t.holes} holes`,
-                priceLabel,
-                reopenLabel,
-              ].filter(Boolean);
-              const availTitle = availParts.join(' · ');
-              const chipBody = (
-                <>
-                  {reopenLabel ? (
-                    <span className="tee-chip-new" title={reopenLabel}>
-                      New
-                    </span>
-                  ) : null}
-                  <span className="t">{timeLabel}</span>
-                  <span className="tee-chip-sheet" title={availTitle || undefined}>
-                    {spots != null ? (
-                      <span className="tee-chip-sheet-item">
-                        <PlayersIcon />
-                        {spots}
-                      </span>
-                    ) : null}
-                    <span className="tee-chip-sheet-item">
-                      <HolesIcon />
-                      {t.holes}
-                    </span>
-                  </span>
-                  {priceLabel ? <span className="p">{priceLabel}</span> : null}
-                </>
-              );
-              const chooseLabel = `${timeLabel} at ${course.name}${availTitle ? `, ${availTitle}` : ''}`;
-              if (onSelectTime) {
-                return (
-                  <button
-                    key={`${t.id}-${t.holes}`}
-                    type="button"
-                    className={chipClass}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectTime(t, bookHref);
-                    }}
-                    aria-label={chooseLabel}
-                  >
-                    {chipBody}
-                  </button>
-                );
-              }
-              if (bookHref) {
-                return (
-                  <a
-                    key={`${t.id}-${t.holes}`}
-                    href={bookHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={chipClass}
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={`Book ${chooseLabel}`}
-                  >
-                    {chipBody}
-                  </a>
-                );
-              }
               return (
-                <Link
+                <TeeSlotCard
                   key={`${t.id}-${t.holes}`}
-                  to={detailHref}
-                  className={chipClass}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {chipBody}
-                </Link>
+                  startsAt={t.startsAt}
+                  timeZone={tz}
+                  price={t.price}
+                  spots={t.spots}
+                  holes={t.holes}
+                  reopenedAt={t.reopenedAt}
+                  weatherPoints={weatherPoints}
+                  selected={t.id === hotId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectTime?.(t, bookHref);
+                  }}
+                />
               );
             })}
             {moreCount > 0 ? (
               <Link
                 to={detailHref}
-                className="tee-chip tee-chip--compact more"
+                className="tee-slot-card tee-slot-card--more"
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`View ${moreCount} more tee times at ${course.name}`}
                 title="View all times"
               >
-                +{moreCount}
+                <span className="tee-slot-card-more-count">+{moreCount}</span>
+                <span className="tee-slot-card-more-label">more</span>
               </Link>
             ) : null}
           </div>
         ) : showSkeletonFooter ? (
-          <div className="tee-strip tee-strip-skeleton" aria-hidden>
+          <div className="tee-strip tee-strip--discover tee-strip-skeleton" aria-hidden>
             <CourseCardTimesSkeleton />
           </div>
         ) : (

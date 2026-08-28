@@ -393,7 +393,7 @@ export function FinderPage() {
   const workerFetchTotalFailure =
     !loadingTimes && emptyFailedCount > 0 && emptyFailedCount === attemptedSlugCount && attemptedSlugCount > 0;
   // Partial Chronogolf/live gaps are common when pivoting filters. Don't alarm when the
-  // grid already has openings — cards show empty/"No matches" for the misses.
+    // grid already has openings — cards show empty/filter-miss copy for the misses.
   const workerFetchPartialFailure =
     !loadingTimes &&
     emptyFailedCount > 0 &&
@@ -463,6 +463,34 @@ export function FinderPage() {
     }
     return sortFinderGridCourses(combined, timesByCourse, params.sortBy);
   }, [gridCourses, bookingOnlyInScope, loadingTimes, timesByCourse, params.sortBy]);
+
+  const soonestGroups = useMemo(() => {
+    if (params.sortBy !== 'soonest') return null;
+    const openings: Course[] = [];
+    const noTimes: Course[] = [];
+    const alsoNearby: Course[] = [];
+    for (const c of displayCourses) {
+      const mode = resolveCourseBookingMode(recordsBySlug.get(c.id) ?? { platform: c.platform });
+      if (mode !== 'live') alsoNearby.push(c);
+      else if ((timesByCourse.get(c.id)?.length ?? 0) > 0) openings.push(c);
+      else noTimes.push(c);
+    }
+    return {
+      openings: sortCourses(openings, timesByCourse, 'soonest'),
+      noTimes: [...noTimes].sort(sortCoursesByDistanceThenName),
+      alsoNearby: [...alsoNearby].sort(sortCoursesByDistanceThenName),
+    };
+  }, [params.sortBy, displayCourses, timesByCourse, recordsBySlug]);
+
+  const soonestHasLive = Boolean(
+    soonestGroups && soonestGroups.openings.length + soonestGroups.noTimes.length > 0,
+  );
+  const mainGridCourses = soonestGroups
+    ? soonestHasLive
+      ? [...soonestGroups.openings, ...soonestGroups.noTimes]
+      : soonestGroups.alsoNearby
+    : displayCourses;
+  const alsoNearbyCourses = soonestHasLive ? (soonestGroups?.alsoNearby ?? []) : [];
 
   const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
@@ -751,6 +779,43 @@ export function FinderPage() {
   const closePinnedQuery = () => {
     setQueryPinnedOpen(false);
     setQueryDockHoldPx(null);
+  };
+
+  const renderFinderCard = (course: Course) => {
+    const times = timesByCourse.get(course.id) ?? [];
+    const inFetchPool = fetchSlugSet.has(course.id);
+    const record = recordsBySlug.get(course.id);
+    const bookingMode = resolveCourseBookingMode(record ?? { platform: course.platform });
+    const noLiveInventory = bookingMode !== 'live';
+    const outOfScope = !noLiveInventory && !inFetchPool && !fetchAllUtah;
+    const timesPending = !noLiveInventory && inFetchPool && pendingSlugs.has(course.id);
+    const detailHref = `/course/${course.id}?${courseDetailQueryString(params)}`;
+    const variant =
+      bookingMode === 'phone' ? 'phone' : bookingMode === 'booking_link' ? 'bookingLink' : 'inventory';
+    return (
+      <CourseMarketplaceCard
+        key={course.id}
+        course={course}
+        record={record}
+        times={times}
+        detailHref={detailHref}
+        timesPending={timesPending}
+        outOfScope={outOfScope}
+        inventorySource={sourceBySlug.get(course.id)}
+        variant={variant}
+        dateYmd={params.date}
+        players={params.players}
+        holes={params.holes}
+        timeOfDay={params.timeOfDay}
+        onAlert={noLiveInventory ? undefined : () => setNotifCourseId(course.id)}
+        onSearchAllUtah={() => setRadiusMode('all')}
+        onShare={() => requestShareRound(course, times)}
+        shareDisabled={times.length === 0 || timesPending || authLoading}
+        onSelectTime={(time, bookHref) =>
+          setSlotAction({ course, time, times, bookHref, detailHref })
+        }
+      />
+    );
   };
 
   return (
@@ -1125,9 +1190,15 @@ export function FinderPage() {
           <div className="empty-openings-hint">
             <div className="empty-openings-hint-copy">
               <p className="empty-openings-hint-title">
-                No openings for {formatDateShort(params.date)}
+                {alsoNearbyCourses.length > 0 || bookingOnlyInScope.length > 0
+                  ? `No live openings for ${formatDateShort(params.date)}`
+                  : `No openings for ${formatDateShort(params.date)}`}
               </p>
-              <p>Set an alert on a course below, or try another day.</p>
+              <p>
+                {alsoNearbyCourses.length > 0 || bookingOnlyInScope.length > 0
+                  ? 'Set an alert on a course below, or book nearby on their site.'
+                  : 'Set an alert on a course below, or try another day.'}
+              </p>
             </div>
             <button
               type="button"
@@ -1147,44 +1218,20 @@ export function FinderPage() {
           {showCatalogSkeleton
             ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
             : null}
-          {!showOutOfMarket && !showCatalogSkeleton &&
-            displayCourses.map((course) => {
-              const times = timesByCourse.get(course.id) ?? [];
-              const inFetchPool = fetchSlugSet.has(course.id);
-              const record = recordsBySlug.get(course.id);
-              const bookingMode = resolveCourseBookingMode(record ?? { platform: course.platform });
-              const noLiveInventory = bookingMode !== 'live';
-              const outOfScope = !noLiveInventory && !inFetchPool && !fetchAllUtah;
-              const timesPending = !noLiveInventory && inFetchPool && pendingSlugs.has(course.id);
-              const detailHref = `/course/${course.id}?${courseDetailQueryString(params)}`;
-              const variant =
-                bookingMode === 'phone' ? 'phone' : bookingMode === 'booking_link' ? 'bookingLink' : 'inventory';
-              return (
-                <CourseMarketplaceCard
-                  key={course.id}
-                  course={course}
-                  record={record}
-                  times={times}
-                  detailHref={detailHref}
-                  timesPending={timesPending}
-                  outOfScope={outOfScope}
-                  inventorySource={sourceBySlug.get(course.id)}
-                  variant={variant}
-                  dateYmd={params.date}
-                  players={params.players}
-                  holes={params.holes}
-                  onAlert={
-                    noLiveInventory ? undefined : () => setNotifCourseId(course.id)
-                  }
-                  onSearchAllUtah={() => setRadiusMode('all')}
-                  onShare={() => requestShareRound(course, times)}
-                  shareDisabled={times.length === 0 || timesPending || authLoading}
-                  onSelectTime={(time, bookHref) =>
-                    setSlotAction({ course, time, times, bookHref, detailHref })
-                  }
-                />
-              );
-            })}
+          {!showOutOfMarket && !showCatalogSkeleton ? (
+            <>
+              {mainGridCourses.map(renderFinderCard)}
+              {alsoNearbyCourses.length > 0 ? (
+                <>
+                  <div className="mp-grid-section">
+                    <p className="mp-grid-section-title">Also nearby</p>
+                    <p className="mp-grid-section-copy">Book on their site, or call the pro shop.</p>
+                  </div>
+                  {alsoNearbyCourses.map(renderFinderCard)}
+                </>
+              ) : null}
+            </>
+          ) : null}
         </div>
 
         <p className="finder-help">
