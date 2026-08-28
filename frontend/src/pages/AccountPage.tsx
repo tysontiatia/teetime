@@ -15,11 +15,15 @@ import {
 import { SignedOutGate } from '../components/SignedOutGate';
 import { CoursePhoto } from '../components/CoursePhoto';
 import { AlertsIcon } from '../components/icons/AppIcons';
+import { AlertScheduleFields } from '../components/AlertScheduleFields';
+import { NotificationModal } from '../components/NotificationModal';
+import { filterWorkerCourses } from '../lib/platformRegistry';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
 import {
   ALERT_DOW_MAP,
+  ALERT_DOW_PLURAL,
   ALERT_DOW_SHORT,
-  type AlertTimeWindow,
+  type AlertScheduleValue,
   clampAlertPlayers,
   dowKeyFromIndex,
   rangeToWindow,
@@ -42,17 +46,7 @@ type NotificationPreferenceRow = {
   look_ahead_days: number | null;
 };
 
-type EditDraft = {
-  mode: 'specific' | 'weekly';
-  targetDate: string;
-  dayOfWeek: string;
-  timeWindow: AlertTimeWindow;
-  players: 1 | 2 | 3 | 4;
-};
-
 type AlertsTab = 'alerts' | 'recent';
-
-const DOW_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'] as const;
 
 function prefFrequencyBadge(p: NotificationPreferenceRow): string {
   if (!p.active) return 'Paused';
@@ -69,7 +63,7 @@ function prefDateLabel(p: NotificationPreferenceRow): string {
   }
   const days = (p.days_of_week ?? []).slice().sort((a, b) => a - b);
   if (days.length === 0) return 'Any day';
-  if (days.length === 1) return DOW_PLURAL[days[0]] ?? 'Weekly';
+  if (days.length === 1) return ALERT_DOW_PLURAL[days[0]] ?? 'Weekly';
   return days.map((i) => ALERT_DOW_SHORT[i] ?? '?').join(', ');
 }
 
@@ -78,7 +72,7 @@ function prefPlayersLabel(p: NotificationPreferenceRow): string {
   return `${n} player${n !== 1 ? 's' : ''}`;
 }
 
-function draftFromPref(p: NotificationPreferenceRow, todayYmd: string): EditDraft {
+function draftFromPref(p: NotificationPreferenceRow, todayYmd: string): AlertScheduleValue {
   const isSpecific = Boolean(p.target_date);
   const dow = p.days_of_week?.[0];
   return {
@@ -139,10 +133,11 @@ export function AccountPage() {
   const [prefs, setPrefs] = useState<NotificationPreferenceRow[]>([]);
   const [prefsBusyId, setPrefsBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EditDraft | null>(null);
+  const [draft, setDraft] = useState<AlertScheduleValue | null>(null);
   const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [tab, setTab] = useState<AlertsTab>('alerts');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -210,6 +205,8 @@ export function AccountPage() {
     for (const c of courses) m.set(c.catalogName, c.id);
     return m;
   }, [courses]);
+
+  const alertCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
 
   const flash = (type: 'ok' | 'err', text: string) => {
     setMessage({ type, text });
@@ -296,7 +293,7 @@ export function AccountPage() {
   }
 
   return (
-    <div className="container hub-page">
+    <div className="container hub-page account-page">
       <div className="hub-page-card">
         <div className="account-page-head">
           <h1 className="hub-page-title">Alerts</h1>
@@ -348,9 +345,12 @@ export function AccountPage() {
                 aria-labelledby="account-tab-alerts"
               >
                 {prefs.length === 0 ? (
-                  <p className="account-prefs-empty">
-                    No alerts yet. Tap Create alert, then pick a course on Find.
-                  </p>
+                  <div className="account-prefs-empty-card">
+                    <p className="account-prefs-empty-title">No alerts yet</p>
+                    <p className="account-prefs-empty">
+                      Search a course, pick a day and window, and we’ll email you when times open.
+                    </p>
+                  </div>
                 ) : (
                   <ul className="account-pref-list">
                     {prefs.map((p) => {
@@ -430,105 +430,7 @@ export function AccountPage() {
                               </div>
                               <span className={`account-pref-freq${p.active ? '' : ' is-paused'}`}>{badge}</span>
 
-                              {editing ? (
-                                <div className="account-pref-edit">
-                                  <div className="modal-seg account-pref-seg">
-                                    <button
-                                      type="button"
-                                      className={`btn modal-seg-btn${draft.mode === 'specific' ? ' on' : ''}`}
-                                      onClick={() => setDraft({ ...draft, mode: 'specific' })}
-                                    >
-                                      Specific date
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={`btn modal-seg-btn${draft.mode === 'weekly' ? ' on' : ''}`}
-                                      onClick={() => setDraft({ ...draft, mode: 'weekly' })}
-                                    >
-                                      Weekly
-                                    </button>
-                                  </div>
-
-                                  <div className="account-pref-edit-grid">
-                                    {draft.mode === 'specific' ? (
-                                      <div>
-                                        <label className="modal-label">Date</label>
-                                        <input
-                                          className="input"
-                                          type="date"
-                                          min={todayYmd}
-                                          value={draft.targetDate}
-                                          onChange={(e) => setDraft({ ...draft, targetDate: e.target.value })}
-                                        />
-                                      </div>
-                                    ) : (
-                                      <div>
-                                        <label className="modal-label">Day</label>
-                                        <select
-                                          className="input"
-                                          value={draft.dayOfWeek}
-                                          onChange={(e) => setDraft({ ...draft, dayOfWeek: e.target.value })}
-                                        >
-                                          <option value="mon">Monday</option>
-                                          <option value="tue">Tuesday</option>
-                                          <option value="wed">Wednesday</option>
-                                          <option value="thu">Thursday</option>
-                                          <option value="fri">Friday</option>
-                                          <option value="sat">Saturday</option>
-                                          <option value="sun">Sunday</option>
-                                        </select>
-                                      </div>
-                                    )}
-                                    <div>
-                                      <label className="modal-label">Window</label>
-                                      <select
-                                        className="input"
-                                        value={draft.timeWindow}
-                                        onChange={(e) =>
-                                          setDraft({ ...draft, timeWindow: e.target.value as AlertTimeWindow })
-                                        }
-                                      >
-                                        <option value="any">All day</option>
-                                        <option value="morning">Morning</option>
-                                        <option value="afternoon">Afternoon</option>
-                                        <option value="evening">Twilight</option>
-                                      </select>
-                                    </div>
-                                    <div>
-                                      <label className="modal-label">Players</label>
-                                      <select
-                                        className="input"
-                                        value={draft.players}
-                                        onChange={(e) =>
-                                          setDraft({
-                                            ...draft,
-                                            players: clampAlertPlayers(Number(e.target.value)),
-                                          })
-                                        }
-                                      >
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                      </select>
-                                    </div>
-                                  </div>
-
-                                  <div className="account-pref-actions">
-                                    <button
-                                      type="button"
-                                      className="btn btn-primary"
-                                      disabled={busy}
-                                      onClick={() => void saveEdit(p.id)}
-                                    >
-                                      {busy ? '…' : 'Save'}
-                                    </button>
-                                    <button type="button" className="btn" disabled={busy} onClick={cancelEdit}>
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
+                              {editing ? null : (
                                 <div className="account-pref-grid">
                                   <div className="account-pref-grid-item">
                                     <CalendarIcon />
@@ -550,6 +452,24 @@ export function AccountPage() {
                               )}
                             </div>
                           </div>
+                          {editing ? (
+                            <div className="account-pref-edit">
+                              <AlertScheduleFields value={editing} onChange={setDraft} todayYmd={todayYmd} />
+                              <div className="account-pref-actions">
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  disabled={busy}
+                                  onClick={() => void saveEdit(p.id)}
+                                >
+                                  {busy ? '…' : 'Save'}
+                                </button>
+                                <button type="button" className="btn" disabled={busy} onClick={cancelEdit}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
                         </li>
                       );
                     })}
@@ -557,10 +477,14 @@ export function AccountPage() {
                 )}
 
                 <div className="account-create-bar">
-                  <Link to="/" className="btn btn-primary account-create-btn">
+                  <button
+                    type="button"
+                    className="btn btn-primary account-create-btn"
+                    onClick={() => setCreateOpen(true)}
+                  >
                     <AlertsIcon size={16} />
-                    Create alert
-                  </Link>
+                    Create Alert
+                  </button>
                 </div>
               </div>
             ) : (
@@ -626,6 +550,16 @@ export function AccountPage() {
           </div>
         )}
       </div>
+      <NotificationModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        course={null}
+        catalog={alertCourses}
+        fromAccount
+        onSaved={() => {
+          void loadPrefs(user.id);
+        }}
+      />
     </div>
   );
 }
