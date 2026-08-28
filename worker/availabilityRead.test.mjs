@@ -188,6 +188,11 @@ test('snapshotNeedsLiveFill live-fills misses, empty sheets, and stale snapshots
     true,
     'unknown last_polled_at must live-fill',
   );
+  assert.equal(
+    snapshotNeedsLiveFill(covered(60 * 1000, hotTimes), 2, '2026-08-12', now, true),
+    true,
+    'forceFresh live-fills even a 1-minute-old snapshot',
+  );
 });
 
 test('normalizedRowsToBatchTimes filters players/holes and builds startsAt', () => {

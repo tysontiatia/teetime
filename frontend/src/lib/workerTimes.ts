@@ -397,6 +397,7 @@ async function fetchTeeTimesBatchFromSnapshot(
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
+  options?: { fresh?: boolean },
 ): Promise<Map<string, SnapshotAvailabilityResponse & { batchSource?: 'snapshot' | 'live'; live_failed?: boolean }>> {
   const out = new Map<
     string,
@@ -414,8 +415,13 @@ async function fetchTeeTimesBatchFromSnapshot(
     url.searchParams.set('holes', String(holes));
     url.searchParams.set('players', String(players));
     url.searchParams.set('ids', chunk.join(','));
+    if (options?.fresh) url.searchParams.set('fresh', '1');
     try {
-      const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, TEE_TIMES_BATCH_TIMEOUT_MS);
+      const res = await fetchWithTimeout(
+        url.toString(),
+        { method: 'GET', cache: options?.fresh ? 'no-store' : 'default' },
+        TEE_TIMES_BATCH_TIMEOUT_MS,
+      );
       if (!res.ok) continue;
       const data = (await res.json()) as BatchTeeTimesResponse;
       if (!data?.by_slug || typeof data.by_slug !== 'object') continue;
@@ -470,11 +476,15 @@ function mergeTeeTimesByStartAndHoles(a: TeeTime[], b: TeeTime[]): TeeTime[] {
   );
 }
 
+/** Match poller partial-fetch guard: a live sheet that's still this fraction of
+ * the prior one is a real booking/cancel, not a 429 that returned 2 of 20 slots. */
+const LIVE_SHRINK_KEEP_RATIO = 0.35;
+
 /**
  * Apply a fetch update without dropping richer same-hole inventory.
  * Hole sizes present in `next` replace those sizes in `prev` (so holes=9 drops
- * stale 18s from an any→9 switch). Within those sizes, keep the denser set when
- * a live refresh returns a subset (Chronogolf 429 blips / partial fills).
+ * stale 18s from an any→9 switch). Within those sizes, keep the denser set only
+ * when live looks like a collapsed/partial vendor response.
  */
 export function preferRicherSameHoles(prev: TeeTime[], next: TeeTime[]): TeeTime[] {
   // Empty `next` means the caller already decided to clear or skip — don't resurrect
@@ -484,6 +494,8 @@ export function preferRicherSameHoles(prev: TeeTime[], next: TeeTime[]): TeeTime
   const nextHoles = new Set(next.map((t) => t.holes));
   const prevMatching = prev.filter((t) => nextHoles.has(t.holes));
   if (prevMatching.length > next.length) {
+    const minKeep = Math.max(1, Math.ceil(prevMatching.length * LIVE_SHRINK_KEEP_RATIO));
+    if (next.length >= minKeep) return next;
     return mergeTeeTimesByStartAndHoles(prevMatching, next);
   }
   return next;
@@ -509,22 +521,23 @@ export async function fetchTeeTimesForCourse(
     };
   }
 
-  // Same path as Find: /v1/tee-times live-fills miss/stale/empty so detail matches the grid.
+  // Same path as Find: /v1/tee-times. Course detail always prefers a vendor sheet so
+  // a slot you just booked isn't stuck on a 25-minute snapshot (or a 45s CDN cache).
   if (course.platform && workerSupportedPlatform(course.platform)) {
-    const batchMap = await fetchTeeTimesBatchFromSnapshot([courseSlug], dateYmd, holes, players);
+    const batchMap = await fetchTeeTimesBatchFromSnapshot([courseSlug], dateYmd, holes, players, {
+      fresh: true,
+    });
     const row = batchMap.get(courseSlug);
     if (row && canUseBatchRow(row, players, dateYmd)) {
       const times = snapshotToTeeTimes(courseSlug, dateYmd, row.times!);
       const fromLive = row.batchSource === 'live' && !row.live_failed;
-      // Snapshot that paints empty (all past / filtered) — still try vendor live.
-      // Confirmed live empty stays empty.
-      if (times.length > 0 || fromLive) {
-        return {
-          times,
-          ok: true,
-          source: fromLive ? 'live' : 'snapshot',
-        };
+      if (fromLive) {
+        return { times, ok: true, source: 'live' };
       }
+      const live = await fetchTeeTimesLiveWithRetry(course, courseSlug, dateYmd, holes, players);
+      if (live.ok) return live;
+      if (times.length > 0) return { times, ok: true, source: 'snapshot' };
+      return live;
     }
   }
 
@@ -609,6 +622,8 @@ export type FetchTimesForCourseSlugsOptions = {
   onBlockingComplete?: () => void;
   /** When false, skip stale-while-revalidate live refresh. Default true. */
   revalidateStale?: boolean;
+  /** Re-check vendors even when the poller snapshot is still "fresh" (tab focus after booking). */
+  fresh?: boolean;
 };
 
 export async function fetchTimesForCourseSlugs(
@@ -639,6 +654,7 @@ export async function fetchTimesForCourseSlugs(
 
     const wrapOpts: FetchTimesForCourseSlugsOptions = {
       revalidateStale: options?.revalidateStale,
+      fresh: options?.fresh,
       onBlockingComplete: () => {
         blockingLeft -= 1;
         if (blockingLeft === 0) options?.onBlockingComplete?.();
@@ -819,6 +835,7 @@ export async function fetchTimesForCourseSlugs(
       onCourseComplete,
       {
         revalidateStale: options?.revalidateStale,
+        fresh: options?.fresh,
         onBlockingComplete: () => {
           nineBlockingDone = true;
           resolveNineBlocking();
@@ -845,6 +862,7 @@ export async function fetchTimesForCourseSlugs(
       onCourseComplete,
       {
         revalidateStale: options?.revalidateStale,
+        fresh: options?.fresh,
         onBlockingComplete: () => {
           standardBlockingDone = true;
           maybeAllBlockingDone();
@@ -871,6 +889,7 @@ export async function fetchTimesForCourseSlugs(
     dateYmd,
     holeSize,
     players,
+    options?.fresh ? { fresh: true } : undefined,
   );
 
   const needLive: { slug: string; record: CourseRecord }[] = [];
@@ -894,10 +913,12 @@ export async function fetchTimesForCourseSlugs(
         snap.live_failed || snap.batchSource !== 'live' ? 'snapshot' : 'live';
       onCourseComplete?.({ slug: entry.slug, times: next, ok: true, source });
       // Background-revalidate poller snapshots, and always retry after a failed live fill.
+      // Tab-focus `fresh` re-hits vendors even when the snapshot is still inside the
+      // 8–25m trust window — that's how a just-booked Stonebridge chip drops off Find.
       if (
         revalidateStale &&
         (source === 'snapshot' || snap.live_failed) &&
-        (snap.live_failed || shouldBackgroundRevalidate(snap, dateYmd, players))
+        (options?.fresh || snap.live_failed || shouldBackgroundRevalidate(snap, dateYmd, players))
       ) {
         needRevalidate.push({
           slug: entry.slug,

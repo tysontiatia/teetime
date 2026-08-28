@@ -15,8 +15,10 @@ export function useTimesByCourseMap(
   holes: HolesFilter,
   players: 1 | 2 | 3 | 4,
   refreshNonce: number,
-  catalogLoading: boolean
+  catalogLoading: boolean,
+  options?: { fresh?: boolean },
 ) {
+  const fresh = options?.fresh === true;
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
   const slugKey = useMemo(() => workerCourses.map((c) => c.id).join('|'), [workerCourses]);
 
@@ -159,6 +161,7 @@ export function useTimesByCourseMap(
             });
           },
           {
+            fresh,
             onBlockingComplete: () => {
               blockingDone = true;
               if (cancelled) return;
@@ -181,7 +184,7 @@ export function useTimesByCourseMap(
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug]);
+  }, [slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug, fresh]);
 
   const loadedSlugCount = attemptedSlugCount - pendingSlugs.size;
 

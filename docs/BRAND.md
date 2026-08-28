@@ -145,7 +145,7 @@ prestige — go the other way.
 - "A 7:30 just opened at Bonneville. 4 players, $50."
 - "93 open this morning. Pro shops called: zero."
 - "One link beats forty group texts."
-- "Starting where the golf is underrated."
+- "The mountain west is live."
 
 ### Not this
 

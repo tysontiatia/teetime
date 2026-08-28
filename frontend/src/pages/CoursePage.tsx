@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import {
   formatDateCompact,
@@ -57,6 +57,12 @@ function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n === 2) return 2;
   if (n === 3) return 3;
   return 4;
+}
+
+function splitTime12h(label: string): { clock: string; meridiem: string } {
+  const m = label.match(/^(.*)\s+(AM|PM)$/i);
+  if (!m) return { clock: label, meridiem: '' };
+  return { clock: m[1]!, meridiem: m[2]!.toUpperCase() };
 }
 
 const SLOT_PREVIEW = 12;
@@ -145,6 +151,9 @@ export function CoursePage() {
   const [loadingTimes, setLoadingTimes] = useState(false);
   const [teeTimesFetchFailed, setTeeTimesFetchFailed] = useState(false);
   const [timesRetryNonce, setTimesRetryNonce] = useState(0);
+  const [hiddenSlotIds, setHiddenSlotIds] = useState<Set<string>>(() => new Set());
+  const lastTimesFetchAtRef = useRef(0);
+  const hasTimesRef = useRef(false);
   const [planRoundOpen, setPlanRoundOpen] = useState(false);
   const [planAfterSignIn, setPlanAfterSignIn] = useState(false);
   const [signInToShareOpen, setSignInToShareOpen] = useState(false);
@@ -217,18 +226,22 @@ export function CoursePage() {
       return;
     }
     let cancelled = false;
-    setLoadingTimes(true);
+    if (!hasTimesRef.current) setLoadingTimes(true);
     setTeeTimesFetchFailed(false);
     void (async () => {
       try {
         const { times, ok } = await fetchTeeTimesForCourse(record, courseId, date, holes, players);
         if (!cancelled) {
           setRawTimes(times);
+          hasTimesRef.current = times.length > 0;
+          setHiddenSlotIds(new Set());
           setTeeTimesFetchFailed(!ok);
+          lastTimesFetchAtRef.current = Date.now();
         }
       } catch {
         if (!cancelled) {
           setRawTimes([]);
+          setHiddenSlotIds(new Set());
           setTeeTimesFetchFailed(true);
         }
       } finally {
@@ -241,6 +254,21 @@ export function CoursePage() {
   }, [courseId, record, date, holes, players, timesRetryNonce]);
 
   useEffect(() => {
+    setHiddenSlotIds(new Set());
+    hasTimesRef.current = false;
+  }, [courseId, date, holes, players]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastTimesFetchAtRef.current < 4000) return;
+      setTimesRetryNonce((n) => n + 1);
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
+  useEffect(() => {
     if (!course) return;
     const short = course.name.length > 42 ? `${course.name.slice(0, 40)}…` : course.name;
     document.title = `${short} · Tee-Time`;
@@ -249,6 +277,7 @@ export function CoursePage() {
   const times = useMemo(() => {
     const tz = courseTimezone(record?.timezone ?? course?.timezone);
     const list = rawTimes
+      .filter((t) => !hiddenSlotIds.has(t.id))
       .filter((t) => matchesPreset(t.startsAt, tod, tz))
       .filter((t) => teeTimeFitsPlayers(t, players))
       .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
@@ -257,7 +286,7 @@ export function CoursePage() {
       list.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     }
     return list;
-  }, [rawTimes, tod, players, sort, record?.timezone, course?.timezone]);
+  }, [rawTimes, hiddenSlotIds, tod, players, sort, record?.timezone, course?.timezone]);
 
   const weatherPoints = useCourseHourlyWeather(course?.lat, course?.lng, date, times.length > 0);
 
@@ -726,10 +755,12 @@ export function CoursePage() {
                   const slotClass = `tee-slot-card${t.id === selected?.id ? ' is-sel' : ''}${
                     t.reopenedAt ? ' is-reopened' : ''
                   }`;
+                  const timeLabel = formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone));
+                  const { clock, meridiem } = splitTime12h(timeLabel);
                   const priceLabel = typeof t.price === 'number' ? `$${Math.round(t.price)}` : null;
                   const reopenLabel = t.reopenedAt ? formatReopenedAgo(t.reopenedAt) : null;
                   const bookAria = [
-                    formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone)),
+                    timeLabel,
                     priceLabel,
                     reopenLabel ? `reopened ${reopenLabel}` : null,
                   ]
@@ -737,14 +768,22 @@ export function CoursePage() {
                     .join(', ');
                   const slotBody = (
                     <>
-                      <span className="tee-slot-card-time">
-                        {formatTime12h(t.startsAt, courseTimezone(record?.timezone ?? course.timezone))}
-                      </span>
-                      {reopenLabel ? (
-                        <span className="tee-slot-card-new" title={reopenLabel}>
-                          New
+                      <span className="tee-slot-card-top">
+                        <span className="tee-slot-card-time">
+                          <span className="tee-slot-card-clock">{clock}</span>
+                          {meridiem ? <span className="tee-slot-card-meridiem">{meridiem}</span> : null}
+                          {reopenLabel ? (
+                            <span className="tee-slot-card-new" title={reopenLabel}>
+                              New
+                            </span>
+                          ) : null}
                         </span>
-                      ) : null}
+                        {priceLabel ? (
+                          <span className="tee-slot-card-price">{priceLabel}</span>
+                        ) : (
+                          <span className="tee-slot-card-price is-muted">—</span>
+                        )}
+                      </span>
                       {wxLabel ? (
                         <span className={`tee-slot-card-wx tee-slot-card-wx--${wxKind}`}>
                           <WeatherGlyph precipProb={precip} />
@@ -777,14 +816,6 @@ export function CoursePage() {
                           {t.holes}
                         </span>
                       </span>
-                      {priceLabel ? (
-                        <span className="tee-slot-card-price">{priceLabel}</span>
-                      ) : (
-                        <span className="tee-slot-card-price is-muted">—</span>
-                      )}
-                      <svg className="tee-slot-card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-                        <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
                     </>
                   );
                   return (
@@ -828,7 +859,7 @@ export function CoursePage() {
             <div className="tee-panel-foot">
               <button type="button" className="tee-panel-alert-link" onClick={() => setNotifOpen(true)}>
                 <AlertsIcon size={16} />
-                Create alert
+                Create Alert
               </button>
               <button
                 type="button"
@@ -902,6 +933,15 @@ export function CoursePage() {
           const selectedId = slotAction.time.id;
           setSlotAction(null);
           onShareTimes(selectedId);
+        }}
+        onOpenedBooking={() => {
+          if (!slotAction) return;
+          const id = slotAction.time.id;
+          setHiddenSlotIds((prev) => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+          });
         }}
       />
       <SignInPromptModal

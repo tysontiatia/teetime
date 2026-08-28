@@ -73,7 +73,7 @@ function parseParams(sp: URLSearchParams): SearchParams {
   const players = clampPlayers(Number(sp.get('players') || 2));
   const holes = parseHolesFilter(sp.get('holes'));
   const timeOfDay = (sp.get('tod') as TimeOfDayPreset) || 'any';
-  const sortBy = (sp.get('sort') as SortBy) || 'distance';
+  const sortBy = (sp.get('sort') as SortBy) || 'soonest';
   const locationQuery = sp.get('q') || '';
   const fetchScope: SearchParams['fetchScope'] = sp.get('scope') === 'all' ? 'all' : 'nearby';
   const radiusMi = parseFetchRadiusMi(sp.get('radius'));
@@ -123,6 +123,8 @@ export function FinderPage() {
   }, [sp, setSp]);
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
+  const [finderFresh, setFinderFresh] = useState(false);
+  const lastFinderRefreshAtRef = useRef(Date.now());
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const isCompactShell = useIsCompactShell();
@@ -132,6 +134,22 @@ export function FinderPage() {
   const [queryPinnedOpen, setQueryPinnedOpen] = useState(false);
   const [queryDockHoldPx, setQueryDockHoldPx] = useState<number | null>(null);
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
+
+  useEffect(() => {
+    setFinderFresh(false);
+  }, [params.date, params.holes, params.players]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastFinderRefreshAtRef.current < 4000) return;
+      lastFinderRefreshAtRef.current = Date.now();
+      setFinderFresh(true);
+      setLastUpdatedAt(Date.now());
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   useEffect(() => {
     if (!isCompactShell) {
@@ -321,7 +339,8 @@ export function FinderPage() {
     params.holes,
     params.players,
     lastUpdatedAt ?? 0,
-    catalogLoading
+    catalogLoading,
+    { fresh: finderFresh },
   );
 
   const showCatalogSkeleton = !catalogError && catalogLoading;
@@ -349,6 +368,7 @@ export function FinderPage() {
     // Progressive open-first as results arrive (avoids looking "stuck" while a slow
     // vendor like GolfPay is still pending).
     if (loadingTimes && timesByCourse.size === 0) {
+      // Nearby live courses while we wait — don't mix in booking-link rows yet.
       return sortCourses([...searchPool], new Map(), 'distance');
     }
     return sortFinderGridCourses(searchPool, timesByCourse, params.sortBy);
@@ -437,7 +457,9 @@ export function FinderPage() {
     if (extras.length === 0) return gridCourses;
     const combined = [...gridCourses, ...extras];
     if (loadingTimes && timesByCourse.size === 0) {
-      return combined.sort(sortCoursesByDistanceThenName);
+      // Keep live/checking cards first so the first paint doesn't bury openings
+      // under booking-link courses. Soonest takes over as times arrive.
+      return [...gridCourses, ...extras.sort(sortCoursesByDistanceThenName)];
     }
     return sortFinderGridCourses(combined, timesByCourse, params.sortBy);
   }, [gridCourses, bookingOnlyInScope, loadingTimes, timesByCourse, params.sortBy]);
@@ -991,32 +1013,22 @@ export function FinderPage() {
               <strong>{resultCountPrimary}</strong>
             </span>
             {!showOutOfMarket ? (
-              <>
-                <span className="result-meta-dot" aria-hidden>
-                  ·
-                </span>
-                <label className="result-sort">
-                  <span className="visually-hidden">Sort courses</span>
-                  <select
-                    value={params.sortBy}
-                    aria-label="Sort courses"
-                    onChange={(e) => setParam('sort', e.target.value as SortBy)}
-                  >
-                    <option value="distance">Closest</option>
-                    <option value="soonest">Soonest</option>
-                    <option value="price">Price</option>
-                    <option value="rating">Rating</option>
-                  </select>
-                </label>
-              </>
+              <label className="result-sort">
+                <span className="result-sort-prefix">Sort</span>
+                <select
+                  value={params.sortBy}
+                  aria-label="Sort courses"
+                  onChange={(e) => setParam('sort', e.target.value as SortBy)}
+                >
+                  <option value="soonest">Soonest time</option>
+                  <option value="distance">Closest</option>
+                  <option value="price">Price</option>
+                  <option value="rating">Rating</option>
+                </select>
+              </label>
             ) : null}
             {resultCountSecondary && !showOutOfMarket ? (
-              <span className="result-count-secondary">
-                <span className="result-meta-dot" aria-hidden>
-                  ·
-                </span>
-                {resultCountSecondary}
-              </span>
+              <span className="result-count-secondary">{resultCountSecondary}</span>
             ) : null}
           </div>
           {!showOutOfMarket ? (

@@ -60,19 +60,30 @@ export function LocationSearchSheet({
 
   useBodyScrollLock(open);
 
+  const currentQueryRef = useRef(currentQuery);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    currentQueryRef.current = currentQuery;
+    onCloseRef.current = onClose;
+  });
+
+  // Seed + focus only when the sheet opens. Catalog/times arriving re-render
+  // Finder and must not wipe in-progress typing.
   useEffect(() => {
     if (!open) return;
-    setDraft(currentQuery);
+    setDraft(currentQueryRef.current);
     const t = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', onKey);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, currentQuery, onClose]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   const q = normalize(draft);
   const currentQ = normalize(currentQuery);
@@ -316,7 +327,11 @@ export function LocationSearchSheet({
           ) : null}
 
           {q && matchedCourses.length === 0 && matchedLocations.length === 0 ? (
-            <p className="location-sheet-empty">No courses or cities match “{draft.trim()}”.</p>
+            <p className="location-sheet-empty">
+              {courses.length === 0
+                ? 'Loading courses…'
+                : `No courses or cities match “${draft.trim()}”.`}
+            </p>
           ) : null}
         </div>
       </div>
