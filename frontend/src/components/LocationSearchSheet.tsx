@@ -61,9 +61,11 @@ export function LocationSearchSheet({
   useBodyScrollLock(open);
 
   const currentQueryRef = useRef(currentQuery);
-  currentQueryRef.current = currentQuery;
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    currentQueryRef.current = currentQuery;
+    onCloseRef.current = onClose;
+  });
 
   // Seed + focus only when the sheet opens. Catalog/times arriving re-render
   // Finder and must not wipe in-progress typing.
