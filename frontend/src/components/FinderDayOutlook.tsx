@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { formatDateShort } from '../lib/time';
 import { fetchDayOutlook, type DayOutlook } from '../lib/weather';
 import { WeatherGlyph } from './WeatherGlyph';
-import { weatherKindFromPrecip } from '../lib/weatherKind';
+import { weatherKindFromPrecip, WX_RAIN_SHOW_PCT } from '../lib/weatherKind';
 
 type Props = {
   dateYmd: string;
@@ -12,7 +12,7 @@ type Props = {
   regionLabel: string;
 };
 
-/** Compact day summary — glyph + high/low only; detail stays in the aria-label. */
+/** Compact day summary — glyph + high/low; rain % only when cloud or rain. */
 export function FinderDayOutlook({ dateYmd, lat, lng, regionLabel }: Props) {
   const [outlook, setOutlook] = useState<DayOutlook | null>(null);
 
@@ -49,13 +49,14 @@ export function FinderDayOutlook({ dateYmd, lat, lng, regionLabel }: Props) {
   const high = Math.round(outlook.highF);
   const low = Math.round(outlook.lowF);
   const wind = Math.round(outlook.maxWindMph);
-  const rain = outlook.maxPrecipProb > 0 ? Math.round(outlook.maxPrecipProb) : null;
+  const rainPct = Math.round(Math.max(0, Math.min(100, outlook.maxPrecipProb)));
+  const showRainPct = rainPct >= WX_RAIN_SHOW_PCT;
 
   return (
     <div
       className={`day-outlook day-outlook--${kind}`}
       aria-label={`Weather for ${regionLabel}, ${formatDateShort(dateYmd)}: high ${high}, low ${low}, wind ${wind}${
-        rain != null ? `, rain ${rain}%` : ''
+        showRainPct ? `, rain ${rainPct}%` : ''
       }`}
     >
       <WeatherGlyph precipProb={outlook.maxPrecipProb} className="day-outlook-glyph" />
@@ -66,6 +67,14 @@ export function FinderDayOutlook({ dateYmd, lat, lng, regionLabel }: Props) {
         </span>
         <span className="day-outlook-low">{low}°</span>
       </span>
+      {showRainPct ? (
+        <span className="day-outlook-rain">
+          <span className="day-outlook-sep" aria-hidden>
+            ·
+          </span>
+          {rainPct}%
+        </span>
+      ) : null}
     </div>
   );
 }

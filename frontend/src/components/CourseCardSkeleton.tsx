@@ -26,7 +26,7 @@ export function CourseCardSkeleton() {
             </div>
           </div>
         </div>
-        <div className="tee-strip tee-strip-skeleton">
+        <div className="tee-strip tee-strip--discover tee-strip-skeleton">
           <CourseCardTimesSkeleton />
         </div>
       </div>
@@ -35,16 +35,15 @@ export function CourseCardSkeleton() {
 }
 
 /**
- * Placeholders sized to `.tee-chip.tee-chip--compact` via shared CSS
- * (`--mp-tee-chip-width` / `--mp-tee-chip-height` + border + radius-sm).
+ * Placeholders sized to Find `.tee-slot-card` tiles.
  */
 export function CourseCardTimesSkeleton() {
   return (
     <>
-      {Array.from({ length: 5 }).map((_, i) => (
+      {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="tee-chip-skeleton skeleton-shimmer"
+          className="tee-slot-card tee-slot-card--skeleton"
           style={{ opacity: 1 - i * 0.08 }}
           aria-hidden
         />

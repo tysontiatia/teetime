@@ -56,8 +56,10 @@
   --wx-cloud: #64748B;
   --wx-rain: #2563EB;
 
-  /* Find marketplace card footer — chips, empty, and loading share one footprint. */
-  --mp-tee-strip-height: 94px;
+  /* Find marketplace card footer — tiles, empty, and loading share a compact row. */
+  --mp-tee-strip-empty-height: 72px;
+  --mp-tee-slot-width: 156px;
+  --mp-tee-slot-height: 84px;
   --mp-tee-chip-width: 108px;
   --mp-tee-chip-height: 70px;
 
@@ -98,6 +100,9 @@ html[data-theme='dark']{
   --green:var(--pine);
   --green-2:var(--pine);
   --green-3:#7FBF95;
+  --wx-sun: #f5c542;
+  --wx-cloud: #9aabbc;
+  --wx-rain: #7db4ff;
   color-scheme: dark;
 }
 
@@ -2135,14 +2140,13 @@ html[data-theme='dark'] .app-banner--warn{
 }
 .day-outlook--sun .day-outlook-glyph,
 .day-outlook--sun .day-outlook-high{
-  color: #c98a0a;
+  color: var(--wx-sun);
 }
 .day-outlook--cloud .day-outlook-glyph{
-  color: #6b7c8f;
+  color: var(--wx-cloud);
 }
-.day-outlook--rain .day-outlook-glyph,
-.day-outlook--rain .day-outlook-rain{
-  color: #2563eb;
+.day-outlook--rain .day-outlook-glyph{
+  color: var(--wx-rain);
 }
 .day-outlook-region{
   font-weight: 600;
@@ -2158,7 +2162,6 @@ html[data-theme='dark'] .app-banner--warn{
   font-weight: 600;
   color: var(--ink-2);
 }
-.day-outlook--sun .day-outlook-high{ color: #c98a0a; }
 .day-outlook-slash{
   color: var(--ink-3);
   opacity: .65;
@@ -2171,12 +2174,17 @@ html[data-theme='dark'] .app-banner--warn{
   color: var(--ink-3);
 }
 .day-outlook-rain{
-  font-weight: 550;
-  color: #2563eb;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--wx-rain);
+  white-space: nowrap;
 }
 .day-outlook-sep{
   color: var(--ink-3);
   opacity: .55;
+  font-weight: 500;
 }
 .chip{
   padding: 9px 16px;
@@ -2308,9 +2316,9 @@ html[data-theme='dark'] .app-banner--warn{
   align-items: center;
   justify-content: stretch;
   gap: 10px;
-  height: var(--mp-tee-strip-height);
-  min-height: var(--mp-tee-strip-height);
-  max-height: var(--mp-tee-strip-height);
+  height: var(--mp-tee-strip-empty-height);
+  min-height: var(--mp-tee-strip-empty-height);
+  max-height: var(--mp-tee-strip-empty-height);
   padding: 10px 14px 12px;
   box-sizing: border-box;
 }
@@ -2479,6 +2487,27 @@ html[data-theme='dark'] .app-banner--warn{
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;
   }
+}
+.mp-grid-section{
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.mp-grid-section-title{
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -.02em;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.mp-grid-section-copy{
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 13.5px;
+  line-height: 1.45;
 }
 .mp-course{ cursor: pointer; background: transparent; border: none; padding: 0; text-align: left; width: 100%; color: inherit; }
 .mp-course-media{
@@ -2741,18 +2770,18 @@ html[data-theme='dark'] .app-banner--warn{
   gap: 8px;
   margin-top: 0;
   /* Match mp-course-scrim horizontal inset so times line up with the course name. */
-  padding: 10px 14px 12px;
+  padding: 8px 14px 10px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ink-3) 35%, transparent) transparent;
   background: color-mix(in srgb, var(--sand) 55%, var(--card));
   border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  height: var(--mp-tee-strip-height);
-  min-height: var(--mp-tee-strip-height);
-  max-height: var(--mp-tee-strip-height);
-  flex: 0 0 var(--mp-tee-strip-height);
-  align-items: center;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  flex: 0 0 auto;
+  align-items: stretch;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
@@ -2764,27 +2793,55 @@ html[data-theme='dark'] .app-banner--warn{
 .tee-strip::-webkit-scrollbar-track{ background: transparent; }
 .tee-strip-skeleton{
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
 }
 /*
-  Discovery strip: fixed chip footprint, horizontal scroll, up to 5 times + +N → course details.
-  Skeletons use the same box as live compact chips (incl. hot).
+  Discovery strip: course-page tee tiles, horizontal scroll, up to 5 times + +N → details.
 */
 .tee-strip--discover{
   overflow-x: auto;
   overflow-y: hidden;
+  align-items: stretch;
   scroll-snap-type: x proximity;
-  /* Keep chips inset when snap pulls the first/last item to the scrollport edge
-     (sparse strips don't scroll, so padding alone looked fine; dense/has-more did not). */
   scroll-padding-inline: 14px;
   overscroll-behavior-x: contain;
-  /* Soft fade hints more times to the right. */
   mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 18px), transparent 100%);
   -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 18px), transparent 100%);
 }
 .tee-strip--discover:not(.has-more):not(.is-dense){
   mask-image: none;
   -webkit-mask-image: none;
+}
+.tee-strip--discover > .tee-slot-card,
+.tee-strip-skeleton > .tee-slot-card{
+  flex: 0 0 var(--mp-tee-slot-width);
+  width: var(--mp-tee-slot-width);
+  min-width: var(--mp-tee-slot-width);
+  scroll-snap-align: start;
+}
+.tee-slot-card--more{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  text-decoration: none !important;
+  color: inherit;
+}
+.tee-slot-card-more-count{
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.12rem;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.tee-slot-card-more-label{
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink-3);
 }
 .tee-strip--discover > .tee-chip--compact:not(.more),
 .tee-chip-skeleton{
@@ -3045,7 +3102,7 @@ button.tee-chip{
   line-height: 1;
 }
 .tee-chip-meta-item svg{ opacity: .75; width: 12px; height: 12px; }
-.tee-chip.is-wet .tee-chip-wx{ color: #2563eb; }
+.tee-chip.is-wet .tee-chip-wx{ color: var(--wx-rain); }
 
 
 /* ---------- Course detail marketplace ---------- */
@@ -3327,10 +3384,10 @@ html[data-theme='dark'] .detail-share-err{ color: #fecaca; }
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
-  padding: 12px 12px 10px;
-  border-radius: 16px;
+  padding: 9px 10px 8px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--sand) 45%, var(--card));
   color: inherit;
@@ -3354,20 +3411,21 @@ html[data-theme='dark'] .detail-share-err{ color: #fecaca; }
 }
 .tee-slot-card-top{
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
+  flex-wrap: nowrap;
 }
 .tee-slot-card-time{
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: 3px 5px;
+  flex-wrap: nowrap;
+  gap: 3px 4px;
   min-width: 0;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.28rem;
+  font-size: 1.12rem;
   letter-spacing: -.03em;
   color: var(--ink);
   line-height: 1.1;
@@ -3382,28 +3440,41 @@ html[data-theme='dark'] .detail-share-err{ color: #fecaca; }
 .tee-slot-card-wx{
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--ink-3);
-  min-height: 18px;
+  min-height: 16px;
+  white-space: nowrap;
 }
+.tee-slot-card-wx svg{ width: 12px; height: 12px; }
 .tee-slot-card-wx.is-empty{ visibility: hidden; }
-.tee-slot-card-wx--sun{ color: var(--wx-sun); }
-.tee-slot-card-wx--cloud{ color: var(--wx-cloud); }
-.tee-slot-card-wx--rain{ color: var(--wx-rain); }
+.tee-slot-card-wx--sun .wx-glyph{ color: var(--wx-sun); }
+.tee-slot-card-wx--cloud .wx-glyph{ color: var(--wx-cloud); }
+.tee-slot-card-wx--rain .wx-glyph{ color: var(--wx-rain); }
+.tee-slot-card-wx-temp{ color: var(--ink-3); }
+.tee-slot-card-wx-rain{
+  color: var(--wx-rain);
+}
+.tee-slot-card-wx-rain::before{
+  content: "·";
+  margin-right: 3px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
 .tee-slot-card-meta{
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  flex-shrink: 0;
+  gap: 8px;
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--line);
   width: 100%;
   color: var(--ink-3);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
 }
 .tee-slot-card-meta > span{
@@ -3414,12 +3485,13 @@ html[data-theme='dark'] .detail-share-err{ color: #fecaca; }
 .tee-slot-card-price{
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.28rem;
+  font-size: 1.12rem;
   letter-spacing: -.03em;
   color: var(--ink);
   line-height: 1.1;
   text-align: right;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .tee-slot-card-price.is-muted{ color: var(--ink-3); font-weight: 500; font-size: 1rem; }
 .tee-slot-card-new{
@@ -3440,7 +3512,8 @@ html[data-theme='dark'] .detail-share-err{ color: #fecaca; }
   pointer-events: none;
   cursor: default;
   /* Match live tile footprint; solid shimmer like Find chips. */
-  min-height: 108px;
+  height: var(--mp-tee-slot-height);
+  min-height: var(--mp-tee-slot-height);
   border-color: transparent;
   /* Beat `.tee-slot-card` fill so `.skeleton-shimmer` gradient shows. */
   background: linear-gradient(
@@ -6643,15 +6716,15 @@ html[data-theme='dark'] .rail-plan .icon{ color: var(--fairway); }
     gap: 10px;
   }
   .tee-slot-scroller.is-expanded{ max-height: none; }
-  .tee-slot-card{
+  .tee-slot-scroller > .tee-slot-card{
     flex: 0 0 auto;
     width: 156px;
     scroll-snap-align: start;
-    padding: 14px 13px 12px;
   }
   .tee-slot-card-wx.is-empty{ display: inline-flex; }
-  .tee-slot-card--skeleton{
-    min-height: 118px;
+  .tee-slot-scroller > .tee-slot-card--skeleton{
+    height: var(--mp-tee-slot-height);
+    min-height: var(--mp-tee-slot-height);
   }
 }
 
@@ -7143,9 +7216,8 @@ html[data-theme='dark'] .rail-plan .icon{ color: var(--fairway); }
   }
   .mp-course-actions{ top: 8px; right: 8px; }
   .tee-strip{
-    padding: 10px 14px 12px;
+    padding: 8px 12px 10px;
     gap: 8px;
-    --mp-tee-strip-height: 86px;
     --mp-tee-chip-width: 96px;
     --mp-tee-chip-height: 64px;
   }
@@ -7250,10 +7322,7 @@ html[data-theme='dark'] .rail-plan .icon{ color: var(--fairway); }
   }
   .rail-filters::-webkit-scrollbar{ display: none; }
   .rail-filter-chip{ flex-shrink: 0; }
-  .tee-slot-card{ width: 148px; padding: 12px 12px 11px; }
-  .tee-slot-card-time{ font-size: 1.18rem; }
-  .tee-slot-card-price{ font-size: 1.18rem; }
-  .tee-slot-card--skeleton{ min-height: 112px; }
+  .tee-slot-scroller > .tee-slot-card{ width: 148px; }
   .back-row{ padding: 16px 0 12px; }
   .section{ padding: 22px 0; }
 }
@@ -7393,10 +7462,10 @@ html[data-theme='dark'] .tee-chip.hot .tee-chip-new{
   color: #0c1a12;
   background: color-mix(in srgb, var(--fairway) 55%, #fff);
 }
-html[data-theme='dark'] .tee-chip-wx--sun{ color: #f5c542; }
-html[data-theme='dark'] .tee-chip-wx--cloud{ color: #9aabbc; }
+html[data-theme='dark'] .tee-chip-wx--sun{ color: var(--wx-sun); }
+html[data-theme='dark'] .tee-chip-wx--cloud{ color: var(--wx-cloud); }
 html[data-theme='dark'] .tee-chip-wx--rain,
-html[data-theme='dark'] .tee-chip.is-wet .tee-chip-wx{ color: #7db4ff; }
+html[data-theme='dark'] .tee-chip.is-wet .tee-chip-wx{ color: var(--wx-rain); }
 html[data-theme='dark'] .tee-strip{
   background: color-mix(in srgb, var(--card) 70%, #000);
   border-top-color: rgba(255,255,255,0.06);
@@ -7404,12 +7473,11 @@ html[data-theme='dark'] .tee-strip{
 html[data-theme='dark'] .day-outlook-region{ color: rgba(255,255,255,0.78); }
 html[data-theme='dark'] .day-outlook-high{ color: var(--ink-2); }
 html[data-theme='dark'] .day-outlook--sun .day-outlook-glyph,
-html[data-theme='dark'] .day-outlook--sun .day-outlook-high{ color: #f5c542; }
+html[data-theme='dark'] .day-outlook--sun .day-outlook-high{ color: var(--wx-sun); }
 html[data-theme='dark'] .day-outlook-low{ color: var(--ink-3); }
-html[data-theme='dark'] .day-outlook--cloud .day-outlook-glyph{ color: #9aabbc; }
+html[data-theme='dark'] .day-outlook--cloud .day-outlook-glyph{ color: var(--wx-cloud); }
 html[data-theme='dark'] .day-outlook-rain,
-html[data-theme='dark'] .day-outlook--rain .day-outlook-glyph,
-html[data-theme='dark'] .day-outlook--rain .day-outlook-rain{ color: #7db4ff; }
+html[data-theme='dark'] .day-outlook--rain .day-outlook-glyph{ color: var(--wx-rain); }
 html[data-theme='dark'] .mp-course-media{
   border-color: rgba(255,255,255,0.06);
 }
