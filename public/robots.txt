@@ -1,2 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /app/admin
+Disallow: /app/admin/
+
+Sitemap: https://tee-time.io/sitemap.xml

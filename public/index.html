@@ -38,18 +38,47 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Tee-Time",
-    "url": "https://tee-time.io",
-    "applicationCategory": "SportsApplication",
-    "operatingSystem": "Web",
-    "description": "Find golf tee times across Arizona, Utah, and Idaho. Live inventory in one search, with more states coming soon.",
-    "areaServed": [
-      { "@type": "State", "name": "Arizona" },
-      { "@type": "State", "name": "Utah" },
-      { "@type": "State", "name": "Idaho" }
-    ],
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "name": "Tee-Time",
+        "url": "https://tee-time.io",
+        "applicationCategory": "SportsApplication",
+        "operatingSystem": "Web",
+        "description": "Find golf tee times across Arizona, Utah, and Idaho. Live inventory in one search, with more states coming soon.",
+        "areaServed": [
+          { "@type": "State", "name": "Arizona" },
+          { "@type": "State", "name": "Utah" },
+          { "@type": "State", "name": "Idaho" }
+        ],
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is Tee-Time free?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Searching live tee times and opening the course booking page are free. Alerts use Google sign-in. We do not add a booking markup." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I book on Tee-Time or the golf course website?",
+            "acceptedAnswer": { "@type": "Answer", "text": "You book on the course’s own tee sheet. Tee-Time finds open times across Arizona, Utah, and Idaho and sends you to ForeUp, Chronogolf, or the course site." }
+          },
+          {
+            "@type": "Question",
+            "name": "Which states have live tee times?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Arizona, Utah, and Idaho are live. Colorado and Nevada are next." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need an account to search tee times?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. Search and compare without an account. Sign in with Google to create alerts or share a vote link with your group." }
+          }
+        ]
+      }
+    ]
   }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -64,7 +93,10 @@
       } catch (e) {}
       var host = location.hostname;
       if (host === 'localhost' || host === '127.0.0.1' || /\.pages\.dev$/.test(host)) return;
-      posthog.init('phc_RCaOhjbjWX2KDt0rzHvFuYRFlfM5D6vQfcdiOA7TnfF', { api_host: 'https://us.i.posthog.com' });
+      posthog.init('phc_RCaOhjbjWX2KDt0rzHvFuYRFlfM5D6vQfcdiOA7TnfF', {
+        api_host: 'https://us.i.posthog.com',
+        session_recording: { maskAllInputs: true },
+      });
     })();
   </script>
   <style>
@@ -656,6 +688,14 @@
     .coverage-label.is-live { fill: var(--fairway-ink); }
     html[data-theme='dark'] .coverage-label.is-live { fill: var(--ink); }
 
+    .faq-list { max-width: 640px; }
+    .faq-list details { border-top: 1px solid var(--line); padding: 14px 0; }
+    .faq-list summary { cursor: pointer; font-weight: 650; }
+    .faq-list details p { margin: 8px 0 0; color: var(--ink-2); font-size: 15px; }
+    .city-links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 16px; }
+    .city-links a { font-size: 14px; color: var(--pine-deep); }
+    html[data-theme='dark'] .city-links a { color: var(--accent); }
+
     /* Footer */
     footer {
       border-top: 1px solid var(--line);
@@ -1119,6 +1159,37 @@
         <span class="state"><span class="dot"></span>Nevada · coming soon</span>
         <button type="button" class="state waitlist" onclick="openAuthModal('signin')">+ Your state? Sign in with Google</button>
       </div>
+      <p class="city-links">
+        <a href="/tee-times/salt-lake-city">Salt Lake City tee times</a>
+        <a href="/tee-times/phoenix">Phoenix tee times</a>
+        <a href="/tee-times/scottsdale">Scottsdale tee times</a>
+        <a href="/tee-times/boise">Boise tee times</a>
+        <a href="/tee-times/st-george">St. George tee times</a>
+        <a href="/tee-times">All cities</a>
+      </p>
+    </section>
+
+    <section class="band wrap" id="faq">
+      <p class="kicker">FAQ</p>
+      <h2>Questions people ask before they search</h2>
+      <div class="faq-list">
+        <details>
+          <summary>Is Tee-Time free?</summary>
+          <p>Yes. Searching live tee times and opening the course booking page are free. Alerts use Google sign-in. We do not add a booking markup.</p>
+        </details>
+        <details>
+          <summary>Do I book on Tee-Time or the golf course website?</summary>
+          <p>You book on the course’s own tee sheet. We find open times across Arizona, Utah, and Idaho and send you to ForeUp, Chronogolf, or the course site.</p>
+        </details>
+        <details>
+          <summary>Which states have live tee times?</summary>
+          <p>Arizona, Utah, and Idaho are live. Colorado and Nevada are next. See <a href="/tee-times">tee times by city</a>.</p>
+        </details>
+        <details>
+          <summary>Do I need an account to search?</summary>
+          <p>No. Search and compare without an account. Sign in with Google to create alerts or share a vote link with your group.</p>
+        </details>
+      </div>
     </section>
   </main>
 
@@ -1155,6 +1226,7 @@
           <h4>Product</h4>
           <ul>
             <li><a href="/app/">Find tee times</a></li>
+            <li><a href="/tee-times">Tee times by city</a></li>
             <li><a href="#alerts">Alerts</a></li>
             <li><a href="#plan">Plan a round</a></li>
           </ul>

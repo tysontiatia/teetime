@@ -77,6 +77,28 @@ export async function onRequestGet(context) {
       .on('meta[name="twitter:title"]', { element: (el) => el.setAttribute('content', ogTitle) })
       .on('meta[name="twitter:description"]', { element: (el) => el.setAttribute('content', ogDescription) });
 
+    const ld = {
+      '@context': 'https://schema.org',
+      '@type': 'GolfCourse',
+      name: short,
+      url: ogUrl,
+      description: ogDescription,
+      ...(record.address
+        ? { address: { '@type': 'PostalAddress', streetAddress: String(record.address) } }
+        : {}),
+    };
+    const ldJson = JSON.stringify(ld).replace(/</g, '\\u003c');
+
+    rewriter.on('head', {
+      element: (el) => {
+        el.append(`<script type="application/ld+json">${ldJson}</script>`, { html: true });
+        el.append(
+          `<noscript><p>${ogDescription.replace(/</g, '')}</p><p><a href="${ogUrl}">View live tee times</a></p></noscript>`,
+          { html: true },
+        );
+      },
+    });
+
     if (ogImage) {
       const esc = ogImage.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
       rewriter
