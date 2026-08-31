@@ -34,6 +34,7 @@ const SUPPORTED_PLATFORMS = new Set([
   'teeitup',
   'trutee',
   'golfpay',
+  'quick18',
 ]);
 
 /**

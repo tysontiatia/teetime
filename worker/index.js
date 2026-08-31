@@ -1,6 +1,13 @@
 import { handleAlertMicroPoll, handleAvailabilityPoll, pollAlertCourseDate } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName, withDerivedState } from './courseAdmin.js';
 import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
+import {
+  buildQuick18BookingUrl,
+  handleQuick18,
+  normalizeQuick18TimesWorker,
+  quick18CourseId,
+  quick18Tenant,
+} from './quick18.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
 import {
   evalDatesForPref,
@@ -982,6 +989,7 @@ function normalizeTimesWorker(course, data, holes) {
     case 'teeitup':        return normalizeTeeItUpTimesWorker(course, data);
     case 'trutee':         return normalizeTruteeTimesWorker(course, data);
     case 'golfpay':        return normalizeGolfPayTimesWorker(course, data);
+    case 'quick18':        return normalizeQuick18TimesWorker(course, data);
     default:               return [];
   }
 }
@@ -1143,7 +1151,7 @@ async function handlePlaceReviews(params, env) {
 // formatTime12h imported from alertCopy.js
 
 // ── Fetch tee times for a course (reuses existing API logic) ─────────
-// Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports.
+// Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports | teeitup | trutee | golfpay | quick18.
 // Add handlers here + GET routes in fetch() when onboarding new vendors (GolfPay, TenFore, etc.).
 async function fetchTimesForCourse(course, date, holes, players) {
   const params = new URLSearchParams({ date });
@@ -1188,6 +1196,13 @@ async function fetchTimesForCourse(course, date, holes, players) {
     if (!gpId) return null;
     params.set('course_id', gpId);
     handler = () => handleGolfPay(Object.fromEntries(params.entries()));
+  } else if (course.platform === 'quick18') {
+    const tenant = quick18Tenant(course);
+    if (!tenant) return null;
+    params.set('tenant', tenant);
+    const q18Course = quick18CourseId(course);
+    if (q18Course) params.set('course_id', q18Course);
+    handler = () => handleQuick18(Object.fromEntries(params.entries()));
   } else {
     return null; // unsupported platform (tenfore, foreup_login)
   }
@@ -1504,6 +1519,7 @@ function buildBookingUrlWorker(course, date, holes, players) {
     'golfpay',
     'cps',
     'teeitup',
+    'quick18',
   ];
   if (!base && !supported.includes(course.platform)) {
     return 'https://tee-time.io';
@@ -1535,6 +1551,10 @@ function buildBookingUrlWorker(course, date, holes, players) {
 
   if (course.platform === 'teeitup') {
     return buildTeeItUpBookingUrl(course, date) || base || 'https://tee-time.io';
+  }
+
+  if (course.platform === 'quick18') {
+    return buildQuick18BookingUrl(course, date) || base || 'https://tee-time.io';
   }
 
   const templateOverride = String(course.booking_url_template || '').trim();
@@ -2062,7 +2082,7 @@ export default {
     const params = Object.fromEntries(url.searchParams.entries());
     const foreupJwt = request.headers.get('foreup_jwt') || null;
 
-    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee' || path === '/golfpay') {
+    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee' || path === '/golfpay' || path === '/quick18') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.vendorLive);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
     }
@@ -2093,6 +2113,10 @@ export default {
 
     if (path === '/golfpay') {
       return handleGolfPay(params);
+    }
+
+    if (path === '/quick18') {
+      return handleQuick18(params);
     }
 
     if (path === '/place-photo' || path === '/place-reviews') {

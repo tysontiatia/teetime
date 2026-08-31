@@ -43,6 +43,26 @@ export const PLATFORM_DEFS: readonly PlatformDef[] = [
     aliases: ['sagacity golf', 'sagacitygolf', 'play18', 'play 18', 'play-18'],
     hosts: ['play18.com', 'sagacitygolf.com'],
   },
+  { key: 'quick18', label: 'Quick18', capability: 'live_inventory', inPicker: true, aliases: ['quick 18'], hosts: ['quick18.com'] },
+  { key: 'golfwithaccess', label: 'GolfWithAccess', capability: 'booking_link_only', inPicker: true, aliases: ['golf with access'], hosts: ['golfwithaccess.com'] },
+  { key: 'clubcaddie', label: 'ClubCaddie', capability: 'booking_link_only', inPicker: true, aliases: ['club caddie'], hosts: ['clubcaddie.com'] },
+  {
+    key: 'rguest',
+    label: 'rGuest',
+    capability: 'booking_link_only',
+    inPicker: true,
+    aliases: ['r guest', 'agilysys', 'onagilysys'],
+    hosts: ['rguest.com', 'onagilysys.com'],
+  },
+  { key: 'totaleintegrated', label: 'Totale Integrated', capability: 'booking_link_only', inPicker: true, aliases: ['totale', 'totale integrated'], hosts: ['totaleintegrated.net'] },
+  { key: 'clubhouseonline', label: 'ClubHouse Online', capability: 'booking_link_only', inPicker: true, aliases: ['clubhouse online', 'clubhouseonline'], hosts: ['clubhouseonline'] },
+  { key: 'golfscape', label: 'Golfscape', capability: 'booking_link_only', inPicker: true, aliases: ['golf scape'], hosts: ['golfscape.com'] },
+  { key: 'fareharbor', label: 'FareHarbor', capability: 'booking_link_only', inPicker: true, aliases: ['fare harbor'], hosts: ['fareharbor.com'] },
+  { key: 'easyteegolf', label: 'EasyTee Golf', capability: 'booking_link_only', inPicker: true, aliases: ['easy tee', 'easytee'], hosts: ['easyteegolf.com'] },
+  { key: 'vscloud', label: 'VS Cloud', capability: 'booking_link_only', inPicker: true, aliases: ['vermont systems', 'myvscloud', 'webtrac'], hosts: ['myvscloud.com'] },
+  { key: 'prophetservices', label: 'Prophet Services', capability: 'booking_link_only', inPicker: true, aliases: ['prophet services'], hosts: ['prophetservices.com'] },
+  { key: 'valorclubs', label: 'Valor Clubs', capability: 'booking_link_only', inPicker: true, aliases: ['valor clubs'], hosts: ['valorclubs.com'] },
+  { key: 'floatinggreen', label: 'Floating Green', capability: 'booking_link_only', inPicker: true, aliases: ['floating green', 'floatinggreensoftware'], hosts: ['floatinggreensoftware.com'] },
   { key: 'other', label: 'Other / unknown', capability: 'booking_link_only', inPicker: true },
 ];
 
@@ -105,6 +125,7 @@ const SKIP_HOST_LABELS = new Set([
   'us',
   'uk',
   'info',
+  'club',
 ]);
 const GENERIC_BRANDS = new Set([
   'google',
@@ -117,6 +138,7 @@ const GENERIC_BRANDS = new Set([
   'linktr',
   'bitly',
   'youtube',
+  'lovable',
 ]);
 
 /** Turn a typed vendor name into a stable key (`Play 18` → `sagacity`). */
@@ -168,6 +190,31 @@ export function platformGroupKey(
   if (fromNote && fromNote !== 'other') return fromNote;
   if (fromPlatform === 'other' || String(note || '').trim()) return 'other';
   return fromPlatform;
+}
+
+/** True when `key` is a canonical vendor in PLATFORM_DEFS (not a minted leftover like `club`). */
+export function isRegisteredPlatform(key: string | null | undefined): boolean {
+  const k = String(key || '').trim();
+  return Boolean(k && BY_KEY.has(k));
+}
+
+/**
+ * Vendor to show in admin. A known host on the booking URL wins over a stored
+ * `other` / leftover key so the backlog rollup stays honest before we persist.
+ * Never overrides a live adapter from a URL guess.
+ */
+export function effectivePlatform(course: {
+  platform?: string | null;
+  booking_status_note?: string | null;
+  booking_url?: string | null;
+}): string {
+  const stored = platformGroupKey(course.platform, course.booking_status_note);
+  if (stored && workerSupportedPlatform(stored)) return stored;
+  if (course.booking_url) {
+    const fromUrl = detectPlatformFromBookingUrl(course.booking_url);
+    if (fromUrl && fromUrl !== 'other' && isRegisteredPlatform(fromUrl)) return fromUrl;
+  }
+  return stored;
 }
 
 /**
@@ -285,11 +332,13 @@ export function discoveredBacklogPlatformKeys(
 ): string[] {
   const keys = new Set<string>();
   for (const c of courses) {
-    const grouped = platformGroupKey(c.platform, c.booking_status_note);
+    const grouped = effectivePlatform(c);
     if (grouped && grouped !== 'other' && !workerSupportedPlatform(grouped)) keys.add(grouped);
     if (c.booking_url) {
       const fromUrl = detectPlatformFromBookingUrl(c.booking_url);
-      if (fromUrl && fromUrl !== 'other' && !workerSupportedPlatform(fromUrl)) keys.add(fromUrl);
+      if (fromUrl && fromUrl !== 'other' && !workerSupportedPlatform(fromUrl) && isRegisteredPlatform(fromUrl)) {
+        keys.add(fromUrl);
+      }
     }
   }
   return [...keys].sort((a, b) => platformDisplayName(a).localeCompare(platformDisplayName(b)));
@@ -306,6 +355,7 @@ type PlatformRollupSource = {
   platform?: string | null;
   booking_status?: string | null;
   booking_status_note?: string | null;
+  booking_url?: string | null;
 };
 
 /** Counts vendors we can name. Skips pending / phone / private / closed with no platform. */
@@ -314,7 +364,7 @@ export function rollupPlatforms(courses: PlatformRollupSource[]): PlatformRollup
   for (const c of courses) {
     const status = String(c.booking_status || '').trim();
     if (status === 'pending' || status === 'phone' || status === 'private' || status === 'closed') continue;
-    const key = platformGroupKey(c.platform, c.booking_status_note);
+    const key = effectivePlatform(c);
     if (!key) continue;
     counts.set(key, (counts.get(key) || 0) + 1);
   }

@@ -140,6 +140,28 @@ export type ParseBookingUrlResult = {
   } | null;
 };
 
+export type ReclassifyPlatformItem = {
+  slug: string;
+  name: string;
+  from: string | null;
+  to: string;
+};
+
+export type ReclassifyPlatformsResult = {
+  dry_run: boolean;
+  updated: ReclassifyPlatformItem[];
+  counts: { scanned: number; updated: number };
+};
+
+export async function reclassifyAdminPlatforms(opts?: {
+  dryRun?: boolean;
+}): Promise<ReclassifyPlatformsResult> {
+  return adminFetch<ReclassifyPlatformsResult>('/admin/courses/reclassify-platforms', {
+    method: 'POST',
+    body: JSON.stringify({ dry_run: Boolean(opts?.dryRun) }),
+  });
+}
+
 export async function parseBookingUrl(url: string): Promise<ParseBookingUrlResult> {
   return adminFetch<ParseBookingUrlResult>('/admin/parse-booking-url', {
     method: 'POST',
