@@ -117,6 +117,10 @@ function AppShellInner() {
       document.title = 'Tee-Time · Vote';
     } else if (p.startsWith('/course/')) {
       document.title = 'Tee-Time · Course';
+    } else if (p.startsWith('/admin/users')) {
+      document.title = 'Tee-Time · Signups';
+    } else if (p.startsWith('/admin')) {
+      document.title = 'Tee-Time · Admin';
     } else {
       document.title = 'Tee-Time';
     }

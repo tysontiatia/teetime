@@ -126,6 +126,9 @@ export function AdminCoursesListPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link className="btn" to="/admin/users">
+            Signups
+          </Link>
           {firstNeedsSlug ? (
             <Link className="btn btn-primary" to={`/admin/courses/qa/${firstNeedsSlug}`}>
               Start booking QA

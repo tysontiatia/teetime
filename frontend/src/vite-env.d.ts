@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_WORKER_URL: string;
   readonly VITE_LAUNCHDARKLY_CLIENT_SIDE_ID: string;
   readonly VITE_VAPID_PUBLIC_KEY: string;
+  readonly VITE_POSTHOG_KEY: string;
 }
 
 interface ImportMeta {

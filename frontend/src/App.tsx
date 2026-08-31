@@ -14,9 +14,11 @@ import { AdminCoursesListPage } from './pages/admin/AdminCoursesListPage';
 import { AdminCourseEditPage } from './pages/admin/AdminCourseEditPage';
 import { AdminCoursesImportPage } from './pages/admin/AdminCoursesImportPage';
 import { AdminCourseQaPage } from './pages/admin/AdminCourseQaPage';
+import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AuthProvider } from './state/AuthContext';
 import { LaunchDarklyProvider } from './state/LaunchDarklyContext';
 import { CourseCatalogProvider } from './state/CourseCatalogContext';
+import { PostHogTracker } from './components/PostHogTracker';
 
 function RoutedApp() {
   return (
@@ -30,6 +32,7 @@ function RoutedApp() {
         <Route path="/account" element={<AccountPage />} />
         <Route path="/feed" element={<FeedPage />} />
         <Route element={<AdminGuard />}>
+          <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/courses" element={<AdminCoursesListPage />} />
           <Route path="/admin/courses/import" element={<AdminCoursesImportPage />} />
           <Route path="/admin/courses/qa" element={<AdminCourseQaPage />} />
@@ -49,6 +52,7 @@ function App() {
         <AuthProvider>
           <LaunchDarklyProvider>
             <BrowserRouter basename="/app">
+              <PostHogTracker />
               <RoutedApp />
             </BrowserRouter>
           </LaunchDarklyProvider>

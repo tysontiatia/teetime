@@ -32,3 +32,10 @@ const DEFAULT_VAPID_PUBLIC_KEY =
 export function getVapidPublicKey(): string {
   return (import.meta.env.VITE_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY).trim();
 }
+
+/** Same project key as `public/index.html` — public, not a secret. */
+const DEFAULT_POSTHOG_KEY = 'phc_RCaOhjbjWX2KDt0rzHvFuYRFlfM5D6vQfcdiOA7TnfF';
+
+export function getPosthogKey(): string {
+  return (import.meta.env.VITE_POSTHOG_KEY || DEFAULT_POSTHOG_KEY).trim();
+}

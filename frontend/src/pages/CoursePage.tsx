@@ -25,6 +25,7 @@ import { GetDirectionsButton } from '../components/GetDirectionsButton';
 import { SlotActionSheet } from '../components/SlotActionSheet';
 import { slotActionMeta } from '../lib/slotAction';
 import { useAuth } from '../state/AuthContext';
+import { captureEvent } from '../lib/analytics';
 import {
   authReturnPath,
   clearPendingAuthAction,
@@ -756,6 +757,16 @@ export function CoursePage() {
                       weatherPoints={weatherPoints}
                       selected={t.id === selected?.id}
                       onClick={() => {
+                        captureEvent('tee_time_clicked', {
+                          course: course.name,
+                          course_id: course.id,
+                          time: t.startsAt,
+                          price: t.price,
+                          spots: t.spots,
+                          holes: t.holes,
+                          surface: 'course',
+                          signed_in: Boolean(user?.id),
+                        });
                         setSelectedSlotId(t.id);
                         setSlotAction({ time: t, bookHref: slotBookHref });
                       }}
@@ -865,6 +876,14 @@ export function CoursePage() {
         }}
         onOpenedBooking={() => {
           if (!slotAction) return;
+          captureEvent('outbound_booking_click', {
+            course: course.name,
+            course_id: course.id,
+            time: slotAction.time.startsAt,
+            price: slotAction.time.price,
+            surface: 'course',
+            signed_in: Boolean(user?.id),
+          });
           const id = slotAction.time.id;
           setHiddenSlotIds((prev) => {
             const next = new Set(prev);

@@ -45,6 +45,22 @@ export async function fetchIsAdmin(): Promise<boolean> {
   return Boolean(data.is_admin);
 }
 
+export type AdminUserListItem = {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  created_at: string | null;
+  last_sign_in_at: string | null;
+  is_admin: boolean;
+  phone: string | null;
+  notify_via: string | null;
+  provider: string | null;
+};
+
+export async function listAdminUsers(): Promise<{ users: AdminUserListItem[]; count: number }> {
+  return adminFetch<{ users: AdminUserListItem[]; count: number }>('/admin/users');
+}
+
 export async function listAdminCourses(): Promise<AdminCourseListItem[]> {
   const data = await adminFetch<{ courses: AdminCourseListItem[] }>('/admin/courses');
   return data.courses;

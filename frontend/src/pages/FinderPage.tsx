@@ -40,6 +40,7 @@ import {
   takePendingAuthAction,
 } from '../lib/pendingAuthAction';
 import { courseDetailQueryString } from '../lib/finderUrl';
+import { captureEvent } from '../lib/analytics';
 import { holesFilterLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
   buildTimesFetchScope,
@@ -138,6 +139,26 @@ export function FinderPage() {
   useEffect(() => {
     setFinderFresh(false);
   }, [params.date, params.holes, params.players]);
+
+  useEffect(() => {
+    captureEvent('search_performed', {
+      date: params.date,
+      players: params.players,
+      holes: params.holes,
+      q: params.locationQuery || null,
+      tod: params.timeOfDay,
+      scope: params.fetchScope,
+      radius_mi: params.radiusMi ?? null,
+    });
+  }, [
+    params.date,
+    params.players,
+    params.holes,
+    params.locationQuery,
+    params.timeOfDay,
+    params.fetchScope,
+    params.radiusMi,
+  ]);
 
   useEffect(() => {
     const onVis = () => {
@@ -811,9 +832,19 @@ export function FinderPage() {
         onSearchAllUtah={() => setRadiusMode('all')}
         onShare={() => requestShareRound(course, times)}
         shareDisabled={times.length === 0 || timesPending || authLoading}
-        onSelectTime={(time, bookHref) =>
-          setSlotAction({ course, time, times, bookHref, detailHref })
-        }
+        onSelectTime={(time, bookHref) => {
+          captureEvent('tee_time_clicked', {
+            course: course.name,
+            course_id: course.id,
+            time: time.startsAt,
+            price: time.price,
+            spots: time.spots,
+            holes: time.holes,
+            surface: 'find',
+            signed_in: Boolean(user?.id),
+          });
+          setSlotAction({ course, time, times, bookHref, detailHref });
+        }}
       />
     );
   };
@@ -1287,6 +1318,17 @@ export function FinderPage() {
           const { course, times, time } = slotAction;
           setSlotAction(null);
           requestShareRound(course, times, time.id);
+        }}
+        onOpenedBooking={() => {
+          if (!slotAction) return;
+          captureEvent('outbound_booking_click', {
+            course: slotAction.course.name,
+            course_id: slotAction.course.id,
+            time: slotAction.time.startsAt,
+            price: slotAction.time.price,
+            surface: 'find',
+            signed_in: Boolean(user?.id),
+          });
         }}
       />
       <SignInPromptModal

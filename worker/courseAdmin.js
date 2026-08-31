@@ -616,6 +616,90 @@ export async function requireAdmin(env, request) {
   return { userId: auth.userId };
 }
 
+/** Join auth.users + profiles into the admin signup list (newest first). */
+export function mapAdminUsers(authUsers, profiles) {
+  const byId = new Map((profiles || []).filter((p) => p?.id).map((p) => [p.id, p]));
+  const seen = new Set();
+  const users = [];
+
+  for (const u of authUsers || []) {
+    if (!u?.id) continue;
+    seen.add(u.id);
+    const p = byId.get(u.id) || {};
+    const meta = u.user_metadata || {};
+    users.push({
+      id: u.id,
+      email: u.email || null,
+      display_name: p.display_name || meta.full_name || meta.name || null,
+      created_at: u.created_at || p.created_at || null,
+      last_sign_in_at: u.last_sign_in_at || null,
+      is_admin: Boolean(p.is_admin),
+      phone: p.phone || null,
+      notify_via: p.notify_via || null,
+      provider: u.app_metadata?.provider || null,
+    });
+  }
+
+  for (const p of profiles || []) {
+    if (!p?.id || seen.has(p.id)) continue;
+    users.push({
+      id: p.id,
+      email: null,
+      display_name: p.display_name || null,
+      created_at: p.created_at || null,
+      last_sign_in_at: null,
+      is_admin: Boolean(p.is_admin),
+      phone: p.phone || null,
+      notify_via: p.notify_via || null,
+      provider: null,
+    });
+  }
+
+  users.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  return users;
+}
+
+async function fetchAllProfiles(env) {
+  const profiles = [];
+  const pageSize = 1000;
+  let from = 0;
+  for (let i = 0; i < 50; i += 1) {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/profiles?select=id,display_name,phone,notify_via,is_admin,created_at&order=created_at.desc`,
+      {
+        headers: {
+          ...sbHeaders(env),
+          Range: `${from}-${from + pageSize - 1}`,
+        },
+      },
+    );
+    if (!res.ok) return { error: 'profiles_lookup_failed', status: 500 };
+    const batch = (await supabaseJson(res)) || [];
+    if (!Array.isArray(batch)) return { error: 'profiles_lookup_failed', status: 500 };
+    profiles.push(...batch);
+    if (batch.length < pageSize) break;
+    from += pageSize;
+  }
+  return { profiles };
+}
+
+async function fetchAllAuthUsers(env) {
+  const users = [];
+  const perPage = 200;
+  for (let page = 1; page <= 50; page += 1) {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=${perPage}`,
+      { headers: sbHeaders(env) },
+    );
+    if (!res.ok) return { error: 'users_lookup_failed', status: 500 };
+    const data = await supabaseJson(res);
+    const batch = Array.isArray(data?.users) ? data.users : [];
+    users.push(...batch);
+    if (batch.length < perPage) break;
+  }
+  return { users };
+}
+
 async function supabaseJson(res) {
   const text = await res.text();
   if (!text) return null;
@@ -1192,6 +1276,21 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
           return corsResponse({ error: result.error, detail: result.detail || null }, result.status);
         }
         return corsResponse(result);
+      }
+
+      if (path === '/admin/users' && request.method === 'GET') {
+        const admin = await requireAdmin(env, request);
+        if (admin.error) return corsResponse({ error: admin.error }, admin.status);
+
+        const [authResult, profileResult] = await Promise.all([
+          fetchAllAuthUsers(env),
+          fetchAllProfiles(env),
+        ]);
+        if (authResult.error) return corsResponse({ error: authResult.error }, authResult.status);
+        if (profileResult.error) return corsResponse({ error: profileResult.error }, profileResult.status);
+
+        const users = mapAdminUsers(authResult.users, profileResult.profiles);
+        return corsResponse({ users, count: users.length });
       }
 
       if (path === '/admin/courses' && request.method === 'GET') {

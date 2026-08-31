@@ -26,6 +26,7 @@ import { SignInPromptModal } from './SignInPromptModal';
 import { ModalCloseButton } from './ModalCloseButton';
 import { AlertScheduleFields } from './AlertScheduleFields';
 import { AlertCourseSearch } from './AlertCourseSearch';
+import { captureEvent } from '../lib/analytics';
 
 function todToWindow(tod: TimeOfDayPreset | AlertTimeWindow | undefined): AlertTimeWindow {
   if (tod === 'morning' || tod === 'afternoon' || tod === 'evening' || tod === 'any') return tod;
@@ -244,6 +245,13 @@ export function NotificationModal({
       })();
     }
 
+    captureEvent('alert_created', {
+      course: activeCourse.name,
+      course_id: activeCourse.id,
+      mode: schedule.mode,
+      players: schedule.players,
+      from_account: fromAccount,
+    });
     setSaved(describeAlertDraft(schedule));
     onSaved?.();
   };
