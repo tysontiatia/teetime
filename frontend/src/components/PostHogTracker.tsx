@@ -46,7 +46,7 @@ export function PostHogTracker() {
   useEffect(() => {
     if (hold || !ready || isAdmin) return;
     const id = user?.id ?? null;
-    if (id) {
+    if (user && id) {
       if (lastIdentified.current !== id) {
         identifyAnalyticsUser(id, user.email);
         lastIdentified.current = id;

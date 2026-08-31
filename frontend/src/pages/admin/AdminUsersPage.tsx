@@ -56,15 +56,13 @@ export function AdminUsersPage() {
     })();
   }, []);
 
-  const now = useMemo(() => new Date(), [users]);
-  const last7 = useMemo(
-    () => countSignedUpSince(users, new Date(startOfLocalDay(now).getTime() - 6 * 86400000)),
-    [users, now],
-  );
-  const thisMonth = useMemo(
-    () => countSignedUpSince(users, new Date(now.getFullYear(), now.getMonth(), 1)),
-    [users, now],
-  );
+  const { last7, thisMonth } = useMemo(() => {
+    const now = new Date();
+    return {
+      last7: countSignedUpSince(users, new Date(startOfLocalDay(now).getTime() - 6 * 86400000)),
+      thisMonth: countSignedUpSince(users, new Date(now.getFullYear(), now.getMonth(), 1)),
+    };
+  }, [users]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
