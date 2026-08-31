@@ -1443,22 +1443,27 @@ function buildTruteeBookingUrl(course, date, holes, players) {
   }
 }
 
-function buildTeeItUpBookingUrl(course, date) {
+function buildTeeItUpBookingUrl(course, date, holes, players) {
   const facilityId =
     course.facility_id != null && String(course.facility_id).trim()
       ? String(course.facility_id).trim()
       : '';
   // The tenant's booking host varies (book-v2.teeitup.golf vs book.teeitup.com);
-  // use the stored booking_url as the base and just stamp course + date.
+  // the widget reads course, date, golfers, and holes from the query string.
   let base = String(course.booking_url || '').trim();
   if (!base && facilityId) {
     base = `https://${TEEITUP_ALIAS}.book-v2.teeitup.golf/?course=${facilityId}`;
   }
   if (!base) return null;
+  const playersStr = String(Math.min(Math.max(parseInt(players, 10) || 1, 1), 4));
+  const holesNum = parseInt(String(holes), 10);
   try {
     const u = new URL(base.split('#')[0] || base);
     if (facilityId) u.searchParams.set('course', facilityId);
     u.searchParams.set('date', date);
+    u.searchParams.set('golfers', playersStr);
+    if (holesNum === 9 || holesNum === 18) u.searchParams.set('holes', String(holesNum));
+    else u.searchParams.delete('holes');
     return u.toString();
   } catch {
     return base;
@@ -1550,7 +1555,7 @@ function buildBookingUrlWorker(course, date, holes, players) {
   }
 
   if (course.platform === 'teeitup') {
-    return buildTeeItUpBookingUrl(course, date) || base || 'https://tee-time.io';
+    return buildTeeItUpBookingUrl(course, date, holes, players) || base || 'https://tee-time.io';
   }
 
   if (course.platform === 'quick18') {
