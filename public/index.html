@@ -366,8 +366,8 @@
     }
     .menu-panel a.nav-anchor:hover { background: var(--card-2); color: var(--ink); }
 
-    /* Hero */
-    .hero { padding: 40px 0 28px; text-align: center; }
+    /* Hero — vertical only so .wrap gutters stay on every width */
+    .hero { padding-top: 40px; padding-bottom: 28px; text-align: center; }
     .hero h1 {
       font-family: var(--font-display); font-weight: 700;
       font-size: clamp(2.35rem, 6vw, 4.1rem);
@@ -432,6 +432,7 @@
     }
     .search .go:hover { background: var(--accent-hover); transform: scale(1.03); }
     .search .go svg { stroke: var(--accent-ink); }
+    .go-label { display: none; }
 
     .chips {
       display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
@@ -550,8 +551,8 @@
 
     @keyframes live-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.92); } }
 
-    /* Bands */
-    section.band { padding: 72px 0; }
+    /* Bands — vertical only so .wrap gutters stay on every width */
+    section.band { padding-top: 72px; padding-bottom: 72px; }
     section.band.band--flush { padding-top: 0; }
     section.band.band--tight { padding-top: 24px; }
     .kicker {
@@ -816,7 +817,8 @@
     /* Footer */
     footer {
       border-top: 1px solid var(--line);
-      padding: 48px 0 calc(40px + env(safe-area-inset-bottom, 0px));
+      padding-top: 48px;
+      padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
       margin-top: 24px;
       background: color-mix(in srgb, var(--sand) 50%, var(--paper));
     }
@@ -883,11 +885,12 @@
     }
     @media (max-width: 720px) {
       :root {
-        --page-pad: max(28px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+        --page-pad: max(20px, env(safe-area-inset-left, 0px));
+        --page-pad-end: max(20px, env(safe-area-inset-right, 0px));
       }
       .wrap {
         padding-left: var(--page-pad);
-        padding-right: var(--page-pad);
+        padding-right: var(--page-pad-end);
       }
       .nav-links, .nav-actions-desktop { display: none; }
       .nav-search-mobile { display: inline-flex; padding: 8px 14px; font-size: 13px; }
@@ -896,66 +899,87 @@
       .logo { font-size: 17px; min-width: 0; }
       .logo-img { width: 28px; height: 28px; }
 
-      /* Hero — calmer first viewport */
-      .hero { padding: 28px 0 20px; text-align: center; }
-      .hero h1 { font-size: clamp(2.05rem, 8.5vw, 2.75rem); margin-bottom: 12px; line-height: 1.06; }
+      /* Vertical only — horizontal gutters come from .wrap, not padding shorthand. */
+      .hero {
+        padding-top: 20px;
+        padding-bottom: 16px;
+        text-align: center;
+      }
+      .hero h1 { font-size: clamp(1.85rem, 7.5vw, 2.35rem); margin-bottom: 10px; line-height: 1.15; letter-spacing: -0.03em; }
       .hero .sub {
-        font-size: 1rem; margin: 0 auto 24px; padding: 0 6px;
-        max-width: 22rem; line-height: 1.55;
+        font-size: 0.95rem; margin: 0 auto 20px; padding: 0;
+        max-width: none; line-height: 1.5;
       }
       .search {
         flex-direction: column; border-radius: 22px; gap: 2px; padding: 8px;
-        max-width: 420px; margin-inline: auto; text-align: left;
+        max-width: none; width: 100%; margin-inline: auto; text-align: left;
       }
-      .search .field { border-right: none; border-bottom: 1px solid var(--line); padding: 14px 18px; }
+      .search .field { border-right: none; border-bottom: 1px solid var(--line); padding: 14px 16px; }
       .search .field:last-of-type { border-bottom: none; }
       .search input, .search select { font-size: 16px; }
-      .search .go { width: calc(100% - 8px); height: 48px; border-radius: 14px; margin: 4px; }
+      .search .go {
+        width: calc(100% - 8px); height: 48px; border-radius: 14px; margin: 4px;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        font-size: 16px; font-weight: 650; color: var(--accent-ink);
+      }
+      .go-label { display: inline; }
       .trust-strip {
-        margin: 0 auto; flex-direction: column; align-items: center;
-        gap: 8px; font-size: 12px; text-align: center; max-width: 20rem;
+        margin: 0 auto; flex-direction: row; flex-wrap: wrap; justify-content: center;
+        gap: 6px 14px; font-size: 12px; text-align: center; max-width: none;
       }
-      /* Content bands — centered intros, readable cards */
-      section.band { padding: 56px 0; text-align: center; }
-      section.band.band--tight { padding-top: 20px; }
-      .band h2 { font-size: clamp(1.65rem, 6.5vw, 2rem); margin-inline: auto; max-width: 20rem; }
+      section.band {
+        padding-top: 36px;
+        padding-bottom: 36px;
+        text-align: center;
+      }
+      section.band.band--tight { padding-top: 16px; }
+      .band h2 {
+        font-size: clamp(1.4rem, 6vw, 1.75rem);
+        margin-inline: auto;
+        max-width: none;
+        line-height: 1.22;
+      }
       .band .lede {
-        font-size: 16px; margin: 0 auto; padding: 0 4px;
-        max-width: 22rem; line-height: 1.62;
+        font-size: 15px; margin: 0 auto; padding: 0;
+        max-width: none; line-height: 1.55;
       }
-      .band .kicker { margin-bottom: 14px; }
+      .band .kicker { margin-bottom: 10px; }
       .pillars { margin-top: 32px; gap: 14px; }
       .pillar {
         text-align: left; padding: 24px 22px;
       }
       .pillar .icon { margin-inline: auto; margin-bottom: 18px; }
       .steps {
-        margin-top: 32px;
-        gap: 14px;
+        margin-top: 20px;
+        gap: 10px;
         grid-template-columns: 1fr;
-        max-width: 22rem;
+        max-width: none;
         margin-inline: auto;
         width: 100%;
       }
       .step {
-        text-align: center;
+        text-align: left;
         border-top: none;
         background: var(--card);
         border: 1px solid var(--line);
         border-radius: var(--radius);
-        padding: 22px 20px;
+        padding: 16px 16px;
       }
-      .step .n { margin-bottom: 10px; }
-      .step h3 { margin-bottom: 8px; }
-      .step p { max-width: 18rem; margin-inline: auto; line-height: 1.6; }
+      .step .n { margin-bottom: 6px; }
+      .step h3 { margin-bottom: 4px; }
+      .step p { max-width: none; margin-inline: 0; line-height: 1.5; }
 
-      .alert-cta { padding: 28px 22px; border-radius: 22px; text-align: center; }
-      .alert-cta .lede { max-width: 22rem; margin-inline: auto; }
+      .alert-cta { padding: 20px 16px; border-radius: 18px; text-align: center; }
+      .alert-cta .lede { max-width: none; margin-inline: auto; }
       .alert-actions {
-        flex-direction: column; max-width: 420px; margin: 22px auto 0;
+        flex-direction: column; max-width: none; margin: 16px auto 0;
       }
       .alert-cta .btn { width: 100%; }
-      .email-preview, .vote-preview { margin-top: 8px; }
+      .email-preview, .vote-preview {
+        margin-top: 12px;
+        max-width: none;
+        width: 100%;
+      }
       /* Punch, not the full template — header, slot, Book now. */
       .email-msg-alert,
       .email-msg-matched,
@@ -968,9 +992,9 @@
       .vote-preview-extra { display: none; }
 
 
-      .coverage-map { max-width: 340px; margin-top: 22px; }
-      .states { justify-content: center; gap: 10px; margin-top: 24px; }
-      .state { font-size: 13px; padding: 9px 16px; }
+      .coverage-map { max-width: none; width: 100%; margin-top: 18px; }
+      .states { justify-content: center; gap: 8px; margin-top: 18px; }
+      .state { font-size: 13px; padding: 8px 14px; }
 
       footer { text-align: center; padding-top: 40px; }
       .foot-grid { grid-template-columns: 1fr; gap: 28px; }
@@ -993,18 +1017,19 @@
         text-align: center;
       }
       .live-activity-home h2 {
-        max-width: 18rem;
+        max-width: none;
         margin-inline: auto;
         font-size: clamp(1.35rem, 5.2vw, 1.65rem);
-        line-height: 1.14;
+        line-height: 1.2;
         margin-bottom: 0;
       }
       .live-activity-home .lah-sub {
-        max-width: 22rem;
+        max-width: none;
         margin: 8px auto 0;
-        padding: 0 2px;
+        padding: 0;
         text-align: center;
       }
+      .faq-list { text-align: left; width: 100%; max-width: none; }
       .live-activity-home .lah-head-row {
         flex-direction: column;
         align-items: center;
@@ -1114,6 +1139,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
         </svg>
+        <span class="go-label">Find</span>
       </button>
     </form>
   </header>
