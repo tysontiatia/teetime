@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Find live tee times across Arizona, Utah, and Idaho golf courses in one place. Compare times and prices, create alerts, and plan rounds with your group. More states coming soon." />
+  <meta name="description" content="Live tee times at 300+ public courses in Arizona, Utah, and Idaho. No account to look. You book on the course site — we don’t add a fee." />
   <meta name="theme-color" content="#0B120E" />
   <script>
     (function () {
@@ -23,13 +23,13 @@
   <link rel="canonical" href="https://tee-time.io/" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tee-time.io/" />
-  <meta property="og:title" content="tee-time.io · Every tee time. One search." />
-  <meta property="og:description" content="Find live tee times across Arizona, Utah, and Idaho. Compare, book direct, and get alerted when a slot opens." />
+  <meta property="og:title" content="tee-time.io · Saturday morning. One search." />
+  <meta property="og:description" content="Live tee times at 300+ public courses in Arizona, Utah, and Idaho. No account to look. Book on the course site — no fee from us." />
   <meta property="og:site_name" content="tee-time.io" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="tee-time.io · Every tee time. One search." />
-  <meta name="twitter:description" content="300+ Arizona, Utah, and Idaho courses in one Find. Plan with your group. Get alerted when slots open." />
-  <title>tee-time.io · Every tee time. One search.</title>
+  <meta name="twitter:title" content="tee-time.io · Saturday morning. One search." />
+  <meta name="twitter:description" content="Live tee times at 300+ public courses in Arizona, Utah, and Idaho. No account to look. Book on the course site — no fee from us." />
+  <title>tee-time.io · Saturday morning. One search.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -376,7 +376,7 @@
     .hero h1 .accent { color: var(--accent); }
     html:not([data-theme='dark']) .hero h1 .accent { color: var(--pine-deep); }
     .hero .sub {
-      max-width: 32rem; margin: 0 auto 28px;
+      max-width: 36rem; margin: 0 auto 28px;
       color: var(--ink-2); font-size: 1.05rem; line-height: 1.55;
     }
     .hero .sub strong { color: var(--ink); font-weight: 600; }
@@ -605,21 +605,138 @@
       margin-top: 22px; flex-wrap: wrap;
     }
     .alert-note { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
-    .phone {
-      background: var(--paper); border: 1px solid var(--border-strong);
-      border-radius: 26px; padding: 22px 18px; max-width: 320px; margin: 0 auto; width: 100%;
+    /* Always-light replica of worker/alertCopy.js — emails stay light in every client. */
+    .email-preview { width: 100%; max-width: 380px; margin: 0 auto; text-align: left; }
+    .email-preview-chrome { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-bottom: 8px; }
+    .email-preview-from { display: block; }
+    .email-preview-subj {
+      display: block; margin-top: 2px; color: var(--ink); font-weight: 600; font-size: 13px;
+      letter-spacing: -0.01em;
     }
-    .phone .ph-head { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: center; margin-bottom: 14px; }
-    .sms {
-      background: var(--card-2); border: 1px solid var(--line);
-      border-radius: 16px 16px 16px 4px; padding: 14px 16px;
-      font-size: 14px; line-height: 1.55;
+    .email-msg {
+      background: #FBFBF8; border-radius: 18px; overflow: hidden; color: #141E19;
+      box-shadow: 0 12px 32px rgba(20, 30, 25, 0.12);
     }
-    .sms b { color: var(--pine-deep); font-weight: 600; }
-    html[data-theme='dark'] .sms b { color: var(--accent); }
-    .sms .link { color: var(--pine-deep); text-decoration: underline; }
-    html[data-theme='dark'] .sms .link { color: var(--accent); }
-    .sms-time { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-top: 8px; }
+    .email-msg-head {
+      background: #143528; padding: 16px 18px; display: flex; align-items: center; gap: 10px;
+    }
+    .email-msg-head img { display: block; border-radius: 9px; }
+    .email-msg-wordmark {
+      font-family: var(--font-display); font-weight: 700; font-size: 17px;
+      color: #EEF2EC; letter-spacing: -0.035em;
+    }
+    .email-msg-wordmark span { color: #C6F24E; }
+    .email-msg-body {
+      background: #FFFFFF; border: 1px solid #E4E2DA; border-top: none;
+      border-radius: 0 0 18px 18px; padding: 18px;
+    }
+    .email-msg-kicker {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase; color: #1E4D3B; margin-bottom: 8px;
+    }
+    .email-msg-h1 {
+      margin: 0 0 6px; font-family: var(--font-display); font-size: 20px; line-height: 1.2;
+      font-weight: 700; letter-spacing: -0.035em; color: #141E19;
+    }
+    .email-msg-h2 {
+      margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 600; color: #141E19;
+    }
+    .email-msg-alert {
+      margin: 14px 0 4px; padding: 12px 14px; border: 1px solid #E4E2DA;
+      border-radius: 18px; background: #EFECE3;
+    }
+    .email-msg-alert .email-msg-kicker { margin-bottom: 6px; }
+    .email-msg-alert-when {
+      font-family: var(--font-display); font-size: 15px; font-weight: 600; color: #141E19; margin-bottom: 4px;
+    }
+    .email-msg-alert-meta { font-family: var(--font-mono); font-size: 13px; color: #4C5A53; }
+    .email-msg-matched {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase; color: #8A958F; margin: 16px 0 0;
+    }
+    .email-msg-slot {
+      background: #F0FADB; border: 1px solid #E4E2DA; border-radius: 18px;
+      padding: 16px 18px; margin: 8px 0 4px;
+    }
+    .email-msg-slot .email-msg-kicker { margin-bottom: 6px; }
+    .email-msg-time {
+      font-family: var(--font-mono); font-size: 26px; font-weight: 600;
+      color: #141E19; line-height: 1.15; margin-bottom: 6px;
+    }
+    .email-msg-slot-meta { font-family: var(--font-mono); font-size: 14px; color: #4C5A53; }
+    .email-msg-cta {
+      display: block; margin: 18px auto 0; width: fit-content; background: #C6F24E; color: #0B120E;
+      padding: 12px 24px; border-radius: 999px; font-weight: 700; font-size: 15px;
+    }
+    .email-msg-foot {
+      color: #8A958F; font-size: 12px; text-align: center; line-height: 1.5; margin: 16px 0 0;
+    }
+    .email-msg-foot b { color: #1E4D3B; font-weight: 600; }
+
+    .vote-preview {
+      width: 100%; max-width: 380px; margin: 0 auto; text-align: left;
+      background: var(--card-2); border: 1px solid var(--border-strong);
+      border-radius: 18px; padding: 16px 16px 14px;
+      box-shadow: 0 12px 32px rgba(20, 30, 25, 0.10);
+    }
+    .vote-preview-pill {
+      display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--pine-deep); background: var(--green-soft);
+      border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; margin-bottom: 10px;
+    }
+    html[data-theme='dark'] .vote-preview-pill { color: var(--fairway-ink); background: var(--fairway); border-color: transparent; }
+    .vote-preview-title {
+      font-family: var(--font-display); font-size: 22px; font-weight: 700;
+      letter-spacing: -0.03em; margin-bottom: 4px;
+    }
+    .vote-preview-meta { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); margin-bottom: 8px; }
+    .vote-preview-lede { font-size: 13px; color: var(--ink-2); margin-bottom: 12px; line-height: 1.45; }
+    .vote-preview-lede strong { color: var(--ink); }
+    .vote-preview-lead {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+      padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px;
+      background: var(--card); margin-bottom: 12px;
+    }
+    .vote-preview-lead-label {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3);
+    }
+    .vote-preview-lead-time { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+    .vote-preview-option {
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+    }
+    .vote-preview-option + .vote-preview-option { margin-top: 8px; }
+    .vote-preview-option.is-in { border: 2px solid var(--pine); }
+    html[data-theme='dark'] .vote-preview-option.is-in { border-color: var(--fairway); }
+    .vote-preview-option-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .vote-preview-time {
+      font-family: var(--font-display); font-size: 18px; font-weight: 800;
+    }
+    .vote-preview-option.is-in .vote-preview-time { color: var(--pine-deep); }
+    html[data-theme='dark'] .vote-preview-option.is-in .vote-preview-time { color: var(--fairway); }
+    .vote-preview-price { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+    .vote-preview-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .vote-preview-tags span {
+      font-size: 11px; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px;
+      color: var(--ink-2);
+    }
+    .vote-preview-voters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .vote-preview-chip {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2);
+    }
+    .vote-preview-av {
+      width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+      font-size: 10px; font-weight: 700; color: #0B120E; background: #C6F24E;
+    }
+    .vote-preview-av.b { background: #9BD3C2; }
+    .vote-preview-av.c { background: #E8D48A; }
+    .vote-preview-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .vote-preview-actions span {
+      flex: 1; text-align: center; font-size: 12px; font-weight: 700; padding: 7px 0;
+      border-radius: 10px; border: 1px solid var(--line);
+    }
+    .vote-preview-in { background: var(--pine); color: #fff; border-color: transparent !important; }
+    html[data-theme='dark'] .vote-preview-in { background: var(--fairway); color: var(--fairway-ink); }
 
     .states { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
     .state {
@@ -759,20 +876,6 @@
     .auth-error { font-size: 13px; color: #9a3412; margin-top: 14px; text-align: center; min-height: 1.2em; }
     html[data-theme='dark'] .auth-error { color: #fecaca; }
 
-    .plan-cta {
-      margin-top: 28px;
-      padding: 32px 28px;
-      border-radius: 20px;
-      border: 1px solid var(--line);
-      background: var(--card);
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 20px 28px;
-      align-items: center;
-    }
-    .plan-cta p { color: var(--ink-2); font-size: 15px; line-height: 1.55; max-width: 36rem; margin-top: 8px; }
-    .plan-cta .btn { white-space: nowrap; }
-
     @media (max-width: 860px) {
       .alert-cta { grid-template-columns: 1fr; padding: 32px 24px; }
       .foot-grid { grid-template-columns: 1fr 1fr; }
@@ -812,15 +915,6 @@
         margin: 0 auto; flex-direction: column; align-items: center;
         gap: 8px; font-size: 12px; text-align: center; max-width: 20rem;
       }
-      .plan-cta {
-        grid-template-columns: 1fr;
-        text-align: center;
-        padding: 24px 20px;
-        justify-items: center;
-      }
-      .plan-cta p { margin-inline: auto; }
-      .plan-cta .btn { width: 100%; max-width: 280px; }
-
       /* Content bands — centered intros, readable cards */
       section.band { padding: 56px 0; text-align: center; }
       section.band.band--tight { padding-top: 20px; }
@@ -861,7 +955,17 @@
         flex-direction: column; max-width: 420px; margin: 22px auto 0;
       }
       .alert-cta .btn { width: 100%; }
-      .phone { margin-top: 8px; }
+      .email-preview, .vote-preview { margin-top: 8px; }
+      /* Punch, not the full template — header, slot, Book now. */
+      .email-msg-alert,
+      .email-msg-matched,
+      .email-msg-foot { display: none; }
+      .email-msg-body { padding: 14px 16px 16px; }
+      .email-msg-h1 { font-size: 18px; }
+      .email-msg-time { font-size: 22px; margin-bottom: 4px; }
+      .email-msg-slot { padding: 14px 16px; }
+      .email-msg-cta { margin-top: 14px; }
+      .vote-preview-extra { display: none; }
 
 
       .coverage-map { max-width: 340px; margin-top: 22px; }
@@ -979,9 +1083,9 @@
   </div>
 
   <header class="hero wrap hero-enter" id="heroEnter">
-    <h1>Every tee time.<br><span class="accent">One search.</span></h1>
+    <h1>Saturday morning.<br><span class="accent">One search.</span></h1>
     <p class="sub">
-      <span id="heroSub">Live availability across Arizona, Utah, and Idaho courses</span> — compare, book direct, and get alerted when a slot opens.
+      <span id="heroSub">Live times at 300+ public courses in Arizona, Utah, and Idaho</span>. No account to look. You book on the course site — we don’t add a fee.
     </p>
 
     <!-- Field order mirrors the app's desktop search pill: When · Players · Where. -->
@@ -1016,34 +1120,34 @@
   </div>
 
   <main>
-    <section class="band wrap" id="how">
-      <p class="kicker">How it works</p>
-      <h2>Find. Alert. Plan.</h2>
-      <p class="lede">The same loop as the app — search live times, get notified when slots open, and lock a round with your group.</p>
-      <div class="steps">
-        <article class="step">
-          <p class="n">01 · Find</p>
-          <h3>Search once</h3>
-          <p>When, how many, and where. We check every tracked course at once so you stop juggling tabs.</p>
-        </article>
-        <article class="step">
-          <p class="n">02 · Alerts</p>
-          <h3>Create an alert</h3>
-          <p>Follow a course and window. When a cancellation or release appears, we email you within minutes.</p>
-        </article>
-        <article class="step">
-          <p class="n">03 · Plan</p>
-          <h3>Share a vote link</h3>
-          <p>Send one link, let everyone pick times that work, and lock it in without the group-chat chaos.</p>
-        </article>
-      </div>
-    </section>
-
     <section class="band wrap band--tight" aria-label="Coverage">
       <div class="trust-strip">
         <span><b id="courseCountStat">331</b> courses tracked</span>
         <span id="trustMarkets">Arizona · Utah · Idaho</span>
         <span>refreshed every few minutes</span>
+      </div>
+    </section>
+
+    <section class="band wrap" id="how">
+      <p class="kicker">How it works</p>
+      <h2>Search once. Get the Saturday time.</h2>
+      <p class="lede">We check every course we track at once. No account to look. You book on the course site — we don’t add a fee.</p>
+      <div class="steps">
+        <article class="step">
+          <p class="n">01 · Find</p>
+          <h3>Search once</h3>
+          <p>When, how many, and where. One search instead of eight course tabs.</p>
+        </article>
+        <article class="step">
+          <p class="n">02 · Alerts</p>
+          <h3>Get the email</h3>
+          <p>Follow a course and window. When a cancellation opens, the same email we send golfers lands in your inbox.</p>
+        </article>
+        <article class="step">
+          <p class="n">03 · Plan</p>
+          <h3>Share a vote link</h3>
+          <p>Send one link. The foursome picks times. They don’t need an account to vote.</p>
+        </article>
       </div>
     </section>
 
@@ -1081,25 +1185,101 @@
             <span class="alert-note">Free · Google sign-in · unsubscribe anytime</span>
           </div>
         </div>
-        <div class="phone" aria-hidden="true">
-          <p class="ph-head">Inbox · Today 7:02 AM</p>
-          <div class="sms">
-            <b>Tee-Time.io:</b> A 7:30am just opened at Bonneville: 4 players, $50.
-            <span class="link">Book it before someone's brother-in-law does.</span>
-            <p class="sms-time">Emailed 40 seconds after it opened</p>
+        <aside class="email-preview" aria-hidden="true">
+          <p class="email-preview-chrome">
+            <span class="email-preview-from">Inbox · Tee-Time.io Alerts</span>
+            <span class="email-preview-subj">7:30 AM · 18 holes opened at Bonneville</span>
+          </p>
+          <div class="email-msg">
+            <div class="email-msg-head">
+              <img src="/logo-icon-dark.svg" width="36" height="36" alt="" />
+              <div class="email-msg-wordmark">Tee-Time<span>.io</span></div>
+            </div>
+            <div class="email-msg-body">
+              <p class="email-msg-kicker">Alerts</p>
+              <p class="email-msg-h1">7:30 AM · 18 holes just opened</p>
+              <p class="email-msg-h2">Bonneville</p>
+              <div class="email-msg-alert">
+                <p class="email-msg-kicker">Your weekly Alert</p>
+                <p class="email-msg-alert-when">Saturdays</p>
+                <p class="email-msg-alert-meta">Morning · 4 players</p>
+                <p class="email-msg-alert-meta">Matched Saturday, Sep 5, 2026</p>
+              </div>
+              <p class="email-msg-matched">Matched tee time</p>
+              <div class="email-msg-slot">
+                <p class="email-msg-kicker">New</p>
+                <p class="email-msg-time">7:30 AM</p>
+                <p class="email-msg-slot-meta">18 holes · $50 · 4 spots</p>
+              </div>
+              <span class="email-msg-cta">Book now</span>
+              <p class="email-msg-foot">You set this Alert on <b>tee-time.io</b>. <b>Manage Alerts</b></p>
+            </div>
           </div>
-        </div>
+        </aside>
       </div>
     </section>
 
     <section class="band wrap" id="plan">
-      <p class="kicker">Plan</p>
-      <h2>One link beats forty group texts.</h2>
-      <div class="plan-cta">
+      <div class="alert-cta">
         <div>
-          <p>Share a round from Find, let everyone vote on times, and lock it in together. Past links live under Plan in the app.</p>
+          <p class="kicker">Plan</p>
+          <h2>One link beats forty group texts.</h2>
+          <p class="lede">Share a vote from Find. The foursome picks times on one page. They don’t need an account — you book on the course site when you’re in.</p>
+          <div class="alert-actions">
+            <a href="/app/" class="btn">Pick times on Find</a>
+            <span class="alert-note">Vote links work without a signup</span>
+          </div>
         </div>
-        <a href="/app/" class="btn">Start on Find</a>
+        <aside class="vote-preview" aria-hidden="true">
+          <span class="vote-preview-pill">Shared round</span>
+          <p class="vote-preview-title">Bonneville</p>
+          <p class="vote-preview-meta">Sat, Sep 5 · 4 players · 18 holes · 3 in group</p>
+          <p class="vote-preview-lede"><strong>Jordan</strong> shared these tee times. Add your name, then vote.</p>
+          <div class="vote-preview-lead">
+            <div>
+              <div class="vote-preview-lead-label">Leading</div>
+              <div class="vote-preview-lead-time">7:30 AM</div>
+            </div>
+            <span class="vote-preview-meta" style="margin:0">3 in</span>
+          </div>
+          <div class="vote-preview-option is-in">
+            <div class="vote-preview-option-head">
+              <span class="vote-preview-time">7:30 AM</span>
+              <span class="vote-preview-price">$50</span>
+            </div>
+            <div class="vote-preview-tags">
+              <span>4 players</span>
+              <span>18 holes</span>
+              <span>Open</span>
+            </div>
+            <div class="vote-preview-voters">
+              <span class="vote-preview-chip"><span class="vote-preview-av">J</span> Jordan</span>
+              <span class="vote-preview-chip"><span class="vote-preview-av b">A</span> Alex</span>
+              <span class="vote-preview-chip"><span class="vote-preview-av c">S</span> Sam</span>
+            </div>
+            <div class="vote-preview-actions">
+              <span class="vote-preview-in">In · 3</span>
+              <span>Maybe</span>
+              <span>Out</span>
+            </div>
+          </div>
+          <div class="vote-preview-option vote-preview-extra">
+            <div class="vote-preview-option-head">
+              <span class="vote-preview-time">8:12 AM</span>
+              <span class="vote-preview-price">$50</span>
+            </div>
+            <div class="vote-preview-tags">
+              <span>4 players</span>
+              <span>18 holes</span>
+              <span>Open</span>
+            </div>
+            <div class="vote-preview-actions">
+              <span>In</span>
+              <span>Maybe</span>
+              <span>Out</span>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
 
@@ -1543,7 +1723,7 @@
 
       const heroSub = document.getElementById('heroSub');
       if (heroSub) {
-        heroSub.textContent = 'Live availability across ' + joinNames(liveNames) + ' courses';
+        heroSub.textContent = 'Live times at ' + liveTotal + ' public courses in ' + joinNames(liveNames);
       }
 
       const trustMarkets = document.getElementById('trustMarkets');
