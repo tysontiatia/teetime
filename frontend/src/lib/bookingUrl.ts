@@ -305,7 +305,7 @@ function buildTeeItUpBookingUrl(source: BookingSource, params: BookingLinkParams
       ? String(source.facility_id).trim()
       : '';
   // Tenant booking host varies (book-v2.teeitup.golf vs book.teeitup.com); use the
-  // stored booking_url as the base. The widget reads course + date client-side.
+  // stored booking_url as the base. The widget reads course, date, golfers, holes.
   let base = (source.booking_url || source.bookingUrl || '').trim();
   if (!base && facilityId) {
     base = `https://aspira-management-company.book-v2.teeitup.golf/?course=${facilityId}`;
@@ -315,6 +315,12 @@ function buildTeeItUpBookingUrl(source: BookingSource, params: BookingLinkParams
     const u = new URL(base.split('#')[0] || base);
     if (facilityId) u.searchParams.set('course', facilityId);
     u.searchParams.set('date', params.dateYmd);
+    u.searchParams.set('golfers', String(Math.min(Math.max(params.players || 1, 1), 4)));
+    if (params.holes === 9 || params.holes === 18) {
+      u.searchParams.set('holes', String(params.holes));
+    } else {
+      u.searchParams.delete('holes');
+    }
     return u.toString();
   } catch {
     return base;
@@ -384,6 +390,47 @@ function defaultTemplate(
   return base;
 }
 
+function ymdToQuick18Date(ymd: string): string {
+  const m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[1]}${m[2]}${m[3]}` : '';
+}
+
+function quick18TenantFromSource(source: BookingSource): string {
+  const explicit = source.quick18_tenant != null ? String(source.quick18_tenant).trim() : '';
+  if (explicit) return explicit.replace(/[^a-z0-9-]/gi, '').toLowerCase();
+  for (const raw of [source.booking_url, source.bookingUrl]) {
+    try {
+      const host = new URL(String(raw || '').trim()).hostname.toLowerCase();
+      const m = host.match(/^([a-z0-9-]+)\.quick18\.com$/i);
+      if (m) return m[1]!.toLowerCase();
+    } catch {
+      /* ignore bad URLs */
+    }
+  }
+  return '';
+}
+
+/**
+ * Quick18 only honors `teedate=YYYYMMDD` on GET. Course / players / time-of-day
+ * are POST body fields and are ignored as query params.
+ */
+function buildQuick18BookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const tenant = quick18TenantFromSource(source);
+  const ymd = ymdToQuick18Date(params.dateYmd);
+  const base = (source.booking_url || source.bookingUrl || '').trim();
+  if (tenant && ymd) {
+    return `https://${tenant}.quick18.com/teetimes/searchmatrix?teedate=${ymd}`;
+  }
+  if (!base || !ymd) return base || null;
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    u.searchParams.set('teedate', ymd);
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 export type BookingSource = {
   booking_url?: string | null;
   bookingUrl?: string | null;
@@ -400,6 +447,8 @@ export type BookingSource = {
   teeitup_course_id?: string | null;
   cps_tenant?: string | null;
   cps_course_id?: string | null;
+  quick18_tenant?: string | null;
+  quick18_course_id?: string | null;
   /** IANA timezone for `{time}` template formatting. */
   timezone?: string | null;
 };
@@ -454,6 +503,14 @@ export function buildBookingUrl(
     'cps_tenant' in source && source.cps_tenant != null ? String(source.cps_tenant) : null;
   const cpsCourseId =
     'cps_course_id' in source && source.cps_course_id != null ? String(source.cps_course_id) : null;
+  const quick18Tenant =
+    'quick18_tenant' in source && source.quick18_tenant != null
+      ? String(source.quick18_tenant)
+      : null;
+  const quick18CourseId =
+    'quick18_course_id' in source && source.quick18_course_id != null
+      ? String(source.quick18_course_id)
+      : null;
   const timeZone =
     'timezone' in source && source.timezone != null ? String(source.timezone) : null;
 
@@ -472,6 +529,8 @@ export function buildBookingUrl(
     teeitup_course_id: teeitupCourseId,
     cps_tenant: cpsTenant,
     cps_course_id: cpsCourseId,
+    quick18_tenant: quick18Tenant,
+    quick18_course_id: quick18CourseId,
     timezone: timeZone,
   };
 
@@ -501,6 +560,10 @@ export function buildBookingUrl(
 
   if (platform === 'teeitup') {
     return buildTeeItUpBookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'quick18' || /\.quick18\.com/i.test(bookingUrl || '')) {
+    return buildQuick18BookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;

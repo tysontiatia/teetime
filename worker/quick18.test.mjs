@@ -84,4 +84,8 @@ test('booking URL stamps teedate on the tenant host', () => {
     ),
     'https://papago.quick18.com/teetimes/searchmatrix?teedate=20260901',
   );
+  assert.equal(
+    buildQuick18BookingUrl({ quick18_tenant: 'papago' }, '2026-09-01'),
+    'https://papago.quick18.com/teetimes/searchmatrix?teedate=20260901',
+  );
 });
