@@ -7,7 +7,7 @@ const FAQS = [
   },
   {
     q: 'Do I book on Tee-Time or the course site?',
-    a: 'You book on the course’s own tee sheet (ForeUp, Chronogolf, and others). Tee-Time finds the open times and sends you there.',
+    a: 'You book on the course’s own tee sheet. Tee-Time finds the open times and sends you there.',
   },
   {
     q: 'How fresh are the tee times?',
