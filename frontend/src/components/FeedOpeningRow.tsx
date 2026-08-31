@@ -13,6 +13,7 @@ import {
   isFeedHotOpening,
 } from '../lib/feedDisplay';
 import { CoursePhoto } from './CoursePhoto';
+import { captureEvent } from '../lib/analytics';
 
 type Props = {
   item: FeedItem;
@@ -81,6 +82,24 @@ export function FeedOpeningRow({ item, record, minPlayers }: Props) {
             href={bookingUrl}
             target="_blank"
             rel="noreferrer"
+            onClick={() => {
+              captureEvent('tee_time_clicked', {
+                course: item.course_name,
+                course_id: item.course_slug,
+                time: item.play_starts_at,
+                price: item.price_cents,
+                spots: item.spots_open,
+                holes: item.holes,
+                surface: 'feed',
+              });
+              captureEvent('outbound_booking_click', {
+                course: item.course_name,
+                course_id: item.course_slug,
+                time: item.play_starts_at,
+                price: item.price_cents,
+                surface: 'feed',
+              });
+            }}
           >
             Book
           </a>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
+import { useIsAdmin } from '../hooks/useIsAdmin';
 import { profileAvatarUrlFromUser } from '../lib/profileAvatar';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
@@ -30,6 +31,7 @@ function MenuIcon({ children }: { children: ReactNode }) {
 
 export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onInstall }: UserMenuProps) {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const { preference, resolved, setPreference } = useTheme();
   const location = useLocation();
   const isCompact = useIsCompactShell();
@@ -193,6 +195,44 @@ export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onIns
             </MenuIcon>
             <span className="user-menu-item-label">Openings</span>
           </Link>
+          {isAdmin ? (
+            <>
+              <Link to="/admin/users" className="user-menu-item" role="menuitem" onClick={onClose}>
+                <MenuIcon>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.9" />
+                    <path
+                      d="M4.5 18c.6-2.4 2.4-3.6 4.5-3.6s3.9 1.2 4.5 3.6"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="16.5" cy="8.5" r="2.4" stroke="currentColor" strokeWidth="1.9" />
+                    <path
+                      d="M15.2 14.6c1.6-.3 3 .5 3.8 2.2"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </MenuIcon>
+                <span className="user-menu-item-label">Signups</span>
+              </Link>
+              <Link to="/admin/courses" className="user-menu-item" role="menuitem" onClick={onClose}>
+                <MenuIcon>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M5 7h14M5 12h14M5 17h9"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </MenuIcon>
+                <span className="user-menu-item-label">Course catalog</span>
+              </Link>
+            </>
+          ) : null}
           {showInstall && onInstall ? (
             <button
               type="button"

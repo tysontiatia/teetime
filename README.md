@@ -193,18 +193,18 @@ The root `courses.json` and `public/courses.json` must stay in sync. Always edit
 
 ## Analytics (PostHog)
 
-Events tracked:
+Landing (`public/index.html`) and the React app (`/app/`) share one project.
+
+**Not counted:** local Vite / localhost, `*.pages.dev` previews, `/admin` pageviews, and any browser that has signed in as `profiles.is_admin` (opt-out is persisted). Override with `?tt_notrack=1` (opt out) or `?tt_notrack=0` (opt back in).
 
 | Event | Where | Data |
 |---|---|---|
-| `early_access_signup` | Landing page | email, code, discovery, frequency, WTP |
-| `posthog.identify` | App on sign-in | email |
-| `search_performed` | App | date, players, holes, region |
-| `results_returned` | App | count, search_date, players |
-| `course_saved` | App | course_name |
-| `region_tab_switched` | App | region |
-| `tee_time_clicked` | App | course, time, price |
-| `outbound_booking_click` | App | course_name, time, price |
+| `$pageview` | Landing + app route changes | path, URL |
+| `posthog.identify` | App after Google sign-in | Supabase user id, email |
+| `search_performed` | Find (date, players, holes, place, radius) | date, players, holes, q, tod, scope |
+| `tee_time_clicked` | Find, course, Feed | course, time, price, surface |
+| `outbound_booking_click` | Open course booking site | course, time, surface |
+| `alert_created` | Alert save succeeds | course, mode, players |
 
 ---
 

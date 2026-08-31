@@ -20,8 +20,8 @@ export function AdminGuard() {
   if (!user) {
     return (
       <SignedOutGate title="Admin sign-in required">
-        Sign in with your Google account to manage the course catalog. If you&apos;re new to Tee-Time, we&apos;ll
-        create an account for you.
+        Sign in with your Google account to open admin tools. If you&apos;re new to Tee-Time, we&apos;ll create an
+        account for you.
       </SignedOutGate>
     );
   }
