@@ -39,6 +39,10 @@ export type CourseRecord = {
   teeitup_course_id?: string;
   /** TeeItUp tenant alias (x-be-alias header). Derived from booking_url when omitted. */
   teeitup_alias?: string;
+  /** Quick18 tenant subdomain (`papago.quick18.com` → `papago`). */
+  quick18_tenant?: string;
+  /** Optional Quick18 course id when one tenant hosts multiple tees (Grayhawk Talon vs Raptor). */
+  quick18_course_id?: string;
   booking_window_days?: number;
   booking_opens_time?: string;
   timezone?: string;

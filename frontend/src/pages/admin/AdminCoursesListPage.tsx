@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { listAdminCourses } from '../../lib/courseAdminApi';
+import { listAdminCourses, reclassifyAdminPlatforms } from '../../lib/courseAdminApi';
 import type { AdminCourseListItem } from '../../lib/adminCourseTypes';
 import {
   BOOKING_STATUS_LABELS,
@@ -8,7 +8,7 @@ import {
   resolveBookingStatus,
   type BookingStatus,
 } from '../../lib/adminBookingQa';
-import { platformDisplayName, platformGroupKey, rollupPlatforms } from '../../lib/platformRegistry';
+import { effectivePlatform, platformDisplayName, rollupPlatforms } from '../../lib/platformRegistry';
 
 type ListFilter = 'all' | BookingStatus;
 
@@ -18,6 +18,9 @@ export function AdminCoursesListPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<ListFilter>('all');
+  const [vendorFilter, setVendorFilter] = useState<string | null>(null);
+  const [reclassifying, setReclassifying] = useState(false);
+  const [reclassifyMsg, setReclassifyMsg] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -57,15 +60,17 @@ export function AdminCoursesListPage() {
     return courses.filter((c) => {
       const status = resolveBookingStatus(c);
       if (filter !== 'all' && status !== filter) return false;
+      if (vendorFilter && effectivePlatform(c) !== vendorFilter) return false;
       if (!needle) return true;
       return (
         c.name.toLowerCase().includes(needle) ||
         c.slug.includes(needle) ||
         (c.area || '').toLowerCase().includes(needle) ||
-        (c.booking_status_note || '').toLowerCase().includes(needle)
+        (c.booking_status_note || '').toLowerCase().includes(needle) ||
+        platformDisplayName(effectivePlatform(c)).toLowerCase().includes(needle)
       );
     });
-  }, [courses, q, filter]);
+  }, [courses, q, filter, vendorFilter]);
 
   const chipStyle = (active: boolean): CSSProperties => ({
     border: `1px solid ${active ? 'var(--pine)' : 'var(--border)'}`,
@@ -80,9 +85,9 @@ export function AdminCoursesListPage() {
 
   const statusLabel = (c: AdminCourseListItem) => {
     const status = resolveBookingStatus(c);
-    if (status === 'ready') return platformDisplayName(c.platform || undefined);
+    if (status === 'ready') return platformDisplayName(effectivePlatform(c) || c.platform || undefined);
     if (status === 'unsupported') {
-      const vendor = platformGroupKey(c.platform, c.booking_status_note);
+      const vendor = effectivePlatform(c);
       return vendor ? `Unsupported · ${platformDisplayName(vendor)}` : BOOKING_STATUS_LABELS.unsupported;
     }
     return BOOKING_STATUS_LABELS[status];
@@ -134,6 +139,32 @@ export function AdminCoursesListPage() {
               Start booking QA
             </Link>
           ) : null}
+          <button
+            type="button"
+            className="btn"
+            disabled={reclassifying}
+            onClick={() => {
+              void (async () => {
+                setReclassifying(true);
+                setReclassifyMsg(null);
+                try {
+                  const result = await reclassifyAdminPlatforms();
+                  setCourses(await listAdminCourses());
+                  setReclassifyMsg(
+                    result.counts.updated === 0
+                      ? `Checked ${result.counts.scanned} courses — all vendors already match their booking URL.`
+                      : `Updated ${result.counts.updated} of ${result.counts.scanned} courses from booking URLs.`,
+                  );
+                } catch (e) {
+                  setReclassifyMsg(e instanceof Error ? e.message : 'Recategorize failed');
+                } finally {
+                  setReclassifying(false);
+                }
+              })();
+            }}
+          >
+            {reclassifying ? 'Recategorizing…' : 'Recategorize from booking URLs'}
+          </button>
           <Link className="btn" to="/admin/courses/import">
             Import CSV
           </Link>
@@ -173,17 +204,25 @@ export function AdminCoursesListPage() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 14 }}>What to build next</div>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)', maxWidth: 640 }}>
-              Vendors we don’t poll yet, including ones you’ve already saved (Play18, GolfRev, …). Live adapters
-              stay off this list.
+              Vendors we don’t poll yet. Click a chip to filter the table. Recategorize writes the vendor from the
+              booking URL so leftover “Other” rows get a real name.
             </p>
           </div>
+          {reclassifyMsg ? (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-2)' }}>{reclassifyMsg}</p>
+          ) : null}
           {backlogRollup.length > 0 ? (
             <div>
               <div style={{ marginTop: 0, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {backlogRollup.map((r) => (
-                  <span key={r.key} style={{ ...chipStyle(false), cursor: 'default' }}>
+                  <button
+                    key={r.key}
+                    type="button"
+                    style={chipStyle(vendorFilter === r.key)}
+                    onClick={() => setVendorFilter((cur) => (cur === r.key ? null : r.key))}
+                  >
                     {r.label} ({r.count})
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

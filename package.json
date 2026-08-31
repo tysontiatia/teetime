@@ -17,6 +17,7 @@
     "rates:sql": "node scripts/sheet-rates-to-sql.mjs",
     "registry:backfill": "node scripts/backfill-course-registry.mjs",
     "registry:sync": "node scripts/sync-courses-from-registry.mjs",
+    "registry:reclassify": "node scripts/reclassify-course-platforms.mjs",
     "registry:places": "node scripts/enrich-registry-places.mjs",
     "courses:audit": "node scripts/audit-course-catalog.mjs"
   },

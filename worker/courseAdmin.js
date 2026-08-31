@@ -12,6 +12,7 @@ const PLATFORM_ID_FIELDS = {
   golfpay: ['golfpay_course_id'],
   cps: ['cps_tenant', 'cps_course_id'],
   teeitup: ['facility_id', 'teeitup_course_id', 'teeitup_alias'],
+  quick18: ['quick18_tenant', 'quick18_course_id'],
 };
 
 const ALL_PLATFORM_FIELDS = [
@@ -31,6 +32,8 @@ const ALL_PLATFORM_FIELDS = [
   'facility_id',
   'teeitup_course_id',
   'teeitup_alias',
+  'quick18_tenant',
+  'quick18_course_id',
 ];
 
 const RATE_SPECS = [
@@ -300,7 +303,135 @@ export function parseBookingUrl(rawUrl) {
     return out;
   }
 
+  if (host.includes('quick18.com')) {
+    out.platform = 'quick18';
+    const label = host.split('.')[0];
+    if (label && label !== 'www') out.hints.quick18_tenant = label;
+    return out;
+  }
+
+  if (host.includes('golfwithaccess.com')) {
+    out.platform = 'golfwithaccess';
+    return out;
+  }
+
+  if (host.includes('clubcaddie.com')) {
+    out.platform = 'clubcaddie';
+    return out;
+  }
+
+  if (host.includes('rguest.com') || host.includes('onagilysys.com')) {
+    out.platform = 'rguest';
+    return out;
+  }
+
+  if (host.includes('totaleintegrated.net')) {
+    out.platform = 'totaleintegrated';
+    return out;
+  }
+
+  if (host.includes('clubhouseonline')) {
+    out.platform = 'clubhouseonline';
+    return out;
+  }
+
+  if (host.includes('golfscape.com')) {
+    out.platform = 'golfscape';
+    return out;
+  }
+
+  if (host.includes('fareharbor.com')) {
+    out.platform = 'fareharbor';
+    return out;
+  }
+
+  if (host.includes('easyteegolf.com')) {
+    out.platform = 'easyteegolf';
+    return out;
+  }
+
+  if (host.includes('myvscloud.com')) {
+    out.platform = 'vscloud';
+    return out;
+  }
+
+  if (host.includes('prophetservices.com')) {
+    out.platform = 'prophetservices';
+    return out;
+  }
+
+  if (host.includes('valorclubs.com')) {
+    out.platform = 'valorclubs';
+    return out;
+  }
+
+  if (host.includes('floatinggreensoftware.com')) {
+    out.platform = 'floatinggreen';
+    return out;
+  }
+
   return out;
+}
+
+const LIVE_ADAPTER_PLATFORMS = new Set([
+  'foreup',
+  'foreup_login',
+  'chronogolf',
+  'chronogolf_slc',
+  'membersports',
+  'teeitup',
+  'trutee',
+  'golfpay',
+  'quick18',
+]);
+
+/**
+ * Persist decision: booking URL names the vendor unless the row is already a live adapter.
+ */
+export function nextRecordPlatform(record) {
+  const current = String(record?.platform || '').trim();
+  if (LIVE_ADAPTER_PLATFORMS.has(current)) {
+    return { platform: current, changed: false, reason: 'live' };
+  }
+  const url = String(record?.booking_url || '').trim();
+  if (!url) {
+    return { platform: current, changed: false, reason: 'no_url' };
+  }
+  const suggested = parseBookingUrl(url).platform;
+  if (!suggested) {
+    return { platform: current, changed: false, reason: 'unknown_host' };
+  }
+  if (suggested === current) {
+    return { platform: current, changed: false, reason: 'already' };
+  }
+  return { platform: suggested, from: current || null, changed: true, reason: 'url' };
+}
+
+async function reclassifyRegistryPlatforms(env, { dryRun }) {
+  const rows = await fetchRegistryCourses(env);
+  const updated = [];
+  for (const row of rows) {
+    const rec = row.record && typeof row.record === 'object' ? row.record : {};
+    const next = nextRecordPlatform(rec);
+    if (!next.changed) continue;
+    updated.push({
+      slug: row.slug,
+      name: rec.name || row.slug,
+      from: rec.platform || null,
+      to: next.platform,
+    });
+    if (!dryRun) {
+      const written = await upsertRegistry(env, row.slug, { ...rec, platform: next.platform });
+      if (written.error) {
+        return { error: written.error, detail: written.detail, status: written.status, updated };
+      }
+    }
+  }
+  return {
+    dry_run: Boolean(dryRun),
+    updated,
+    counts: { scanned: rows.length, updated: updated.length },
+  };
 }
 
 function stripPlatformFields(record, platform) {
@@ -1019,8 +1150,11 @@ function getPlatformWarnings(record) {
   }
   if (platform === 'tenfore' || platform === 'cps' || platform === 'golfnow' || platform === 'ezlinks' || platform === 'teesnap' || platform === 'clubessentials' || platform === 'lightspeed' || platform === 'teeoff' || platform === 'golfrev' || platform === 'sagacity' || platform === 'play18') {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
-  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login'].includes(platform)) {
+  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18'].includes(platform)) {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
+  }
+  if (platform === 'quick18' && !record.quick18_tenant && !String(record.booking_url || '').includes('quick18.com')) {
+    warnings.push('Quick18 needs a tenant subdomain (papago.quick18.com) for live tee times.');
   }
   if (platform === 'golfpay' && !record.golfpay_course_id) {
     warnings.push('GolfPay needs golfpay_course_id (_gshcid) for live tee times.');
@@ -1327,6 +1461,25 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         }
 
         return corsResponse({ courses: list });
+      }
+
+      if (path === '/admin/courses/reclassify-platforms' && request.method === 'POST') {
+        const admin = await requireAdmin(env, request);
+        if (admin.error) return corsResponse({ error: admin.error }, admin.status);
+
+        let body = {};
+        try {
+          const text = await request.text();
+          if (text) body = JSON.parse(text);
+        } catch {
+          return corsResponse({ error: 'invalid_body' }, 400);
+        }
+
+        const dryRun = Boolean(body.dry_run);
+        const result = await reclassifyRegistryPlatforms(env, { dryRun });
+        if (result.error) return corsResponse(result, result.status);
+        if (!dryRun && result.counts.updated > 0) invalidateCoursesCache?.();
+        return corsResponse(result);
       }
 
       if (path === '/admin/courses/import' && request.method === 'POST') {
