@@ -191,7 +191,7 @@ export function AdminCoursesImportPage() {
             setPreview(null);
             setConfirmed(false);
           }}
-          placeholder="Paste CSV (Course Name, Street Address, City, State, ZIP, Phone, Website URL, Region, Place ID)…"
+          placeholder="Paste CSV (Course Name, Street Address, City, State, ZIP, Phone, Website URL, Region, Place ID; optional Holes, Yardage, Par)…"
           rows={8}
           style={{ width: '100%', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}
         />

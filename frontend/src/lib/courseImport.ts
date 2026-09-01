@@ -18,6 +18,9 @@ export type MasterCsvFields = {
   websiteUrl: string;
   region: string;
   placeId: string;
+  holes: string;
+  yardage: string;
+  par: string;
 };
 
 /** @deprecated Use MasterCsvFields */
@@ -81,6 +84,9 @@ const COL = {
   websiteUrl: 'website url',
   region: 'region',
   placeId: 'place id',
+  holes: 'holes',
+  yardage: 'yardage',
+  par: 'par',
 } as const;
 
 /** Parse Tee Time Master spreadsheet CSV text into raw field objects (skips blank names). */
@@ -104,6 +110,9 @@ export function parseMasterCoursesCsv(text: string): MasterCsvFields[] {
   const iWeb = idx(COL.websiteUrl);
   const iRegion = idx(COL.region);
   const iPlace = idx(COL.placeId);
+  const iHoles = idx(COL.holes);
+  const iYardage = idx(COL.yardage);
+  const iPar = idx(COL.par);
 
   if (iName < 0) {
     throw new Error('CSV must include a "Course Name" column');
@@ -126,6 +135,9 @@ export function parseMasterCoursesCsv(text: string): MasterCsvFields[] {
       websiteUrl: cell(cols, iWeb),
       region: cell(cols, iRegion),
       placeId: cell(cols, iPlace),
+      holes: cell(cols, iHoles),
+      yardage: cell(cols, iYardage),
+      par: cell(cols, iPar),
     });
   }
   return out;
@@ -146,17 +158,36 @@ export function timezoneForState(state: string): string {
   const st = normalizeStateCode(state);
   if (st === 'ID') return 'America/Boise';
   if (st === 'AZ') return 'America/Phoenix';
+  if (st === 'NV' || st === 'CA') return 'America/Los_Angeles';
   return 'America/Denver';
 }
+
+const STATE_AREA_PREFIX: Record<string, string> = {
+  ID: 'Idaho',
+  UT: 'Utah',
+  AZ: 'Arizona',
+  WY: 'Wyoming',
+  NV: 'Nevada',
+  CO: 'Colorado',
+  NM: 'New Mexico',
+};
 
 export function areaLabelForState(state: string, region: string): string {
   const st = normalizeStateCode(state);
   const reg = region.trim();
-  if (st === 'ID') return reg ? `Idaho · ${reg}` : 'Idaho';
-  if (st === 'UT') return reg ? `Utah · ${reg}` : 'Utah';
-  if (st === 'AZ') return reg ? `Arizona · ${reg}` : 'Arizona';
-  if (st === 'WY') return reg ? `Wyoming · ${reg}` : 'Wyoming';
+  const prefix = STATE_AREA_PREFIX[st];
+  if (prefix) return reg ? `${prefix} · ${reg}` : prefix;
   return reg || st || 'Unknown';
+}
+
+function parseHolesField(raw: string): 9 | 18 | undefined {
+  const n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+  return n === 9 || n === 18 ? n : undefined;
+}
+
+function parsePositiveIntField(raw: string): number | undefined {
+  const n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /** Map Master CSV fields → registry stub (empty platform / booking_url). */
@@ -177,6 +208,12 @@ export function masterFieldsToImportRow(fields: MasterCsvFields): CourseImportRo
   if (fields.phone.trim()) record.phone_number = fields.phone.trim();
   if (fields.websiteUrl.trim()) record.website = fields.websiteUrl.trim();
   if (fields.placeId.trim()) record.google_place_id = fields.placeId.trim();
+  const holes = parseHolesField(fields.holes || '');
+  if (holes) record.holes = holes;
+  const yardage = parsePositiveIntField(fields.yardage || '');
+  if (yardage) record.yardage = yardage;
+  const par = parsePositiveIntField(fields.par || '');
+  if (par) record.par = par;
   return {
     slug: slugFromCourseName(name),
     record,
