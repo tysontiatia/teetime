@@ -227,11 +227,11 @@ async function fetchTeeTimesLive(
       break;
     }
     case 'quick18': {
-      let host = '';
+      let host: string;
       try {
         host = new URL(String(course.booking_url || '').trim()).hostname.toLowerCase();
       } catch {
-        host = '';
+        return emptyOk;
       }
       const tenant = host.match(/^([a-z0-9-]+)\.(quick18|play18)\.com$/i)?.[1] || '';
       if (!tenant) return emptyOk;
