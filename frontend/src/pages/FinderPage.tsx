@@ -491,7 +491,9 @@ export function FinderPage() {
     const noTimes: Course[] = [];
     const alsoNearby: Course[] = [];
     for (const c of displayCourses) {
-      const mode = resolveCourseBookingMode(recordsBySlug.get(c.id) ?? { platform: c.platform });
+      const mode = resolveCourseBookingMode(
+        recordsBySlug.get(c.id) ?? { platform: c.platform, booking_url: c.bookingUrl },
+      );
       if (mode !== 'live') alsoNearby.push(c);
       else if ((timesByCourse.get(c.id)?.length ?? 0) > 0) openings.push(c);
       else noTimes.push(c);
@@ -806,7 +808,9 @@ export function FinderPage() {
     const times = timesByCourse.get(course.id) ?? [];
     const inFetchPool = fetchSlugSet.has(course.id);
     const record = recordsBySlug.get(course.id);
-    const bookingMode = resolveCourseBookingMode(record ?? { platform: course.platform });
+    const bookingMode = resolveCourseBookingMode(
+      record ?? { platform: course.platform, booking_url: course.bookingUrl },
+    );
     const noLiveInventory = bookingMode !== 'live';
     const outOfScope = !noLiveInventory && !inFetchPool && !fetchAllUtah;
     const timesPending = !noLiveInventory && inFetchPool && pendingSlugs.has(course.id);
