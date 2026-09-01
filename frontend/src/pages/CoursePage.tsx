@@ -8,6 +8,7 @@ import {
   toYmd,
   todayYmdUtah,
   clampDateToTodayOrLater,
+  defaultFindDateYmd,
 } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
 import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
@@ -82,7 +83,7 @@ export function CoursePage() {
   const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
-  const date = clampDateToTodayOrLater(sp.get('date') || todayYmdUtah());
+  const date = clampDateToTodayOrLater(sp.get('date') || defaultFindDateYmd());
   const todayYmd = todayYmdUtah();
   const prevDateDisabled = date <= todayYmd;
   const players = clampPlayers(Number(sp.get('players') || 2));
@@ -100,14 +101,13 @@ export function CoursePage() {
     [sp, setSp],
   );
 
-  /** Past `?date=` (or invalid) → replace with today so the URL matches search. */
+  /** Missing `?date=` uses the evening rollover; past/invalid dates snap forward. */
   useEffect(() => {
     const raw = sp.get('date');
-    if (!raw) return;
-    const clamped = clampDateToTodayOrLater(raw);
-    if (clamped === raw) return;
+    const nextDate = raw ? clampDateToTodayOrLater(raw) : defaultFindDateYmd();
+    if (raw === nextDate) return;
     const next = new URLSearchParams(sp);
-    next.set('date', clamped);
+    next.set('date', nextDate);
     setSp(next, { replace: true });
   }, [sp, setSp]);
 
