@@ -373,6 +373,8 @@ type BatchSlugSnapshot = {
   /** snapshot = poller cache; live = worker filled from vendor in this request. */
   source?: 'snapshot' | 'live';
   live_failed?: boolean;
+  /** Worker skipped or timed out live-fill — do not treat empty as sold-out. */
+  needs_live?: boolean;
 };
 
 type BatchTeeTimesResponse = {
@@ -392,17 +394,20 @@ function chunkSlugs<T>(items: T[], size: number): T[][] {
  * Batched read via GET /v1/tee-times?ids= (snapshots + server-side live fill).
  * Returns a map of slug → payload (missing slugs omitted on transport failure).
  */
+type BatchRow = SnapshotAvailabilityResponse & {
+  batchSource?: 'snapshot' | 'live';
+  live_failed?: boolean;
+  needs_live?: boolean;
+};
+
 async function fetchTeeTimesBatchFromSnapshot(
   slugs: string[],
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
-  options?: { fresh?: boolean },
-): Promise<Map<string, SnapshotAvailabilityResponse & { batchSource?: 'snapshot' | 'live'; live_failed?: boolean }>> {
-  const out = new Map<
-    string,
-    SnapshotAvailabilityResponse & { batchSource?: 'snapshot' | 'live'; live_failed?: boolean }
-  >();
+  options?: { fresh?: boolean; onChunk?: (chunk: Map<string, BatchRow>) => void },
+): Promise<Map<string, BatchRow>> {
+  const out = new Map<string, BatchRow>();
   if (slugs.length === 0) return out;
   const base = getWorkerBaseUrl();
 
@@ -416,20 +421,27 @@ async function fetchTeeTimesBatchFromSnapshot(
     url.searchParams.set('players', String(players));
     url.searchParams.set('ids', chunk.join(','));
     if (options?.fresh) url.searchParams.set('fresh', '1');
+    const chunkMap = new Map<string, BatchRow>();
     try {
       const res = await fetchWithTimeout(
         url.toString(),
         { method: 'GET', cache: options?.fresh ? 'no-store' : 'default' },
         TEE_TIMES_BATCH_TIMEOUT_MS,
       );
-      if (!res.ok) continue;
+      if (!res.ok) {
+        options?.onChunk?.(chunkMap);
+        continue;
+      }
       const data = (await res.json()) as BatchTeeTimesResponse;
-      if (!data?.by_slug || typeof data.by_slug !== 'object') continue;
+      if (!data?.by_slug || typeof data.by_slug !== 'object') {
+        options?.onChunk?.(chunkMap);
+        continue;
+      }
       for (const slug of chunk) {
         const row = data.by_slug[slug];
         if (!row) continue;
         const batchSource = row.source === 'live' ? 'live' : 'snapshot';
-        out.set(slug, {
+        const parsed: BatchRow = {
           ok: true,
           source: batchSource,
           has_poll_coverage: row.has_poll_coverage === true,
@@ -438,11 +450,15 @@ async function fetchTeeTimesBatchFromSnapshot(
           times: Array.isArray(row.times) ? row.times : [],
           batchSource,
           live_failed: row.live_failed === true,
-        });
+          needs_live: row.needs_live === true,
+        };
+        chunkMap.set(slug, parsed);
+        out.set(slug, parsed);
       }
     } catch {
       // miss → live fallback per course
     }
+    options?.onChunk?.(chunkMap);
   }
 
   return out;
@@ -450,10 +466,12 @@ async function fetchTeeTimesBatchFromSnapshot(
 
 /** Whether Finder can paint from a /v1/tee-times row without a client live call. */
 function canUseBatchRow(
-  row: SnapshotAvailabilityResponse & { batchSource?: 'snapshot' | 'live'; live_failed?: boolean },
+  row: BatchRow,
   players: 1 | 2 | 3 | 4,
   playDateYmd: string,
 ): boolean {
+  // Worker deferred this slug (budget / skip) — empty is not a confirmed sold-out.
+  if (row.needs_live) return false;
   // Server live fill failed — still paint a trustable non-empty poller snapshot instead
   // of forcing a client live call that often 429s and used to wipe the card to [].
   if (row.live_failed) {
@@ -884,26 +902,21 @@ export async function fetchTimesForCourseSlugs(
       ? [...nineOnlyEntries, ...standardEntries]
       : workerEntries;
 
-  const batchMap = await fetchTeeTimesBatchFromSnapshot(
-    batchEntries.map((e) => e.slug),
-    dateYmd,
-    holeSize,
-    players,
-    options?.fresh ? { fresh: true } : undefined,
-  );
-
   const needLive: { slug: string; record: CourseRecord }[] = [];
   const needRevalidate: { slug: string; record: CourseRecord; ageMs: number }[] = [];
+  const applied = new Set<string>();
+  const bySlug = new Map(batchEntries.map((e) => [e.slug, e]));
 
-  for (const entry of batchEntries) {
-    const snap = batchMap.get(entry.slug);
+  const applyBatchRow = (entry: { slug: string; record: CourseRecord }, snap: BatchRow) => {
+    if (applied.has(entry.slug)) return;
+    applied.add(entry.slug);
     if (snap && canUseBatchRow(snap, players, dateYmd)) {
       const times = snapshotToTeeTimes(entry.slug, dateYmd, snap.times!);
       const fromLive = snap.batchSource === 'live' && !snap.live_failed;
       // Snapshot that paints empty after past/filter — blocking live, not a fake sold-out.
       if (times.length === 0 && !fromLive) {
         needLive.push(entry);
-        continue;
+        return;
       }
       const prev = out.get(entry.slug) ?? [];
       const next = preferRicherSameHoles(prev, times);
@@ -929,6 +942,26 @@ export async function fetchTimesForCourseSlugs(
     } else {
       needLive.push(entry);
     }
+  };
+
+  await fetchTeeTimesBatchFromSnapshot(
+    batchEntries.map((e) => e.slug),
+    dateYmd,
+    holeSize,
+    players,
+    {
+      fresh: options?.fresh === true,
+      onChunk: (chunkMap) => {
+        for (const [slug, snap] of chunkMap) {
+          const entry = bySlug.get(slug);
+          if (entry) applyBatchRow(entry, snap);
+        }
+      },
+    },
+  );
+
+  for (const entry of batchEntries) {
+    if (!applied.has(entry.slug)) needLive.push(entry);
   }
 
   async function runLiveQueue(

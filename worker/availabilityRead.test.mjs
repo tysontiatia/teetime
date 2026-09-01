@@ -7,9 +7,11 @@ import assert from 'node:assert/strict';
 
 import {
   buildTeeTimesBySlug,
+  liveFillAttemptTimeoutMs,
   normalizedRowsToBatchTimes,
   parseTeeTimesIds,
   postgrestInList,
+  snapshotNeedsBlockingLiveFill,
   snapshotNeedsLiveFill,
   TEE_TIMES_BATCH_MAX_IDS,
 } from './availabilityRead.js';
@@ -193,6 +195,66 @@ test('snapshotNeedsLiveFill live-fills misses, empty sheets, and stale snapshots
     true,
     'forceFresh live-fills even a 1-minute-old snapshot',
   );
+});
+
+test('snapshotNeedsBlockingLiveFill waits only for miss/empty/unknown age', () => {
+  const now = Date.parse('2026-08-11T18:00:00.000Z');
+  const hotTimes = [{ id: '1', startsAt: '2026-08-12T20:00:00.000Z', holes: 18, spots: 4 }];
+  const covered = (ageMs, times) => ({
+    has_poll_coverage: true,
+    spots_known: true,
+    last_polled_at: new Date(now - ageMs).toISOString(),
+    times,
+  });
+
+  assert.equal(
+    snapshotNeedsBlockingLiveFill(
+      { has_poll_coverage: false, spots_known: true, last_polled_at: null, times: [] },
+      2,
+      '2026-08-12',
+      now,
+    ),
+    true,
+    'no coverage must block',
+  );
+  assert.equal(
+    snapshotNeedsBlockingLiveFill(covered(60 * 1000, []), 2, '2026-08-12', now),
+    true,
+    'empty sheet must block so Find does not paint a fake sold-out',
+  );
+  assert.equal(
+    snapshotNeedsBlockingLiveFill(covered(20 * 60 * 1000, hotTimes), 2, '2026-08-12', now),
+    false,
+    'stale non-empty snapshot must not hold the batch — client revalidates',
+  );
+  assert.equal(
+    snapshotNeedsLiveFill(covered(20 * 60 * 1000, hotTimes), 2, '2026-08-12', now),
+    true,
+    'stale non-empty is still considered refreshable',
+  );
+  assert.equal(
+    snapshotNeedsBlockingLiveFill(
+      { has_poll_coverage: true, spots_known: true, last_polled_at: null, times: hotTimes },
+      2,
+      '2026-08-12',
+      now,
+    ),
+    true,
+    'unknown age still blocks',
+  );
+  assert.equal(
+    snapshotNeedsBlockingLiveFill(covered(60 * 1000, hotTimes), 2, '2026-08-12', now, true),
+    true,
+    'forceFresh still blocks',
+  );
+});
+
+test('liveFillAttemptTimeoutMs skips when the Find budget is gone', () => {
+  const now = 1_000_000;
+  assert.equal(liveFillAttemptTimeoutMs(12_000, null, now), 12_000);
+  assert.equal(liveFillAttemptTimeoutMs(12_000, now + 3_000, now), 3_000);
+  assert.equal(liveFillAttemptTimeoutMs(12_000, now + 200, now), 0);
+  assert.equal(liveFillAttemptTimeoutMs(12_000, now - 1, now), 0);
 });
 
 test('normalizedRowsToBatchTimes filters players/holes and builds startsAt', () => {
