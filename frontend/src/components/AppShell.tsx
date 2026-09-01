@@ -147,7 +147,7 @@ function AppShellInner() {
     <div className="app-shell">
       <header className="app-header">
         <div className="container app-header-inner">
-          <Link to="/" className="app-header-logo">
+          <Link to={path === '/' || path === '' ? '.' : '/'} className="app-header-logo">
             <LogoMark />
             <span>
               Tee-Time<span className="app-header-logo-tld">.io</span>

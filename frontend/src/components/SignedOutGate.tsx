@@ -15,7 +15,7 @@ type Props = {
 export function SignedOutGate({
   title = 'Log in or create an account',
   children,
-  secondaryTo = '/',
+  secondaryTo,
   secondaryLabel = 'Back to Find',
   returnTo,
 }: Props) {
