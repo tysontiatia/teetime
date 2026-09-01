@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { PlaceReview } from '../lib/placeReviews';
 import { googleMapsPlaceUrl } from '../lib/mapsLinks';
 import type { Course } from '../types';
@@ -10,6 +11,31 @@ type Props = {
   /** When embedded under a Reviews tab, skip the section h2. */
   hideHeading?: boolean;
 };
+
+function ReviewText({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || expanded) return;
+    setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [text, expanded]);
+
+  return (
+    <>
+      <p ref={ref} className={`review-text${expanded ? '' : ' is-clamped'}`}>
+        {text}
+      </p>
+      {overflows || expanded ? (
+        <button type="button" className="review-text-toggle" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      ) : null}
+    </>
+  );
+}
 
 function StarRow({ rating, size = 'sm' }: { rating: number | null; size?: 'sm' | 'lg' }) {
   if (typeof rating !== 'number') return null;
@@ -93,7 +119,7 @@ export function CourseReviewsSection({ reviews, loading, mapsUrl, course, hideHe
                 </div>
               </div>
             </div>
-            {r.text ? <p className="review-text">{r.text}</p> : <p className="review-text is-empty">No written review.</p>}
+            {r.text ? <ReviewText text={r.text} /> : <p className="review-text is-empty">No written review.</p>}
           </li>
         ))}
       </ul>

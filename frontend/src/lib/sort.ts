@@ -1,7 +1,7 @@
 import type { Course, SortBy, TeeTime } from '../types';
 
 export const FINDER_SORT_OPTIONS: { value: SortBy; label: string }[] = [
-  { value: 'soonest', label: 'Soonest time' },
+  { value: 'soonest', label: 'Earliest' },
   { value: 'distance', label: 'Closest' },
   { value: 'price', label: 'Lowest price' },
   { value: 'rating', label: 'Highest rated' },

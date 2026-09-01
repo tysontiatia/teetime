@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { AppBackLink } from '../components/AppBackLink';
 import { useAuth } from '../state/AuthContext';
 import { profileDisplayNameFromUser } from '../lib/profileDisplayName';
 import {
@@ -408,9 +409,9 @@ export function RoundPage() {
             <div className="pill">Shared round</div>
             <h2 className="round-title round-title-sm">Could not open link</h2>
             <p style={{ color: 'var(--muted)' }}>{err}</p>
-            <Link to="/" className="btn btn-primary" style={{ marginTop: 14 }}>
-              Back to finder →
-            </Link>
+            <AppBackLink to="/" className="btn btn-primary" style={{ marginTop: 14 }}>
+              Back
+            </AppBackLink>
           </div>
         </div>
       </div>
@@ -437,9 +438,9 @@ export function RoundPage() {
     <div className="container round-page">
       <div className="round-page-card">
       <div className="round-topbar">
-        <Link to="/" className="pill round-back">
-          ← Tee times
-        </Link>
+        <AppBackLink to="/" className="pill round-back">
+          ← Back
+        </AppBackLink>
         <button
           type="button"
           className={`round-copy-btn app-header-icon-btn${copyHint === 'ok' ? ' is-active' : ''}`}

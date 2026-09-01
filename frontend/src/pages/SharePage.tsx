@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { AppBackLink } from '../components/AppBackLink';
 import type { Course } from '../types';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { formatDateShort, formatTime12h } from '../lib/time';
@@ -131,9 +132,9 @@ export function SharePage() {
             <code className="share-code">/round/your-link</code> and save everyone&apos;s votes in real time.
           </p>
           <div className="hub-page-actions">
-            <Link to="/" className="btn btn-primary">
-              Back to Find
-            </Link>
+            <AppBackLink to="/" className="btn btn-primary">
+              Back
+            </AppBackLink>
             <Link to="/plan" className="btn btn-ghost">
               Shared rounds
             </Link>
@@ -156,9 +157,9 @@ export function SharePage() {
     <div className="container share-page">
       <div className="share-header">
         <div style={{ minWidth: 0 }}>
-          <Link to="/" className="pill">
-            ← Tee times
-          </Link>
+          <AppBackLink to="/" className="pill">
+            ← Back
+          </AppBackLink>
           <h2 className="share-title">{title}</h2>
           <div className="share-meta">
             <span className="pill">Archived snapshot</span>

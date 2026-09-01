@@ -292,6 +292,9 @@ export function AccountPage() {
     );
   }
 
+  const alertsHeadingId = isCompact ? 'account-tab-alerts' : 'account-col-alerts';
+  const recentHeadingId = isCompact ? 'account-tab-recent' : 'account-col-recent';
+
   return (
     <div className="container hub-page account-page">
       <div className="hub-page-card">
@@ -300,253 +303,262 @@ export function AccountPage() {
           <p className="hub-page-lede account-page-head-lede">
             We check every few minutes and email you when times match.
           </p>
+          <button
+            type="button"
+            className="btn btn-primary account-create-btn"
+            onClick={() => setCreateOpen(true)}
+          >
+            <AlertsIcon size={16} />
+            Create Alert
+          </button>
         </div>
 
         {loading ? (
-          <p className="hub-page-status" style={{ marginTop: 18 }}>
-            Loading…
-          </p>
+          <p className="hub-page-status account-page-loading">Loading…</p>
         ) : (
           <div className="account-page-stack">
             {message ? (
               <div className={`account-msg${message.type === 'ok' ? ' is-ok' : ' is-err'}`}>{message.text}</div>
             ) : null}
 
-            <div className="account-tabs" role="tablist" aria-label="Alerts sections">
-              <button
-                type="button"
-                role="tab"
-                id="account-tab-alerts"
-                aria-selected={tab === 'alerts'}
-                aria-controls="account-panel-alerts"
-                className={`account-tab${tab === 'alerts' ? ' is-on' : ''}`}
-                onClick={() => setTab('alerts')}
-              >
-                Alerts ({prefs.length})
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="account-tab-recent"
-                aria-selected={tab === 'recent'}
-                aria-controls="account-panel-recent"
-                className={`account-tab${tab === 'recent' ? ' is-on' : ''}`}
-                onClick={() => setTab('recent')}
-              >
-                Recent ({recentItems.length})
-              </button>
-            </div>
+            {isCompact ? (
+              <div className="account-tabs" role="tablist" aria-label="Alerts sections">
+                <button
+                  type="button"
+                  role="tab"
+                  id="account-tab-alerts"
+                  aria-selected={tab === 'alerts'}
+                  aria-controls="account-panel-alerts"
+                  className={`account-tab${tab === 'alerts' ? ' is-on' : ''}`}
+                  onClick={() => setTab('alerts')}
+                >
+                  Alerts ({prefs.length})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="account-tab-recent"
+                  aria-selected={tab === 'recent'}
+                  aria-controls="account-panel-recent"
+                  className={`account-tab${tab === 'recent' ? ' is-on' : ''}`}
+                  onClick={() => setTab('recent')}
+                >
+                  Recent ({recentItems.length})
+                </button>
+              </div>
+            ) : null}
 
-            {tab === 'alerts' ? (
-              <div
-                className="account-prefs-section"
-                role="tabpanel"
-                id="account-panel-alerts"
-                aria-labelledby="account-tab-alerts"
-              >
-                {prefs.length === 0 ? (
-                  <div className="account-prefs-empty-card">
-                    <p className="account-prefs-empty-title">No alerts yet</p>
-                    <p className="account-prefs-empty">
-                      Search a course, pick a day and window, and we’ll email you when times open.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="account-pref-list">
-                    {prefs.map((p) => {
-                      const course = courseByCatalog.get(p.course_id);
-                      const title = course?.name ?? courseNameByCatalog.get(p.course_id) ?? p.course_id;
-                      const busy = prefsBusyId === p.id;
-                      const editing = editingId === p.id && draft;
-                      const menuOpen = menuOpenId === p.id;
-                      const badge = prefFrequencyBadge(p);
-                      return (
-                        <li key={p.id} className={`account-pref-card${p.active ? '' : ' is-paused'}`}>
-                          <div className="account-pref-card-main">
-                            <div className="account-pref-thumb" aria-hidden>
-                              <CoursePhoto
-                                src={course?.photoUrl}
-                                height={56}
-                                className="account-pref-thumb-photo"
-                                style={{ height: '100%' }}
-                              />
-                            </div>
-                            <div className="account-pref-body">
-                              <div className="account-pref-topline">
-                                <div className="account-pref-title">{title}</div>
-                                <div className="account-pref-menu" data-pref-menu={p.id}>
-                                  <button
-                                    type="button"
-                                    className="account-pref-menu-btn"
-                                    aria-label={`Actions for ${title}`}
-                                    aria-expanded={menuOpen}
-                                    aria-haspopup="menu"
-                                    disabled={busy}
-                                    onClick={() => setMenuOpenId(menuOpen ? null : p.id)}
-                                  >
-                                    <span aria-hidden>⋯</span>
-                                  </button>
-                                  {menuOpen ? (
-                                    <div className="account-pref-menu-panel" role="menu">
-                                      <button
-                                        type="button"
-                                        role="menuitem"
-                                        disabled={busy}
-                                        onClick={() => startEdit(p)}
-                                      >
-                                        Edit
-                                      </button>
-                                      {p.active ? (
-                                        <button
-                                          type="button"
-                                          role="menuitem"
-                                          disabled={busy}
-                                          onClick={() => void setPrefActive(p.id, false)}
-                                        >
-                                          Pause
-                                        </button>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          role="menuitem"
-                                          disabled={busy}
-                                          onClick={() => void setPrefActive(p.id, true)}
-                                        >
-                                          Resume
-                                        </button>
-                                      )}
-                                      <button
-                                        type="button"
-                                        role="menuitem"
-                                        className="is-danger"
-                                        disabled={busy}
-                                        onClick={() => void removePref(p.id)}
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                              <span className={`account-pref-freq${p.active ? '' : ' is-paused'}`}>{badge}</span>
-
-                              {editing ? null : (
-                                <div className="account-pref-grid">
-                                  <div className="account-pref-grid-item">
-                                    <CalendarIcon />
-                                    <span>{prefDateLabel(p)}</span>
-                                  </div>
-                                  <div className="account-pref-grid-item">
-                                    <ClockIcon />
-                                    <span>{windowLabel(rangeToWindow(p.earliest_time, p.latest_time))}</span>
-                                  </div>
-                                  <div className="account-pref-grid-item">
-                                    <PlayersIcon />
-                                    <span>{prefPlayersLabel(p)}</span>
-                                  </div>
-                                  <div className="account-pref-grid-item">
-                                    <FlagIcon />
-                                    <span>Any holes</span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+            <div
+              className="account-prefs-section"
+              role={isCompact ? 'tabpanel' : 'region'}
+              id="account-panel-alerts"
+              aria-labelledby={alertsHeadingId}
+              hidden={isCompact && tab !== 'alerts'}
+            >
+              {isCompact ? null : (
+                <h2 id="account-col-alerts" className="account-column-title">
+                  Alerts ({prefs.length})
+                </h2>
+              )}
+              {prefs.length === 0 ? (
+                <div className="account-prefs-empty-card">
+                  <p className="account-prefs-empty-title">No alerts yet</p>
+                  <p className="account-prefs-empty">
+                    Search a course, pick a day and window, and we’ll email you when times open.
+                  </p>
+                </div>
+              ) : (
+                <ul className="account-pref-list">
+                  {prefs.map((p) => {
+                    const course = courseByCatalog.get(p.course_id);
+                    const title = course?.name ?? courseNameByCatalog.get(p.course_id) ?? p.course_id;
+                    const busy = prefsBusyId === p.id;
+                    const editing = editingId === p.id && draft;
+                    const menuOpen = menuOpenId === p.id;
+                    const badge = prefFrequencyBadge(p);
+                    return (
+                      <li key={p.id} className={`account-pref-card${p.active ? '' : ' is-paused'}`}>
+                        <div className="account-pref-card-main">
+                          <div className="account-pref-thumb" aria-hidden>
+                            <CoursePhoto
+                              src={course?.photoUrl}
+                              height={56}
+                              className="account-pref-thumb-photo"
+                              style={{ height: '100%' }}
+                            />
                           </div>
-                          {editing ? (
-                            <div className="account-pref-edit">
-                              <AlertScheduleFields value={editing} onChange={setDraft} todayYmd={todayYmd} />
-                              <div className="account-pref-actions">
+                          <div className="account-pref-body">
+                            <div className="account-pref-topline">
+                              <div className="account-pref-title">{title}</div>
+                              <div className="account-pref-menu" data-pref-menu={p.id}>
                                 <button
                                   type="button"
-                                  className="btn btn-primary"
+                                  className="account-pref-menu-btn"
+                                  aria-label={`Actions for ${title}`}
+                                  aria-expanded={menuOpen}
+                                  aria-haspopup="menu"
                                   disabled={busy}
-                                  onClick={() => void saveEdit(p.id)}
+                                  onClick={() => setMenuOpenId(menuOpen ? null : p.id)}
                                 >
-                                  {busy ? '…' : 'Save'}
+                                  <span aria-hidden>⋯</span>
                                 </button>
-                                <button type="button" className="btn" disabled={busy} onClick={cancelEdit}>
-                                  Cancel
-                                </button>
+                                {menuOpen ? (
+                                  <div className="account-pref-menu-panel" role="menu">
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      disabled={busy}
+                                      onClick={() => startEdit(p)}
+                                    >
+                                      Edit
+                                    </button>
+                                    {p.active ? (
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        disabled={busy}
+                                        onClick={() => void setPrefActive(p.id, false)}
+                                      >
+                                        Pause
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        disabled={busy}
+                                        onClick={() => void setPrefActive(p.id, true)}
+                                      >
+                                        Resume
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="is-danger"
+                                      disabled={busy}
+                                      onClick={() => void removePref(p.id)}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                            <span className={`account-pref-freq${p.active ? '' : ' is-paused'}`}>{badge}</span>
 
-                <div className="account-create-bar">
-                  <button
-                    type="button"
-                    className="btn btn-primary account-create-btn"
-                    onClick={() => setCreateOpen(true)}
-                  >
-                    <AlertsIcon size={16} />
-                    Create Alert
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="account-recent-section"
-                role="tabpanel"
-                id="account-panel-recent"
-                aria-labelledby="account-tab-recent"
-              >
-                {recentLoading && recentItems.length === 0 ? (
-                  <p className="account-prefs-empty">Loading…</p>
-                ) : recentItems.length === 0 ? (
-                  <div className="account-recent-empty">
-                    <p className="account-prefs-empty">When an alert fires, it shows up here.</p>
+                            {editing ? null : (
+                              <div className="account-pref-grid">
+                                <div className="account-pref-grid-item">
+                                  <CalendarIcon />
+                                  <span>{prefDateLabel(p)}</span>
+                                </div>
+                                <div className="account-pref-grid-item">
+                                  <ClockIcon />
+                                  <span>{windowLabel(rangeToWindow(p.earliest_time, p.latest_time))}</span>
+                                </div>
+                                <div className="account-pref-grid-item">
+                                  <PlayersIcon />
+                                  <span>{prefPlayersLabel(p)}</span>
+                                </div>
+                                <div className="account-pref-grid-item">
+                                  <FlagIcon />
+                                  <span>Any holes</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {editing ? (
+                          <div className="account-pref-edit">
+                            <AlertScheduleFields value={editing} onChange={setDraft} todayYmd={todayYmd} />
+                            <div className="account-pref-actions">
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={busy}
+                                onClick={() => void saveEdit(p.id)}
+                              >
+                                {busy ? '…' : 'Save'}
+                              </button>
+                              <button type="button" className="btn" disabled={busy} onClick={cancelEdit}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div
+              className="account-recent-section"
+              role={isCompact ? 'tabpanel' : 'region'}
+              id="account-panel-recent"
+              aria-labelledby={recentHeadingId}
+              hidden={isCompact && tab !== 'recent'}
+            >
+              {isCompact ? null : (
+                <h2 id="account-col-recent" className="account-column-title">
+                  Recent ({recentItems.length})
+                </h2>
+              )}
+              {recentLoading && recentItems.length === 0 ? (
+                <p className="account-prefs-empty">Loading…</p>
+              ) : recentItems.length === 0 ? (
+                <div className="account-recent-empty">
+                  <p className="account-prefs-empty">When an alert fires, it shows up here.</p>
+                  {isCompact ? (
                     <button type="button" className="btn account-recent-empty-cta" onClick={() => setTab('alerts')}>
                       View alerts
                     </button>
-                  </div>
-                ) : (
-                  <ul className="account-recent-list">
-                    {recentItems.map((item) => {
-                      const course = courseByCatalog.get(item.courseId);
-                      const title = course?.name ?? courseNameByCatalog.get(item.courseId) ?? item.courseId;
-                      const slug = courseIdByCatalog.get(item.courseId);
-                      const dateQ = item.targetDate ? `?date=${encodeURIComponent(item.targetDate)}` : '';
-                      const href = slug ? `/course/${slug}${dateQ}` : '/';
-                      const timesLine =
-                        item.slotLabels.length > 0
-                          ? formatAlertSlotSummary(item.slotLabels)
-                          : alertActivityHeadline(item);
-                      const when = formatAlertActivityWhen(item.sentAt);
-                      const playDate = formatAlertPlayDate(item.targetDate);
-                      return (
-                        <li key={item.key} className={`account-recent-card${item.unread ? ' is-new' : ''}`}>
-                          <Link to={href} className="account-recent-card-link">
-                            <div className="account-recent-thumb" aria-hidden>
-                              <CoursePhoto
-                                src={course?.photoUrl}
-                                height={56}
-                                className="account-recent-thumb-photo"
-                                style={{ height: '100%' }}
-                              />
+                  ) : null}
+                </div>
+              ) : (
+                <ul className="account-recent-list">
+                  {recentItems.map((item) => {
+                    const course = courseByCatalog.get(item.courseId);
+                    const title = course?.name ?? courseNameByCatalog.get(item.courseId) ?? item.courseId;
+                    const slug = courseIdByCatalog.get(item.courseId);
+                    const dateQ = item.targetDate ? `?date=${encodeURIComponent(item.targetDate)}` : '';
+                    const href = slug ? `/course/${slug}${dateQ}` : '/';
+                    const timesLine =
+                      item.slotLabels.length > 0
+                        ? formatAlertSlotSummary(item.slotLabels)
+                        : alertActivityHeadline(item);
+                    const when = formatAlertActivityWhen(item.sentAt);
+                    const playDate = formatAlertPlayDate(item.targetDate);
+                    return (
+                      <li key={item.key} className={`account-recent-card${item.unread ? ' is-new' : ''}`}>
+                        <Link to={href} className="account-recent-card-link">
+                          <div className="account-recent-thumb" aria-hidden>
+                            <CoursePhoto
+                              src={course?.photoUrl}
+                              height={56}
+                              className="account-recent-thumb-photo"
+                              style={{ height: '100%' }}
+                            />
+                          </div>
+                          <div className="account-recent-body">
+                            <div className="account-recent-title">{title}</div>
+                            <div className="account-recent-times">{timesLine}</div>
+                            <div className="account-recent-meta">
+                              <span>
+                                {playDate}
+                                {when ? ` · ${when}` : ''}
+                              </span>
+                              <span className="account-recent-cta">View times →</span>
                             </div>
-                            <div className="account-recent-body">
-                              <div className="account-recent-title">{title}</div>
-                              <div className="account-recent-times">{timesLine}</div>
-                              <div className="account-recent-meta">
-                                <span>
-                                  {playDate}
-                                  {when ? ` · ${when}` : ''}
-                                </span>
-                                <span className="account-recent-cta">View times →</span>
-                              </div>
-                            </div>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            )}
+                          </div>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>
