@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nextRecordPlatform, parseBookingUrl } from './courseAdmin.js';
+import { nextRecordPlatform, parseBookingUrl, recordAfterPlatformReclassify } from './courseAdmin.js';
 
 test('parseBookingUrl maps live and backlog vendor hosts', () => {
   assert.equal(parseBookingUrl('https://foreupsoftware.com/booking/123/456').platform, 'foreup');
@@ -19,7 +19,11 @@ test('parseBookingUrl maps live and backlog vendor hosts', () => {
   );
   assert.equal(
     parseBookingUrl('https://augustaranch.play18.com/teetimes/searchmatrix').platform,
-    'sagacity',
+    'quick18',
+  );
+  assert.equal(
+    parseBookingUrl('https://augustaranch.play18.com/teetimes/searchmatrix').hints.quick18_tenant,
+    'augustaranch',
   );
   assert.equal(parseBookingUrl('https://www.sagacitygolf.com/').platform, 'sagacity');
   assert.equal(parseBookingUrl('https://canyons.quick18.com/teetimes/searchmatrix').platform, 'quick18');
@@ -73,6 +77,13 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
   );
   assert.deepEqual(
     nextRecordPlatform({
+      platform: 'sagacity',
+      booking_url: 'https://augustaranch.play18.com/teetimes/searchmatrix',
+    }),
+    { platform: 'quick18', from: 'sagacity', changed: true, reason: 'url' },
+  );
+  assert.deepEqual(
+    nextRecordPlatform({
       platform: 'club',
       booking_url: 'https://loscaballerosgc.clubhouseonline-e3.club/',
     }),
@@ -92,4 +103,24 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
     }).changed,
     false,
   );
+});
+
+test('recordAfterPlatformReclassify stamps Play18 as live Quick18', () => {
+  const next = nextRecordPlatform({
+    platform: 'sagacity',
+    booking_status: 'unsupported',
+    booking_url: 'https://redmountain.play18.com/teetimes/searchmatrix',
+  });
+  const rec = recordAfterPlatformReclassify(
+    {
+      name: 'Red Mountain Ranch Country Club (Mesa)',
+      platform: 'sagacity',
+      booking_status: 'unsupported',
+      booking_url: 'https://redmountain.play18.com/teetimes/searchmatrix',
+    },
+    next,
+  );
+  assert.equal(rec.platform, 'quick18');
+  assert.equal(rec.booking_status, 'ready');
+  assert.equal(rec.quick18_tenant, 'redmountain');
 });

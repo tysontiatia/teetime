@@ -16,15 +16,33 @@ export function quick18StampToRawTime(stamp) {
   return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)} ${s.slice(8, 10)}:${s.slice(10, 12)}`;
 }
 
+/** Tenant subdomain on `*.quick18.com` or the older `*.play18.com` sheet. */
+const QUICK18_SHEET_HOST_RE = /^([a-z0-9-]+)\.(quick18|play18)\.com$/i;
+
 export function quick18Tenant(course) {
   const explicit = course?.quick18_tenant != null ? String(course.quick18_tenant).trim() : '';
   if (explicit) return explicit.replace(/[^a-z0-9-]/gi, '').toLowerCase();
   for (const raw of [course?.booking_url, course?.booking_url_template]) {
     const host = hostnameOf(raw);
-    const m = host.match(/^([a-z0-9-]+)\.quick18\.com$/i);
+    const m = host.match(QUICK18_SHEET_HOST_RE);
     if (m) return m[1].toLowerCase();
   }
   return '';
+}
+
+/** Full sheet hostname so Play18 tenants are not rewritten onto quick18.com. */
+export function quick18SheetHost(course) {
+  for (const raw of [course?.booking_url, course?.booking_url_template]) {
+    const host = hostnameOf(raw);
+    if (QUICK18_SHEET_HOST_RE.test(host)) return host;
+  }
+  const tenant = quick18Tenant(course);
+  return tenant ? `${tenant}.quick18.com` : '';
+}
+
+export function courseHasQuick18Sheet(course) {
+  if (String(course?.platform || '') === 'quick18') return true;
+  return QUICK18_SHEET_HOST_RE.test(quick18SheetHost(course));
 }
 
 export function quick18CourseId(course) {
@@ -146,11 +164,11 @@ export function normalizeQuick18TimesWorker(course, data) {
 }
 
 export function buildQuick18BookingUrl(course, date) {
-  const tenant = quick18Tenant(course);
+  const host = quick18SheetHost(course);
   const ymd = ymdToQuick18Date(date);
   const base = String(course?.booking_url || '').trim();
-  if (tenant && ymd) {
-    return `https://${tenant}.quick18.com/teetimes/searchmatrix?teedate=${ymd}`;
+  if (host && ymd) {
+    return `https://${host}/teetimes/searchmatrix?teedate=${ymd}`;
   }
   if (!base || !ymd) return base || null;
   try {
@@ -162,8 +180,16 @@ export function buildQuick18BookingUrl(course, date) {
   }
 }
 
-export async function handleQuick18(params, fetchImpl = fetch) {
+function sheetHostFromParams(params) {
+  const raw = String(params.host || params.sheet_host || '').trim().toLowerCase();
+  if (QUICK18_SHEET_HOST_RE.test(raw)) return raw;
   const tenant = String(params.tenant || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+  return tenant ? `${tenant}.quick18.com` : '';
+}
+
+export async function handleQuick18(params, fetchImpl = fetch) {
+  const host = sheetHostFromParams(params);
+  const tenant = host.match(QUICK18_SHEET_HOST_RE)?.[1] || '';
   const date = String(params.date || '').trim();
   const ymd = ymdToQuick18Date(date);
   if (!tenant || !ymd) {
@@ -171,7 +197,7 @@ export async function handleQuick18(params, fetchImpl = fetch) {
   }
 
   const courseId = String(params.course_id || params.quick18_course_id || '').trim();
-  const url = `https://${tenant}.quick18.com/teetimes/searchmatrix?teedate=${ymd}`;
+  const url = `https://${host}/teetimes/searchmatrix?teedate=${ymd}`;
 
   let res;
   try {

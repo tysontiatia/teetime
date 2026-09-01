@@ -8,7 +8,7 @@
  */
 
 import { loadDotEnv } from './lib/courses-json.mjs';
-import { nextRecordPlatform } from '../worker/courseAdmin.js';
+import { nextRecordPlatform, recordAfterPlatformReclassify } from '../worker/courseAdmin.js';
 
 loadDotEnv();
 
@@ -52,7 +52,7 @@ for (const row of rows) {
   const put = await fetch(`${SUPABASE_URL}/rest/v1/course_registry?on_conflict=slug`, {
     method: 'POST',
     headers: { ...headers, Prefer: 'resolution=merge-duplicates' },
-    body: JSON.stringify({ slug: row.slug, record: { ...rec, platform: next.platform } }),
+    body: JSON.stringify({ slug: row.slug, record: recordAfterPlatformReclassify(rec, next) }),
   });
   if (!put.ok) {
     console.error(`upsert ${row.slug} failed:`, await put.text());

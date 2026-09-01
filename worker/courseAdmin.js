@@ -298,12 +298,12 @@ export function parseBookingUrl(rawUrl) {
     return out;
   }
 
-  if (host.includes('play18.com') || host.includes('sagacitygolf.com')) {
+  if (host.includes('sagacitygolf.com')) {
     out.platform = 'sagacity';
     return out;
   }
 
-  if (host.includes('quick18.com')) {
+  if (host.includes('quick18.com') || host.includes('play18.com')) {
     out.platform = 'quick18';
     const label = host.split('.')[0];
     if (label && label !== 'www') out.hints.quick18_tenant = label;
@@ -407,6 +407,20 @@ export function nextRecordPlatform(record) {
   return { platform: suggested, from: current || null, changed: true, reason: 'url' };
 }
 
+/** Apply a URL recategorize: platform, live-ready status, and vendor hints. */
+export function recordAfterPlatformReclassify(rec, next) {
+  const parsed = parseBookingUrl(String(rec?.booking_url || ''));
+  const out = { ...rec, platform: next.platform };
+  if (parsed.hints?.quick18_tenant) out.quick18_tenant = parsed.hints.quick18_tenant;
+  if (LIVE_ADAPTER_PLATFORMS.has(next.platform)) {
+    const status = String(rec?.booking_status || '').trim();
+    if (!status || status === 'unsupported' || status === 'pending') {
+      out.booking_status = 'ready';
+    }
+  }
+  return out;
+}
+
 async function reclassifyRegistryPlatforms(env, { dryRun }) {
   const rows = await fetchRegistryCourses(env);
   const updated = [];
@@ -421,7 +435,7 @@ async function reclassifyRegistryPlatforms(env, { dryRun }) {
       to: next.platform,
     });
     if (!dryRun) {
-      const written = await upsertRegistry(env, row.slug, { ...rec, platform: next.platform });
+      const written = await upsertRegistry(env, row.slug, recordAfterPlatformReclassify(rec, next));
       if (written.error) {
         return { error: written.error, detail: written.detail, status: written.status, updated };
       }
@@ -1153,8 +1167,12 @@ function getPlatformWarnings(record) {
   } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18'].includes(platform)) {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
   }
-  if (platform === 'quick18' && !record.quick18_tenant && !String(record.booking_url || '').includes('quick18.com')) {
-    warnings.push('Quick18 needs a tenant subdomain (papago.quick18.com) for live tee times.');
+  if (
+    platform === 'quick18' &&
+    !record.quick18_tenant &&
+    !/\.(quick18|play18)\.com/i.test(String(record.booking_url || ''))
+  ) {
+    warnings.push('Quick18 needs a tenant subdomain (papago.quick18.com or *.play18.com) for live tee times.');
   }
   if (platform === 'golfpay' && !record.golfpay_course_id) {
     warnings.push('GolfPay needs golfpay_course_id (_gshcid) for live tee times.');

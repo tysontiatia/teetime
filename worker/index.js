@@ -5,7 +5,9 @@ import {
   buildQuick18BookingUrl,
   handleQuick18,
   normalizeQuick18TimesWorker,
+  courseHasQuick18Sheet,
   quick18CourseId,
+  quick18SheetHost,
   quick18Tenant,
 } from './quick18.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
@@ -990,7 +992,8 @@ function normalizeTimesWorker(course, data, holes) {
     case 'trutee':         return normalizeTruteeTimesWorker(course, data);
     case 'golfpay':        return normalizeGolfPayTimesWorker(course, data);
     case 'quick18':        return normalizeQuick18TimesWorker(course, data);
-    default:               return [];
+    default:
+      return courseHasQuick18Sheet(course) ? normalizeQuick18TimesWorker(course, data) : [];
   }
 }
 
@@ -1196,10 +1199,12 @@ async function fetchTimesForCourse(course, date, holes, players) {
     if (!gpId) return null;
     params.set('course_id', gpId);
     handler = () => handleGolfPay(Object.fromEntries(params.entries()));
-  } else if (course.platform === 'quick18') {
+  } else if (courseHasQuick18Sheet(course)) {
     const tenant = quick18Tenant(course);
     if (!tenant) return null;
     params.set('tenant', tenant);
+    const sheetHost = quick18SheetHost(course);
+    if (sheetHost) params.set('host', sheetHost);
     const q18Course = quick18CourseId(course);
     if (q18Course) params.set('course_id', q18Course);
     handler = () => handleQuick18(Object.fromEntries(params.entries()));
@@ -1526,7 +1531,7 @@ function buildBookingUrlWorker(course, date, holes, players) {
     'teeitup',
     'quick18',
   ];
-  if (!base && !supported.includes(course.platform)) {
+  if (!base && !supported.includes(course.platform) && !courseHasQuick18Sheet(course)) {
     return 'https://tee-time.io';
   }
 
@@ -1558,7 +1563,7 @@ function buildBookingUrlWorker(course, date, holes, players) {
     return buildTeeItUpBookingUrl(course, date, holes, players) || base || 'https://tee-time.io';
   }
 
-  if (course.platform === 'quick18') {
+  if (courseHasQuick18Sheet(course)) {
     return buildQuick18BookingUrl(course, date) || base || 'https://tee-time.io';
   }
 

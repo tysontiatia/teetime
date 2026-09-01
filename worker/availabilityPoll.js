@@ -1,3 +1,5 @@
+import { courseHasQuick18Sheet } from './quick18.js';
+
 /**
  * Background availability poller — snapshots vendor tee sheets into Supabase.
  *
@@ -489,7 +491,10 @@ function pollableCourses(courses) {
   return courses
     .filter((c) => {
       const status = String(c.booking_status || '').trim();
-      if (status === 'closed' || status === 'private' || status === 'phone' || status === 'unsupported') return false;
+      if (status === 'closed' || status === 'private' || status === 'phone') return false;
+      // Play18 tenants are still stored as sagacity/unsupported until recategorize.
+      if (courseHasQuick18Sheet(c)) return true;
+      if (status === 'unsupported') return false;
       return c.platform && SUPPORTED_PLATFORMS.has(c.platform);
     })
     .map((c) => ({ ...c, slug: slugFromCourseName(c.name) }));

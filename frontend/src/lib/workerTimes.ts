@@ -4,7 +4,7 @@ import { chronogolfSlcCourseIds } from './chronogolfSlc';
 import { getWorkerBaseUrl } from './env';
 import type { HolesFilter } from './holesFilter';
 import { normalizeTimesWorker } from './normalizeTimes';
-import { teeItUpAlias, workerSupportedPlatform } from './platformRegistry';
+import { effectivePlatform, teeItUpAlias, workerSupportedPlatform } from './platformRegistry';
 import { courseTimezone, rawTeeTimeToIsoUtc } from './teeTimeInstant';
 
 type SnapshotAvailabilityResponse = {
@@ -157,7 +157,7 @@ async function fetchTeeTimesLive(
   const base = getWorkerBaseUrl();
   let url: URL;
 
-  switch (course.platform) {
+  switch (effectivePlatform(course)) {
     case 'foreup': {
       if (!course.schedule_id) return emptyOk;
       url = new URL(`${base}/foreup`);
@@ -226,13 +226,29 @@ async function fetchTeeTimesLive(
       url.searchParams.set('date', dateYmd);
       break;
     }
+    case 'quick18': {
+      let host: string;
+      try {
+        host = new URL(String(course.booking_url || '').trim()).hostname.toLowerCase();
+      } catch {
+        return emptyOk;
+      }
+      const tenant = host.match(/^([a-z0-9-]+)\.(quick18|play18)\.com$/i)?.[1] || '';
+      if (!tenant) return emptyOk;
+      url = new URL(`${base}/quick18`);
+      url.searchParams.set('tenant', tenant);
+      url.searchParams.set('host', host);
+      url.searchParams.set('date', dateYmd);
+      if (course.quick18_course_id) url.searchParams.set('course_id', String(course.quick18_course_id));
+      break;
+    }
     default:
       return emptyOk;
   }
 
   try {
     const timeoutMs =
-      course.platform === 'golfpay' ? GOLFPAY_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+      effectivePlatform(course) === 'golfpay' ? GOLFPAY_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
     const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, timeoutMs);
     if (!res.ok) return { times: [], ok: false, rateLimited: res.status === 429 };
     let data: unknown;
@@ -541,7 +557,7 @@ export async function fetchTeeTimesForCourse(
 
   // Same path as Find: /v1/tee-times. Course detail always prefers a vendor sheet so
   // a slot you just booked isn't stuck on a 25-minute snapshot (or a 45s CDN cache).
-  if (course.platform && workerSupportedPlatform(course.platform)) {
+  if (workerSupportedPlatform(effectivePlatform(course))) {
     const batchMap = await fetchTeeTimesBatchFromSnapshot([courseSlug], dateYmd, holes, players, {
       fresh: true,
     });
@@ -821,7 +837,7 @@ export async function fetchTimesForCourseSlugs(
   const revalidateStale = options?.revalidateStale !== false;
 
   const workerEntries = entries.filter(
-    (e) => e.record.platform && workerSupportedPlatform(e.record.platform),
+    (e) => workerSupportedPlatform(effectivePlatform(e.record)),
   );
   const nineOnlyEntries = workerEntries.filter((e) => e.record.holes === 9);
   const standardEntries = workerEntries.filter((e) => e.record.holes !== 9);
