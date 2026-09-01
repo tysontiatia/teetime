@@ -1145,7 +1145,21 @@ export function FinderPage() {
             >
               <strong>{resultCountPrimary}</strong>
             </span>
-            {!showOutOfMarket ? (
+            {resultCountSecondary && !showOutOfMarket ? (
+              <span className="result-count-secondary">{resultCountSecondary}</span>
+            ) : null}
+          </div>
+          {!showOutOfMarket ? (
+            <div className="result-meta-tools">
+              <FinderDayOutlook
+                dateYmd={params.date}
+                lat={timesFetchScope.anchor.lat}
+                lng={timesFetchScope.anchor.lng}
+                regionLabel={
+                  params.locationQuery.trim() ||
+                  (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
+                }
+              />
               <label className="result-sort">
                 <span className="result-sort-prefix">Sort</span>
                 <select
@@ -1160,21 +1174,7 @@ export function FinderPage() {
                   ))}
                 </select>
               </label>
-            ) : null}
-            {resultCountSecondary && !showOutOfMarket ? (
-              <span className="result-count-secondary">{resultCountSecondary}</span>
-            ) : null}
-          </div>
-          {!showOutOfMarket ? (
-          <FinderDayOutlook
-            dateYmd={params.date}
-            lat={timesFetchScope.anchor.lat}
-            lng={timesFetchScope.anchor.lng}
-            regionLabel={
-              params.locationQuery.trim() ||
-              (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
-            }
-          />
+            </div>
           ) : null}
         </div>
 

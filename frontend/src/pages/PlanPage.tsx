@@ -107,7 +107,7 @@ export function PlanPage() {
   const [copyErr, setCopyErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
-  const [pastOpen, setPastOpen] = useState(false);
+  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const todayYmd = todayYmdUtah();
@@ -216,71 +216,106 @@ export function PlanPage() {
     );
   };
 
+  const upcomingHeadingId = isCompact ? 'plan-tab-upcoming' : 'plan-col-upcoming';
+  const pastHeadingId = isCompact ? 'plan-tab-past' : 'plan-col-past';
+
   return (
-    <div className="container hub-page">
+    <div className="container hub-page plan-page">
       <div className="hub-page-card">
         <div className="plan-page-head">
           <h1 className="hub-page-title">Plan</h1>
           <p className="hub-page-lede plan-page-head-lede">
             Rounds you host or join — share a vote link and lock a time together.
           </p>
+          <Link to="/" className="btn btn-primary plan-create-btn">
+            <PlanIcon size={16} />
+            Plan a round
+          </Link>
         </div>
 
         {loading ? (
           <p className="plan-page-status">Loading your rounds…</p>
         ) : loadErr ? (
           <p className="plan-page-err">{loadErr}</p>
-        ) : upcoming.length === 0 && past.length === 0 ? (
-          <div className="plan-page-empty">
-            <p className="plan-page-status">
-              No rounds yet. Plan one from Find, or open a friend&apos;s vote link while signed in.
-            </p>
-            <div className="plan-page-empty-actions">
-              <Link to="/" className="btn">
-                Browse Find
-              </Link>
-            </div>
-          </div>
         ) : (
-          <>
-            {upcoming.length === 0 ? (
-              <div className="plan-page-empty plan-page-empty--inline">
-                <p className="plan-page-status">No upcoming rounds.</p>
-                <div className="plan-page-empty-actions">
-                  <Link to="/" className="btn">
-                    Browse Find
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <ul className="plan-round-list">{upcoming.map(renderRound)}</ul>
-            )}
+          <div className="plan-page-stack">
+            {flash ? <p className="plan-page-flash">{flash}</p> : null}
+            {copyErr ? <p className="plan-page-err">{copyErr}</p> : null}
 
-            {past.length > 0 ? (
-              <div className="plan-past">
+            {isCompact ? (
+              <div className="plan-tabs" role="tablist" aria-label="Rounds">
                 <button
                   type="button"
-                  className="plan-past-toggle"
-                  aria-expanded={pastOpen}
-                  onClick={() => setPastOpen((v) => !v)}
+                  role="tab"
+                  id="plan-tab-upcoming"
+                  aria-selected={tab === 'upcoming'}
+                  aria-controls="plan-panel-upcoming"
+                  className={`plan-tab${tab === 'upcoming' ? ' is-on' : ''}`}
+                  onClick={() => setTab('upcoming')}
                 >
-                  {pastOpen ? 'Hide' : 'Show'} past ({past.length})
+                  Upcoming ({upcoming.length})
                 </button>
-                {pastOpen ? <ul className="plan-round-list plan-round-list--past">{past.map(renderRound)}</ul> : null}
+                <button
+                  type="button"
+                  role="tab"
+                  id="plan-tab-past"
+                  aria-selected={tab === 'past'}
+                  aria-controls="plan-panel-past"
+                  className={`plan-tab${tab === 'past' ? ' is-on' : ''}`}
+                  onClick={() => setTab('past')}
+                >
+                  Past ({past.length})
+                </button>
               </div>
             ) : null}
-          </>
+
+            <div
+              className="plan-upcoming-section"
+              role={isCompact ? 'tabpanel' : 'region'}
+              id="plan-panel-upcoming"
+              aria-labelledby={upcomingHeadingId}
+              hidden={isCompact && tab !== 'upcoming'}
+            >
+              {isCompact ? null : (
+                <h2 id="plan-col-upcoming" className="plan-column-title">
+                  Upcoming ({upcoming.length})
+                </h2>
+              )}
+              {upcoming.length === 0 ? (
+                <div className="plan-page-empty">
+                  <p className="plan-page-empty-title">No upcoming rounds</p>
+                  <p className="plan-page-status">
+                    Plan one from Find, or open a friend&apos;s vote link while signed in.
+                  </p>
+                </div>
+              ) : (
+                <ul className="plan-round-list">{upcoming.map(renderRound)}</ul>
+              )}
+            </div>
+
+            <div
+              className="plan-past-section"
+              role={isCompact ? 'tabpanel' : 'region'}
+              id="plan-panel-past"
+              aria-labelledby={pastHeadingId}
+              hidden={isCompact && tab !== 'past'}
+            >
+              {isCompact ? null : (
+                <h2 id="plan-col-past" className="plan-column-title">
+                  Past ({past.length})
+                </h2>
+              )}
+              {past.length === 0 ? (
+                <div className="plan-page-empty">
+                  <p className="plan-page-empty-title">No past rounds</p>
+                  <p className="plan-page-status">After play day, they land here.</p>
+                </div>
+              ) : (
+                <ul className="plan-round-list plan-round-list--past">{past.map(renderRound)}</ul>
+              )}
+            </div>
+          </div>
         )}
-
-        {flash ? <p className="plan-page-flash">{flash}</p> : null}
-        {copyErr ? <p className="plan-page-err">{copyErr}</p> : null}
-
-        <div className="plan-create-bar">
-          <Link to="/" className="btn btn-primary plan-create-btn">
-            <PlanIcon size={16} />
-            Plan a round
-          </Link>
-        </div>
       </div>
     </div>
   );

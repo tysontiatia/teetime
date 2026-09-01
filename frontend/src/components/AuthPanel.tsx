@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { AppBackLink } from './AppBackLink';
 
 function AuthLogoMark() {
   return (
@@ -93,14 +93,14 @@ export function AuthPanel({
 
 export function AuthPanelBackLink({
   to = '/',
-  label = 'Back to Find',
+  label = 'Back',
 }: {
   to?: string;
   label?: string;
 }) {
   return (
-    <Link to={to} className="auth-panel-back">
+    <AppBackLink to={to} className="auth-panel-back">
       {label}
-    </Link>
+    </AppBackLink>
   );
 }

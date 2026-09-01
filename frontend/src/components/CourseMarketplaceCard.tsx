@@ -246,7 +246,6 @@ export function CourseMarketplaceCard({
                 className="tee-slot-card tee-slot-card--more"
                 onClick={(e) => e.stopPropagation()}
                 aria-label={`View ${moreCount} more tee times at ${course.name}`}
-                title="View all times"
               >
                 <span className="tee-slot-card-more-count">+{moreCount}</span>
                 <span className="tee-slot-card-more-label">more</span>

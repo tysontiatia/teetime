@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { AppBackLink } from '../components/AppBackLink';
 import {
   formatDateCompact,
   formatDateShort,
@@ -366,9 +367,9 @@ export function CoursePage() {
             That course isn’t in the catalog, or the link is out of date. Head back to Find and pick another.
           </p>
           <div className="hub-page-actions">
-            <Link className="btn btn-primary" to={`/?${finderBackSearch}`}>
-              Back to Find
-            </Link>
+            <AppBackLink className="btn btn-primary" to={`/?${finderBackSearch}`}>
+              Back
+            </AppBackLink>
           </div>
         </div>
       </div>
@@ -440,12 +441,12 @@ export function CoursePage() {
   return (
     <div className={`container course-detail course-detail--${detailTab}`}>
       <div className="back-row">
-        <Link to={`/?${finderBackSearch}`} className="back-btn">
+        <AppBackLink to={`/?${finderBackSearch}`} className="back-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Back to Find
-        </Link>
+          Back
+        </AppBackLink>
       </div>
 
       <div className="detail-hero">
@@ -816,15 +817,15 @@ export function CoursePage() {
             </>
           )}
         </aside>
-      </div>
 
-      <div className="detail-panel detail-panel--reviews" id="course-panel-reviews">
-        <CourseReviewsSection
-          reviews={reviews}
-          loading={reviewsLoading}
-          mapsUrl={reviewsMapsUrl}
-          course={course}
-        />
+        <div className="detail-panel detail-panel--reviews" id="course-panel-reviews">
+          <CourseReviewsSection
+            reviews={reviews}
+            loading={reviewsLoading}
+            mapsUrl={reviewsMapsUrl}
+            course={course}
+          />
+        </div>
       </div>
 
       <SlotActionSheet

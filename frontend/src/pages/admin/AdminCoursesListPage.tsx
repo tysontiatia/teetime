@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
+import { AppBackLink } from '../../components/AppBackLink';
 import { listAdminCourses, reclassifyAdminPlatforms } from '../../lib/courseAdminApi';
 import type { AdminCourseListItem } from '../../lib/adminCourseTypes';
 import {
@@ -120,9 +121,9 @@ export function AdminCoursesListPage() {
     <div className="container" style={{ paddingBottom: 40 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
         <div>
-          <Link to="/" className="pill">
-            ← Back to finder
-          </Link>
+          <AppBackLink to="/" className="pill">
+            ← Back
+          </AppBackLink>
           <h1 style={{ margin: '12px 0 4px', fontFamily: 'var(--font-display)', fontSize: 32, letterSpacing: '-0.03em' }}>
             Course catalog admin
           </h1>

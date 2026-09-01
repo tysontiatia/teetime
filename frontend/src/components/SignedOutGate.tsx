@@ -16,7 +16,7 @@ export function SignedOutGate({
   title = 'Log in or create an account',
   children,
   secondaryTo,
-  secondaryLabel = 'Back to Find',
+  secondaryLabel = 'Back',
   returnTo,
 }: Props) {
   const { loading, signInWithGoogle } = useAuth();

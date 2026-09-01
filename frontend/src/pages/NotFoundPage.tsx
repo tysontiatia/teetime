@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { AppBackLink } from '../components/AppBackLink';
 
 export function NotFoundPage() {
   return (
@@ -8,9 +8,9 @@ export function NotFoundPage() {
         <h1 className="hub-page-title">Page not found</h1>
         <p className="hub-page-lede">That URL is not part of the app. Check the link or head back to Find.</p>
         <div className="hub-page-actions">
-          <Link to="/" className="btn btn-primary">
-            Back to Find
-          </Link>
+          <AppBackLink to="/" className="btn btn-primary">
+            Back
+          </AppBackLink>
         </div>
       </div>
     </div>
