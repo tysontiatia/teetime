@@ -59,6 +59,8 @@ export function applyParsedBookingUrl(
   if (hints.golfwithaccess_course_id) next.golfwithaccess_course_id = hints.golfwithaccess_course_id;
   if (hints.clubcaddie_apikey) next.clubcaddie_apikey = hints.clubcaddie_apikey;
   if (hints.clubcaddie_course_id) next.clubcaddie_course_id = hints.clubcaddie_course_id;
+  if (hints.teesnap_tenant) next.teesnap_tenant = hints.teesnap_tenant;
+  if (hints.teesnap_course_id) next.teesnap_course_id = hints.teesnap_course_id;
 
   const meta = parsed.meta;
   if (meta) {

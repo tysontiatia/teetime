@@ -630,6 +630,25 @@ export function AdminCourseEditPage() {
             </>
           )}
 
+          {record.platform === 'teesnap' && (
+            <>
+              <Field label="teesnap_tenant ({tenant}.teesnap.net)">
+                <input
+                  className="input"
+                  value={record.teesnap_tenant || ''}
+                  onChange={(e) => patchRecord({ teesnap_tenant: e.target.value })}
+                />
+              </Field>
+              <Field label="teesnap_course_id (optional course id)">
+                <input
+                  className="input"
+                  value={record.teesnap_course_id || ''}
+                  onChange={(e) => patchRecord({ teesnap_course_id: e.target.value })}
+                />
+              </Field>
+            </>
+          )}
+
           {record.platform === 'cps' && (
             <>
               <Field label="cps_tenant (subdomain)">

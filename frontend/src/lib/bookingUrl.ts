@@ -498,6 +498,23 @@ function buildClubCaddieBookingUrl(source: BookingSource, params: BookingLinkPar
   }
 }
 
+function buildTeeSnapBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const base = (source.booking_url || source.bookingUrl || '').trim();
+  if (!base) return null;
+  const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  const holes = params.holes === 9 ? '9' : '18';
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    if (params.dateYmd) u.searchParams.set('teedate', params.dateYmd);
+    u.searchParams.set('players', players);
+    u.searchParams.set('holes', holes);
+    if (!u.searchParams.has('cart')) u.searchParams.set('cart', 'no');
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 export type BookingSource = {
   booking_url?: string | null;
   bookingUrl?: string | null;
@@ -520,6 +537,8 @@ export type BookingSource = {
   golfwithaccess_course_id?: string | null;
   clubcaddie_apikey?: string | null;
   clubcaddie_course_id?: string | null;
+  teesnap_tenant?: string | null;
+  teesnap_course_id?: string | null;
   /** IANA timezone for `{time}` template formatting. */
   timezone?: string | null;
 };
@@ -598,6 +617,12 @@ export function buildBookingUrl(
     'clubcaddie_course_id' in source && source.clubcaddie_course_id != null
       ? String(source.clubcaddie_course_id)
       : null;
+  const teesnapTenant =
+    'teesnap_tenant' in source && source.teesnap_tenant != null ? String(source.teesnap_tenant) : null;
+  const teesnapCourseId =
+    'teesnap_course_id' in source && source.teesnap_course_id != null
+      ? String(source.teesnap_course_id)
+      : null;
   const timeZone =
     'timezone' in source && source.timezone != null ? String(source.timezone) : null;
 
@@ -622,6 +647,8 @@ export function buildBookingUrl(
     golfwithaccess_course_id: golfwithaccessCourseId,
     clubcaddie_apikey: clubcaddieApiKey,
     clubcaddie_course_id: clubcaddieCourseId,
+    teesnap_tenant: teesnapTenant,
+    teesnap_course_id: teesnapCourseId,
     timezone: timeZone,
   };
 
@@ -663,6 +690,10 @@ export function buildBookingUrl(
 
   if (platform === 'clubcaddie' || /clubcaddie\.com/i.test(bookingUrl || '')) {
     return buildClubCaddieBookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'teesnap' || /teesnap\.(net|com)/i.test(bookingUrl || '')) {
+    return buildTeeSnapBookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;

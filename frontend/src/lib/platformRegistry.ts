@@ -30,7 +30,7 @@ export const PLATFORM_DEFS: readonly PlatformDef[] = [
   { key: 'cps', label: 'Club Prophet', capability: 'booking_link_only', inPicker: true, aliases: ['club prophet', 'clubprophet', 'cps golf'], hosts: ['cps.golf'] },
   { key: 'golfnow', label: 'GolfNow', capability: 'booking_link_only', inPicker: true, aliases: ['golf now', 'golf-now', 'nbc golfnow'], hosts: ['golfnow'] },
   { key: 'ezlinks', label: 'EZLinks', capability: 'booking_link_only', inPicker: true, aliases: ['ez links', 'ez-links', 'ezlinksgolf'], hosts: ['ezlinksgolf', 'ezlinks.com'] },
-  { key: 'teesnap', label: 'TeeSnap', capability: 'booking_link_only', inPicker: true, aliases: ['tee snap'], hosts: ['teesnap'] },
+  { key: 'teesnap', label: 'TeeSnap', capability: 'live_inventory', inPicker: true, aliases: ['tee snap'], hosts: ['teesnap'] },
   { key: 'clubessentials', label: 'Club Essentials', capability: 'booking_link_only', inPicker: true, aliases: ['club essential', 'clubessentials'], hosts: ['clubessential'] },
   { key: 'lightspeed', label: 'Lightspeed', capability: 'booking_link_only', inPicker: true, aliases: ['light speed'] },
   { key: 'teeoff', label: 'TeeOff', capability: 'booking_link_only', inPicker: true, aliases: ['tee off', 'pga teeoff'], hosts: ['teeoff.com'] },

@@ -322,6 +322,10 @@ function normalizeClubCaddieTimes(data: unknown): NormRow[] {
   });
 }
 
+function normalizeTeeSnapTimes(data: unknown): NormRow[] {
+  return normalizeClubCaddieTimes(data);
+}
+
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
   if (!data || (typeof data === 'object' && data !== null && 'error' in data && (data as { error: unknown }).error))
     return [];
@@ -347,6 +351,8 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
       return normalizeGolfWithAccessTimes(data);
     case 'clubcaddie':
       return normalizeClubCaddieTimes(data);
+    case 'teesnap':
+      return normalizeTeeSnapTimes(data);
     default:
       return [];
   }

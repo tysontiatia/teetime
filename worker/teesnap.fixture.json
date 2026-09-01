@@ -1,0 +1,127 @@
+{
+  "teeTimes": {
+    "bookings": [
+      {
+        "reservationId": 46152580,
+        "channel": "MOBILE",
+        "bookingId": 54267017,
+        "golfers": [
+          162147808,
+          162147809,
+          162147810,
+          162147811
+        ],
+        "cartNumbers": [],
+        "notes": false,
+        "roundType": "EIGHTEEN_HOLE",
+        "teeOffSection": "FRONT_NINE",
+        "addOnIncluded": false,
+        "group": false
+      }
+    ],
+    "golfers": [
+      {
+        "id": 162147808,
+        "paidStatus": "UNPAID",
+        "isRainChecked": false,
+        "roundType": "EIGHTEEN_HOLE",
+        "checkedIn": false,
+        "hasProfileMismatch": false,
+        "hasAddOn": false
+      },
+      {
+        "id": 162147809,
+        "paidStatus": "UNPAID",
+        "isRainChecked": false,
+        "roundType": "EIGHTEEN_HOLE",
+        "checkedIn": false,
+        "hasProfileMismatch": false,
+        "hasAddOn": false
+      },
+      {
+        "id": 162147810,
+        "paidStatus": "UNPAID",
+        "isRainChecked": false,
+        "roundType": "EIGHTEEN_HOLE",
+        "checkedIn": false,
+        "hasProfileMismatch": false,
+        "hasAddOn": false
+      },
+      {
+        "id": 162147811,
+        "paidStatus": "UNPAID",
+        "isRainChecked": false,
+        "roundType": "EIGHTEEN_HOLE",
+        "checkedIn": false,
+        "hasProfileMismatch": false,
+        "hasAddOn": false
+      }
+    ],
+    "teeSheetPriceOverrides": [],
+    "teeTimes": [
+      {
+        "prices": [
+          {
+            "roundType": "NINE_HOLE",
+            "rackRatePrice": "19.00",
+            "price": "19.00",
+            "taxInclusive": false
+          },
+          {
+            "roundType": "EIGHTEEN_HOLE",
+            "rackRatePrice": "35.00",
+            "price": "42.00",
+            "taxInclusive": false
+          }
+        ],
+        "teeOffSections": [
+          {
+            "teeOff": "FRONT_NINE",
+            "bookings": [
+              54267017
+            ],
+            "isHeld": false
+          },
+          {
+            "teeOff": "BACK_NINE",
+            "isHeld": false
+          }
+        ],
+        "rackRateName": "Summer Rate",
+        "teeTime": "2026-09-02T05:52:00",
+        "squeezeTime": false,
+        "shotgun": false
+      },
+      {
+        "prices": [
+          {
+            "roundType": "NINE_HOLE",
+            "rackRatePrice": "19.00",
+            "price": "19.00",
+            "taxInclusive": false
+          },
+          {
+            "roundType": "EIGHTEEN_HOLE",
+            "rackRatePrice": "35.00",
+            "price": "42.00",
+            "taxInclusive": false
+          }
+        ],
+        "teeOffSections": [
+          {
+            "teeOff": "FRONT_NINE",
+            "isHeld": false
+          },
+          {
+            "teeOff": "BACK_NINE",
+            "isHeld": false
+          }
+        ],
+        "rackRateName": "Summer Rate",
+        "teeTime": "2026-09-02T06:40:00",
+        "squeezeTime": false,
+        "shotgun": false
+      }
+    ]
+  }
+}

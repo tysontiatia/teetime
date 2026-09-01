@@ -289,6 +289,23 @@ async function fetchTeeTimesLive(
       if (course.clubcaddie_course_id) url.searchParams.set('course_id', String(course.clubcaddie_course_id));
       break;
     }
+    case 'teesnap': {
+      let host: string;
+      try {
+        host = new URL(String(course.booking_url || '').trim()).hostname.toLowerCase();
+      } catch {
+        return emptyOk;
+      }
+      const tenant =
+        String(course.teesnap_tenant || '').trim() || host.match(/^([a-z0-9-]+)\.teesnap\.net$/i)?.[1] || '';
+      if (!tenant) return emptyOk;
+      url = new URL(`${base}/teesnap`);
+      url.searchParams.set('tenant', tenant);
+      url.searchParams.set('date', dateYmd);
+      url.searchParams.set('players', String(players));
+      if (course.teesnap_course_id) url.searchParams.set('course_id', String(course.teesnap_course_id));
+      break;
+    }
     default:
       return emptyOk;
   }

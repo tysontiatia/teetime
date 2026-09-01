@@ -46,6 +46,7 @@ test('parseBookingUrl maps live and backlog vendor hosts', () => {
     'cafdabab',
   );
   assert.equal(parseBookingUrl('https://mirrorlakegc.teesnap.net/').platform, 'teesnap');
+  assert.equal(parseBookingUrl('https://mirrorlakegc.teesnap.net/').hints.teesnap_tenant, 'mirrorlakegc');
   assert.equal(parseBookingUrl('https://idahoclub.ezlinksgolf.com/search').platform, 'ezlinks');
   assert.equal(
     parseBookingUrl('https://loscaballerosgc.clubhouseonline-e3.club/').platform,
@@ -111,6 +112,26 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
     }).changed,
     false,
   );
+});
+
+test('recordAfterPlatformReclassify stamps TeeSnap as live', () => {
+  const next = nextRecordPlatform({
+    platform: 'other',
+    booking_status: 'unsupported',
+    booking_url: 'https://sundancegolfclub.teesnap.net/',
+  });
+  const rec = recordAfterPlatformReclassify(
+    {
+      name: 'Sundance Golf Club (Buckeye)',
+      platform: 'other',
+      booking_status: 'unsupported',
+      booking_url: 'https://sundancegolfclub.teesnap.net/',
+    },
+    next,
+  );
+  assert.equal(rec.platform, 'teesnap');
+  assert.equal(rec.booking_status, 'ready');
+  assert.equal(rec.teesnap_tenant, 'sundancegolfclub');
 });
 
 test('recordAfterPlatformReclassify stamps ClubCaddie as live', () => {
