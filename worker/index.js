@@ -10,6 +10,14 @@ import {
   quick18SheetHost,
   quick18Tenant,
 } from './quick18.js';
+import {
+  buildGolfWithAccessBookingUrl,
+  courseHasGolfWithAccess,
+  golfWithAccessCourseId,
+  golfWithAccessFacilitySlug,
+  handleGolfWithAccess,
+  normalizeGolfWithAccessTimesWorker,
+} from './golfwithaccess.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
 import {
   evalDatesForPref,
@@ -992,8 +1000,11 @@ function normalizeTimesWorker(course, data, holes) {
     case 'trutee':         return normalizeTruteeTimesWorker(course, data);
     case 'golfpay':        return normalizeGolfPayTimesWorker(course, data);
     case 'quick18':        return normalizeQuick18TimesWorker(course, data);
+    case 'golfwithaccess': return normalizeGolfWithAccessTimesWorker(course, data);
     default:
-      return courseHasQuick18Sheet(course) ? normalizeQuick18TimesWorker(course, data) : [];
+      if (courseHasQuick18Sheet(course)) return normalizeQuick18TimesWorker(course, data);
+      if (courseHasGolfWithAccess(course)) return normalizeGolfWithAccessTimesWorker(course, data);
+      return [];
   }
 }
 
@@ -1154,8 +1165,8 @@ async function handlePlaceReviews(params, env) {
 // formatTime12h imported from alertCopy.js
 
 // ── Fetch tee times for a course (reuses existing API logic) ─────────
-// Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports | teeitup | trutee | golfpay | quick18.
-// Add handlers here + GET routes in fetch() when onboarding new vendors (GolfPay, TenFore, etc.).
+// Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports | teeitup | trutee | golfpay | quick18 | golfwithaccess.
+// Add handlers here + GET routes in fetch() when onboarding new vendors.
 async function fetchTimesForCourse(course, date, holes, players) {
   const params = new URLSearchParams({ date });
   let handler;
@@ -1208,6 +1219,14 @@ async function fetchTimesForCourse(course, date, holes, players) {
     const q18Course = quick18CourseId(course);
     if (q18Course) params.set('course_id', q18Course);
     handler = () => handleQuick18(Object.fromEntries(params.entries()));
+  } else if (courseHasGolfWithAccess(course)) {
+    const gwaId = golfWithAccessCourseId(course);
+    const gwaSlug = golfWithAccessFacilitySlug(course);
+    if (!gwaId && !gwaSlug) return null;
+    if (gwaId) params.set('course_id', gwaId);
+    if (gwaSlug) params.set('slug', gwaSlug);
+    params.set('players', String(players || 4));
+    handler = () => handleGolfWithAccess(Object.fromEntries(params.entries()));
   } else {
     return null; // unsupported platform (tenfore, foreup_login)
   }
@@ -1530,8 +1549,9 @@ function buildBookingUrlWorker(course, date, holes, players) {
     'cps',
     'teeitup',
     'quick18',
+    'golfwithaccess',
   ];
-  if (!base && !supported.includes(course.platform) && !courseHasQuick18Sheet(course)) {
+  if (!base && !supported.includes(course.platform) && !courseHasQuick18Sheet(course) && !courseHasGolfWithAccess(course)) {
     return 'https://tee-time.io';
   }
 
@@ -1565,6 +1585,10 @@ function buildBookingUrlWorker(course, date, holes, players) {
 
   if (courseHasQuick18Sheet(course)) {
     return buildQuick18BookingUrl(course, date) || base || 'https://tee-time.io';
+  }
+
+  if (courseHasGolfWithAccess(course)) {
+    return buildGolfWithAccessBookingUrl(course, date, players) || base || 'https://tee-time.io';
   }
 
   const templateOverride = String(course.booking_url_template || '').trim();
@@ -2092,7 +2116,7 @@ export default {
     const params = Object.fromEntries(url.searchParams.entries());
     const foreupJwt = request.headers.get('foreup_jwt') || null;
 
-    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee' || path === '/golfpay' || path === '/quick18') {
+    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee' || path === '/golfpay' || path === '/quick18' || path === '/golfwithaccess') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.vendorLive);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
     }
@@ -2127,6 +2151,10 @@ export default {
 
     if (path === '/quick18') {
       return handleQuick18(params);
+    }
+
+    if (path === '/golfwithaccess') {
+      return handleGolfWithAccess(params);
     }
 
     if (path === '/place-photo' || path === '/place-reviews') {

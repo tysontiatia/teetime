@@ -592,6 +592,25 @@ export function AdminCourseEditPage() {
             </Field>
           )}
 
+          {record.platform === 'golfwithaccess' && (
+            <>
+              <Field label="golfwithaccess_slug (/course/{slug}/…)">
+                <input
+                  className="input"
+                  value={record.golfwithaccess_slug || ''}
+                  onChange={(e) => patchRecord({ golfwithaccess_slug: e.target.value })}
+                />
+              </Field>
+              <Field label="golfwithaccess_course_id (optional UUID)">
+                <input
+                  className="input"
+                  value={record.golfwithaccess_course_id || ''}
+                  onChange={(e) => patchRecord({ golfwithaccess_course_id: e.target.value })}
+                />
+              </Field>
+            </>
+          )}
+
           {record.platform === 'cps' && (
             <>
               <Field label="cps_tenant (subdomain)">

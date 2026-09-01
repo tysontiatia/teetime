@@ -242,6 +242,25 @@ async function fetchTeeTimesLive(
       if (course.quick18_course_id) url.searchParams.set('course_id', String(course.quick18_course_id));
       break;
     }
+    case 'golfwithaccess': {
+      const courseId = String(course.golfwithaccess_course_id || '').trim();
+      let slug = String(course.golfwithaccess_slug || '').trim();
+      if (!slug) {
+        try {
+          const path = new URL(String(course.booking_url || '').trim()).pathname;
+          slug = path.match(/\/course\/([a-z0-9-]+)(?:\/|$)/i)?.[1] || '';
+        } catch {
+          slug = '';
+        }
+      }
+      if (!courseId && !slug) return emptyOk;
+      url = new URL(`${base}/golfwithaccess`);
+      url.searchParams.set('date', dateYmd);
+      url.searchParams.set('players', String(players));
+      if (courseId) url.searchParams.set('course_id', courseId);
+      if (slug) url.searchParams.set('slug', slug);
+      break;
+    }
     default:
       return emptyOk;
   }

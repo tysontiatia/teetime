@@ -32,6 +32,10 @@ test('parseBookingUrl maps live and backlog vendor hosts', () => {
     parseBookingUrl('https://golfwithaccess.com/course/wohali/reserve-tee-time').platform,
     'golfwithaccess',
   );
+  assert.equal(
+    parseBookingUrl('https://golfwithaccess.com/course/wohali/reserve-tee-time').hints.golfwithaccess_slug,
+    'wohali',
+  );
   assert.equal(parseBookingUrl('https://www.golfrev.com/go/tee_times/?htc=370&courseid=3719&r=1').platform, 'golfrev');
   assert.equal(parseBookingUrl('https://book.onagilysys.com/onecart/golf/courses/1450/CDACASINO').platform, 'rguest');
   assert.equal(parseBookingUrl('https://book.rguest.com/onecart/golf/courses/1986/TamarackResort').platform, 'rguest');
@@ -103,6 +107,26 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
     }).changed,
     false,
   );
+});
+
+test('recordAfterPlatformReclassify stamps GolfWithAccess as live', () => {
+  const next = nextRecordPlatform({
+    platform: 'other',
+    booking_status: 'unsupported',
+    booking_url: 'https://golfwithaccess.com/course/lookout-mountain-golf-club/reserve-tee-time',
+  });
+  const rec = recordAfterPlatformReclassify(
+    {
+      name: 'Lookout Mountain Golf Club',
+      platform: 'other',
+      booking_status: 'unsupported',
+      booking_url: 'https://golfwithaccess.com/course/lookout-mountain-golf-club/reserve-tee-time',
+    },
+    next,
+  );
+  assert.equal(rec.platform, 'golfwithaccess');
+  assert.equal(rec.booking_status, 'ready');
+  assert.equal(rec.golfwithaccess_slug, 'lookout-mountain-golf-club');
 });
 
 test('recordAfterPlatformReclassify stamps Play18 as live Quick18', () => {

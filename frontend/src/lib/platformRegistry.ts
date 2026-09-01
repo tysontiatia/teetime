@@ -44,7 +44,7 @@ export const PLATFORM_DEFS: readonly PlatformDef[] = [
     hosts: ['sagacitygolf.com'],
   },
   { key: 'quick18', label: 'Quick18', capability: 'live_inventory', inPicker: true, aliases: ['quick 18', 'play18', 'play 18', 'play-18'], hosts: ['quick18.com', 'play18.com'] },
-  { key: 'golfwithaccess', label: 'GolfWithAccess', capability: 'booking_link_only', inPicker: true, aliases: ['golf with access'], hosts: ['golfwithaccess.com'] },
+  { key: 'golfwithaccess', label: 'GolfWithAccess', capability: 'live_inventory', inPicker: true, aliases: ['golf with access', 'troon access'], hosts: ['golfwithaccess.com'] },
   { key: 'clubcaddie', label: 'ClubCaddie', capability: 'booking_link_only', inPicker: true, aliases: ['club caddie'], hosts: ['clubcaddie.com'] },
   {
     key: 'rguest',

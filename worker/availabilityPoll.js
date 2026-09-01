@@ -1,4 +1,5 @@
 import { courseHasQuick18Sheet } from './quick18.js';
+import { courseHasGolfWithAccess } from './golfwithaccess.js';
 
 /**
  * Background availability poller — snapshots vendor tee sheets into Supabase.
@@ -37,6 +38,7 @@ const SUPPORTED_PLATFORMS = new Set([
   'trutee',
   'golfpay',
   'quick18',
+  'golfwithaccess',
 ]);
 
 /**
@@ -494,6 +496,7 @@ function pollableCourses(courses) {
       if (status === 'closed' || status === 'private' || status === 'phone') return false;
       // Play18 tenants are still stored as sagacity/unsupported until recategorize.
       if (courseHasQuick18Sheet(c)) return true;
+      if (courseHasGolfWithAccess(c)) return true;
       if (status === 'unsupported') return false;
       return c.platform && SUPPORTED_PLATFORMS.has(c.platform);
     })
