@@ -47,6 +47,10 @@ export type CourseRecord = {
   golfwithaccess_slug?: string;
   /** Optional GolfWithAccess course UUID from `/api/v0/facilities/{slug}`. */
   golfwithaccess_course_id?: string;
+  /** ClubCaddie `/webapi/view/{apikey}/slots` tenant key. */
+  clubcaddie_apikey?: string;
+  /** Optional ClubCaddie numeric CourseId from the slots form. */
+  clubcaddie_course_id?: string;
   booking_window_days?: number;
   booking_opens_time?: string;
   timezone?: string;

@@ -311,6 +311,17 @@ function normalizeGolfWithAccessTimes(data: unknown): NormRow[] {
   });
 }
 
+function normalizeClubCaddieTimes(data: unknown): NormRow[] {
+  if (!data || typeof data !== 'object') return [];
+  const times = (data as { times?: unknown }).times;
+  if (!Array.isArray(times)) return [];
+  return times.filter((row): row is NormRow => {
+    if (!row || typeof row !== 'object') return false;
+    const r = row as NormRow;
+    return Boolean(r.rawTime) && (r.holes === 9 || r.holes === 18);
+  });
+}
+
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
   if (!data || (typeof data === 'object' && data !== null && 'error' in data && (data as { error: unknown }).error))
     return [];
@@ -334,6 +345,8 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
       return normalizeQuick18Times(data);
     case 'golfwithaccess':
       return normalizeGolfWithAccessTimes(data);
+    case 'clubcaddie':
+      return normalizeClubCaddieTimes(data);
     default:
       return [];
   }

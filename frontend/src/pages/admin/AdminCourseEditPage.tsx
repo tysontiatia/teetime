@@ -611,6 +611,25 @@ export function AdminCourseEditPage() {
             </>
           )}
 
+          {record.platform === 'clubcaddie' && (
+            <>
+              <Field label="clubcaddie_apikey (/webapi/view/{key}/…)">
+                <input
+                  className="input"
+                  value={record.clubcaddie_apikey || ''}
+                  onChange={(e) => patchRecord({ clubcaddie_apikey: e.target.value })}
+                />
+              </Field>
+              <Field label="clubcaddie_course_id (optional CourseId)">
+                <input
+                  className="input"
+                  value={record.clubcaddie_course_id || ''}
+                  onChange={(e) => patchRecord({ clubcaddie_course_id: e.target.value })}
+                />
+              </Field>
+            </>
+          )}
+
           {record.platform === 'cps' && (
             <>
               <Field label="cps_tenant (subdomain)">
