@@ -253,6 +253,64 @@ function normalizeQuick18Times(data: unknown): NormRow[] {
   });
 }
 
+function gwaPad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function golfWithAccessPublicCents(tt: Record<string, unknown>): number | null {
+  const rates = Array.isArray(tt.rates) ? tt.rates : [];
+  const publicRates = rates.filter(
+    (r): r is Record<string, unknown> =>
+      Boolean(r) && typeof r === 'object' && (r as { rateType?: unknown }).rateType === 'PUBLIC' &&
+      (r as { isAvailableToUser?: unknown }).isAvailableToUser !== false,
+  );
+  const display = tt.displayRate as Record<string, unknown> | undefined;
+  const pick =
+    publicRates[0] ||
+    (display?.rateType === 'PUBLIC' && display.isAvailableToUser !== false ? display : null);
+  if (!pick) return null;
+  const cents = Number((pick.price as { dollars?: { cents?: unknown } } | undefined)?.dollars?.cents);
+  return Number.isFinite(cents) && cents > 0 ? cents : null;
+}
+
+function normalizeGolfWithAccessTimes(data: unknown): NormRow[] {
+  if (!data || typeof data !== 'object' || data === null || 'error' in data) return [];
+  const times = (data as { teeTimes?: unknown }).teeTimes;
+  if (!Array.isArray(times)) return [];
+  const best = new Map<string, NormRow & { _cents: number }>();
+  for (const entry of times) {
+    if (!entry || typeof entry !== 'object') continue;
+    const tt = entry as Record<string, unknown>;
+    const holesOpt = String(tt.holesOption || '').toUpperCase();
+    const holes: 9 | 18 | null = holesOpt === 'EIGHTEEN' ? 18 : holesOpt === 'NINE' ? 9 : null;
+    if (!holes) continue;
+    const day = tt.dayTime as
+      | { year?: unknown; month?: unknown; day?: unknown; hour?: unknown; minute?: unknown }
+      | undefined;
+    const y = Number(day?.year);
+    const mo = Number(day?.month);
+    const d = Number(day?.day);
+    const h = Number(day?.hour);
+    const mi = Number(day?.minute);
+    if (![y, mo, d, h, mi].every((n) => Number.isFinite(n))) continue;
+    const rawTime = `${y}-${gwaPad2(mo)}-${gwaPad2(d)} ${gwaPad2(h)}:${gwaPad2(mi)}`;
+    const cents = golfWithAccessPublicCents(tt);
+    if (cents == null) continue;
+    const spotsRaw = tt.players != null ? Number((tt.players as { max?: unknown }).max) : null;
+    const spots = spotsRaw != null && Number.isFinite(spotsRaw) ? spotsRaw : null;
+    if (spots != null && spots <= 0) continue;
+    const key = `${rawTime}|${holes}`;
+    const row = { rawTime, spots, price: '$' + Math.round(cents / 100), holes, _cents: cents };
+    const prev = best.get(key);
+    if (!prev || cents < prev._cents) best.set(key, row);
+  }
+  return [...best.values()].map((row) => {
+    const { _cents, ...rest } = row;
+    void _cents;
+    return rest;
+  });
+}
+
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
   if (!data || (typeof data === 'object' && data !== null && 'error' in data && (data as { error: unknown }).error))
     return [];
@@ -274,6 +332,8 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
       return normalizeGolfPayTimes(data);
     case 'quick18':
       return normalizeQuick18Times(data);
+    case 'golfwithaccess':
+      return normalizeGolfWithAccessTimes(data);
     default:
       return [];
   }

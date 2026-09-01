@@ -43,6 +43,10 @@ export type CourseRecord = {
   quick18_tenant?: string;
   /** Optional Quick18 course id when one tenant hosts multiple tees (Grayhawk Talon vs Raptor). */
   quick18_course_id?: string;
+  /** GolfWithAccess facility slug (`/course/{slug}/reserve-tee-time`). */
+  golfwithaccess_slug?: string;
+  /** Optional GolfWithAccess course UUID from `/api/v0/facilities/{slug}`. */
+  golfwithaccess_course_id?: string;
   booking_window_days?: number;
   booking_opens_time?: string;
   timezone?: string;

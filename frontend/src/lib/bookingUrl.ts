@@ -444,6 +444,38 @@ function buildQuick18BookingUrl(source: BookingSource, params: BookingLinkParams
   }
 }
 
+function golfWithAccessSlugFromSource(source: BookingSource): string {
+  const explicit = source.golfwithaccess_slug != null ? String(source.golfwithaccess_slug).trim() : '';
+  if (explicit) return explicit.toLowerCase();
+  const base = (source.booking_url || source.bookingUrl || '').trim();
+  try {
+    const path = new URL(base).pathname;
+    return path.match(/\/course\/([a-z0-9-]+)(?:\/|$)/i)?.[1]?.toLowerCase() || '';
+  } catch {
+    return '';
+  }
+}
+
+function buildGolfWithAccessBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const slug = golfWithAccessSlugFromSource(source);
+  const base = (source.booking_url || source.bookingUrl || '').trim();
+  const href = base || (slug ? `https://golfwithaccess.com/course/${slug}/reserve-tee-time` : '');
+  if (!href) return null;
+  const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  try {
+    const u = new URL(href.split('#')[0] || href);
+    if (params.dateYmd) u.searchParams.set('date', params.dateYmd);
+    u.searchParams.set('players', players);
+    if (!u.searchParams.has('startAt')) u.searchParams.set('startAt', '0');
+    if (!u.searchParams.has('endAt')) u.searchParams.set('endAt', '24');
+    if (!u.searchParams.has('view')) u.searchParams.set('view', 'time');
+    if (!u.searchParams.has('payMode')) u.searchParams.set('payMode', 'dollars');
+    return u.toString();
+  } catch {
+    return base || null;
+  }
+}
+
 export type BookingSource = {
   booking_url?: string | null;
   bookingUrl?: string | null;
@@ -462,6 +494,8 @@ export type BookingSource = {
   cps_course_id?: string | null;
   quick18_tenant?: string | null;
   quick18_course_id?: string | null;
+  golfwithaccess_slug?: string | null;
+  golfwithaccess_course_id?: string | null;
   /** IANA timezone for `{time}` template formatting. */
   timezone?: string | null;
 };
@@ -524,6 +558,14 @@ export function buildBookingUrl(
     'quick18_course_id' in source && source.quick18_course_id != null
       ? String(source.quick18_course_id)
       : null;
+  const golfwithaccessSlug =
+    'golfwithaccess_slug' in source && source.golfwithaccess_slug != null
+      ? String(source.golfwithaccess_slug)
+      : null;
+  const golfwithaccessCourseId =
+    'golfwithaccess_course_id' in source && source.golfwithaccess_course_id != null
+      ? String(source.golfwithaccess_course_id)
+      : null;
   const timeZone =
     'timezone' in source && source.timezone != null ? String(source.timezone) : null;
 
@@ -544,6 +586,8 @@ export function buildBookingUrl(
     cps_course_id: cpsCourseId,
     quick18_tenant: quick18Tenant,
     quick18_course_id: quick18CourseId,
+    golfwithaccess_slug: golfwithaccessSlug,
+    golfwithaccess_course_id: golfwithaccessCourseId,
     timezone: timeZone,
   };
 
@@ -577,6 +621,10 @@ export function buildBookingUrl(
 
   if (platform === 'quick18' || /\.(quick18|play18)\.com/i.test(bookingUrl || '')) {
     return buildQuick18BookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'golfwithaccess' || /golfwithaccess\.com/i.test(bookingUrl || '')) {
+    return buildGolfWithAccessBookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;

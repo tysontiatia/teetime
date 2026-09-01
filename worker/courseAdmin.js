@@ -13,6 +13,7 @@ const PLATFORM_ID_FIELDS = {
   cps: ['cps_tenant', 'cps_course_id'],
   teeitup: ['facility_id', 'teeitup_course_id', 'teeitup_alias'],
   quick18: ['quick18_tenant', 'quick18_course_id'],
+  golfwithaccess: ['golfwithaccess_course_id', 'golfwithaccess_slug'],
 };
 
 const ALL_PLATFORM_FIELDS = [
@@ -34,6 +35,8 @@ const ALL_PLATFORM_FIELDS = [
   'teeitup_alias',
   'quick18_tenant',
   'quick18_course_id',
+  'golfwithaccess_course_id',
+  'golfwithaccess_slug',
 ];
 
 const RATE_SPECS = [
@@ -312,6 +315,8 @@ export function parseBookingUrl(rawUrl) {
 
   if (host.includes('golfwithaccess.com')) {
     out.platform = 'golfwithaccess';
+    const pathMatch = String(path || '').match(/\/course\/([a-z0-9-]+)(?:\/|$)/i);
+    if (pathMatch) out.hints.golfwithaccess_slug = pathMatch[1].toLowerCase();
     return out;
   }
 
@@ -383,6 +388,7 @@ const LIVE_ADAPTER_PLATFORMS = new Set([
   'trutee',
   'golfpay',
   'quick18',
+  'golfwithaccess',
 ]);
 
 /**
@@ -412,6 +418,7 @@ export function recordAfterPlatformReclassify(rec, next) {
   const parsed = parseBookingUrl(String(rec?.booking_url || ''));
   const out = { ...rec, platform: next.platform };
   if (parsed.hints?.quick18_tenant) out.quick18_tenant = parsed.hints.quick18_tenant;
+  if (parsed.hints?.golfwithaccess_slug) out.golfwithaccess_slug = parsed.hints.golfwithaccess_slug;
   if (LIVE_ADAPTER_PLATFORMS.has(next.platform)) {
     const status = String(rec?.booking_status || '').trim();
     if (!status || status === 'unsupported' || status === 'pending') {
@@ -1164,7 +1171,7 @@ function getPlatformWarnings(record) {
   }
   if (platform === 'tenfore' || platform === 'cps' || platform === 'golfnow' || platform === 'ezlinks' || platform === 'teesnap' || platform === 'clubessentials' || platform === 'lightspeed' || platform === 'teeoff' || platform === 'golfrev' || platform === 'sagacity' || platform === 'play18') {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
-  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18'].includes(platform)) {
+  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18', 'golfwithaccess'].includes(platform)) {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
   }
   if (
@@ -1173,6 +1180,14 @@ function getPlatformWarnings(record) {
     !/\.(quick18|play18)\.com/i.test(String(record.booking_url || ''))
   ) {
     warnings.push('Quick18 needs a tenant subdomain (papago.quick18.com or *.play18.com) for live tee times.');
+  }
+  if (
+    platform === 'golfwithaccess' &&
+    !record.golfwithaccess_slug &&
+    !record.golfwithaccess_course_id &&
+    !/golfwithaccess\.com\/course\//i.test(String(record.booking_url || ''))
+  ) {
+    warnings.push('GolfWithAccess needs a /course/{slug}/reserve-tee-time booking URL for live tee times.');
   }
   if (platform === 'golfpay' && !record.golfpay_course_id) {
     warnings.push('GolfPay needs golfpay_course_id (_gshcid) for live tee times.');

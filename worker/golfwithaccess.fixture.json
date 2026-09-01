@@ -1,0 +1,67 @@
+{
+  "teeTimes": [
+    {
+      "id": "slot-public-18",
+      "holesOption": "EIGHTEEN",
+      "players": { "min": 1, "max": 4 },
+      "dayTime": { "year": 2026, "month": 9, "day": 1, "hour": 7, "minute": 20, "second": 0 },
+      "displayRate": {
+        "rateType": "PUBLIC",
+        "isAvailableToUser": true,
+        "price": { "dollars": { "cents": 7400, "displayValue": "$74" } }
+      },
+      "rates": [
+        {
+          "rateType": "PUBLIC",
+          "isAvailableToUser": true,
+          "holesOption": "EIGHTEEN",
+          "price": { "dollars": { "cents": 7400 } }
+        },
+        {
+          "rateType": "TROON_ACCESS_PLUS",
+          "isAvailableToUser": false,
+          "holesOption": "EIGHTEEN",
+          "price": { "dollars": { "cents": 5800 } }
+        }
+      ]
+    },
+    {
+      "id": "slot-member-only",
+      "holesOption": "EIGHTEEN",
+      "players": { "min": 1, "max": 4 },
+      "dayTime": { "year": 2026, "month": 9, "day": 1, "hour": 8, "minute": 0, "second": 0 },
+      "displayRate": {
+        "rateType": "TROON_ACCESS",
+        "isAvailableToUser": false,
+        "price": { "dollars": { "cents": 5000 } }
+      },
+      "rates": [
+        {
+          "rateType": "TROON_ACCESS",
+          "isAvailableToUser": false,
+          "holesOption": "EIGHTEEN",
+          "price": { "dollars": { "cents": 5000 } }
+        }
+      ]
+    },
+    {
+      "id": "slot-public-9",
+      "holesOption": "NINE",
+      "players": { "min": 1, "max": 2 },
+      "dayTime": { "year": 2026, "month": 9, "day": 1, "hour": 11, "minute": 0, "second": 0 },
+      "displayRate": {
+        "rateType": "PUBLIC",
+        "isAvailableToUser": true,
+        "price": { "dollars": { "cents": 3900, "displayValue": "$39" } }
+      },
+      "rates": [
+        {
+          "rateType": "PUBLIC",
+          "isAvailableToUser": true,
+          "holesOption": "NINE",
+          "price": { "dollars": { "cents": 3900 } }
+        }
+      ]
+    }
+  ]
+}
