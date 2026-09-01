@@ -1,5 +1,6 @@
 import { courseHasQuick18Sheet } from './quick18.js';
 import { courseHasGolfWithAccess } from './golfwithaccess.js';
+import { courseHasClubCaddie } from './clubcaddie.js';
 
 /**
  * Background availability poller — snapshots vendor tee sheets into Supabase.
@@ -39,6 +40,7 @@ const SUPPORTED_PLATFORMS = new Set([
   'golfpay',
   'quick18',
   'golfwithaccess',
+  'clubcaddie',
 ]);
 
 /**
@@ -497,6 +499,7 @@ function pollableCourses(courses) {
       // Play18 tenants are still stored as sagacity/unsupported until recategorize.
       if (courseHasQuick18Sheet(c)) return true;
       if (courseHasGolfWithAccess(c)) return true;
+      if (courseHasClubCaddie(c)) return true;
       if (status === 'unsupported') return false;
       return c.platform && SUPPORTED_PLATFORMS.has(c.platform);
     })

@@ -14,6 +14,7 @@ const PLATFORM_ID_FIELDS = {
   teeitup: ['facility_id', 'teeitup_course_id', 'teeitup_alias'],
   quick18: ['quick18_tenant', 'quick18_course_id'],
   golfwithaccess: ['golfwithaccess_course_id', 'golfwithaccess_slug'],
+  clubcaddie: ['clubcaddie_course_id', 'clubcaddie_apikey'],
 };
 
 const ALL_PLATFORM_FIELDS = [
@@ -37,6 +38,8 @@ const ALL_PLATFORM_FIELDS = [
   'quick18_course_id',
   'golfwithaccess_course_id',
   'golfwithaccess_slug',
+  'clubcaddie_course_id',
+  'clubcaddie_apikey',
 ];
 
 const RATE_SPECS = [
@@ -322,6 +325,8 @@ export function parseBookingUrl(rawUrl) {
 
   if (host.includes('clubcaddie.com')) {
     out.platform = 'clubcaddie';
+    const keyMatch = String(path || '').match(/\/webapi\/view\/([a-z0-9]+)(?:\/|$)/i);
+    if (keyMatch) out.hints.clubcaddie_apikey = keyMatch[1].toLowerCase();
     return out;
   }
 
@@ -389,6 +394,7 @@ const LIVE_ADAPTER_PLATFORMS = new Set([
   'golfpay',
   'quick18',
   'golfwithaccess',
+  'clubcaddie',
 ]);
 
 /**
@@ -419,6 +425,7 @@ export function recordAfterPlatformReclassify(rec, next) {
   const out = { ...rec, platform: next.platform };
   if (parsed.hints?.quick18_tenant) out.quick18_tenant = parsed.hints.quick18_tenant;
   if (parsed.hints?.golfwithaccess_slug) out.golfwithaccess_slug = parsed.hints.golfwithaccess_slug;
+  if (parsed.hints?.clubcaddie_apikey) out.clubcaddie_apikey = parsed.hints.clubcaddie_apikey;
   if (LIVE_ADAPTER_PLATFORMS.has(next.platform)) {
     const status = String(rec?.booking_status || '').trim();
     if (!status || status === 'unsupported' || status === 'pending') {
@@ -1171,7 +1178,7 @@ function getPlatformWarnings(record) {
   }
   if (platform === 'tenfore' || platform === 'cps' || platform === 'golfnow' || platform === 'ezlinks' || platform === 'teesnap' || platform === 'clubessentials' || platform === 'lightspeed' || platform === 'teeoff' || platform === 'golfrev' || platform === 'sagacity' || platform === 'play18') {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
-  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18', 'golfwithaccess'].includes(platform)) {
+  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18', 'golfwithaccess', 'clubcaddie'].includes(platform)) {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
   }
   if (
@@ -1188,6 +1195,13 @@ function getPlatformWarnings(record) {
     !/golfwithaccess\.com\/course\//i.test(String(record.booking_url || ''))
   ) {
     warnings.push('GolfWithAccess needs a /course/{slug}/reserve-tee-time booking URL for live tee times.');
+  }
+  if (
+    platform === 'clubcaddie' &&
+    !record.clubcaddie_apikey &&
+    !/clubcaddie\.com\/webapi\/view\//i.test(String(record.booking_url || ''))
+  ) {
+    warnings.push('ClubCaddie needs a /webapi/view/{apikey}/slots booking URL for live tee times.');
   }
   if (platform === 'golfpay' && !record.golfpay_course_id) {
     warnings.push('GolfPay needs golfpay_course_id (_gshcid) for live tee times.');

@@ -476,6 +476,28 @@ function buildGolfWithAccessBookingUrl(source: BookingSource, params: BookingLin
   }
 }
 
+function ymdToClubCaddieDate(ymd: string): string {
+  const m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : '';
+}
+
+function buildClubCaddieBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const base = (source.booking_url || source.bookingUrl || '').trim();
+  if (!base) return null;
+  const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  const us = ymdToClubCaddieDate(params.dateYmd);
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    if (us) u.searchParams.set('date', us);
+    u.searchParams.set('player', players);
+    if (!u.searchParams.has('ratetype')) u.searchParams.set('ratetype', 'any');
+    u.searchParams.delete('Interaction');
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 export type BookingSource = {
   booking_url?: string | null;
   bookingUrl?: string | null;
@@ -496,6 +518,8 @@ export type BookingSource = {
   quick18_course_id?: string | null;
   golfwithaccess_slug?: string | null;
   golfwithaccess_course_id?: string | null;
+  clubcaddie_apikey?: string | null;
+  clubcaddie_course_id?: string | null;
   /** IANA timezone for `{time}` template formatting. */
   timezone?: string | null;
 };
@@ -566,6 +590,14 @@ export function buildBookingUrl(
     'golfwithaccess_course_id' in source && source.golfwithaccess_course_id != null
       ? String(source.golfwithaccess_course_id)
       : null;
+  const clubcaddieApiKey =
+    'clubcaddie_apikey' in source && source.clubcaddie_apikey != null
+      ? String(source.clubcaddie_apikey)
+      : null;
+  const clubcaddieCourseId =
+    'clubcaddie_course_id' in source && source.clubcaddie_course_id != null
+      ? String(source.clubcaddie_course_id)
+      : null;
   const timeZone =
     'timezone' in source && source.timezone != null ? String(source.timezone) : null;
 
@@ -588,6 +620,8 @@ export function buildBookingUrl(
     quick18_course_id: quick18CourseId,
     golfwithaccess_slug: golfwithaccessSlug,
     golfwithaccess_course_id: golfwithaccessCourseId,
+    clubcaddie_apikey: clubcaddieApiKey,
+    clubcaddie_course_id: clubcaddieCourseId,
     timezone: timeZone,
   };
 
@@ -625,6 +659,10 @@ export function buildBookingUrl(
 
   if (platform === 'golfwithaccess' || /golfwithaccess\.com/i.test(bookingUrl || '')) {
     return buildGolfWithAccessBookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'clubcaddie' || /clubcaddie\.com/i.test(bookingUrl || '')) {
+    return buildClubCaddieBookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;

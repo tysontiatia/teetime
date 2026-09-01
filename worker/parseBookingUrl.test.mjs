@@ -41,6 +41,10 @@ test('parseBookingUrl maps live and backlog vendor hosts', () => {
   assert.equal(parseBookingUrl('https://book.rguest.com/onecart/golf/courses/1986/TamarackResort').platform, 'rguest');
   assert.equal(parseBookingUrl('https://brydencanyon.totaleintegrated.net/web/tee-times').platform, 'totaleintegrated');
   assert.equal(parseBookingUrl('https://apimanager-cc29.clubcaddie.com/webapi/view/cafdabab/slots').platform, 'clubcaddie');
+  assert.equal(
+    parseBookingUrl('https://apimanager-cc29.clubcaddie.com/webapi/view/cafdabab/slots').hints.clubcaddie_apikey,
+    'cafdabab',
+  );
   assert.equal(parseBookingUrl('https://mirrorlakegc.teesnap.net/').platform, 'teesnap');
   assert.equal(parseBookingUrl('https://idahoclub.ezlinksgolf.com/search').platform, 'ezlinks');
   assert.equal(
@@ -107,6 +111,26 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
     }).changed,
     false,
   );
+});
+
+test('recordAfterPlatformReclassify stamps ClubCaddie as live', () => {
+  const next = nextRecordPlatform({
+    platform: 'other',
+    booking_status: 'unsupported',
+    booking_url: 'https://apimanager-cc37.clubcaddie.com/webapi/view/hiedabab/slots',
+  });
+  const rec = recordAfterPlatformReclassify(
+    {
+      name: 'Foothills Golf Club - Executive Course',
+      platform: 'other',
+      booking_status: 'unsupported',
+      booking_url: 'https://apimanager-cc37.clubcaddie.com/webapi/view/hiedabab/slots',
+    },
+    next,
+  );
+  assert.equal(rec.platform, 'clubcaddie');
+  assert.equal(rec.booking_status, 'ready');
+  assert.equal(rec.clubcaddie_apikey, 'hiedabab');
 });
 
 test('recordAfterPlatformReclassify stamps GolfWithAccess as live', () => {

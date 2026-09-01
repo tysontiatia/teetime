@@ -18,6 +18,15 @@ import {
   handleGolfWithAccess,
   normalizeGolfWithAccessTimesWorker,
 } from './golfwithaccess.js';
+import {
+  buildClubCaddieBookingUrl,
+  clubCaddieApiKey,
+  clubCaddieCourseId,
+  clubCaddieHost,
+  courseHasClubCaddie,
+  handleClubCaddie,
+  normalizeClubCaddieTimesWorker,
+} from './clubcaddie.js';
 import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
 import {
   evalDatesForPref,
@@ -1001,9 +1010,11 @@ function normalizeTimesWorker(course, data, holes) {
     case 'golfpay':        return normalizeGolfPayTimesWorker(course, data);
     case 'quick18':        return normalizeQuick18TimesWorker(course, data);
     case 'golfwithaccess': return normalizeGolfWithAccessTimesWorker(course, data);
+    case 'clubcaddie':     return normalizeClubCaddieTimesWorker(course, data);
     default:
       if (courseHasQuick18Sheet(course)) return normalizeQuick18TimesWorker(course, data);
       if (courseHasGolfWithAccess(course)) return normalizeGolfWithAccessTimesWorker(course, data);
+      if (courseHasClubCaddie(course)) return normalizeClubCaddieTimesWorker(course, data);
       return [];
   }
 }
@@ -1165,7 +1176,7 @@ async function handlePlaceReviews(params, env) {
 // formatTime12h imported from alertCopy.js
 
 // ── Fetch tee times for a course (reuses existing API logic) ─────────
-// Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports | teeitup | trutee | golfpay | quick18 | golfwithaccess.
+// Supported live platforms: foreup | chronogolf | chronogolf_slc | membersports | teeitup | trutee | golfpay | quick18 | golfwithaccess | clubcaddie.
 // Add handlers here + GET routes in fetch() when onboarding new vendors.
 async function fetchTimesForCourse(course, date, holes, players) {
   const params = new URLSearchParams({ date });
@@ -1227,6 +1238,16 @@ async function fetchTimesForCourse(course, date, holes, players) {
     if (gwaSlug) params.set('slug', gwaSlug);
     params.set('players', String(players || 4));
     handler = () => handleGolfWithAccess(Object.fromEntries(params.entries()));
+  } else if (courseHasClubCaddie(course)) {
+    const host = clubCaddieHost(course);
+    const apiKey = clubCaddieApiKey(course);
+    if (!host || !apiKey) return null;
+    params.set('host', host);
+    params.set('apikey', apiKey);
+    const ccId = clubCaddieCourseId(course);
+    if (ccId) params.set('course_id', ccId);
+    params.set('players', String(players || 1));
+    handler = () => handleClubCaddie(Object.fromEntries(params.entries()));
   } else {
     return null; // unsupported platform (tenfore, foreup_login)
   }
@@ -1550,8 +1571,9 @@ function buildBookingUrlWorker(course, date, holes, players) {
     'teeitup',
     'quick18',
     'golfwithaccess',
+    'clubcaddie',
   ];
-  if (!base && !supported.includes(course.platform) && !courseHasQuick18Sheet(course) && !courseHasGolfWithAccess(course)) {
+  if (!base && !supported.includes(course.platform) && !courseHasQuick18Sheet(course) && !courseHasGolfWithAccess(course) && !courseHasClubCaddie(course)) {
     return 'https://tee-time.io';
   }
 
@@ -1589,6 +1611,10 @@ function buildBookingUrlWorker(course, date, holes, players) {
 
   if (courseHasGolfWithAccess(course)) {
     return buildGolfWithAccessBookingUrl(course, date, players) || base || 'https://tee-time.io';
+  }
+
+  if (courseHasClubCaddie(course)) {
+    return buildClubCaddieBookingUrl(course, date, players) || base || 'https://tee-time.io';
   }
 
   const templateOverride = String(course.booking_url_template || '').trim();
@@ -2116,7 +2142,7 @@ export default {
     const params = Object.fromEntries(url.searchParams.entries());
     const foreupJwt = request.headers.get('foreup_jwt') || null;
 
-    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee' || path === '/golfpay' || path === '/quick18' || path === '/golfwithaccess') {
+    if (path === '/foreup' || path === '/chronogolf' || path === '/chronogolf-slc' || path === '/membersports' || path === '/teeitup' || path === '/trutee' || path === '/golfpay' || path === '/quick18' || path === '/golfwithaccess' || path === '/clubcaddie') {
       const rl = await checkIpRateLimit(request, RATE_LIMITS.vendorLive);
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
     }
@@ -2155,6 +2181,10 @@ export default {
 
     if (path === '/golfwithaccess') {
       return handleGolfWithAccess(params);
+    }
+
+    if (path === '/clubcaddie') {
+      return handleClubCaddie(params);
     }
 
     if (path === '/place-photo' || path === '/place-reviews') {

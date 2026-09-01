@@ -261,6 +261,34 @@ async function fetchTeeTimesLive(
       if (slug) url.searchParams.set('slug', slug);
       break;
     }
+    case 'clubcaddie': {
+      let host: string;
+      try {
+        host = new URL(String(course.booking_url || '').trim()).hostname.toLowerCase();
+      } catch {
+        return emptyOk;
+      }
+      if (!/^apimanager-[a-z0-9-]+\.clubcaddie\.com$/i.test(host)) return emptyOk;
+      const apiKey =
+        String(course.clubcaddie_apikey || '').trim() ||
+        (() => {
+          try {
+            return new URL(String(course.booking_url || '').trim()).pathname.match(
+              /\/webapi\/view\/([a-z0-9]+)(?:\/|$)/i,
+            )?.[1] || '';
+          } catch {
+            return '';
+          }
+        })();
+      if (!apiKey) return emptyOk;
+      url = new URL(`${base}/clubcaddie`);
+      url.searchParams.set('host', host);
+      url.searchParams.set('apikey', apiKey);
+      url.searchParams.set('date', dateYmd);
+      url.searchParams.set('players', String(players));
+      if (course.clubcaddie_course_id) url.searchParams.set('course_id', String(course.clubcaddie_course_id));
+      break;
+    }
     default:
       return emptyOk;
   }
