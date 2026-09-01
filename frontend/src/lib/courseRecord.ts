@@ -1,7 +1,7 @@
 import type { Course } from '../types';
 import { coursePhotoUrl } from './coursePhotoUrl';
 import { slugFromCourseName } from './courseSlug';
-import { getPlatformCapability } from './platformRegistry';
+import { effectivePlatform, getPlatformCapability } from './platformRegistry';
 
 /** One row from `public/courses.json` */
 export type CourseRecord = {
@@ -205,11 +205,12 @@ export function resolveCourseBookingMode(
   record?: {
     booking_status?: string | null;
     platform?: string | null;
+    booking_url?: string | null;
   } | null,
 ): CourseBookingMode {
   const status = String(record?.booking_status || '').trim();
   if (status === 'phone') return 'phone';
-  if (getPlatformCapability(record?.platform ?? undefined) === 'live_inventory') return 'live';
+  if (getPlatformCapability(effectivePlatform(record ?? {})) === 'live_inventory') return 'live';
   return 'booking_link';
 }
 
