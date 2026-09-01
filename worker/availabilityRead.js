@@ -18,6 +18,14 @@ const SLOW_LIVE_PLATFORMS = new Set(['golfpay']);
 const HOT_SNAPSHOT_LIVE_FILL_MAX_AGE_MS = 8 * 60 * 1000;
 /** Other dates: still refresh, but less aggressively. */
 const WARM_SNAPSHOT_LIVE_FILL_MAX_AGE_MS = 25 * 60 * 1000;
+/**
+ * Find first paint: do not hold the whole /v1/tee-times batch for vendor fills.
+ * Missing/empty slugs get a short live-fill window; the rest return snapshots and
+ * the browser fills what is still empty. `fresh=1` (course detail) has no budget.
+ */
+export const LIVE_FILL_BUDGET_MS = 3_000;
+/** Skip a vendor attempt when less than this remains on the budget. */
+const LIVE_FILL_MIN_ATTEMPT_MS = 400;
 
 function corsResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -366,8 +374,10 @@ export async function handleAvailabilityRequest(env, params) {
 
 /**
  * Batched snapshot read for Finder: GET /v1/tee-times?date=&holes=&players=&ids=a,b,c
- * When `deps` includes live fetch helpers, miss/stale/empty rows are filled from
- * vendors in parallel so the browser sees one request instead of a live waterfall.
+ * When `deps` includes live fetch helpers, missing/empty rows are filled from
+ * vendors — but only for a short budget so a Phoenix-sized TeeItUp batch does not
+ * block first paint. Stale non-empty snapshots return immediately; the browser
+ * revalidates. `fresh=1` still live-fills everything (course detail after book).
  *
  * @param {object} [deps]
  * @param {() => Promise<object[]>} [deps.loadCourses]
@@ -405,6 +415,7 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
     try {
       const fill = await liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps, {
         forceFresh,
+        budgetMs: forceFresh ? null : LIVE_FILL_BUDGET_MS,
       });
       live_filled = fill.filled;
       live_failed = fill.failed;
@@ -444,7 +455,7 @@ function daysUntilPlayYmd(playDateYmd, nowMs = Date.now()) {
   return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 86400000);
 }
 
-/** Exported for unit tests — when true, batch handler should vendor-fetch this slug. */
+/** Exported for unit tests — when true, a vendor fill would refresh this slug. */
 export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.now(), forceFresh = false) {
   void players;
   if (forceFresh) return true;
@@ -459,6 +470,36 @@ export function snapshotNeedsLiveFill(row, players, playDateYmd, nowMs = Date.no
   const days = daysUntilPlayYmd(playDateYmd, nowMs);
   const maxAge = days <= 1 ? HOT_SNAPSHOT_LIVE_FILL_MAX_AGE_MS : WARM_SNAPSHOT_LIVE_FILL_MAX_AGE_MS;
   return age > maxAge;
+}
+
+/**
+ * Find holds the HTTP response only for slugs with nothing trustworthy to paint.
+ * Stale non-empty snapshots return immediately; the client revalidates.
+ * Exported for unit tests.
+ */
+export function snapshotNeedsBlockingLiveFill(
+  row,
+  players,
+  playDateYmd,
+  nowMs = Date.now(),
+  forceFresh = false,
+) {
+  if (forceFresh) return true;
+  if (!row || row.has_poll_coverage !== true || !Array.isArray(row.times)) return true;
+  if (row.times.length === 0) return true;
+  const polled = row.last_polled_at ? Date.parse(row.last_polled_at) : NaN;
+  if (!Number.isFinite(polled) || nowMs - polled < 0) return true;
+  void players;
+  void playDateYmd;
+  return false;
+}
+
+/** Remaining vendor timeout inside a live-fill budget. 0 = skip this slug. */
+export function liveFillAttemptTimeoutMs(platformTimeoutMs, deadlineMs, nowMs = Date.now()) {
+  if (deadlineMs == null || !Number.isFinite(deadlineMs)) return platformTimeoutMs;
+  const remaining = deadlineMs - nowMs;
+  if (remaining < LIVE_FILL_MIN_ATTEMPT_MS) return 0;
+  return Math.min(platformTimeoutMs, remaining);
 }
 
 function courseTimezone(course) {
@@ -581,12 +622,24 @@ async function mapPool(items, concurrency, fn) {
   return results;
 }
 
+function markNeedsLive(by_slug, slug) {
+  by_slug[slug] = {
+    ...(by_slug[slug] || { times: [], has_poll_coverage: false, spots_known: true, last_polled_at: null }),
+    needs_live: true,
+  };
+}
+
 async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps, options = {}) {
   const forceFresh = options.forceFresh === true;
+  const nowMs = Date.now();
   const need = slugs.filter((slug) =>
-    snapshotNeedsLiveFill(by_slug[slug], players, play_date, Date.now(), forceFresh),
+    snapshotNeedsBlockingLiveFill(by_slug[slug], players, play_date, nowMs, forceFresh),
   );
   if (!need.length) return { filled: 0, failed: 0 };
+
+  const budgetMs = options.budgetMs;
+  const deadlineMs =
+    budgetMs != null && Number.isFinite(budgetMs) && budgetMs >= 0 ? nowMs + budgetMs : null;
 
   const courses = await deps.loadCourses();
   const byCourseSlug = new Map();
@@ -611,14 +664,20 @@ async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, 
       by_slug[slug] = {
         ...(by_slug[slug] || { times: [], has_poll_coverage: false, spots_known: true, last_polled_at: null }),
         live_failed: true,
+        needs_live: true,
         source: by_slug[slug]?.source || 'snapshot',
       };
       return;
     }
 
-    const timeoutMs = SLOW_LIVE_PLATFORMS.has(course.platform)
+    const platformTimeout = SLOW_LIVE_PLATFORMS.has(course.platform)
       ? LIVE_FILL_SLOW_TIMEOUT_MS
       : LIVE_FILL_TIMEOUT_MS;
+    const timeoutMs = liveFillAttemptTimeoutMs(platformTimeout, deadlineMs);
+    if (timeoutMs <= 0) {
+      markNeedsLive(by_slug, slug);
+      return;
+    }
 
     try {
       const data = await withTimeout(
@@ -627,7 +686,7 @@ async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, 
       );
       if (data == null || (typeof data === 'object' && data.error)) {
         failed++;
-        by_slug[slug] = { ...by_slug[slug], live_failed: true };
+        by_slug[slug] = { ...by_slug[slug], live_failed: true, needs_live: true };
         return;
       }
       let rows = deps.normalizeTimesWorker(course, data, String(holes));
@@ -649,11 +708,12 @@ async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, 
         times,
         source: 'live',
         live_failed: false,
+        needs_live: false,
       };
       filled++;
     } catch {
       failed++;
-      by_slug[slug] = { ...by_slug[slug], live_failed: true };
+      by_slug[slug] = { ...by_slug[slug], live_failed: true, needs_live: true };
     }
   });
 
