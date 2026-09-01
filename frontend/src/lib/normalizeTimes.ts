@@ -1,4 +1,5 @@
 import type { CourseRecord } from './courseRecord';
+import { effectivePlatform } from './platformRegistry';
 
 type NormRow = { rawTime: string; spots: number | null; price: string | null; holes: number };
 
@@ -241,10 +242,22 @@ function normalizeGolfPayTimes(data: unknown): NormRow[] {
   });
 }
 
+function normalizeQuick18Times(data: unknown): NormRow[] {
+  if (!data || typeof data !== 'object') return [];
+  const times = (data as { times?: unknown }).times;
+  if (!Array.isArray(times)) return [];
+  return times.filter((row): row is NormRow => {
+    if (!row || typeof row !== 'object') return false;
+    const r = row as NormRow;
+    return Boolean(r.rawTime) && (r.holes === 9 || r.holes === 18);
+  });
+}
+
 export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes: string): NormRow[] {
   if (!data || (typeof data === 'object' && data !== null && 'error' in data && (data as { error: unknown }).error))
     return [];
-  switch (course.platform) {
+  const platform = effectivePlatform(course);
+  switch (platform) {
     case 'foreup':
       return normalizeForeUpTimes(data, holes);
     case 'membersports':
@@ -259,6 +272,8 @@ export function normalizeTimesWorker(course: CourseRecord, data: unknown, holes:
       return normalizeTruteeTimes(course, data);
     case 'golfpay':
       return normalizeGolfPayTimes(data);
+    case 'quick18':
+      return normalizeQuick18Times(data);
     default:
       return [];
   }

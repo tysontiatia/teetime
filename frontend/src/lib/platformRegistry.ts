@@ -40,10 +40,10 @@ export const PLATFORM_DEFS: readonly PlatformDef[] = [
     label: 'Sagacity',
     capability: 'booking_link_only',
     inPicker: true,
-    aliases: ['sagacity golf', 'sagacitygolf', 'play18', 'play 18', 'play-18'],
-    hosts: ['play18.com', 'sagacitygolf.com'],
+    aliases: ['sagacity golf', 'sagacitygolf'],
+    hosts: ['sagacitygolf.com'],
   },
-  { key: 'quick18', label: 'Quick18', capability: 'live_inventory', inPicker: true, aliases: ['quick 18'], hosts: ['quick18.com'] },
+  { key: 'quick18', label: 'Quick18', capability: 'live_inventory', inPicker: true, aliases: ['quick 18', 'play18', 'play 18', 'play-18'], hosts: ['quick18.com', 'play18.com'] },
   { key: 'golfwithaccess', label: 'GolfWithAccess', capability: 'booking_link_only', inPicker: true, aliases: ['golf with access'], hosts: ['golfwithaccess.com'] },
   { key: 'clubcaddie', label: 'ClubCaddie', capability: 'booking_link_only', inPicker: true, aliases: ['club caddie'], hosts: ['clubcaddie.com'] },
   {
@@ -141,7 +141,7 @@ const GENERIC_BRANDS = new Set([
   'lovable',
 ]);
 
-/** Turn a typed vendor name into a stable key (`Play 18` → `sagacity`). */
+/** Turn a typed vendor name into a stable key (`Play 18` → `quick18`). */
 export function vendorKeyFromLabel(raw: string | null | undefined): string {
   const trimmed = String(raw || '').trim();
   if (!trimmed || SKIP_VENDOR_NOTES.has(compactKey(trimmed))) return '';
@@ -226,7 +226,9 @@ export function workerSupportedPlatform(platform: string): boolean {
 }
 
 export function filterWorkerCourses(courses: Course[]): Course[] {
-  return courses.filter((c) => c.platform && workerSupportedPlatform(c.platform));
+  return courses.filter((c) =>
+    workerSupportedPlatform(effectivePlatform({ platform: c.platform, booking_url: c.bookingUrl })),
+  );
 }
 
 export function getPlatformCapability(platform: string | undefined): PlatformCapability {

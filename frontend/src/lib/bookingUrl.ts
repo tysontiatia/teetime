@@ -401,7 +401,7 @@ function quick18TenantFromSource(source: BookingSource): string {
   for (const raw of [source.booking_url, source.bookingUrl]) {
     try {
       const host = new URL(String(raw || '').trim()).hostname.toLowerCase();
-      const m = host.match(/^([a-z0-9-]+)\.quick18\.com$/i);
+      const m = host.match(/^([a-z0-9-]+)\.(quick18|play18)\.com$/i);
       if (m) return m[1]!.toLowerCase();
     } catch {
       /* ignore bad URLs */
@@ -414,12 +414,25 @@ function quick18TenantFromSource(source: BookingSource): string {
  * Quick18 only honors `teedate=YYYYMMDD` on GET. Course / players / time-of-day
  * are POST body fields and are ignored as query params.
  */
-function buildQuick18BookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+function quick18SheetHostFromSource(source: BookingSource): string {
+  for (const raw of [source.booking_url, source.bookingUrl]) {
+    try {
+      const host = new URL(String(raw || '').trim()).hostname.toLowerCase();
+      if (/^[a-z0-9-]+\.(quick18|play18)\.com$/i.test(host)) return host;
+    } catch {
+      /* ignore bad URLs */
+    }
+  }
   const tenant = quick18TenantFromSource(source);
+  return tenant ? `${tenant}.quick18.com` : '';
+}
+
+function buildQuick18BookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const host = quick18SheetHostFromSource(source);
   const ymd = ymdToQuick18Date(params.dateYmd);
   const base = (source.booking_url || source.bookingUrl || '').trim();
-  if (tenant && ymd) {
-    return `https://${tenant}.quick18.com/teetimes/searchmatrix?teedate=${ymd}`;
+  if (host && ymd) {
+    return `https://${host}/teetimes/searchmatrix?teedate=${ymd}`;
   }
   if (!base || !ymd) return base || null;
   try {
@@ -562,7 +575,7 @@ export function buildBookingUrl(
     return buildTeeItUpBookingUrl(bookingSource, params) || bookingUrl;
   }
 
-  if (platform === 'quick18' || /\.quick18\.com/i.test(bookingUrl || '')) {
+  if (platform === 'quick18' || /\.(quick18|play18)\.com/i.test(bookingUrl || '')) {
     return buildQuick18BookingUrl(bookingSource, params) || bookingUrl;
   }
 

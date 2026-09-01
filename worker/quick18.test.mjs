@@ -9,7 +9,9 @@ import {
   holesFromScheduleHeader,
   normalizeQuick18TimesWorker,
   parseQuick18SearchMatrix,
+  courseHasQuick18Sheet,
   quick18CourseId,
+  quick18SheetHost,
   quick18StampToRawTime,
   quick18Tenant,
   ymdToQuick18Date,
@@ -26,6 +28,16 @@ test('tenant and course id resolve from record or booking host', () => {
     'papago',
   );
   assert.equal(quick18Tenant({ booking_url: 'https://example.com' }), '');
+  assert.equal(
+    quick18Tenant({ booking_url: 'https://augustaranch.play18.com/teetimes/searchmatrix' }),
+    'augustaranch',
+  );
+  assert.equal(
+    quick18SheetHost({ booking_url: 'https://augustaranch.play18.com/teetimes/searchmatrix' }),
+    'augustaranch.play18.com',
+  );
+  assert.equal(courseHasQuick18Sheet({ platform: 'sagacity', booking_url: 'https://augustaranch.play18.com/teetimes/searchmatrix' }), true);
+  assert.equal(courseHasQuick18Sheet({ platform: 'sagacity', booking_url: 'https://www.sagacitygolf.com/' }), false);
   assert.equal(quick18CourseId({ quick18_course_id: '1057' }), '1057');
   assert.equal(quick18CourseId({ quick18_course_id: 'x' }), '');
 });
@@ -87,5 +99,12 @@ test('booking URL stamps teedate on the tenant host', () => {
   assert.equal(
     buildQuick18BookingUrl({ quick18_tenant: 'papago' }, '2026-09-01'),
     'https://papago.quick18.com/teetimes/searchmatrix?teedate=20260901',
+  );
+  assert.equal(
+    buildQuick18BookingUrl(
+      { booking_url: 'https://augustaranch.play18.com/teetimes/searchmatrix' },
+      '2026-09-01',
+    ),
+    'https://augustaranch.play18.com/teetimes/searchmatrix?teedate=20260901',
   );
 });
