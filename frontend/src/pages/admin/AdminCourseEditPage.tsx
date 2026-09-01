@@ -649,6 +649,25 @@ export function AdminCourseEditPage() {
             </>
           )}
 
+          {record.platform === 'golfrev' && (
+            <>
+              <Field label="golfrev_course_id (?courseid=)">
+                <input
+                  className="input"
+                  value={record.golfrev_course_id || ''}
+                  onChange={(e) => patchRecord({ golfrev_course_id: e.target.value })}
+                />
+              </Field>
+              <Field label="golfrev_htc (?htc=)">
+                <input
+                  className="input"
+                  value={record.golfrev_htc || ''}
+                  onChange={(e) => patchRecord({ golfrev_htc: e.target.value })}
+                />
+              </Field>
+            </>
+          )}
+
           {record.platform === 'cps' && (
             <>
               <Field label="cps_tenant (subdomain)">

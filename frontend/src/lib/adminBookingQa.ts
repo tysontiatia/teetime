@@ -61,6 +61,8 @@ export function applyParsedBookingUrl(
   if (hints.clubcaddie_course_id) next.clubcaddie_course_id = hints.clubcaddie_course_id;
   if (hints.teesnap_tenant) next.teesnap_tenant = hints.teesnap_tenant;
   if (hints.teesnap_course_id) next.teesnap_course_id = hints.teesnap_course_id;
+  if (hints.golfrev_course_id) next.golfrev_course_id = hints.golfrev_course_id;
+  if (hints.golfrev_htc) next.golfrev_htc = hints.golfrev_htc;
 
   const meta = parsed.meta;
   if (meta) {

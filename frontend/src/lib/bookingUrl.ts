@@ -476,6 +476,29 @@ function buildGolfWithAccessBookingUrl(source: BookingSource, params: BookingLin
   }
 }
 
+function ymdToGolfRevDate(ymd: string): string {
+  const m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return '';
+  return `${Number(m[2])}/${Number(m[3])}/${m[1]}`;
+}
+
+function buildGolfRevBookingUrl(source: BookingSource, params: BookingLinkParams): string | null {
+  const base = (source.booking_url || source.bookingUrl || '').trim();
+  if (!base) return null;
+  const players = String(Math.min(Math.max(params.players || 1, 1), 4));
+  const us = ymdToGolfRevDate(params.dateYmd);
+  try {
+    const u = new URL(base.split('#')[0] || base);
+    if (us) u.searchParams.set('startdate', us);
+    u.searchParams.delete('startDate');
+    u.searchParams.set('players', players);
+    if (!u.searchParams.has('r')) u.searchParams.set('r', '1');
+    return u.toString();
+  } catch {
+    return base;
+  }
+}
+
 function ymdToClubCaddieDate(ymd: string): string {
   const m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[2]}/${m[3]}/${m[1]}` : '';
@@ -539,6 +562,8 @@ export type BookingSource = {
   clubcaddie_course_id?: string | null;
   teesnap_tenant?: string | null;
   teesnap_course_id?: string | null;
+  golfrev_course_id?: string | null;
+  golfrev_htc?: string | null;
   /** IANA timezone for `{time}` template formatting. */
   timezone?: string | null;
 };
@@ -649,6 +674,12 @@ export function buildBookingUrl(
     clubcaddie_course_id: clubcaddieCourseId,
     teesnap_tenant: teesnapTenant,
     teesnap_course_id: teesnapCourseId,
+    golfrev_course_id:
+      'golfrev_course_id' in source && source.golfrev_course_id != null
+        ? String(source.golfrev_course_id)
+        : null,
+    golfrev_htc:
+      'golfrev_htc' in source && source.golfrev_htc != null ? String(source.golfrev_htc) : null,
     timezone: timeZone,
   };
 
@@ -694,6 +725,10 @@ export function buildBookingUrl(
 
   if (platform === 'teesnap' || /teesnap\.(net|com)/i.test(bookingUrl || '')) {
     return buildTeeSnapBookingUrl(bookingSource, params) || bookingUrl;
+  }
+
+  if (platform === 'golfrev' || /golfrev\.com/i.test(bookingUrl || '')) {
+    return buildGolfRevBookingUrl(bookingSource, params) || bookingUrl;
   }
 
   if (!bookingUrl) return null;

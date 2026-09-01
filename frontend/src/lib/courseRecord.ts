@@ -55,6 +55,10 @@ export type CourseRecord = {
   teesnap_tenant?: string;
   /** Optional TeeSnap numeric course id from window.property. */
   teesnap_course_id?: string;
+  /** GolfRev `/go/tee_times/?courseid=` id. */
+  golfrev_course_id?: string;
+  /** GolfRev `/go/tee_times/?htc=` hot-time course id (required for the table). */
+  golfrev_htc?: string;
   booking_window_days?: number;
   booking_opens_time?: string;
   timezone?: string;
