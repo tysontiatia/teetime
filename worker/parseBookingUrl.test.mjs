@@ -105,6 +105,14 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
     }).changed,
     false,
   );
+  assert.deepEqual(
+    nextRecordPlatform({
+      platform: 'golfwithaccess',
+      booking_status: 'unsupported',
+      booking_url: 'https://golfwithaccess.com/course/antelope-hills-golf-course/reserve-tee-time',
+    }),
+    { platform: 'golfwithaccess', from: 'golfwithaccess', changed: true, reason: 'live_ready' },
+  );
   assert.equal(
     nextRecordPlatform({
       platform: 'other',
@@ -152,6 +160,25 @@ test('recordAfterPlatformReclassify stamps ClubCaddie as live', () => {
   assert.equal(rec.platform, 'clubcaddie');
   assert.equal(rec.booking_status, 'ready');
   assert.equal(rec.clubcaddie_apikey, 'hiedabab');
+});
+
+test('recordAfterPlatformReclassify promotes an already-live GolfWithAccess row off unsupported', () => {
+  const rec = recordAfterPlatformReclassify(
+    {
+      name: 'Antelope Hills Golf Course (Prescott)',
+      platform: 'golfwithaccess',
+      booking_status: 'unsupported',
+      booking_url: 'https://golfwithaccess.com/course/antelope-hills-golf-course/reserve-tee-time',
+    },
+    nextRecordPlatform({
+      platform: 'golfwithaccess',
+      booking_status: 'unsupported',
+      booking_url: 'https://golfwithaccess.com/course/antelope-hills-golf-course/reserve-tee-time',
+    }),
+  );
+  assert.equal(rec.platform, 'golfwithaccess');
+  assert.equal(rec.booking_status, 'ready');
+  assert.equal(rec.golfwithaccess_slug, 'antelope-hills-golf-course');
 });
 
 test('recordAfterPlatformReclassify stamps GolfWithAccess as live', () => {

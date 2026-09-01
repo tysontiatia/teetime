@@ -409,6 +409,10 @@ const LIVE_ADAPTER_PLATFORMS = new Set([
 export function nextRecordPlatform(record) {
   const current = String(record?.platform || '').trim();
   if (LIVE_ADAPTER_PLATFORMS.has(current)) {
+    const status = String(record?.booking_status || '').trim();
+    if (status === 'unsupported' || status === 'pending') {
+      return { platform: current, from: current, changed: true, reason: 'live_ready' };
+    }
     return { platform: current, changed: false, reason: 'live' };
   }
   const url = String(record?.booking_url || '').trim();
