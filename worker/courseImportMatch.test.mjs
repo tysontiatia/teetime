@@ -61,4 +61,14 @@ test('inferCourseState prefers address / Idaho area', () => {
   assert.equal(inferCourseState({ address: 'Eagle, ID 83616', timezone: 'America/Boise', area: 'Idaho · Treasure Valley' }), 'ID');
   assert.equal(inferCourseState({ address: 'Salt Lake City, UT 84108', timezone: 'America/Denver', area: 'SALT LAKE CITY AREA' }), 'UT');
   assert.equal(inferCourseState({ address: 'Phoenix, AZ 85018', timezone: 'America/Phoenix', area: 'Arizona · Phoenix' }), 'AZ');
+  assert.equal(
+    inferCourseState({
+      address: '3000 E Bonanza Rd, Las Vegas, NV 89101, USA',
+      timezone: 'America/Los_Angeles',
+      area: 'Nevada · Las Vegas',
+    }),
+    'NV',
+  );
+  assert.equal(inferCourseState({ area: 'Nevada · Reno', timezone: 'America/Los_Angeles' }), 'NV');
+  assert.equal(inferCourseState({ timezone: 'America/Los_Angeles' }), null);
 });

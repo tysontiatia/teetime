@@ -148,9 +148,16 @@ export function inferCourseState(record) {
   const addr = String(record?.address || '');
   const area = String(record?.area || '');
   const tz = String(record?.timezone || '').trim();
-  if (/\bAZ\b/.test(addr) || /^Arizona\b/i.test(area) || tz === 'America/Phoenix') return 'AZ';
-  if (/\bID\b/.test(addr) || /^Idaho\b/i.test(area) || tz === 'America/Boise') return 'ID';
-  if (/\bUT\b/.test(addr) || /\bUtah\b/i.test(area)) return 'UT';
+  const fromAddr = addr.match(/\b(AZ|ID|UT|NV|WY|CO|NM)\b/);
+  if (fromAddr) return fromAddr[1];
+  if (/^Arizona\b/i.test(area) || tz === 'America/Phoenix') return 'AZ';
+  if (/^Idaho\b/i.test(area) || tz === 'America/Boise') return 'ID';
+  if (/^Nevada\b/i.test(area)) return 'NV';
+  if (/^Wyoming\b/i.test(area)) return 'WY';
+  if (/^Colorado\b/i.test(area)) return 'CO';
+  if (/^New Mexico\b/i.test(area)) return 'NM';
+  if (/\bUtah\b/i.test(area)) return 'UT';
+  // Do not map America/Los_Angeles → NV (same zone as California).
   // Legacy Utah area labels without "Utah" still use Denver.
   if (tz === 'America/Denver') return 'UT';
   return null;

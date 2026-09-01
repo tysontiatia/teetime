@@ -138,9 +138,13 @@ export function stateFromRecord(record: {
   if (area.startsWith('idaho') || area.includes('idaho ·')) return 'ID';
   if (area.startsWith('arizona') || area.includes('arizona ·')) return 'AZ';
   if (area.startsWith('wyoming') || area.includes('wyoming ·')) return 'WY';
+  if (area.startsWith('nevada') || area.includes('nevada ·')) return 'NV';
+  if (area.startsWith('colorado') || area.includes('colorado ·')) return 'CO';
+  if (area.startsWith('new mexico') || area.includes('new mexico ·')) return 'NM';
   const tz = String(record.timezone || '').trim();
   if (tz === 'America/Boise') return 'ID';
   if (tz === 'America/Phoenix') return 'AZ';
+  // Do not map America/Los_Angeles → NV (same zone as California).
   // Legacy Utah rows often omit state in thin records but use Denver.
   if (tz === 'America/Denver') return 'UT';
   if (area.includes('salt lake') || area.includes('utah') || area.includes('wasatch')) return 'UT';
