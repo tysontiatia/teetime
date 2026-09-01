@@ -110,19 +110,24 @@ type BookingFields = {
   booking_url?: string | null;
 };
 
+/** True when the stored platform or booking host already has a live Worker adapter. */
+function hasLiveInventoryAdapter(c: BookingFields): boolean {
+  const stored = String(c.platform || '').trim();
+  if (stored && getPlatformCapability(stored) === 'live_inventory') return true;
+  if (c.booking_url) {
+    const fromUrl = detectPlatformFromBookingUrl(c.booking_url);
+    if (fromUrl && getPlatformCapability(fromUrl) === 'live_inventory') return true;
+  }
+  return false;
+}
+
 /** Resolve explicit status, or infer ready vs pending for legacy Utah rows. */
 export function resolveBookingStatus(c: BookingFields): BookingStatus {
   const raw = String(c.booking_status || '').trim();
-  if (
-    raw === 'ready' ||
-    raw === 'phone' ||
-    raw === 'unsupported' ||
-    raw === 'private' ||
-    raw === 'closed' ||
-    raw === 'pending'
-  ) {
-    return raw;
-  }
+  if (raw === 'phone' || raw === 'private' || raw === 'closed') return raw;
+  // Live adapters stay "Has booking" even if QA left them on unsupported.
+  if (hasLiveInventoryAdapter(c)) return 'ready';
+  if (raw === 'ready' || raw === 'unsupported' || raw === 'pending') return raw;
   if (String(c.platform || '').trim() && String(c.booking_url || '').trim()) return 'ready';
   return 'pending';
 }
