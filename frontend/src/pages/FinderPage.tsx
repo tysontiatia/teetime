@@ -40,7 +40,7 @@ import {
   savePendingAuthAction,
   takePendingAuthAction,
 } from '../lib/pendingAuthAction';
-import { courseDetailQueryString } from '../lib/finderUrl';
+import { courseDetailQueryString, rememberFinderSearch, rememberedFinderSearchParams } from '../lib/finderUrl';
 import { captureEvent } from '../lib/analytics';
 import { holesFilterLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
@@ -104,7 +104,11 @@ export function FinderPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sp, setSp] = useSearchParams();
-  const params = useMemo(() => parseParams(sp), [sp]);
+  const params = useMemo(() => {
+    if ([...sp.keys()].length > 0) return parseParams(sp);
+    const remembered = rememberedFinderSearchParams();
+    return parseParams(remembered ?? sp);
+  }, [sp]);
   const todayYmd = todayYmdUtah();
   const [locationDraft, setLocationDraft] = useState(() => params.locationQuery);
 
@@ -113,8 +117,20 @@ export function FinderPage() {
     setLocationDraft(params.locationQuery);
   }, [params.locationQuery]);
 
-  /** Missing `?date=` uses the evening rollover; past/invalid dates snap forward. */
+  /**
+   * Persist the Find query. Returning from Alerts/Plan is `to="/"` (basename-safe);
+   * empty URL rehydrates from this store so we don't start a new search.
+   */
   useEffect(() => {
+    if ([...sp.keys()].length === 0) {
+      const remembered = rememberedFinderSearchParams();
+      if (remembered && [...remembered.keys()].length > 0) {
+        setSp(remembered, { replace: true });
+        return;
+      }
+    } else {
+      rememberFinderSearch(`?${sp.toString()}`);
+    }
     const raw = sp.get('date');
     const nextDate = raw ? clampDateToTodayOrLater(raw) : defaultFindDateYmd();
     if (raw === nextDate) return;
@@ -124,8 +140,7 @@ export function FinderPage() {
   }, [sp, setSp]);
 
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
-  const [finderFresh, setFinderFresh] = useState(false);
-  const lastFinderRefreshAtRef = useRef(Date.now());
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const isCompactShell = useIsCompactShell();
@@ -136,9 +151,10 @@ export function FinderPage() {
   const [queryDockHoldPx, setQueryDockHoldPx] = useState<number | null>(null);
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
 
-  useEffect(() => {
-    setFinderFresh(false);
-  }, [params.date, params.holes, params.players]);
+  const refetchResults = useCallback(() => {
+    setRefreshNonce((n) => n + 1);
+    setLastUpdatedAt(Date.now());
+  }, []);
 
   useEffect(() => {
     captureEvent('search_performed', {
@@ -159,18 +175,6 @@ export function FinderPage() {
     params.fetchScope,
     params.radiusMi,
   ]);
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (Date.now() - lastFinderRefreshAtRef.current < 4000) return;
-      lastFinderRefreshAtRef.current = Date.now();
-      setFinderFresh(true);
-      setLastUpdatedAt(Date.now());
-    };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
-  }, []);
 
   useEffect(() => {
     if (!isCompactShell) {
@@ -359,9 +363,8 @@ export function FinderPage() {
     params.date,
     params.holes,
     params.players,
-    lastUpdatedAt ?? 0,
+    refreshNonce,
     catalogLoading,
-    { fresh: finderFresh },
   );
 
   const showCatalogSkeleton = !catalogError && catalogLoading;
@@ -871,7 +874,7 @@ export function FinderPage() {
           <div className="app-banner app-banner--error" role="alert">
             <strong>Could not load live tee times.</strong> Check your connection, then search again.
             <div className="app-banner-actions">
-              <button type="button" className="btn btn-primary" onClick={() => setLastUpdatedAt(Date.now())}>
+              <button type="button" className="btn btn-primary" onClick={refetchResults}>
                 Retry now
               </button>
             </div>
@@ -969,7 +972,7 @@ export function FinderPage() {
               type="button"
               aria-label="Refresh results"
               title="Refresh"
-              onClick={() => setLastUpdatedAt(Date.now())}
+              onClick={refetchResults}
             >
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path

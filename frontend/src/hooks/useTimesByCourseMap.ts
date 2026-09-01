@@ -8,6 +8,28 @@ import { filterWorkerCourses } from '../lib/platformRegistry';
 
 export type InventorySource = 'snapshot' | 'live';
 
+type TimesMemCache = {
+  key: string;
+  map: Map<string, TeeTime[]>;
+  sourceBySlug: Map<string, InventorySource>;
+  failedSlugs: string[];
+  attemptedSlugCount: number;
+};
+
+let timesMemCache: TimesMemCache | null = null;
+
+function timesSearchKey(slugKey: string, dateYmd: string, holes: HolesFilter, players: number): string {
+  return `${slugKey}|${dateYmd}|${holes}|${players}`;
+}
+
+function cloneTimesMap(src: Map<string, TeeTime[]>): Map<string, TeeTime[]> {
+  return new Map(src);
+}
+
+function cloneSourceMap(src: Map<string, InventorySource>): Map<string, InventorySource> {
+  return new Map(src);
+}
+
 export function useTimesByCourseMap(
   courses: Course[],
   recordsBySlug: Map<string, CourseRecord>,
@@ -21,14 +43,21 @@ export function useTimesByCourseMap(
   const fresh = options?.fresh === true;
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
   const slugKey = useMemo(() => workerCourses.map((c) => c.id).join('|'), [workerCourses]);
+  const searchKey = timesSearchKey(slugKey, dateYmd, holes, players);
+  const cacheHit = timesMemCache?.key === searchKey ? timesMemCache : null;
 
-  const [map, setMap] = useState<Map<string, TeeTime[]>>(new Map());
-  const [sourceBySlug, setSourceBySlug] = useState<Map<string, InventorySource>>(new Map());
+  const [map, setMap] = useState<Map<string, TeeTime[]>>(() =>
+    cacheHit ? cloneTimesMap(cacheHit.map) : new Map(),
+  );
+  const [sourceBySlug, setSourceBySlug] = useState<Map<string, InventorySource>>(() =>
+    cacheHit ? cloneSourceMap(cacheHit.sourceBySlug) : new Map(),
+  );
   const [loading, setLoading] = useState(false);
-  const [failedSlugs, setFailedSlugs] = useState<string[]>([]);
-  const [attemptedSlugCount, setAttemptedSlugCount] = useState(0);
+  const [failedSlugs, setFailedSlugs] = useState<string[]>(() => cacheHit?.failedSlugs ?? []);
+  const [attemptedSlugCount, setAttemptedSlugCount] = useState(() => cacheHit?.attemptedSlugCount ?? 0);
   const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(new Set());
   const mapRef = useRef(map);
+  const consumedNonceRef = useRef(0);
 
   useEffect(() => {
     mapRef.current = map;
@@ -72,6 +101,18 @@ export function useTimesByCourseMap(
     let cancelled = false;
     const slugs = entries.map((e) => e.slug);
     const slugSet = new Set(slugs);
+    const forceRefresh = fresh || (refreshNonce > 0 && refreshNonce !== consumedNonceRef.current);
+    if (timesMemCache?.key === searchKey && !forceRefresh) {
+      setMap(cloneTimesMap(timesMemCache.map));
+      setSourceBySlug(cloneSourceMap(timesMemCache.sourceBySlug));
+      setFailedSlugs(timesMemCache.failedSlugs);
+      setAttemptedSlugCount(timesMemCache.attemptedSlugCount);
+      setPendingSlugs(new Set());
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     // Keep prior times painted across refetch (date/players/holes/retry). Drop slugs
     // no longer in the pool; don't blank the whole grid at fetch start.
@@ -100,17 +141,28 @@ export function useTimesByCourseMap(
     setPendingSlugs(new Set(slugs));
     setLoading(true);
 
+    const failed = new Set<string>();
+    const painted = new Map<string, TeeTime[]>();
+    const paintedSources = new Map<string, InventorySource>();
+    for (const [slug, times] of mapRef.current) {
+      if (slugSet.has(slug) && times.length > 0) painted.set(slug, times);
+    }
+    const persistCache = () => {
+      if (painted.size === 0) return;
+      timesMemCache = {
+        key: searchKey,
+        map: cloneTimesMap(painted),
+        sourceBySlug: cloneSourceMap(paintedSources),
+        failedSlugs: [...failed],
+        attemptedSlugCount: entries.length,
+      };
+    };
+
     // Defer so React Strict Mode's mount→unmount→remount only runs one fetch.
     // Without this, the cancelled first pass still hammers Chronogolf and the
     // second pass often rate-limits holes=9 multi-course live fills to empty.
     const timer = window.setTimeout(() => {
       void (async () => {
-        const failed = new Set<string>();
-        /** Sync mirror for this fetch — seeded from whatever is already on screen. */
-        const painted = new Map<string, TeeTime[]>();
-        for (const [slug, times] of mapRef.current) {
-          if (slugSet.has(slug) && times.length > 0) painted.set(slug, times);
-        }
         let blockingDone = false;
 
         await fetchTimesForCourseSlugs(
@@ -120,7 +172,6 @@ export function useTimesByCourseMap(
           players,
           6,
           ({ slug, times, ok, source }) => {
-            if (cancelled) return;
             const existing = painted.get(slug) ?? [];
             let nextTimes: TeeTime[];
             // Confirmed live empty must clear ghosts (The Ridge 18-hole phantoms).
@@ -136,6 +187,9 @@ export function useTimesByCourseMap(
             if (nextTimes.length > 0) failed.delete(slug);
             else if (!ok && !blockingDone) failed.add(slug);
             else failed.delete(slug);
+            if (source) paintedSources.set(slug, source);
+            persistCache();
+            if (cancelled) return;
 
             setMap((prev) => {
               const next = new Map(prev);
@@ -161,9 +215,10 @@ export function useTimesByCourseMap(
             });
           },
           {
-            fresh,
+            fresh: forceRefresh,
             onBlockingComplete: () => {
               blockingDone = true;
+              persistCache();
               if (cancelled) return;
               setFailedSlugs([...failed]);
               setPendingSlugs(new Set());
@@ -172,10 +227,12 @@ export function useTimesByCourseMap(
           },
         );
 
+        persistCache();
         if (!cancelled) {
           setFailedSlugs([...failed]);
           setPendingSlugs(new Set());
           setLoading(false);
+          consumedNonceRef.current = refreshNonce;
         }
       })();
     }, 0);
@@ -183,8 +240,9 @@ export function useTimesByCourseMap(
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      persistCache();
     };
-  }, [slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug, fresh]);
+  }, [searchKey, slugKey, dateYmd, holes, players, refreshNonce, catalogLoading, workerCourses, recordsBySlug, fresh]);
 
   const loadedSlugCount = attemptedSlugCount - pendingSlugs.size;
 

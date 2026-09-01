@@ -30,11 +30,13 @@ export function AppBottomNav({ onRequestHubAuth }: Props) {
   const gateHubNav = isCompact && !loading && !user && !!onRequestHubAuth;
   const alertsBadge = user && unreadCount > 0 ? (unreadCount > 9 ? '9+' : String(unreadCount)) : null;
 
+  const findTo = p === '/' || p === '' ? '.' : '/';
+
   return (
     <nav className="app-bottom-nav" aria-label="Primary">
       <div className="app-bottom-nav-inner">
         <Link
-          to="/"
+          to={findTo}
           className={`app-bottom-nav-link${findActive ? ' is-active' : ''}`}
           aria-current={findActive ? 'page' : undefined}
         >
