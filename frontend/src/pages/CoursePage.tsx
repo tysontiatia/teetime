@@ -11,7 +11,8 @@ import {
   defaultFindDateYmd,
 } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
-import type { SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
+import type { SearchParams, TeeTime, TimeOfDayPreset } from '../types';
+import { parseSortBy } from '../lib/sort';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, workerSupportedPlatform } from '../lib/platformRegistry';
@@ -89,7 +90,7 @@ export function CoursePage() {
   const players = clampPlayers(Number(sp.get('players') || 2));
   const holes: HolesFilter = parseHolesFilter(sp.get('holes'));
   const tod = ((sp.get('tod') as TimeOfDayPreset) || 'any') satisfies TimeOfDayPreset;
-  const sort = ((sp.get('sort') as SortBy) || 'soonest') satisfies SortBy;
+  const sort = parseSortBy(sp.get('sort'));
 
   const setParam = useCallback(
     (key: string, value: string) => {

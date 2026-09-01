@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Enrich course_registry records with Google Places metadata (photo_reference,
- * rating, review_count, website, phone_number). Photos on the site are driven by
- * record.photo_reference -> worker /place-photo, so seeded courses stay imageless
- * until this runs.
+ * rating, review_count, website, phone_number, lat/lng). Photos on the site are
+ * driven by record.photo_reference -> worker /place-photo, so seeded courses
+ * stay imageless until this runs. Rows without coordinates are matched by
+ * name + address instead of skipped.
  *
  * Usage:
  *   GOOGLE_PLACES_KEY=... SUPABASE_SERVICE_KEY=... \
@@ -22,7 +23,7 @@
  *   --dry-run       print what would change; write nothing
  */
 
-import { findPlace, loadDotEnv, sleep, stateFromAddress } from './lib/courses-json.mjs';
+import { findPlace, findPlaceByQuery, loadDotEnv, sleep, stateFromAddress } from './lib/courses-json.mjs';
 
 loadDotEnv();
 
@@ -91,24 +92,26 @@ for (const row of rows) {
   if (slugArgs.length && !slugArgs.includes(row.slug)) continue;
   considered++;
 
-  if (record.photo_reference && !force) {
+  if (record.photo_reference && typeof record.lat === 'number' && typeof record.lng === 'number' && !force) {
     console.log(`•  ${row.slug}  — already has photo_reference (use --force to refresh)`);
     skipped++;
     continue;
   }
-  if (typeof record.lat !== 'number' || typeof record.lng !== 'number') {
-    console.log(`⚠  ${row.slug}  — no coordinates, skipping`);
-    skipped++;
-    continue;
-  }
 
-  const place = await findPlace(
-    record.name,
-    record.lat,
-    record.lng,
-    API_KEY,
-    stateFromAddress(record.address),
-  );
+  let place;
+  if (typeof record.lat === 'number' && typeof record.lng === 'number') {
+    place = await findPlace(
+      record.name,
+      record.lat,
+      record.lng,
+      API_KEY,
+      stateFromAddress(record.address),
+    );
+  } else {
+    const name = String(record.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const query = [name, record.address, 'golf course'].filter(Boolean).join(' ');
+    place = await findPlaceByQuery(query, NaN, NaN, API_KEY);
+  }
   await sleep(300);
   if (!place) {
     console.log(`✗  ${row.slug}  — no Places match`);
@@ -123,6 +126,13 @@ for (const row of rows) {
   if (place.user_ratings_total != null) next.review_count = place.user_ratings_total;
   if (place.website && !next.website) next.website = place.website;
   if (place.formatted_phone_number && !next.phone_number) next.phone_number = place.formatted_phone_number;
+  if (place.place_id && !next.google_place_id) next.google_place_id = place.place_id;
+  const plat = place.geometry?.location;
+  if (typeof plat?.lat === 'number' && typeof plat?.lng === 'number') {
+    if (typeof next.lat !== 'number') next.lat = plat.lat;
+    if (typeof next.lng !== 'number') next.lng = plat.lng;
+  }
+  if (place.formatted_address && !next.address) next.address = place.formatted_address;
   delete next.photo_url;
 
   const label = `★${next.rating ?? '?'} (${next.review_count ?? 0} reviews, ${ref ? 'photo saved' : 'NO photo'})`;

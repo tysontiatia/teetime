@@ -100,10 +100,10 @@ export function CourseMarketplaceCard({
   const hasRating = typeof course.rating === 'number';
   const tz = courseTimezone(record?.timezone ?? course.timezone);
   const emptyLive = liveTimesEmptyBadge(timeOfDay, holes);
-  // Grey only an all-day miss. A morning/9-hole filter is not a dead course.
+  // Grey any live miss so openings read first in a mixed Closest/Rating grid.
   // Phone / booking-link stay full-color (still bookable another way).
-  const isSoldOut = !noLiveInventory && !hasTimes && !timesPending && !outOfScope && emptyLive.greyscale;
-  const emptyLiveSheet = !noLiveInventory && !hasTimes && !timesPending && !outOfScope;
+  const isEmptyLive = !noLiveInventory && !hasTimes && !timesPending && !outOfScope;
+  const emptyLiveSheet = isEmptyLive;
   const moreCount = times.length > top.length ? times.length - top.length : 0;
 
   let badgeLabel: string;
@@ -135,7 +135,7 @@ export function CourseMarketplaceCard({
   const siteHref = websiteHref(record?.website);
 
   return (
-    <article className={`mp-course${isSoldOut ? ' is-empty' : ''}`}>
+    <article className={`mp-course${isEmptyLive ? ' is-empty' : ''}`}>
       <div className="mp-course-media">
         <div className="mp-course-photo">
           <Link to={detailHref} className="mp-course-photo-link" aria-label={`${course.name} details`}>
@@ -164,7 +164,7 @@ export function CourseMarketplaceCard({
 
           <span
             className={`badge-live${!hasTimes ? ' is-muted' : ''}${
-              isSoldOut ? ' is-soldout' : ''
+              isEmptyLive ? ' is-soldout' : ''
             }${timesPending ? ' is-pending' : ''}`}
             aria-label={timesPending ? 'Checking tee times' : undefined}
           >

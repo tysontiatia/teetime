@@ -14,7 +14,15 @@ import {
   defaultFindDateYmd,
 } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
-import { sortFinderGridCourses, sortCourses } from '../lib/sort';
+import {
+  sortFinderGridCourses,
+  sortCourses,
+  parseSortBy,
+  isInventoryFirstSort,
+  bucketFinderCourses,
+  FINDER_SORT_OPTIONS,
+} from '../lib/sort';
+import { liveTimesEmptySection } from '../lib/liveTimesEmpty';
 import {
   filterWorkerCourses,
   getPlatformCapability,
@@ -75,7 +83,7 @@ function parseParams(sp: URLSearchParams): SearchParams {
   const players = clampPlayers(Number(sp.get('players') || 2));
   const holes = parseHolesFilter(sp.get('holes'));
   const timeOfDay = (sp.get('tod') as TimeOfDayPreset) || 'any';
-  const sortBy = (sp.get('sort') as SortBy) || 'soonest';
+  const sortBy = parseSortBy(sp.get('sort'));
   const locationQuery = sp.get('q') || '';
   const fetchScope: SearchParams['fetchScope'] = sp.get('scope') === 'all' ? 'all' : 'nearby';
   const radiusMi = parseFetchRadiusMi(sp.get('radius'));
@@ -339,7 +347,13 @@ export function FinderPage() {
     } else if (!fetchAllUtah) {
       pool = pool.filter((c) => fetchSlugSet.has(c.id));
     }
-    return pool;
+    // Stamp miles from the Find anchor so Closest (and distance tie-breaks) work
+    // without GPS. Catalog only has distanceMi when the browser shared a location.
+    const anchor = timesFetchScope.anchor;
+    return pool.map((c) => {
+      const d = distanceFromAnchor(c, anchor);
+      return d == null ? c : { ...c, distanceMi: d };
+    });
   }, [
     scopedWorkerCourses,
     locationDraft,
@@ -348,6 +362,7 @@ export function FinderPage() {
     placeResidentCourses,
     fetchAllUtah,
     fetchSlugSet,
+    timesFetchScope.anchor,
   ]);
 
   const {
@@ -488,35 +503,50 @@ export function FinderPage() {
     return sortFinderGridCourses(combined, timesByCourse, params.sortBy);
   }, [gridCourses, bookingOnlyInScope, loadingTimes, timesByCourse, params.sortBy]);
 
-  const soonestGroups = useMemo(() => {
-    if (params.sortBy !== 'soonest') return null;
-    const openings: Course[] = [];
-    const noTimes: Course[] = [];
-    const alsoNearby: Course[] = [];
-    for (const c of displayCourses) {
-      const mode = resolveCourseBookingMode(
-        recordsBySlug.get(c.id) ?? { platform: c.platform, booking_url: c.bookingUrl },
-      );
-      if (mode !== 'live') alsoNearby.push(c);
-      else if ((timesByCourse.get(c.id)?.length ?? 0) > 0) openings.push(c);
-      else noTimes.push(c);
-    }
-    return {
-      openings: sortCourses(openings, timesByCourse, 'soonest'),
-      noTimes: [...noTimes].sort(sortCoursesByDistanceThenName),
-      alsoNearby: [...alsoNearby].sort(sortCoursesByDistanceThenName),
-    };
-  }, [params.sortBy, displayCourses, timesByCourse, recordsBySlug]);
+  const inventoryFirst = isInventoryFirstSort(params.sortBy);
 
-  const soonestHasLive = Boolean(
-    soonestGroups && soonestGroups.openings.length + soonestGroups.noTimes.length > 0,
+  const finderGroups = useMemo(() => {
+    if (!inventoryFirst) return null;
+    const buckets = bucketFinderCourses(displayCourses, timesByCourse, {
+      isLive: (c) =>
+        resolveCourseBookingMode(
+          recordsBySlug.get(c.id) ?? { platform: c.platform, booking_url: c.bookingUrl },
+        ) === 'live',
+      isPending: (c) =>
+        fetchSlugSet.has(c.id) &&
+        (timesByCourse.get(c.id)?.length ?? 0) === 0 &&
+        (loadingTimes || pendingSlugs.has(c.id)),
+    });
+    return {
+      openings: sortCourses(buckets.openings, timesByCourse, params.sortBy),
+      noTimes: sortCourses(buckets.noTimes, timesByCourse, 'distance'),
+      alsoNearby: sortCourses(buckets.alsoNearby, timesByCourse, 'distance'),
+    };
+  }, [
+    inventoryFirst,
+    displayCourses,
+    timesByCourse,
+    recordsBySlug,
+    pendingSlugs,
+    fetchSlugSet,
+    loadingTimes,
+    params.sortBy,
+  ]);
+
+  const hasLiveGroup = Boolean(
+    finderGroups && finderGroups.openings.length + finderGroups.noTimes.length > 0,
   );
-  const mainGridCourses = soonestGroups
-    ? soonestHasLive
-      ? [...soonestGroups.openings, ...soonestGroups.noTimes]
-      : soonestGroups.alsoNearby
+  const mainGridCourses = finderGroups
+    ? finderGroups.openings.length > 0
+      ? finderGroups.openings
+      : finderGroups.noTimes.length > 0
+        ? finderGroups.noTimes
+        : finderGroups.alsoNearby
     : displayCourses;
-  const alsoNearbyCourses = soonestHasLive ? (soonestGroups?.alsoNearby ?? []) : [];
+  const noTimesCourses =
+    finderGroups && finderGroups.openings.length > 0 ? finderGroups.noTimes : [];
+  const alsoNearbyCourses = hasLiveGroup ? (finderGroups?.alsoNearby ?? []) : [];
+  const noTimesSection = liveTimesEmptySection(params.timeOfDay, params.holes);
 
   const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
@@ -1123,10 +1153,11 @@ export function FinderPage() {
                   aria-label="Sort courses"
                   onChange={(e) => setParam('sort', e.target.value as SortBy)}
                 >
-                  <option value="soonest">Soonest time</option>
-                  <option value="distance">Closest</option>
-                  <option value="price">Price</option>
-                  <option value="rating">Rating</option>
+                  {FINDER_SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </label>
             ) : null}
@@ -1259,6 +1290,15 @@ export function FinderPage() {
           {!showOutOfMarket && !showCatalogSkeleton ? (
             <>
               {mainGridCourses.map(renderFinderCard)}
+              {noTimesCourses.length > 0 ? (
+                <>
+                  <div className="mp-grid-section">
+                    <p className="mp-grid-section-title">{noTimesSection.title}</p>
+                    <p className="mp-grid-section-copy">{noTimesSection.copy}</p>
+                  </div>
+                  {noTimesCourses.map(renderFinderCard)}
+                </>
+              ) : null}
               {alsoNearbyCourses.length > 0 ? (
                 <>
                   <div className="mp-grid-section">
@@ -1271,10 +1311,6 @@ export function FinderPage() {
             </>
           ) : null}
         </div>
-
-        <p className="finder-help">
-          Tap a time to book or share with friends. Past vote links live under <strong>Plan</strong>.
-        </p>
       </div>
 
       <SlotActionSheet

@@ -56,10 +56,11 @@
   --wx-cloud: #64748B;
   --wx-rain: #2563EB;
 
-  /* Find marketplace card footer — tiles, empty, and loading share a compact row. */
-  --mp-tee-strip-empty-height: 72px;
+  /* Find marketplace card footer — tiles, empty, and loading share one row height. */
   --mp-tee-slot-width: 156px;
   --mp-tee-slot-height: 84px;
+  --mp-tee-strip-pad-y: 18px; /* 8px top + 10px bottom */
+  --mp-tee-strip-height: calc(var(--mp-tee-slot-height) + var(--mp-tee-strip-pad-y));
   --mp-tee-chip-width: 108px;
   --mp-tee-chip-height: 70px;
 
@@ -2311,18 +2312,18 @@ html[data-theme='dark'] .app-banner--warn{
 .mp-icon-btn.is-emphasis{
   background: rgba(255,255,255,0.14);
 }
-.tee-strip-empty{
+.tee-strip.tee-strip-empty{
   display: flex;
   align-items: center;
-  justify-content: stretch;
+  justify-content: center;
   gap: 10px;
-  height: var(--mp-tee-strip-empty-height);
-  min-height: var(--mp-tee-strip-empty-height);
-  max-height: var(--mp-tee-strip-empty-height);
-  padding: 10px 14px 12px;
+  height: var(--mp-tee-strip-height);
+  min-height: var(--mp-tee-strip-height);
+  max-height: var(--mp-tee-strip-height);
+  padding: 8px 14px;
   box-sizing: border-box;
 }
-.tee-strip-empty > .tee-empty-action--primary{
+.tee-strip.tee-strip-empty > .tee-empty-action--primary{
   flex: 1 1 auto;
   width: 100%;
   justify-content: center;
@@ -2334,10 +2335,10 @@ html[data-theme='dark'] .app-banner--warn{
   box-sizing: border-box;
 }
 /* Message + action rows keep a compact split instead of a full-bleed CTA. */
-.tee-strip-empty:has(.tee-empty-msg){
+.tee-strip.tee-strip-empty:has(.tee-empty-msg){
   justify-content: space-between;
 }
-.tee-strip-empty:has(.tee-empty-msg) > .tee-empty-action--primary{
+.tee-strip.tee-strip-empty:has(.tee-empty-msg) > .tee-empty-action--primary{
   flex: 0 0 auto;
   width: auto;
   height: auto;
@@ -2434,19 +2435,6 @@ html[data-theme='dark'] .app-banner--warn{
   max-width: 62ch;
 }
 .booking-only-grid{ padding-bottom: 20px; }
-
-.finder-help{
-  margin: 4px 0 0;
-  padding: 0;
-  color: var(--ink-3);
-  font-size: 13px;
-  line-height: 1.5;
-  max-width: 42ch;
-}
-.finder-help strong{
-  color: var(--ink-2);
-  font-weight: 600;
-}
 
 /* ---------- Marketplace course grid ---------- */
 /*
@@ -2777,9 +2765,9 @@ html[data-theme='dark'] .app-banner--warn{
   scrollbar-color: color-mix(in srgb, var(--ink-3) 35%, transparent) transparent;
   background: color-mix(in srgb, var(--sand) 55%, var(--card));
   border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  height: auto;
-  min-height: 0;
-  max-height: none;
+  height: var(--mp-tee-strip-height);
+  min-height: var(--mp-tee-strip-height);
+  max-height: var(--mp-tee-strip-height);
   flex: 0 0 auto;
   align-items: stretch;
   box-sizing: border-box;
@@ -2817,6 +2805,10 @@ html[data-theme='dark'] .app-banner--warn{
   flex: 0 0 var(--mp-tee-slot-width);
   width: var(--mp-tee-slot-width);
   min-width: var(--mp-tee-slot-width);
+  height: var(--mp-tee-slot-height);
+  min-height: var(--mp-tee-slot-height);
+  max-height: var(--mp-tee-slot-height);
+  overflow: hidden;
   scroll-snap-align: start;
 }
 .tee-slot-card--more{
@@ -7243,14 +7235,14 @@ html[data-theme='dark'] .rail-plan .icon{ color: var(--fairway); }
   .tee-chip-sheet-item svg{ width: 13px; height: 13px; }
   .tee-chip-new{ font-size: 8px; top: 3px; }
   .tee-chip .p{ font-size: 13px; }
-  .tee-strip-empty{
+  .tee-strip.tee-strip-empty{
     flex-direction: row;
     align-items: center;
-    justify-content: stretch;
+    justify-content: center;
     gap: 10px;
-    padding: 10px 14px 12px;
+    padding: 8px 14px;
   }
-  .tee-strip-empty > .tee-empty-action--primary{
+  .tee-strip.tee-strip-empty > .tee-empty-action--primary{
     width: 100%;
   }
   .tee-empty-actions{
@@ -7259,7 +7251,7 @@ html[data-theme='dark'] .rail-plan .icon{ color: var(--fairway); }
     justify-content: flex-end;
   }
   /* Keep call/book CTAs full-width equal pills — don't shrink like text-link rows. */
-  .tee-strip-empty > .tee-empty-actions--booking{
+  .tee-strip.tee-strip-empty > .tee-empty-actions--booking{
     width: 100%;
     flex: 1 1 auto;
     flex-shrink: 1;
