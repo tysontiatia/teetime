@@ -1,6 +1,7 @@
 import { courseHasQuick18Sheet } from './quick18.js';
 import { courseHasGolfWithAccess } from './golfwithaccess.js';
 import { courseHasClubCaddie } from './clubcaddie.js';
+import { courseHasTeeSnap } from './teesnap.js';
 
 /**
  * Background availability poller — snapshots vendor tee sheets into Supabase.
@@ -41,6 +42,7 @@ const SUPPORTED_PLATFORMS = new Set([
   'quick18',
   'golfwithaccess',
   'clubcaddie',
+  'teesnap',
 ]);
 
 /**
@@ -500,6 +502,7 @@ function pollableCourses(courses) {
       if (courseHasQuick18Sheet(c)) return true;
       if (courseHasGolfWithAccess(c)) return true;
       if (courseHasClubCaddie(c)) return true;
+      if (courseHasTeeSnap(c)) return true;
       if (status === 'unsupported') return false;
       return c.platform && SUPPORTED_PLATFORMS.has(c.platform);
     })

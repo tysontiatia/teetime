@@ -51,6 +51,10 @@ export type CourseRecord = {
   clubcaddie_apikey?: string;
   /** Optional ClubCaddie numeric CourseId from the slots form. */
   clubcaddie_course_id?: string;
+  /** TeeSnap `{tenant}.teesnap.net` subdomain. */
+  teesnap_tenant?: string;
+  /** Optional TeeSnap numeric course id from window.property. */
+  teesnap_course_id?: string;
   booking_window_days?: number;
   booking_opens_time?: string;
   timezone?: string;
