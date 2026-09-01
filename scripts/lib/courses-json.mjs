@@ -33,7 +33,10 @@ export function sleep(ms) {
 }
 
 export async function findPlaceByQuery(query, lat, lng, apiKey) {
-  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=${lat},${lng}&radius=8000&key=${apiKey}`;
+  let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    url += `&location=${lat},${lng}&radius=8000`;
+  }
   const res = await fetch(url);
   const data = await res.json();
   if (data.status !== 'OK' || !data.results?.length) return null;
