@@ -11,6 +11,7 @@ import {
   formatTime12h,
   todayYmdUtah,
   clampDateToTodayOrLater,
+  defaultFindDateYmd,
 } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
 import { sortFinderGridCourses, sortCourses } from '../lib/sort';
@@ -70,7 +71,7 @@ function sortCoursesByDistanceThenName(a: Course, b: Course): number {
 }
 
 function parseParams(sp: URLSearchParams): SearchParams {
-  const date = clampDateToTodayOrLater(sp.get('date') || todayYmdUtah());
+  const date = clampDateToTodayOrLater(sp.get('date') || defaultFindDateYmd());
   const players = clampPlayers(Number(sp.get('players') || 2));
   const holes = parseHolesFilter(sp.get('holes'));
   const timeOfDay = (sp.get('tod') as TimeOfDayPreset) || 'any';
@@ -112,14 +113,13 @@ export function FinderPage() {
     setLocationDraft(params.locationQuery);
   }, [params.locationQuery]);
 
-  /** Past `?date=` (or invalid) → replace with today so the URL matches search. */
+  /** Missing `?date=` uses the evening rollover; past/invalid dates snap forward. */
   useEffect(() => {
     const raw = sp.get('date');
-    if (!raw) return;
-    const clamped = clampDateToTodayOrLater(raw);
-    if (clamped === raw) return;
+    const nextDate = raw ? clampDateToTodayOrLater(raw) : defaultFindDateYmd();
+    if (raw === nextDate) return;
     const next = new URLSearchParams(sp);
-    next.set('date', clamped);
+    next.set('date', nextDate);
     setSp(next, { replace: true });
   }, [sp, setSp]);
 

@@ -46,6 +46,12 @@ export function todayYmdUtah(): string {
 }
 
 /**
+ * Mountain hour when a dateless Find visit should land on tomorrow.
+ * After this, leftover same-day twilight is a tap back on the date control.
+ */
+export const FIND_DATE_ROLLOVER_HOUR = 17;
+
+/**
  * Clamp a YYYY-MM-DD to today or later in `timeZone`.
  * Invalid/empty values snap to today. Allows “today” any time of day.
  */
@@ -107,6 +113,29 @@ export function hourInTimeZone(iso: string, timeZone: string = DEFAULT_TEE_TIMEZ
       hour12: false,
     }).formatToParts(new Date(iso)).find((p) => p.type === 'hour')?.value ?? NaN
   );
+}
+
+function hour0to23(iso: string, timeZone: string): number {
+  const h = hourInTimeZone(iso, timeZone);
+  // Some engines report midnight as 24 with hour12: false.
+  return h === 24 ? 0 : h;
+}
+
+/**
+ * Default Find / course-page date when the URL has no `date`.
+ * Before 5:00 PM Mountain that is today; from 5:00 PM on it is tomorrow.
+ * Shared `?date=` links are unchanged.
+ */
+export function defaultFindDateYmd(
+  nowIso: string = new Date().toISOString(),
+  timeZone: string = DEFAULT_TEE_TIMEZONE,
+): string {
+  const today = ymdInTimeZone(nowIso, timeZone);
+  const hour = hour0to23(nowIso, timeZone);
+  if (Number.isFinite(hour) && hour >= FIND_DATE_ROLLOVER_HOUR) {
+    return shiftYmd(today, 1);
+  }
+  return today;
 }
 
 /** @deprecated Prefer hourInTimeZone — Utah/Mountain default. */
