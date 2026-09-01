@@ -34,7 +34,7 @@ export const PLATFORM_DEFS: readonly PlatformDef[] = [
   { key: 'clubessentials', label: 'Club Essentials', capability: 'booking_link_only', inPicker: true, aliases: ['club essential', 'clubessentials'], hosts: ['clubessential'] },
   { key: 'lightspeed', label: 'Lightspeed', capability: 'booking_link_only', inPicker: true, aliases: ['light speed'] },
   { key: 'teeoff', label: 'TeeOff', capability: 'booking_link_only', inPicker: true, aliases: ['tee off', 'pga teeoff'], hosts: ['teeoff.com'] },
-  { key: 'golfrev', label: 'GolfRev', capability: 'booking_link_only', inPicker: true, aliases: ['golf rev', 'golf-rev'], hosts: ['golfrev.com'] },
+  { key: 'golfrev', label: 'GolfRev', capability: 'live_inventory', inPicker: true, aliases: ['golf rev', 'golf-rev'], hosts: ['golfrev.com'] },
   {
     key: 'sagacity',
     label: 'Sagacity',

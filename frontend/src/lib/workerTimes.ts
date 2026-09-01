@@ -306,6 +306,25 @@ async function fetchTeeTimesLive(
       if (course.teesnap_course_id) url.searchParams.set('course_id', String(course.teesnap_course_id));
       break;
     }
+    case 'golfrev': {
+      let courseId = String(course.golfrev_course_id || '').trim();
+      let htc = String(course.golfrev_htc || '').trim();
+      if (!courseId || !htc) {
+        try {
+          const u = new URL(String(course.booking_url || '').trim());
+          if (!courseId) courseId = u.searchParams.get('courseid') || u.searchParams.get('courseId') || '';
+          if (!htc) htc = u.searchParams.get('htc') || '';
+        } catch {
+          /* keep empty */
+        }
+      }
+      if (!courseId || !htc) return emptyOk;
+      url = new URL(`${base}/golfrev`);
+      url.searchParams.set('date', dateYmd);
+      url.searchParams.set('course_id', courseId);
+      url.searchParams.set('htc', htc);
+      break;
+    }
     default:
       return emptyOk;
   }

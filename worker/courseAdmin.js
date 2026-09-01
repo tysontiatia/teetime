@@ -16,6 +16,7 @@ const PLATFORM_ID_FIELDS = {
   golfwithaccess: ['golfwithaccess_course_id', 'golfwithaccess_slug'],
   clubcaddie: ['clubcaddie_course_id', 'clubcaddie_apikey'],
   teesnap: ['teesnap_tenant', 'teesnap_course_id'],
+  golfrev: ['golfrev_course_id', 'golfrev_htc'],
 };
 
 const ALL_PLATFORM_FIELDS = [
@@ -43,6 +44,8 @@ const ALL_PLATFORM_FIELDS = [
   'clubcaddie_apikey',
   'teesnap_tenant',
   'teesnap_course_id',
+  'golfrev_course_id',
+  'golfrev_htc',
 ];
 
 const RATE_SPECS = [
@@ -306,6 +309,8 @@ export function parseBookingUrl(rawUrl) {
     out.platform = 'golfrev';
     const courseId = u.searchParams.get('courseid') || u.searchParams.get('courseId');
     if (courseId) out.hints.golfrev_course_id = courseId;
+    const htc = u.searchParams.get('htc');
+    if (htc) out.hints.golfrev_htc = htc;
     return out;
   }
 
@@ -401,6 +406,7 @@ const LIVE_ADAPTER_PLATFORMS = new Set([
   'golfwithaccess',
   'clubcaddie',
   'teesnap',
+  'golfrev',
 ]);
 
 /**
@@ -437,6 +443,8 @@ export function recordAfterPlatformReclassify(rec, next) {
   if (parsed.hints?.golfwithaccess_slug) out.golfwithaccess_slug = parsed.hints.golfwithaccess_slug;
   if (parsed.hints?.clubcaddie_apikey) out.clubcaddie_apikey = parsed.hints.clubcaddie_apikey;
   if (parsed.hints?.teesnap_tenant) out.teesnap_tenant = parsed.hints.teesnap_tenant;
+  if (parsed.hints?.golfrev_course_id) out.golfrev_course_id = parsed.hints.golfrev_course_id;
+  if (parsed.hints?.golfrev_htc) out.golfrev_htc = parsed.hints.golfrev_htc;
   if (LIVE_ADAPTER_PLATFORMS.has(next.platform)) {
     const status = String(rec?.booking_status || '').trim();
     if (!status || status === 'unsupported' || status === 'pending') {
@@ -1187,9 +1195,9 @@ function getPlatformWarnings(record) {
   if (platform === 'chronogolf' && !(Array.isArray(record.course_ids) && record.course_ids.length)) {
     warnings.push('Chronogolf needs course_ids (marketplace course id) for live tee times — re-Parse the club URL.');
   }
-  if (platform === 'tenfore' || platform === 'cps' || platform === 'golfnow' || platform === 'ezlinks' || platform === 'clubessentials' || platform === 'lightspeed' || platform === 'teeoff' || platform === 'golfrev' || platform === 'sagacity' || platform === 'play18') {
+  if (platform === 'tenfore' || platform === 'cps' || platform === 'golfnow' || platform === 'ezlinks' || platform === 'clubessentials' || platform === 'lightspeed' || platform === 'teeoff' || platform === 'sagacity' || platform === 'play18') {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
-  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18', 'golfwithaccess', 'clubcaddie', 'teesnap'].includes(platform)) {
+  } else if (platform && !['foreup', 'chronogolf', 'chronogolf_slc', 'membersports', 'teeitup', 'trutee', 'golfpay', 'foreup_login', 'quick18', 'golfwithaccess', 'clubcaddie', 'teesnap', 'golfrev'].includes(platform)) {
     warnings.push(`${platform} is booking-link-only today — live inventory not polled yet.`);
   }
   if (
@@ -1216,6 +1224,13 @@ function getPlatformWarnings(record) {
   }
   if (platform === 'teesnap' && !record.teesnap_tenant && !/\.teesnap\.net/i.test(String(record.booking_url || ''))) {
     warnings.push('TeeSnap needs a {tenant}.teesnap.net booking URL for live tee times.');
+  }
+  if (
+    platform === 'golfrev' &&
+    !(record.golfrev_course_id && record.golfrev_htc) &&
+    !/golfrev\.com\/go\/tee_times/i.test(String(record.booking_url || ''))
+  ) {
+    warnings.push('GolfRev needs a /go/tee_times/?htc=&courseid= booking URL for live tee times.');
   }
   if (platform === 'golfpay' && !record.golfpay_course_id) {
     warnings.push('GolfPay needs golfpay_course_id (_gshcid) for live tee times.');

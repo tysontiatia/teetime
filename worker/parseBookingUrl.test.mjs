@@ -18,6 +18,10 @@ test('parseBookingUrl maps live and backlog vendor hosts', () => {
     '4048',
   );
   assert.equal(
+    parseBookingUrl('https://www.golfrev.com/go/tee_times/?htc=363&courseid=4048&r=1').hints.golfrev_htc,
+    '363',
+  );
+  assert.equal(
     parseBookingUrl('https://augustaranch.play18.com/teetimes/searchmatrix').platform,
     'quick18',
   );
@@ -113,6 +117,14 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
     }),
     { platform: 'golfwithaccess', from: 'golfwithaccess', changed: true, reason: 'live_ready' },
   );
+  assert.deepEqual(
+    nextRecordPlatform({
+      platform: 'golfrev',
+      booking_status: 'unsupported',
+      booking_url: 'https://www.golfrev.com/go/tee_times/?htc=370&courseid=3719',
+    }),
+    { platform: 'golfrev', from: 'golfrev', changed: true, reason: 'live_ready' },
+  );
   assert.equal(
     nextRecordPlatform({
       platform: 'other',
@@ -120,6 +132,27 @@ test('nextRecordPlatform recategorizes other from booking URL and leaves live ad
     }).changed,
     false,
   );
+});
+
+test('recordAfterPlatformReclassify stamps GolfRev as live', () => {
+  const next = nextRecordPlatform({
+    platform: 'other',
+    booking_status: 'unsupported',
+    booking_url: 'https://www.golfrev.com/go/tee_times/?htc=370&courseid=3719&r=1',
+  });
+  const rec = recordAfterPlatformReclassify(
+    {
+      name: 'Birch Creek Golf Course',
+      platform: 'other',
+      booking_status: 'unsupported',
+      booking_url: 'https://www.golfrev.com/go/tee_times/?htc=370&courseid=3719&r=1',
+    },
+    next,
+  );
+  assert.equal(rec.platform, 'golfrev');
+  assert.equal(rec.booking_status, 'ready');
+  assert.equal(rec.golfrev_course_id, '3719');
+  assert.equal(rec.golfrev_htc, '370');
 });
 
 test('recordAfterPlatformReclassify stamps TeeSnap as live', () => {
