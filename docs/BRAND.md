@@ -47,7 +47,7 @@ exists to keep one-off imports and bad geocodes out of marketing claims.
 To get current numbers for a social post, ask the API — don't copy a number from here:
 
 ```bash
-curl -s https://utah-tee-times.tysontiatia.workers.dev/v1/courses \
+curl -s https://api.tee-time.io/v1/courses \
   | python3 -c "import sys,json,collections;r=json.load(sys.stdin);print(collections.Counter(c.get('state') for c in r))"
 ```
 

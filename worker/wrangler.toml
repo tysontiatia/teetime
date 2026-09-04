@@ -3,6 +3,10 @@ main = "index.js"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+[[routes]]
+pattern = "api.tee-time.io"
+custom_domain = true
+
 [vars]
 ALLOWED_ORIGIN = "*"
 SUPABASE_URL = "https://nmwlebcvezybfwertlzs.supabase.co"

@@ -273,7 +273,7 @@ cd worker && npx wrangler deploy
 
 GitHub **`CLOUDFLARE_API_TOKEN`** must allow **Workers Scripts → Edit** (and usually **Account → Workers Scripts → Read**). A **Pages-only** token will deploy the site but fail the Worker step.
 
-Worker URL: `https://utah-tee-times.tysontiatia.workers.dev`
+Worker URL: `https://api.tee-time.io`
 
 ### Frontend (Cloudflare Pages)
 

@@ -48,4 +48,4 @@ put_secret TWILIO_AUTH_TOKEN "$TWILIO_AUTH_TOKEN"
 put_secret TWILIO_FROM_NUMBER "$TWILIO_FROM_NUMBER"
 put_secret TWILIO_VERIFY_SERVICE_SID "$TWILIO_VERIFY_SERVICE_SID"
 
-echo "Done. Test: curl -X POST https://utah-tee-times.tysontiatia.workers.dev/account/phone/start (expect 401, not verify_not_configured)"
+echo "Done. Test: curl -X POST https://api.tee-time.io/account/phone/start (expect 401, not verify_not_configured)"

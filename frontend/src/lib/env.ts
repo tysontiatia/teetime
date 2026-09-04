@@ -3,7 +3,7 @@ const DEFAULT_SUPABASE_URL = 'https://nmwlebcvezybfwertlzs.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5td2xlYmN2ZXp5YmZ3ZXJ0bHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTUzMjcsImV4cCI6MjA5MTkzMTMyN30.N8Q8T6Mf9_AdzysqgD46tOYMnmB8xTNerU9q7GM7Rlg';
 
-const DEFAULT_WORKER_URL = 'https://utah-tee-times.tysontiatia.workers.dev';
+const DEFAULT_WORKER_URL = 'https://api.tee-time.io';
 
 // LaunchDarkly client-side ID for the `test` environment in your LaunchDarkly project.
 // This is not a secret; it determines which LD environment to evaluate against.

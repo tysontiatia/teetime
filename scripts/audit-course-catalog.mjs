@@ -22,7 +22,7 @@
  * Exits 1 when anything is flagged, so it can gate a deploy.
  */
 
-const DEFAULT_WORKER = 'https://utah-tee-times.tysontiatia.workers.dev';
+const DEFAULT_WORKER = 'https://api.tee-time.io';
 
 const args = process.argv.slice(2);
 const asJson = args.includes('--json');
