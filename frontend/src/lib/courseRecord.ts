@@ -18,6 +18,8 @@ export type CourseRecord = {
   photo_url?: string;
   /** Stable Google Places photo id — proxied via worker with GOOGLE_PLACES_KEY. */
   photo_reference?: string;
+  /** Our own cached copy in Supabase Storage — use this directly when present. */
+  photo_storage_url?: string;
   schedule_id?: string;
   booking_class_id?: string;
   course_ids?: number[];

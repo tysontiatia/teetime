@@ -128,9 +128,14 @@ export async function onRequestGet(context) {
         const courseSlug = round.course_id || options[0]?.course_id || '';
 
         let photoRef = '';
+        let photoStorageUrl = '';
         if (courseSlug) {
-          const reg = await sbGet(env, `course_registry?slug=eq.${courseSlug}&select=record`);
+          const [reg, cat] = await Promise.all([
+            sbGet(env, `course_registry?slug=eq.${courseSlug}&select=record`),
+            sbGet(env, `course_catalog?slug=eq.${courseSlug}&select=photo_storage_url`),
+          ]);
           photoRef = (Array.isArray(reg) && reg[0]?.record?.photo_reference) || '';
+          photoStorageUrl = (Array.isArray(cat) && cat[0]?.photo_storage_url) || '';
         }
 
         const host = String(round.host_public_name || '').trim();
@@ -148,9 +153,11 @@ export async function onRequestGet(context) {
           title: `${host ? `${host}'s` : 'Your'} golf round · tee-time.io`,
           ogTitle: host ? `${host} invited you to golf` : "You're invited to golf",
           ogDescription: `Vote on ${countLabel} · ${summary} — tap to pick what works.`,
-          ogImage: photoRef
-            ? `${env.WORKER_URL}/place-photo?slug=${courseSlug}&maxwidth=1200`
-            : null,
+          ogImage: photoStorageUrl
+            ? photoStorageUrl
+            : photoRef
+              ? `${env.WORKER_URL}/place-photo?slug=${courseSlug}&maxwidth=1200`
+              : null,
         };
       }
     }

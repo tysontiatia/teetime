@@ -55,9 +55,13 @@ export async function onRequestGet(context) {
     const slug = raw.replace(/[^a-z0-9-]/g, '').slice(0, 80);
     if (!slug) return res;
 
-    const reg = await sbGet(env, `course_registry?slug=eq.${slug}&select=record`);
+    const [reg, cat] = await Promise.all([
+      sbGet(env, `course_registry?slug=eq.${slug}&select=record`),
+      sbGet(env, `course_catalog?slug=eq.${slug}&select=photo_storage_url`),
+    ]);
     const record = Array.isArray(reg) && reg[0]?.record ? reg[0].record : null;
     if (!record) return res;
+    const photoStorageUrl = Array.isArray(cat) && cat[0]?.photo_storage_url;
 
     const { short, city: nameCity } = shortAndCity(record.name);
     const city = nameCity || cityFromAddress(record.address);
@@ -65,9 +69,11 @@ export async function onRequestGet(context) {
     const ogTitle = `${short}${city ? ` · ${city}` : ''} — tee times`;
     const ogDescription = `Live tee-time availability at ${short}${city ? `, ${city}` : ''}. Compare open slots and prices, then book direct — on tee-time.io.`;
     const ogUrl = `${SITE}/app/course/${slug}/`;
-    const ogImage = record.photo_reference
-      ? `${env.WORKER_URL}/place-photo?slug=${slug}&maxwidth=1200`
-      : null;
+    const ogImage = photoStorageUrl
+      ? photoStorageUrl
+      : record.photo_reference
+        ? `${env.WORKER_URL}/place-photo?slug=${slug}&maxwidth=1200`
+        : null;
 
     const rewriter = new HTMLRewriter()
       .on('title', { element: (el) => el.setInnerContent(title) })

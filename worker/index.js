@@ -841,6 +841,21 @@ let coursesCache = null;
 let coursesCacheAt = 0;
 const COURSES_CACHE_MS = 60_000;
 
+/** slug -> photo_storage_url, for courses already cached to Supabase Storage. */
+async function fetchCatalogPhotoUrls(env) {
+  try {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/course_catalog?select=slug,photo_storage_url&photo_storage_url=not.is.null`,
+      { headers: sbHeaders(env) },
+    );
+    if (!res.ok) return new Map();
+    const rows = await res.json();
+    return new Map(rows.map((r) => [r.slug, r.photo_storage_url]));
+  } catch {
+    return new Map();
+  }
+}
+
 async function loadCourses(env) {
   if (coursesCache && Date.now() - coursesCacheAt < COURSES_CACHE_MS) {
     return coursesCache;
@@ -850,7 +865,14 @@ async function loadCourses(env) {
     try {
       const rows = await fetchRegistryCourses(env);
       if (rows.length > 0) {
-        coursesCache = registryRowsToCourses(rows);
+        const photoUrls = await fetchCatalogPhotoUrls(env);
+        const withPhotos = rows.map((r) => {
+          const photoStorageUrl = photoUrls.get(r.slug);
+          return photoStorageUrl
+            ? { ...r, record: { ...r.record, photo_storage_url: photoStorageUrl } }
+            : r;
+        });
+        coursesCache = registryRowsToCourses(withPhotos);
         coursesCacheAt = Date.now();
         return coursesCache;
       }
