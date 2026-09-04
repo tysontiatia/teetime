@@ -31,4 +31,5 @@ VAPID_SUBJECT = "mailto:alerts@tee-time.io"
 # * * * * *     → alert micro-poller (watched pairs only, 24/7)
 # */5 * * * *   → full catalog poller (Finder snapshots; golf hours only)
 # */15 6-23     → notification backstop
-crons = ["* * * * *", "*/5 * * * *", "*/15 6-23 * * *"]
+# */15 * * * *  → course-catalog photo/coordinate enrichment (not golf-hours-gated)
+crons = ["* * * * *", "*/5 * * * *", "*/15 6-23 * * *", "*/15 * * * *"]

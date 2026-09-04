@@ -1,5 +1,6 @@
 import { handleAlertMicroPoll, handleAvailabilityPoll, pollAlertCourseDate } from './availabilityPoll.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName, withDerivedState } from './courseAdmin.js';
+import { handleCoursePhotoEnrichPoll } from './coursePhotoEnrich.js';
 import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
 import {
   buildQuick18BookingUrl,
@@ -2345,6 +2346,11 @@ export default {
     }
     if (cron === '*/15 6-23 * * *') {
       ctx.waitUntil(handleScheduled(env));
+    }
+    // Course-catalog maintenance: fills coordinates + caches a Storage photo
+    // for newly-imported courses. Not golf-hours-gated — runs all day.
+    if (cron === '*/15 * * * *') {
+      ctx.waitUntil(handleCoursePhotoEnrichPoll(env));
     }
   },
 };
