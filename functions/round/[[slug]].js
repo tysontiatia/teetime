@@ -149,7 +149,7 @@ export async function onRequestGet(context) {
           ogTitle: host ? `${host} invited you to golf` : "You're invited to golf",
           ogDescription: `Vote on ${countLabel} · ${summary} — tap to pick what works.`,
           ogImage: photoRef
-            ? `${env.WORKER_URL}/place-photo?reference=${encodeURIComponent(photoRef)}&maxwidth=1200`
+            ? `${env.WORKER_URL}/place-photo?slug=${courseSlug}&maxwidth=1200`
             : null,
         };
       }

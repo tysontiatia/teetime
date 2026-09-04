@@ -1040,23 +1040,46 @@ function normalizeTimesWorker(course, data, holes) {
 }
 
 /** Proxy Google Places photos using a stable photo_reference (CDN URLs in catalog expire). */
-async function handlePlacePhoto(params, env) {
-  const ref = String(params.reference || params.photo_reference || '').trim();
-  if (!ref || ref.length > 512 || /[\s<>"']/.test(ref)) {
-    return corsResponse({ error: 'invalid_reference' }, 400);
+async function lookupCatalogPhotoStorageUrl(env, slug) {
+  try {
+    const res = await fetchWithTimeout(
+      `${env.SUPABASE_URL}/rest/v1/course_catalog?slug=eq.${encodeURIComponent(slug)}&select=photo_storage_url`,
+      { headers: sbHeaders(env) },
+      5000,
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0]?.photo_storage_url || null;
+  } catch {
+    return null;
   }
-  if (!env.GOOGLE_PLACES_KEY) {
-    return corsResponse({ error: 'photo_unconfigured' }, 503);
+}
+
+async function lookupRegistryPhotoReference(env, slug) {
+  try {
+    const res = await fetchWithTimeout(
+      `${env.SUPABASE_URL}/rest/v1/course_registry?slug=eq.${encodeURIComponent(slug)}&select=record`,
+      { headers: sbHeaders(env) },
+      5000,
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0]?.record?.photo_reference || null;
+  } catch {
+    return null;
   }
+}
 
-  const maxwidth = Math.min(1600, Math.max(100, parseInt(params.maxwidth, 10) || 800));
-  const googleUrl =
-    `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}` +
-    `&photo_reference=${encodeURIComponent(ref)}&key=${env.GOOGLE_PLACES_KEY}`;
-
+/**
+ * Streams the upstream image body but only ever forwards headers we set
+ * ourselves — never the upstream response's own headers. Google attaches
+ * contributor attribution metadata to some Places Photo responses; this is
+ * what keeps that (and anything else upstream) out of what we serve.
+ */
+async function proxyImage(url) {
   let res;
   try {
-    res = await fetchWithTimeout(googleUrl, { redirect: 'follow' }, 10000);
+    res = await fetchWithTimeout(url, { redirect: 'follow' }, 10000);
   } catch {
     return new Response('Photo upstream timeout', { status: 504, headers: IMAGE_CORS_HEADERS });
   }
@@ -1076,6 +1099,39 @@ async function handlePlacePhoto(params, env) {
       'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
     },
   });
+}
+
+async function handlePlacePhoto(params, env) {
+  const slug = String(params.slug || '').trim().toLowerCase().slice(0, 80);
+  if (slug && !/^[a-z0-9-]+$/.test(slug)) {
+    return corsResponse({ error: 'invalid_slug' }, 400);
+  }
+
+  // Preferred path: our own Supabase Storage copy — no Google involved at all.
+  if (slug && env.SUPABASE_SERVICE_KEY) {
+    const storageUrl = await lookupCatalogPhotoStorageUrl(env, slug);
+    if (storageUrl) return proxyImage(storageUrl);
+  }
+
+  // Fallback for courses not yet cached (see scripts/photos-cache.mjs): proxy
+  // Google's Photo API directly, same as before.
+  let ref = String(params.reference || params.photo_reference || '').trim();
+  if (!ref && slug && env.SUPABASE_SERVICE_KEY) {
+    ref = (await lookupRegistryPhotoReference(env, slug)) || '';
+  }
+  if (!ref || ref.length > 512 || /[\s<>"']/.test(ref)) {
+    return corsResponse({ error: 'invalid_reference' }, 400);
+  }
+  if (!env.GOOGLE_PLACES_KEY) {
+    return corsResponse({ error: 'photo_unconfigured' }, 503);
+  }
+
+  const maxwidth = Math.min(1600, Math.max(100, parseInt(params.maxwidth, 10) || 800));
+  const googleUrl =
+    `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxwidth}` +
+    `&photo_reference=${encodeURIComponent(ref)}&key=${env.GOOGLE_PLACES_KEY}`;
+
+  return proxyImage(googleUrl);
 }
 
 const PLACE_REVIEWS_CACHE_MS = 6 * 60 * 60 * 1000;

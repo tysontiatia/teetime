@@ -19,7 +19,9 @@
     "registry:sync": "node scripts/sync-courses-from-registry.mjs",
     "registry:reclassify": "node scripts/reclassify-course-platforms.mjs",
     "registry:places": "node scripts/enrich-registry-places.mjs",
-    "courses:audit": "node scripts/audit-course-catalog.mjs"
+    "courses:audit": "node scripts/audit-course-catalog.mjs",
+    "photos:fetch": "node scripts/photos-cache.mjs",
+    "sync:coordinates": "node scripts/sync-coordinates.mjs"
   },
   "devDependencies": {
     "zipcodes": "^8.0.0"

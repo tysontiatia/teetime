@@ -66,7 +66,7 @@ export async function onRequestGet(context) {
     const ogDescription = `Live tee-time availability at ${short}${city ? `, ${city}` : ''}. Compare open slots and prices, then book direct — on tee-time.io.`;
     const ogUrl = `${SITE}/app/course/${slug}/`;
     const ogImage = record.photo_reference
-      ? `${env.WORKER_URL}/place-photo?reference=${encodeURIComponent(record.photo_reference)}&maxwidth=1200`
+      ? `${env.WORKER_URL}/place-photo?slug=${slug}&maxwidth=1200`
       : null;
 
     const rewriter = new HTMLRewriter()
