@@ -572,7 +572,7 @@ async function handleChronogolfSlc(params) {
 // Aspira facilities. Reads need the tenant alias header; a bare request → 400.
 const TEEITUP_API = 'https://phx-api-be-east-1b.kenna.io/v2/tee-times';
 const TEEITUP_ALIAS = 'aspira-management-company';
-const TEEITUP_USER_AGENT = 'TeeTimeIO/1.0 (+https://tee-time.io)';
+const TEEITUP_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 /**
  * Tenant alias for the `x-be-alias` header — the subdomain label of the booking
