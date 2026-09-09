@@ -1,6 +1,8 @@
-import centroids from '../data/utahZipCentroids.json';
+import usCentroids from '../data/usZipCentroids.json';
 
-const ZIP_CENTROIDS = centroids as unknown as Record<string, [number, number]>;
+type ZipCoord = { lat: number; lng: number; state: string };
+
+const US_ZIP_CENTROIDS = usCentroids as unknown as Record<string, ZipCoord>;
 
 /** Extract a 5-digit ZIP from a free-text location query, if present. */
 export function extractZip(query: string): string | null {
@@ -8,10 +10,10 @@ export function extractZip(query: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Look up the centroid (lat/lng) for a known Utah ZIP code. */
+/** Look up the centroid (lat/lng) for a ZIP code across all US states. */
 export function lookupZipCentroid(zip: string): { lat: number; lng: number } | null {
-  const c = ZIP_CENTROIDS[zip];
-  return c ? { lat: c[0], lng: c[1] } : null;
+  const c = US_ZIP_CENTROIDS[zip];
+  return c ? { lat: c.lat, lng: c.lng } : null;
 }
 
 /** Extract ZIP from a US street address when present. */

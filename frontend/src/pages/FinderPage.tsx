@@ -63,6 +63,20 @@ import {
 } from '../lib/timesFetchScope';
 import { resolveServiceArea } from '../lib/serviceArea';
 import { teeTimeFitsPlayers } from '../lib/teeTimeFitsPlayers';
+import { extractZip, zipToState } from '../lib/zipToState';
+
+const STATE_NAMES: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+  KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
+  MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+  NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
+  OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming',
+};
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -547,6 +561,39 @@ export function FinderPage() {
     finderGroups && finderGroups.openings.length > 0 ? finderGroups.noTimes : [];
   const alsoNearbyCourses = hasLiveGroup ? (finderGroups?.alsoNearby ?? []) : [];
   const noTimesSection = liveTimesEmptySection(params.timeOfDay, params.holes);
+
+  // Detect unsupported zip code searches with no results
+  const unsupportedZipState = useMemo(() => {
+    // Only show if: not loading, no errors, has results (check needed), and courses are loaded
+    if (catalogLoading || catalogError || showOutOfMarket || displayCourses.length > 0 || workerCourses.length === 0) {
+      return null;
+    }
+
+    const zip = extractZip(params.locationQuery);
+    if (!zip) return null;
+
+    const state = zipToState(zip);
+    if (!state) return null;
+
+    const liveCodes = new Set(
+      workerCourses
+        .map((c) => String(c.state || '').trim().toUpperCase())
+        .filter(Boolean)
+    );
+
+    if (liveCodes.has(state)) return null;
+
+    return { zip, state, stateName: STATE_NAMES[state] || state };
+  }, [catalogLoading, catalogError, showOutOfMarket, displayCourses.length, params.locationQuery, workerCourses]);
+
+  const handleRequestState = useCallback(() => {
+    if (unsupportedZipState) {
+      captureEvent('request_state', {
+        state: unsupportedZipState.state,
+        zip: unsupportedZipState.zip,
+      });
+    }
+  }, [unsupportedZipState]);
 
   const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
@@ -1210,7 +1257,26 @@ export function FinderPage() {
           </div>
         ) : null}
 
-        {!showOutOfMarket && !catalogLoading && !loadingTimes && !catalogError && displayCourses.length === 0 && workerCourses.length > 0 ? (
+        {unsupportedZipState && !catalogLoading && !loadingTimes && !catalogError ? (
+          <div className="empty-search empty-search--market">
+            <div className="empty-search-kicker">Not available yet</div>
+            <div className="empty-search-title">
+              {unsupportedZipState.stateName} isn't fully covered
+            </div>
+            <p>
+              We found your zip code ({unsupportedZipState.zip}), but {unsupportedZipState.stateName} isn't in our live coverage yet.
+              We're live in {serviceArea.liveMarkets} today. Request {unsupportedZipState.stateName} to let us know where you're playing.
+            </p>
+            <div className="empty-search-actions">
+              <button type="button" className="btn btn-primary" onClick={handleRequestState}>
+                Request {unsupportedZipState.stateName}
+              </button>
+              <button type="button" className="btn" onClick={browseLiveMarket}>
+                Browse {serviceArea.liveMarkets} instead
+              </button>
+            </div>
+          </div>
+        ) : !showOutOfMarket && !catalogLoading && !loadingTimes && !catalogError && displayCourses.length === 0 && workerCourses.length > 0 ? (
           <div className="empty-search">
             <div className="empty-search-title">No courses match that search</div>
             <p>
