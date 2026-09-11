@@ -64,6 +64,7 @@ const STATE_NAME_TO_CODE: Record<string, string> = {
   colorado: 'CO',
   nevada: 'NV',
   'new mexico': 'NM',
+  oregon: 'OR',
 };
 
 /** CSV “State” may be AZ or Arizona. */
@@ -158,7 +159,7 @@ export function timezoneForState(state: string): string {
   const st = normalizeStateCode(state);
   if (st === 'ID') return 'America/Boise';
   if (st === 'AZ') return 'America/Phoenix';
-  if (st === 'NV' || st === 'CA') return 'America/Los_Angeles';
+  if (st === 'NV' || st === 'CA' || st === 'OR') return 'America/Los_Angeles';
   return 'America/Denver';
 }
 
@@ -170,6 +171,7 @@ const STATE_AREA_PREFIX: Record<string, string> = {
   NV: 'Nevada',
   CO: 'Colorado',
   NM: 'New Mexico',
+  OR: 'Oregon',
 };
 
 export function areaLabelForState(state: string, region: string): string {
