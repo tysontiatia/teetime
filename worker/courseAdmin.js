@@ -909,7 +909,7 @@ export async function fetchRegistryCourses(env) {
 export function registryRowsToCourses(rows) {
   return withDerivedState(
     rows
-      .map((r) => r.record)
+      .map((r) => ({ ...r.record, slug: r.slug }))
       .filter((rec) => isPublicRegistryRecord(rec)),
   );
 }

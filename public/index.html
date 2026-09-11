@@ -1476,8 +1476,11 @@
       const i = name.indexOf(' (');
       return i > 0 ? name.slice(0, i) : name;
     }
-    function placePhotoUrl(reference) {
-      return WORKER_URL + '/place-photo?reference=' + encodeURIComponent(reference) + '&maxwidth=800';
+    function placePhotoUrl(reference, slug) {
+      var url = WORKER_URL + '/place-photo?maxwidth=800';
+      if (slug) url += '&slug=' + encodeURIComponent(slug);
+      if (reference) url += '&reference=' + encodeURIComponent(reference);
+      return url;
     }
 
     function feedMinutesSince(iso) {
@@ -1529,7 +1532,7 @@
         img.loading = 'lazy';
         img.decoding = 'async';
         img.referrerPolicy = 'no-referrer';
-        img.src = placePhotoUrl(course.photo_reference);
+        img.src = placePhotoUrl(course.photo_reference, course.slug);
         photoWrap.appendChild(img);
       } else {
         const fb = document.createElement('div');
@@ -1814,7 +1817,7 @@
       if (!pick) return;
       img.onload = function () { wash.classList.add('is-ready'); };
       img.onerror = function () { wash.classList.remove('is-ready'); };
-      img.src = placePhotoUrl(pick.photo_reference);
+      img.src = placePhotoUrl(pick.photo_reference, pick.slug);
     }
 
     function initCourses() {
