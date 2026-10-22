@@ -24,19 +24,6 @@ async function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-async function findPlace(name, lat, lng, apiKey, state) {
-  const query = [name, 'golf course', state].filter(Boolean).join(' ');
-  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}&location=${lat},${lng}&radius=8000`;
-  const res = await fetch(url);
-  const data = await res.json();
-  if (data.status !== 'OK' || !data.results?.length) return null;
-  return data.results[0];
-}
-
-function stateFromAddress(address) {
-  return /\b([A-Z]{2})[\s,]+\d{5}(?:-\d{4})?\b/.exec(String(address || ''))?.[1] || '';
-}
-
 loadDotEnv();
 
 const GOOGLE_PLACES_KEY = process.env.GOOGLE_PLACES_KEY;
@@ -64,7 +51,7 @@ try {
     headers: { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}` }
   });
   const registryRows = await registryRes.json();
-  const addressBySlug = new Map(registryRows.map(r => [r.slug, r.record?.address]));
+  const recordBySlug = new Map(registryRows.map(r => [r.slug, r.record || {}]));
 
   for (const dbCourse of courses) {
     if (dbCourse.photo_storage_url) {
@@ -74,21 +61,12 @@ try {
       continue;
     }
 
-    if (!Number.isFinite(dbCourse.lat) || !Number.isFinite(dbCourse.lng)) {
-      console.log(`⚠️  ${dbCourse.name}  — no coords`);
+    const photoRef = recordBySlug.get(dbCourse.slug)?.photo_reference;
+    if (!photoRef) {
+      console.log(`⊘  ${dbCourse.name}  — no stored photo reference`);
       skipped++;
       continue;
     }
-
-    const place = await findPlace(dbCourse.name, dbCourse.lat, dbCourse.lng, GOOGLE_PLACES_KEY, stateFromAddress(addressBySlug.get(dbCourse.slug)));
-    if (!place || !place.photos?.[0]?.photo_reference) {
-      console.log(`✗  ${dbCourse.name}  — not found`);
-      missing++;
-      await sleep(300);
-      continue;
-    }
-
-    const photoRef = place.photos[0].photo_reference;
     const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoRef}&key=${GOOGLE_PLACES_KEY}`;
     
     let photoBuffer;

@@ -22,7 +22,13 @@ let updated = 0;
 let missing = 0;
 let skipped = 0;
 
+const force = process.argv.includes('--force');
+
 for (const course of courses) {
+  if (course.photo_reference && !force) {
+    skipped++;
+    continue;
+  }
   if (typeof course.lat !== 'number' || typeof course.lng !== 'number') {
     console.log(`⚠  ${course.name}  — no coordinates, skipping`);
     skipped++;
@@ -54,5 +60,4 @@ for (const course of courses) {
 
 writeCourses(courses);
 console.log(`\nDone. Updated: ${updated}  Missing: ${missing}  Skipped: ${skipped}`);
-console.log('Next: wrangler secret put GOOGLE_PLACES_KEY  (if not set on the worker yet)');
-console.log('Then deploy worker + Pages so /place-photo can serve images.');
+console.log('This script searches Google by name. Re-runs skip courses that already have a photo reference.');

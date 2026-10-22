@@ -17,7 +17,7 @@ VAPID_PUBLIC_KEY = "BGsDeJ3VYSXLYIKmQZZeahgY4K72RJ2L8jObIlnnn6rhJSyyDjR8UIVe561I
 VAPID_SUBJECT = "mailto:alerts@tee-time.io"
 
 # Secrets (set via `wrangler secret put`):
-#   GOOGLE_PLACES_KEY   (Places Photo + Details — /place-photo, /place-reviews)
+#   GOOGLE_PLACES_KEY   (admin Places lookup and one-time photo copy)
 #   SUPABASE_SERVICE_KEY
 #   RESEND_API_KEY
 #   TWILIO_ACCOUNT_SID

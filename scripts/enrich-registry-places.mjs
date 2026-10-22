@@ -2,8 +2,9 @@
 /**
  * Enrich course_registry records with Google Places metadata (photo_reference,
  * rating, review_count, website, phone_number, lat/lng). Photos on the site are
- * driven by record.photo_reference -> worker /place-photo, so seeded courses
- * stay imageless until this runs. Rows without coordinates are matched by
+ * This searches Google by name and bills contact and rating fields. It is not
+ * on a schedule. Courses that already have a photo reference are skipped.
+ * Rows without coordinates are matched by
  * name + address instead of skipped.
  *
  * Usage:
@@ -151,5 +152,5 @@ console.log(
     `no-match ${missing}, skipped ${skipped}.`,
 );
 if (!dryRun && updated > 0) {
-  console.log('Photos are served live via the worker /place-photo proxy — no redeploy needed.');
+  console.log('Stored photo references are copied into Storage by the worker. Page views do not call Google.');
 }

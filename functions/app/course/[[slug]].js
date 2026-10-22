@@ -69,11 +69,7 @@ export async function onRequestGet(context) {
     const ogTitle = `${short}${city ? ` · ${city}` : ''} — tee times`;
     const ogDescription = `Live tee-time availability at ${short}${city ? `, ${city}` : ''}. Compare open slots and prices, then book direct — on tee-time.io.`;
     const ogUrl = `${SITE}/app/course/${slug}/`;
-    const ogImage = photoStorageUrl
-      ? photoStorageUrl
-      : record.photo_reference
-        ? `${env.WORKER_URL}/place-photo?slug=${slug}&maxwidth=1200`
-        : null;
+    const ogImage = photoStorageUrl || null;
 
     const rewriter = new HTMLRewriter()
       .on('title', { element: (el) => el.setInnerContent(title) })

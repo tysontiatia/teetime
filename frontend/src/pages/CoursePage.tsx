@@ -51,7 +51,6 @@ import {
   fetchCourseCatalogMeta,
   type CourseCatalogMeta,
 } from '../lib/courseCatalogApi';
-import { fetchPlaceReviews, type PlaceReview } from '../lib/placeReviews';
 
 function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n <= 1) return 1;
@@ -157,9 +156,6 @@ export function CoursePage() {
     clearPendingAuthAction();
   }, []);
   const [catalogMeta, setCatalogMeta] = useState<CourseCatalogMeta | null>(null);
-  const [reviews, setReviews] = useState<PlaceReview[]>([]);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsMapsUrl, setReviewsMapsUrl] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [slotAction, setSlotAction] = useState<{
     time: TeeTime;
@@ -183,35 +179,6 @@ export function CoursePage() {
       cancelled = true;
     };
   }, [courseId]);
-
-  const reviewQueryName = course?.catalogName || course?.name || '';
-  const reviewLat = course?.lat;
-  const reviewLng = course?.lng;
-
-  useEffect(() => {
-    if (!courseId || !reviewQueryName) {
-      setReviews([]);
-      setReviewsMapsUrl(null);
-      setReviewsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setReviewsLoading(true);
-    void (async () => {
-      const data = await fetchPlaceReviews({
-        name: reviewQueryName,
-        lat: reviewLat,
-        lng: reviewLng,
-      });
-      if (cancelled) return;
-      setReviews(data?.reviews ?? []);
-      setReviewsMapsUrl(data?.mapsUrl ?? null);
-      setReviewsLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [courseId, reviewQueryName, reviewLat, reviewLng]);
 
   useEffect(() => {
     if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
@@ -819,12 +786,7 @@ export function CoursePage() {
         </aside>
 
         <div className="detail-panel detail-panel--reviews" id="course-panel-reviews">
-          <CourseReviewsSection
-            reviews={reviews}
-            loading={reviewsLoading}
-            mapsUrl={reviewsMapsUrl}
-            course={course}
-          />
+          <CourseReviewsSection course={course} />
         </div>
       </div>
 

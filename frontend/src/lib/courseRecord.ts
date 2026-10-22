@@ -14,9 +14,9 @@ export type CourseRecord = {
   rating?: number;
   review_count?: number;
   address?: string;
-  /** @deprecated Expired CDN URLs — use photo_reference + worker /place-photo instead. */
+  /** @deprecated Expired CDN URLs. Page views use photo_storage_url. */
   photo_url?: string;
-  /** Stable Google Places photo id — proxied via worker with GOOGLE_PLACES_KEY. */
+  /** Google photo id used only to copy an image into Storage. */
   photo_reference?: string;
   /** Our own cached copy in Supabase Storage — use this directly when present. */
   photo_storage_url?: string;

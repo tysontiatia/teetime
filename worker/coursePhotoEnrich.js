@@ -1,13 +1,8 @@
 /**
- * Background maintenance: fills lat/lng + caches a Supabase Storage photo for
- * course_catalog rows that don't have one yet (fresh CSV import stubs, or any
- * course an admin saved without running "Places lookup"). Runs a small batch
- * per cron tick — see index.js scheduled() — so a large import can't blow a
- * single invocation's subrequest/time budget.
- *
- * A course with no Google Places match still gets photos_fetched_at stamped
- * so it isn't re-queried (and re-billed) every tick; RETRY_COOLDOWN_MS gives
- * it an occasional second chance in case the listing shows up later.
+ * Copies a course photo we already know about into Supabase Storage.
+ * Does not search Google by name. A course with no stored photo reference
+ * or place id is stamped and left alone so this job does not bill Places
+ * on every tick. RETRY_COOLDOWN_MS retries a failed copy after 30 days.
  */
 
 const BATCH_SIZE = 10;
@@ -23,20 +18,15 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function stateFromAddress(address) {
-  return /\b([A-Z]{2})[\s,]+\d{5}(?:-\d{4})?\b/.exec(String(address || ''))?.[1] || '';
-}
-
-async function findPlace(name, lat, lng, apiKey, state) {
-  const query = [name, 'golf course', state].filter(Boolean).join(' ');
-  let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`;
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    url += `&location=${lat},${lng}&radius=8000`;
-  }
+/** Place Details for the photo id only. Skips phone, website, and reviews. */
+async function photoReferenceForPlace(placeId, apiKey) {
+  const url =
+    'https://maps.googleapis.com/maps/api/place/details/json' +
+    `?place_id=${encodeURIComponent(placeId)}&fields=photo&key=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url);
-  const data = await res.json();
-  if (data.status !== 'OK' || !data.results?.length) return null;
-  return data.results[0];
+  const data = await res.json().catch(() => null);
+  if (!res.ok || data?.status !== 'OK') return '';
+  return data.result?.photos?.[0]?.photo_reference || '';
 }
 
 async function fetchPendingCatalogRows(env) {
@@ -81,44 +71,18 @@ async function patchRegistryRecord(env, slug, record) {
 
 async function enrichOne(env, row) {
   const record = (await fetchRegistryRecord(env, row.slug)) || {};
-  let lat = Number.isFinite(row.lat) ? row.lat : record.lat;
-  let lng = Number.isFinite(row.lng) ? row.lng : record.lng;
-
-  const place = await findPlace(row.name, lat, lng, env.GOOGLE_PLACES_KEY, stateFromAddress(record.address));
   const stamp = new Date().toISOString();
-
-  if (!place) {
+  let photoRef = String(record.photo_reference || '').trim();
+  if (!photoRef && record.google_place_id) {
+    photoRef = await photoReferenceForPlace(record.google_place_id, env.GOOGLE_PLACES_KEY);
+    if (photoRef) await patchRegistryRecord(env, row.slug, { ...record, photo_reference: photoRef });
+  }
+  if (!photoRef) {
     await patchCatalog(env, row.slug, { photos_fetched_at: stamp });
     return;
   }
 
-  const placeLat = place.geometry?.location?.lat;
-  const placeLng = place.geometry?.location?.lng;
-  if (!Number.isFinite(lat) && Number.isFinite(placeLat)) lat = placeLat;
-  if (!Number.isFinite(lng) && Number.isFinite(placeLng)) lng = placeLng;
-
-  const nextRecord = { ...record };
-  const photoRef = place.photos?.[0]?.photo_reference;
-  if (photoRef) nextRecord.photo_reference = photoRef;
-  if (place.rating != null) nextRecord.rating = place.rating;
-  if (place.user_ratings_total != null) nextRecord.review_count = place.user_ratings_total;
-  if (place.website && !nextRecord.website) nextRecord.website = place.website;
-  if (place.formatted_phone_number && !nextRecord.phone_number) nextRecord.phone_number = place.formatted_phone_number;
-  if (place.place_id && !nextRecord.google_place_id) nextRecord.google_place_id = place.place_id;
-  if (place.formatted_address && !nextRecord.address) nextRecord.address = place.formatted_address;
-  if (Number.isFinite(lat)) nextRecord.lat = lat;
-  if (Number.isFinite(lng)) nextRecord.lng = lng;
-  await patchRegistryRecord(env, row.slug, nextRecord);
-
   const catalogUpdates = {};
-  if (Number.isFinite(lat)) catalogUpdates.lat = lat;
-  if (Number.isFinite(lng)) catalogUpdates.lng = lng;
-
-  if (!photoRef) {
-    catalogUpdates.photos_fetched_at = stamp;
-    await patchCatalog(env, row.slug, catalogUpdates);
-    return;
-  }
 
   const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoRef}&key=${env.GOOGLE_PLACES_KEY}`;
   const photoRes = await fetch(photoUrl);
