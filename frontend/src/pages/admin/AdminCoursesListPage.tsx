@@ -166,6 +166,9 @@ export function AdminCoursesListPage() {
           >
             {reclassifying ? 'Recategorizing…' : 'Recategorize from booking URLs'}
           </button>
+          <Link className="btn" to="/admin/courses/discover">
+            Find courses
+          </Link>
           <Link className="btn" to="/admin/courses/import">
             Import CSV
           </Link>

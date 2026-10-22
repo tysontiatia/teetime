@@ -30,7 +30,7 @@ export type Course = {
   bookingUrl?: string;
   /** Source platform from catalog (foreup, chronogolf_slc, membersports, …). */
   platform?: string;
-  /** Catalog hole count — 9-only courses are excluded from 18-hole finder searches. */
+  /** Catalog hole count. 9 means the public sheet is 9 holes, so an 18 search still shows those times. */
   holes?: 9 | 18;
   /** IANA timezone for tee-sheet wall clock (default America/Denver when omitted). */
   timezone?: string;

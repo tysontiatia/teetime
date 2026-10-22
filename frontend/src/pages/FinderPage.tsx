@@ -37,6 +37,7 @@ import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
+import { FinderMap, courseInMapBounds, type MapBounds } from '../components/FinderMap';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
 import { SlotActionSheet } from '../components/SlotActionSheet';
@@ -58,9 +59,9 @@ import {
   distanceFromAnchor,
   filterCoursesWithinRadius,
   parseFetchRadiusMi,
-  resolvePlaceAnchor,
   DEFAULT_FETCH_RADIUS_MI,
 } from '../lib/timesFetchScope';
+import { useResolvedPlace } from '../lib/useResolvedPlace';
 import { resolveServiceArea } from '../lib/serviceArea';
 import { teeTimeFitsPlayers } from '../lib/teeTimeFitsPlayers';
 import { extractZip, zipToState } from '../lib/zipToState';
@@ -166,6 +167,10 @@ export function FinderPage() {
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const isCompactShell = useIsCompactShell();
+  const mapOpen = sp.get('view') === 'map' && !isCompactShell;
+  const [areaBounds, setAreaBounds] = useState<MapBounds | null>(null);
+  const [mapFocusId, setMapFocusId] = useState<string | null>(null);
+  const [mapHoverId, setMapHoverId] = useState<string | null>(null);
   const querySentinelRef = useRef<HTMLDivElement>(null);
   const queryDockRef = useRef<HTMLDivElement>(null);
   const [queryScrolledAway, setQueryScrolledAway] = useState(false);
@@ -251,6 +256,24 @@ export function FinderPage() {
   const fetchAllUtah = params.fetchScope === 'all';
   const radiusMi = params.radiusMi;
 
+  useEffect(() => {
+    setAreaBounds(null);
+  }, [params.locationQuery, radiusMi, fetchAllUtah]);
+
+  const setMapOpen = useCallback(
+    (open: boolean) => {
+      const next = new URLSearchParams(sp);
+      if (open) next.set('view', 'map');
+      else next.delete('view');
+      setSp(next, { replace: true });
+      if (!open) {
+        setAreaBounds(null);
+        setMapFocusId(null);
+      }
+    },
+    [sp, setSp],
+  );
+
   /** Radius select: 15 / 25 / 50 mi, or statewide (`all`). */
   const setRadiusMode = useCallback(
     (value: FetchRadiusMi | 'all') => {
@@ -271,17 +294,12 @@ export function FinderPage() {
 
   const workerCourses = useMemo(() => filterWorkerCourses(courses), [courses]);
 
-  /** When the location box holds a ZIP or city, resolve it to a map anchor. */
-  const placeMatch = useMemo(
-    () => resolvePlaceAnchor(locationDraft, courses),
-    [locationDraft, courses],
-  );
+  /** ZIP or city: local tables first, then a geocode so the radius matches Near me. */
+  const resolvedPlace = useResolvedPlace(params.locationQuery, courses);
+  const placeMatch = resolvedPlace.place;
 
-  /** 18-hole search: skip true 9-only courses. 9 / any: keep everyone. */
-  const holesCompatibleCourses = useMemo(() => {
-    if (params.holes === 9 || params.holes === 'any') return workerCourses;
-    return workerCourses.filter((c) => c.holes !== 9);
-  }, [workerCourses, params.holes]);
+  /** 9-only courses stay in an 18-hole search. Their sheet is requested as 9 holes. */
+  const holesCompatibleCourses = useMemo(() => workerCourses, [workerCourses]);
 
   /** When a city/ZIP is selected, always keep courses in that place — even 9-only under an 18 filter. */
   const placeResidentCourses = useMemo(() => {
@@ -305,11 +323,31 @@ export function FinderPage() {
         locationQuery: params.locationQuery,
         radiusMi,
         placeCourses: courses,
+        resolvedPlace: resolvedPlace.place,
+        placePending: resolvedPlace.pending,
       }),
-    [scopedWorkerCourses, userLocation, fetchAllUtah, params.locationQuery, radiusMi, courses]
+    [scopedWorkerCourses, userLocation, fetchAllUtah, params.locationQuery, radiusMi, courses, resolvedPlace]
   );
 
   const fetchPool = timesFetchScope.fetchPool;
+
+  /** Map "search this area" swaps the tee-time pool to courses inside the viewport, capped so a wide zoom doesn't fetch the whole catalog. */
+  const mapFetchPool = useMemo(() => {
+    if (!mapOpen || !areaBounds) return fetchPool;
+    const anchor = {
+      lat: (areaBounds.south + areaBounds.north) / 2,
+      lng: (areaBounds.west + areaBounds.east) / 2,
+      source: 'default' as const,
+    };
+    return filterWorkerCourses(courses)
+      .filter((c) => courseInMapBounds(c, areaBounds))
+      .sort(
+        (a, b) =>
+          (distanceFromAnchor(a, anchor) ?? Number.POSITIVE_INFINITY) -
+          (distanceFromAnchor(b, anchor) ?? Number.POSITIVE_INFINITY),
+      )
+      .slice(0, 40);
+  }, [areaBounds, courses, fetchPool, mapOpen]);
 
   const serviceArea = useMemo(
     () =>
@@ -325,7 +363,7 @@ export function FinderPage() {
   );
   const showOutOfMarket = !catalogLoading && !catalogError && serviceArea.outside;
 
-  const fetchSlugSet = useMemo(() => new Set(fetchPool.map((c) => c.id)), [fetchPool]);
+  const fetchSlugSet = useMemo(() => new Set(mapFetchPool.map((c) => c.id)), [mapFetchPool]);
 
   /** Filter to courses near the place centroid and re-express distance from it. */
   const coursesNearPlace = useCallback(
@@ -387,7 +425,7 @@ export function FinderPage() {
     attemptedSlugCount,
     pendingSlugs,
   } = useTimesByCourseMap(
-    fetchPool,
+    mapFetchPool,
     recordsBySlug,
     params.date,
     params.holes,
@@ -403,9 +441,11 @@ export function FinderPage() {
     const holesFilter = params.holes;
     for (const [courseId, list] of rawTimesByCourse) {
       const tz = courseTimezone(recordsBySlug.get(courseId)?.timezone);
+      const courseHoles = recordsBySlug.get(courseId)?.holes;
       const filtered = list.filter((t) => {
         if (holesFilter === 9 || holesFilter === 18) {
-          if (t.holes !== holesFilter) return false;
+          const want = holesFilter === 18 && courseHoles === 9 ? 9 : holesFilter;
+          if (t.holes !== want) return false;
         }
         return (
           matchesPreset(t.startsAt, params.timeOfDay, tz) && teeTimeFitsPlayers(t, params.players)
@@ -430,11 +470,6 @@ export function FinderPage() {
   const withTimesCount = useMemo(
     () => gridCourses.filter((c) => (timesByCourse.get(c.id)?.length ?? 0) > 0).length,
     [gridCourses, timesByCourse]
-  );
-
-  const openTeeTimeCount = useMemo(
-    () => gridCourses.reduce((n, c) => n + (timesByCourse.get(c.id)?.length ?? 0), 0),
-    [gridCourses, timesByCourse],
   );
 
   // Only warn when failed courses actually have no times on screen (rate-limit misses that
@@ -517,11 +552,27 @@ export function FinderPage() {
     return sortFinderGridCourses(combined, timesByCourse, params.sortBy);
   }, [gridCourses, bookingOnlyInScope, loadingTimes, timesByCourse, params.sortBy]);
 
+  const listedCourses = useMemo(() => {
+    if (!mapOpen || !areaBounds) return displayCourses;
+    const anchor = {
+      lat: (areaBounds.south + areaBounds.north) / 2,
+      lng: (areaBounds.west + areaBounds.east) / 2,
+      source: 'default' as const,
+    };
+    const inArea = courses
+      .filter((c) => courseInMapBounds(c, areaBounds))
+      .map((c) => ({
+        ...c,
+        distanceMi: distanceFromAnchor(c, anchor) ?? undefined,
+      }));
+    return sortFinderGridCourses(inArea, timesByCourse, params.sortBy);
+  }, [areaBounds, courses, displayCourses, mapOpen, params.sortBy, timesByCourse]);
+
   const inventoryFirst = isInventoryFirstSort(params.sortBy);
 
   const finderGroups = useMemo(() => {
     if (!inventoryFirst) return null;
-    const buckets = bucketFinderCourses(displayCourses, timesByCourse, {
+    const buckets = bucketFinderCourses(listedCourses, timesByCourse, {
       isLive: (c) =>
         resolveCourseBookingMode(
           recordsBySlug.get(c.id) ?? { platform: c.platform, booking_url: c.bookingUrl },
@@ -538,7 +589,7 @@ export function FinderPage() {
     };
   }, [
     inventoryFirst,
-    displayCourses,
+    listedCourses,
     timesByCourse,
     recordsBySlug,
     pendingSlugs,
@@ -556,7 +607,7 @@ export function FinderPage() {
       : finderGroups.noTimes.length > 0
         ? finderGroups.noTimes
         : finderGroups.alsoNearby
-    : displayCourses;
+    : listedCourses;
   const noTimesCourses =
     finderGroups && finderGroups.openings.length > 0 ? finderGroups.noTimes : [];
   const alsoNearbyCourses = hasLiveGroup ? (finderGroups?.alsoNearby ?? []) : [];
@@ -595,19 +646,21 @@ export function FinderPage() {
     }
   }, [unsupportedZipState]);
 
+  const listedTeeCount = listedCourses.reduce((n, c) => n + (timesByCourse.get(c.id)?.length ?? 0), 0);
+
   const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
     : showOutOfMarket
       ? 'Outside live markets'
-      : openTeeTimeCount > 0
-      ? `${openTeeTimeCount} tee time${openTeeTimeCount === 1 ? '' : 's'}`
+      : listedTeeCount > 0
+      ? `${listedTeeCount} tee time${listedTeeCount === 1 ? '' : 's'}`
       : loadingTimes
         ? 'Finding tee times…'
-        : `${displayCourses.length} courses`;
+        : `${listedCourses.length} courses`;
 
   const resultCountSecondary = catalogLoading
     ? null
-    : loadingTimes && openTeeTimeCount > 0
+    : loadingTimes && listedTeeCount > 0
       ? 'still checking a few…'
       : loadingTimes
         ? null
@@ -884,6 +937,12 @@ export function FinderPage() {
     setQueryDockHoldPx(null);
   };
 
+  useEffect(() => {
+    if (!mapOpen || !mapFocusId || isCompactShell) return;
+    const node = document.querySelector(`[data-course-id="${CSS.escape(mapFocusId)}"]`);
+    node?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [isCompactShell, mapFocusId, mapOpen]);
+
   const renderFinderCard = (course: Course) => {
     const times = timesByCourse.get(course.id) ?? [];
     const inFetchPool = fetchSlugSet.has(course.id);
@@ -929,6 +988,11 @@ export function FinderPage() {
           });
           setSlotAction({ course, time, times, bookHref, detailHref });
         }}
+        compact={mapOpen && !isCompactShell}
+        mapActive={mapFocusId === course.id}
+        onMapHover={
+          mapOpen ? (active) => setMapHoverId(active ? course.id : null) : undefined
+        }
       />
     );
   };
@@ -1198,6 +1262,26 @@ export function FinderPage() {
           </div>
           {!showOutOfMarket ? (
             <div className="result-meta-tools">
+              {!isCompactShell ? (
+              <div className="finder-view-toggle" role="group" aria-label="Results layout">
+                <button
+                  type="button"
+                  className={!mapOpen ? 'is-on' : undefined}
+                  aria-pressed={!mapOpen}
+                  onClick={() => setMapOpen(false)}
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  className={mapOpen ? 'is-on' : undefined}
+                  aria-pressed={mapOpen}
+                  onClick={() => setMapOpen(true)}
+                >
+                  Map
+                </button>
+              </div>
+              ) : null}
               <FinderDayOutlook
                 dateYmd={params.date}
                 lat={timesFetchScope.anchor.lat}
@@ -1225,6 +1309,8 @@ export function FinderPage() {
           ) : null}
         </div>
 
+        <div className={`finder-layout${mapOpen && !showOutOfMarket ? ' is-map' : ''}`}>
+        <div className="finder-results">
         {showOutOfMarket ? (
           <div className="empty-search empty-search--market">
             <div className="empty-search-kicker">Coming soon</div>
@@ -1321,7 +1407,7 @@ export function FinderPage() {
           </div>
         ) : null}
 
-        {!showOutOfMarket && !catalogLoading && !loadingTimes && withTimesCount === 0 && searchPool.length > 0 ? (
+        {!showOutOfMarket && !catalogLoading && !loadingTimes && listedTeeCount === 0 && listedCourses.length > 0 ? (
           <div className="empty-openings-hint">
             <div className="empty-openings-hint-copy">
               <p className="empty-openings-hint-title">
@@ -1376,6 +1462,26 @@ export function FinderPage() {
               ) : null}
             </>
           ) : null}
+        </div>
+        </div>
+        {mapOpen && !showOutOfMarket ? (
+          <div className="finder-map-pane">
+            <FinderMap
+              courses={listedCourses}
+              timesByCourse={timesByCourse}
+              pendingSlugs={pendingSlugs}
+              fetchedSlugs={fetchSlugSet}
+              selectedId={mapFocusId}
+              hoveredId={mapHoverId}
+              anchor={timesFetchScope.anchor}
+              lockView={areaBounds != null}
+              detailHref={(course) => `/course/${course.id}?${courseDetailQueryString(params)}`}
+              onSelect={setMapFocusId}
+              onHover={setMapHoverId}
+              onSearchArea={setAreaBounds}
+            />
+          </div>
+        ) : null}
         </div>
       </div>
 

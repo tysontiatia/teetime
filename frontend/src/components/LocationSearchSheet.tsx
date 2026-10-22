@@ -158,11 +158,11 @@ export function LocationSearchSheet({
             ref={inputRef}
             className="location-sheet-input"
             value={draft}
-            placeholder="Search by city or course"
+            placeholder="City, ZIP, or course"
             inputMode="search"
             enterKeyHint="search"
             autoComplete="off"
-            aria-label="Search by city or course"
+            aria-label="Search by city, ZIP, or course"
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {

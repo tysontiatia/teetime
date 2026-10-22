@@ -845,13 +845,29 @@ const COURSES_CACHE_MS = 60_000;
 /** slug -> photo_storage_url, for courses already cached to Supabase Storage. */
 async function fetchCatalogPhotoUrls(env) {
   try {
-    const res = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/course_catalog?select=slug,photo_storage_url&photo_storage_url=not.is.null`,
-      { headers: sbHeaders(env) },
-    );
-    if (!res.ok) return new Map();
-    const rows = await res.json();
-    return new Map(rows.map((r) => [r.slug, r.photo_storage_url]));
+    // PostgREST stops at max_rows (1000). Courses added after that first page,
+    // including California, were left without a photo on Find.
+    const pageSize = 1000;
+    const photoUrls = new Map();
+    for (let from = 0; from < 20_000; from += pageSize) {
+      const res = await fetch(
+        `${env.SUPABASE_URL}/rest/v1/course_catalog?select=slug,photo_storage_url&photo_storage_url=not.is.null&order=slug`,
+        {
+          headers: {
+            ...sbHeaders(env),
+            Range: `${from}-${from + pageSize - 1}`,
+          },
+        },
+      );
+      if (!res.ok) break;
+      const rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) break;
+      for (const row of rows) {
+        if (row.photo_storage_url) photoUrls.set(row.slug, row.photo_storage_url);
+      }
+      if (rows.length < pageSize) break;
+    }
+    return photoUrls;
   } catch {
     return new Map();
   }
@@ -2204,7 +2220,7 @@ export default {
     if (cron === '*/15 6-23 * * *') {
       ctx.waitUntil(handleScheduled(env));
     }
-    // Copies a known course photo into Storage. Does not search Google by name.
+    // Copies a stored course photo into Storage. One Google lookup, then it stops.
     if (cron === '*/15 * * * *') {
       ctx.waitUntil(handleCoursePhotoEnrichPoll(env));
     }

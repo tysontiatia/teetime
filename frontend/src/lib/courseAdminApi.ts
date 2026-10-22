@@ -238,3 +238,56 @@ export async function importAdminCourses(
   };
   return merged;
 }
+
+export type DiscoveryCourseStub = {
+  osm_name: string;
+  name: string;
+  city?: string;
+  state?: string;
+  address?: string;
+  lat: number;
+  lng: number;
+  website?: string;
+  phone_number?: string;
+  holes?: number;
+};
+
+export type DiscoveryPrepareResult = {
+  state: string;
+  map_count: number;
+  catalog_in_state: number;
+  matched: number;
+  known: { name: string; catalog_match: string }[];
+  missing: string[];
+  pending: DiscoveryCourseStub[];
+};
+
+export type DiscoveredCourse = DiscoveryCourseStub & {
+  area?: string;
+  platform?: string | null;
+  booking_url?: string;
+  booking_status?: string;
+  support?: string;
+  note?: string;
+  website?: string;
+  catalog_match?: string | null;
+  par?: number;
+  yardage?: number;
+  editorial_note?: string;
+  import_row?: { slug: string; record: CourseRecord } | null;
+  validity?: { action: 'import' | 'review' | 'skip'; note: string; added?: boolean; slug?: string };
+};
+
+export async function prepareCourseDiscovery(state: string): Promise<DiscoveryPrepareResult> {
+  return adminFetch<DiscoveryPrepareResult>('/admin/courses/discover', {
+    method: 'POST',
+    body: JSON.stringify({ state }),
+  });
+}
+
+export async function inspectDiscoveredCourses(courses: DiscoveryCourseStub[]): Promise<{ courses: DiscoveredCourse[] }> {
+  return adminFetch<{ courses: DiscoveredCourse[] }>('/admin/courses/discover/inspect', {
+    method: 'POST',
+    body: JSON.stringify({ courses }),
+  });
+}

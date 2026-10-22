@@ -59,37 +59,126 @@ function normalizeSearchText(value: string): string {
     .trim();
 }
 
-const STATE_NAME_TO_CODE: Record<string, string> = {
-  ut: 'UT',
-  utah: 'UT',
-  id: 'ID',
-  idaho: 'ID',
-  wy: 'WY',
-  wyoming: 'WY',
-  nv: 'NV',
-  nevada: 'NV',
-  az: 'AZ',
-  arizona: 'AZ',
-  co: 'CO',
-  colorado: 'CO',
-  mt: 'MT',
-  montana: 'MT',
-  nm: 'NM',
-  'new mexico': 'NM',
-};
+/** Longest suffix first so "north carolina" wins over "carolina" and "washington dc" over "washington". */
+const STATE_SUFFIXES: Array<[string, string]> = [
+  ['district of columbia', 'DC'],
+  ['washington dc', 'DC'],
+  ['north carolina', 'NC'],
+  ['north dakota', 'ND'],
+  ['south carolina', 'SC'],
+  ['south dakota', 'SD'],
+  ['west virginia', 'WV'],
+  ['new hampshire', 'NH'],
+  ['new jersey', 'NJ'],
+  ['new mexico', 'NM'],
+  ['new york', 'NY'],
+  ['rhode island', 'RI'],
+  ['alabama', 'AL'],
+  ['alaska', 'AK'],
+  ['arizona', 'AZ'],
+  ['arkansas', 'AR'],
+  ['california', 'CA'],
+  ['colorado', 'CO'],
+  ['connecticut', 'CT'],
+  ['delaware', 'DE'],
+  ['florida', 'FL'],
+  ['georgia', 'GA'],
+  ['hawaii', 'HI'],
+  ['idaho', 'ID'],
+  ['illinois', 'IL'],
+  ['indiana', 'IN'],
+  ['iowa', 'IA'],
+  ['kansas', 'KS'],
+  ['kentucky', 'KY'],
+  ['louisiana', 'LA'],
+  ['maine', 'ME'],
+  ['maryland', 'MD'],
+  ['massachusetts', 'MA'],
+  ['michigan', 'MI'],
+  ['minnesota', 'MN'],
+  ['mississippi', 'MS'],
+  ['missouri', 'MO'],
+  ['montana', 'MT'],
+  ['nebraska', 'NE'],
+  ['nevada', 'NV'],
+  ['ohio', 'OH'],
+  ['oklahoma', 'OK'],
+  ['oregon', 'OR'],
+  ['pennsylvania', 'PA'],
+  ['tennessee', 'TN'],
+  ['texas', 'TX'],
+  ['utah', 'UT'],
+  ['vermont', 'VT'],
+  ['virginia', 'VA'],
+  ['washington', 'WA'],
+  ['wisconsin', 'WI'],
+  ['wyoming', 'WY'],
+  ['al', 'AL'],
+  ['ak', 'AK'],
+  ['az', 'AZ'],
+  ['ar', 'AR'],
+  ['ca', 'CA'],
+  ['co', 'CO'],
+  ['ct', 'CT'],
+  ['dc', 'DC'],
+  ['de', 'DE'],
+  ['fl', 'FL'],
+  ['ga', 'GA'],
+  ['hi', 'HI'],
+  ['id', 'ID'],
+  ['il', 'IL'],
+  ['in', 'IN'],
+  ['ia', 'IA'],
+  ['ks', 'KS'],
+  ['ky', 'KY'],
+  ['la', 'LA'],
+  ['ma', 'MA'],
+  ['md', 'MD'],
+  ['me', 'ME'],
+  ['mi', 'MI'],
+  ['mn', 'MN'],
+  ['mo', 'MO'],
+  ['ms', 'MS'],
+  ['mt', 'MT'],
+  ['nc', 'NC'],
+  ['nd', 'ND'],
+  ['ne', 'NE'],
+  ['nh', 'NH'],
+  ['nj', 'NJ'],
+  ['nm', 'NM'],
+  ['nv', 'NV'],
+  ['ny', 'NY'],
+  ['oh', 'OH'],
+  ['ok', 'OK'],
+  ['or', 'OR'],
+  ['pa', 'PA'],
+  ['ri', 'RI'],
+  ['sc', 'SC'],
+  ['sd', 'SD'],
+  ['tn', 'TN'],
+  ['tx', 'TX'],
+  ['ut', 'UT'],
+  ['va', 'VA'],
+  ['vt', 'VT'],
+  ['wa', 'WA'],
+  ['wi', 'WI'],
+  ['wv', 'WV'],
+  ['wy', 'WY'],
+];
 
-/** "Eagle ID" / "Eagle, Idaho" → { city: "eagle", state: "ID" }. */
+/** "Eagle ID" / "Bend, Oregon" → { city: "bend", state: "OR" }. */
 export function parseCityStateQuery(query: string): { city: string; state: string | null } {
-  const q = normalizeSearchText(query);
+  const q = normalizeSearchText(query).replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
   if (!q) return { city: '', state: null };
-  const m = q.match(
-    /^(.*?)(?:[,\s]+)([a-z]{2}|utah|idaho|wyoming|nevada|arizona|colorado|montana|new mexico)$/i,
-  );
-  if (!m) return { city: q, state: null };
-  const city = m[1]!.trim();
-  const state = STATE_NAME_TO_CODE[normalizeSearchText(m[2]!)] || null;
-  if (!city || !state) return { city: q, state: null };
-  return { city, state };
+  for (const [suffix, code] of STATE_SUFFIXES) {
+    if (q === suffix) return { city: q, state: null };
+    const tail = ` ${suffix}`;
+    if (!q.endsWith(tail)) continue;
+    const city = q.slice(0, -tail.length).trim();
+    if (!city) return { city: q, state: null };
+    return { city, state: code };
+  }
+  return { city: q, state: null };
 }
 
 export function courseHasCoords(course: Course): course is Course & { lat: number; lng: number } {
@@ -239,6 +328,10 @@ export function buildTimesFetchScope(
     locationQuery?: string;
     /** Catalog used to resolve city/ZIP anchors (defaults to workerCourses). */
     placeCourses?: Course[];
+    /** Anchor already resolved, including a geocoded zip or city outside the local tables. */
+    resolvedPlace?: ResolvedPlaceAnchor | null;
+    /** A zip or city is still being located. Don't fall back to the GPS area. */
+    placePending?: boolean;
   } = {}
 ): TimesFetchScope {
   const anchor = resolveFetchAnchor(userLocation);
@@ -263,7 +356,10 @@ export function buildTimesFetchScope(
 
   if (locationQuery) {
     // ZIP or city: fetch courses near that place instead of text-matching only.
-    const place = resolvePlaceAnchor(locationQuery, placeCourses);
+    const place =
+      options.resolvedPlace !== undefined
+        ? options.resolvedPlace
+        : resolvePlaceAnchor(locationQuery, placeCourses);
     if (place) {
       const placeAnchor: FetchAnchor = { ...place.anchor, source: 'default' };
       const nearPlace = filterCoursesWithinRadius(workerCourses, placeAnchor, radiusMi);
@@ -277,6 +373,20 @@ export function buildTimesFetchScope(
         searchMatchCount: nearPlace.length,
         regional: true,
         outOfScopeCount: Math.max(0, workerCourses.length - nearPlace.length),
+      };
+    }
+
+    if (options.placePending) {
+      return {
+        anchor,
+        radiusMi,
+        fetchPool: [],
+        workerCourses,
+        mode: 'search',
+        searchQuery: locationQuery,
+        searchMatchCount: 0,
+        regional: true,
+        outOfScopeCount: workerCourses.length,
       };
     }
 

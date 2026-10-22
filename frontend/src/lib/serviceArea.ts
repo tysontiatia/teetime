@@ -69,6 +69,11 @@ const STATE_BOXES: StateBox[] = [
   { code: 'DC', name: 'Washington, D.C.', minLat: 38.79, maxLat: 39.0, minLng: -77.12, maxLng: -76.91 },
 ];
 
+/** All US states and D.C., alphabetical by name. */
+export const US_STATES: UsRegion[] = STATE_BOXES.map(({ code, name }) => ({ code, name })).sort((a, b) =>
+  a.name.localeCompare(b.name),
+);
+
 const REGION_BY_KEY = new Map<string, UsRegion>();
 for (const s of STATE_BOXES) {
   REGION_BY_KEY.set(s.code.toLowerCase(), { code: s.code, name: s.name });

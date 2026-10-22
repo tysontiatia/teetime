@@ -13,6 +13,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminCoursesListPage } from './pages/admin/AdminCoursesListPage';
 import { AdminCourseEditPage } from './pages/admin/AdminCourseEditPage';
 import { AdminCoursesImportPage } from './pages/admin/AdminCoursesImportPage';
+import { AdminCoursesDiscoverPage } from './pages/admin/AdminCoursesDiscoverPage';
 import { AdminCourseQaPage } from './pages/admin/AdminCourseQaPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AuthProvider } from './state/AuthContext';
@@ -35,6 +36,7 @@ function RoutedApp() {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/courses" element={<AdminCoursesListPage />} />
           <Route path="/admin/courses/import" element={<AdminCoursesImportPage />} />
+          <Route path="/admin/courses/discover" element={<AdminCoursesDiscoverPage />} />
           <Route path="/admin/courses/qa" element={<AdminCourseQaPage />} />
           <Route path="/admin/courses/qa/:slug" element={<AdminCourseQaPage />} />
           <Route path="/admin/courses/:slug" element={<AdminCourseEditPage />} />

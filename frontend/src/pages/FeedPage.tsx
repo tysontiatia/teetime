@@ -8,7 +8,8 @@ import { buildFeedScope, feedScopeLabel, filterFeedItems } from '../lib/feedScop
 import { sortFeedItemsByUrgency } from '../lib/feedDisplay';
 import { courseDistanceMap } from '../lib/feedDistanceMap';
 import type { FetchRadiusMi } from '../types';
-import { DEFAULT_FETCH_RADIUS_MI, parseFetchRadiusMi } from '../lib/timesFetchScope';
+import { DEFAULT_FETCH_RADIUS_MI, distanceFromAnchor, parseFetchRadiusMi } from '../lib/timesFetchScope';
+import { useResolvedPlace } from '../lib/useResolvedPlace';
 
 type PlayersFilter = 1 | 2 | 3 | 4;
 
@@ -99,19 +100,33 @@ export function FeedPage() {
     return () => window.clearInterval(id);
   }, [load]);
 
+  const resolvedPlace = useResolvedPlace(locationQuery, courses);
+
   const feedScopeResult = useMemo(
     () =>
       buildFeedScope(courses, userLocation, {
         fetchAllUtah,
         locationQuery,
         radiusMi,
+        resolvedPlace: resolvedPlace.place,
+        placePending: resolvedPlace.pending,
       }),
-    [courses, userLocation, fetchAllUtah, locationQuery, radiusMi],
+    [courses, userLocation, fetchAllUtah, locationQuery, radiusMi, resolvedPlace],
   );
 
   const scopeReady = feedScopeResult.scopeReady && !catalogLoading;
 
-  const distanceMiBySlug = useMemo(() => courseDistanceMap(courses), [courses]);
+  const distanceMiBySlug = useMemo(() => {
+    const place = resolvedPlace.place;
+    if (!place) return courseDistanceMap(courses);
+    const anchor = { ...place.anchor, source: 'default' as const };
+    const map = new Map<string, number>();
+    for (const course of courses) {
+      const miles = distanceFromAnchor(course, anchor);
+      if (miles != null) map.set(course.id, miles);
+    }
+    return map;
+  }, [courses, resolvedPlace.place]);
 
   const filteredItems = useMemo(() => {
     if (feedScopeResult.isRegional && !scopeReady) return [];

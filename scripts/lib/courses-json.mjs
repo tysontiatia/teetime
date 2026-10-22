@@ -1,7 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 
-/** Load GOOGLE_PLACES_KEY from repo-root `.env` if present (gitignored). */
-export function loadDotEnv(path = './.env') {
+function applyEnvFile(path) {
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, 'utf8').split('\n')) {
     const trimmed = line.trim();
@@ -15,6 +14,12 @@ export function loadDotEnv(path = './.env') {
     }
     if (key && process.env[key] == null) process.env[key] = val;
   }
+}
+
+/** Load secrets from repo-root `.env`, then the parent folder's `.env`. */
+export function loadDotEnv(path = './.env') {
+  const candidates = path === './.env' ? ['./.env', '../.env'] : [path];
+  for (const candidate of candidates) applyEnvFile(candidate);
 }
 
 export function loadCourses(path = './public/courses.json') {

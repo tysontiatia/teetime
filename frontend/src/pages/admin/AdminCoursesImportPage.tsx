@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { importAdminCourses } from '../../lib/courseAdminApi';
-import { parseMasterCsvToImportRows, type CourseImportRow } from '../../lib/courseImport';
+import { parseDiscoveryFile, parseMasterCsvToImportRows, type CourseImportRow } from '../../lib/courseImport';
 
 type PreviewStatus = 'create' | 'skip' | 'error' | 'pending';
 
@@ -9,6 +9,12 @@ type PreviewRow = CourseImportRow & {
   status: PreviewStatus;
   detail?: string;
 };
+
+function parseImportText(text: string): CourseImportRow[] {
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return parseDiscoveryFile(trimmed);
+  return parseMasterCsvToImportRows(trimmed);
+}
 
 function skipDetail(reason?: string, matchedName?: string): string {
   const base = reason || 'exists';
@@ -42,7 +48,7 @@ export function AdminCoursesImportPage() {
     setPreview(null);
     setConfirmed(false);
     try {
-      const mapped = parseMasterCsvToImportRows(csvText);
+      const mapped = parseImportText(csvText);
       if (mapped.length === 0) {
         setRows(null);
         setParseError('No course rows found. Expect columns including Course Name, City, State, Place ID.');
@@ -64,7 +70,7 @@ export function AdminCoursesImportPage() {
     setPreview(null);
     setConfirmed(false);
     try {
-      const mapped = parseMasterCsvToImportRows(text);
+      const mapped = parseImportText(text);
       if (mapped.length === 0) {
         setRows(null);
         setParseError('No course rows found. Expect columns including Course Name, City, State, Place ID.');
@@ -170,17 +176,18 @@ export function AdminCoursesImportPage() {
         <h1 style={{ margin: '12px 0 4px', fontFamily: 'var(--font-display)', fontSize: 32, letterSpacing: '-0.03em' }}>
           Import course stubs
         </h1>
-        <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14, maxWidth: 560 }}>
-          Paste or upload a Tee Time Master CSV (any state). Dry-run skips existing courses by slug, Google Place
-          ID, or same-state name/city match — then confirm creates empty platform / booking URL stubs for QA.
-          Large files (100+ courses) are sent in batches automatically.
+        <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14, maxWidth: 640 }}>
+          Paste or upload a Tee Time Master CSV, or a discovery file from{' '}
+          <code>node scripts/discover-courses.mjs --state AZ</code>. Dry-run skips existing courses by slug, Google
+          Place ID, or same-state name/city match. CSV rows become empty booking stubs. Discovery rows keep the
+          booking URL, vendor, and ids. Large files are sent in batches automatically.
         </p>
       </div>
 
       <div style={{ marginTop: 20, display: 'grid', gap: 12, maxWidth: 720 }}>
         <input
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,text/csv,.json,application/json"
           onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
         />
         <textarea
@@ -191,13 +198,13 @@ export function AdminCoursesImportPage() {
             setPreview(null);
             setConfirmed(false);
           }}
-          placeholder="Paste CSV (Course Name, Street Address, City, State, ZIP, Phone, Website URL, Region, Place ID; optional Holes, Yardage, Par)…"
+          placeholder="Paste a master CSV, or the JSON from scripts/discover-courses.mjs…"
           rows={8}
           style={{ width: '100%', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}
         />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn" onClick={onParseLocal} disabled={!csvText.trim() || busy}>
-            Parse CSV
+            Parse
           </button>
           <button type="button" className="btn btn-primary" onClick={() => void onDryRun()} disabled={!rows?.length || busy}>
             {busy ? 'Working…' : 'Dry-run preview'}
@@ -222,7 +229,7 @@ export function AdminCoursesImportPage() {
           <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
             {confirmed ? 'Import finished — ' : 'Dry-run — '}
             {summary.create} create, {summary.skip} skip, {summary.error} error
-            {confirmed ? '. Stubs are under Needs booking on the course list.' : '.'}
+            {confirmed ? '. New courses are on the course list.' : '.'}
           </p>
         ) : null}
       </div>
@@ -235,8 +242,9 @@ export function AdminCoursesImportPage() {
                 <th style={{ padding: '10px 12px' }}>Status</th>
                 <th style={{ padding: '10px 12px' }}>Slug</th>
                 <th style={{ padding: '10px 12px' }}>Name</th>
+                <th style={{ padding: '10px 12px' }}>Platform</th>
+                <th style={{ padding: '10px 12px' }}>Booking</th>
                 <th style={{ padding: '10px 12px' }}>Area</th>
-                <th style={{ padding: '10px 12px' }}>Timezone</th>
               </tr>
             </thead>
             <tbody>
@@ -250,8 +258,9 @@ export function AdminCoursesImportPage() {
                   </td>
                   <td style={{ padding: '8px 12px', fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{r.slug}</td>
                   <td style={{ padding: '8px 12px', fontWeight: 700 }}>{r.record.name}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{r.record.platform || '—'}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{r.record.booking_status || '—'}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{r.record.area}</td>
-                  <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{r.record.timezone || '—'}</td>
                 </tr>
               ))}
             </tbody>

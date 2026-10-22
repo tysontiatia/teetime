@@ -55,6 +55,11 @@ type Props = {
   shareDisabled?: boolean;
   /** Opens Book / Share instead of jumping straight to the vendor URL. */
   onSelectTime?: (time: TeeTime, bookHref: string | null) => void;
+  /** Shorter photo and two tee times — used beside the map. */
+  compact?: boolean;
+  /** Highlight while this course is selected on the map. */
+  mapActive?: boolean;
+  onMapHover?: (active: boolean) => void;
 };
 
 function telHref(phone: string | undefined | null): string | null {
@@ -88,11 +93,14 @@ export function CourseMarketplaceCard({
   shareBusy = false,
   shareDisabled = true,
   onSelectTime,
+  compact = false,
+  mapActive = false,
+  onMapHover,
 }: Props) {
   const bookingLinkOnly = variant === 'bookingLink';
   const phoneOnly = variant === 'phone';
   const noLiveInventory = bookingLinkOnly || phoneOnly;
-  const top = times.slice(0, 5);
+  const top = times.slice(0, compact ? 2 : 5);
   const hasTimes = !noLiveInventory && times.length > 0;
   const weatherPoints = useCourseHourlyWeather(course.lat, course.lng, dateYmd, hasTimes);
   const hotId = top[0]?.id;
@@ -135,7 +143,14 @@ export function CourseMarketplaceCard({
   const siteHref = websiteHref(record?.website);
 
   return (
-    <article className={`mp-course${isEmptyLive ? ' is-empty' : ''}`}>
+    <article
+      className={`mp-course${isEmptyLive ? ' is-empty' : ''}${compact ? ' is-compact' : ''}${
+        mapActive ? ' is-map-active' : ''
+      }`}
+      data-course-id={course.id}
+      onMouseEnter={onMapHover ? () => onMapHover(true) : undefined}
+      onMouseLeave={onMapHover ? () => onMapHover(false) : undefined}
+    >
       <div className="mp-course-media">
         <div className="mp-course-photo">
           <Link to={detailHref} className="mp-course-photo-link" aria-label={`${course.name} details`}>
@@ -267,7 +282,7 @@ export function CourseMarketplaceCard({
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
                   >
-                    Call pro shop
+                    Call {record.phone_number.trim()}
                   </a>
                 ) : (
                   <Link to={detailHref} className="tee-empty-action tee-empty-action--primary">
@@ -310,7 +325,7 @@ export function CourseMarketplaceCard({
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Call ${course.name} pro shop at ${record.phone_number.trim()}`}
                   >
-                    Call
+                    Call {record.phone_number.trim()}
                   </a>
                 ) : null}
               </div>

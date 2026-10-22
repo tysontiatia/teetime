@@ -229,5 +229,33 @@ export function parseMasterCsvToImportRows(text: string): CourseImportRow[] {
   return parseMasterCoursesCsv(text).map(masterFieldsToImportRow);
 }
 
+/**
+ * Discovery JSON from `scripts/discover-courses.mjs`.
+ * `import_rows` already include platform, booking URL, and vendor ids.
+ */
+export function parseDiscoveryFile(text: string): CourseImportRow[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('Discovery file is not valid JSON');
+  }
+  const obj = data && typeof data === 'object' ? (data as { import_rows?: unknown; rows?: unknown }) : {};
+  const rows = Array.isArray(obj.import_rows) ? obj.import_rows : Array.isArray(obj.rows) ? obj.rows : null;
+  if (!rows) {
+    throw new Error('Expected a discovery file with import_rows from scripts/discover-courses.mjs');
+  }
+  const out: CourseImportRow[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const source = row as { slug?: string; record?: CourseRecord };
+    const slug = String(source.slug || '').trim();
+    if (!slug || !source.record?.name) continue;
+    out.push({ slug, record: source.record });
+  }
+  if (out.length === 0) throw new Error('Discovery file has no importable courses');
+  return out;
+}
+
 /** @deprecated Use parseMasterCsvToImportRows */
 export const parseIdahoCsvToImportRows = parseMasterCsvToImportRows;

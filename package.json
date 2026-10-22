@@ -20,6 +20,7 @@
     "registry:reclassify": "node scripts/reclassify-course-platforms.mjs",
     "registry:places": "node scripts/enrich-registry-places.mjs",
     "courses:audit": "node scripts/audit-course-catalog.mjs",
+    "courses:discover": "node scripts/discover-courses.mjs",
     "photos:fetch": "node scripts/photos-cache.mjs",
     "sync:coordinates": "node scripts/sync-coordinates.mjs"
   },

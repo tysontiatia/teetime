@@ -617,18 +617,38 @@ async function pickForeUpBookingClass(html, scheduleId) {
   return candidates[0].classId;
 }
 
+/** One teesheet is unambiguous. Several means a person still has to pick. */
+export function selectForeUpScheduleId(html) {
+  const ids = [];
+  const seen = new Set();
+  const re = /"teesheet_id":"(\d+)"/g;
+  let match;
+  while ((match = re.exec(String(html || '')))) {
+    if (seen.has(match[1])) continue;
+    seen.add(match[1]);
+    ids.push(match[1]);
+  }
+  return { schedule_id: ids.length === 1 ? ids[0] : null, schedule_ids: ids };
+}
+
 /** Fetch the ForeUp booking page once and derive booking_class_id + course metadata. */
-async function enrichForeUpFromPage(bookingUrl, scheduleId) {
-  const out = { booking_class_id: null, meta: null };
+export async function enrichForeUpFromPage(bookingUrl, scheduleId) {
+  const out = { booking_class_id: null, schedule_id: null, schedule_ids: null, meta: null };
   if (!bookingUrl) return out;
   const html = await fetchForeUpBookingPage(bookingUrl);
   if (!html) return out;
+  const selected = selectForeUpScheduleId(html);
+  out.schedule_ids = selected.schedule_ids;
+  const sid = scheduleId ? String(scheduleId) : selected.schedule_id;
   out.meta = parseForeUpCourseMeta(html);
-  if (out.meta && scheduleId) {
-    const holes = parseForeUpScheduleHoles(html, scheduleId);
+  if (out.meta && sid) {
+    const holes = parseForeUpScheduleHoles(html, sid);
     if (holes) out.meta.holes = holes;
   }
-  if (scheduleId) out.booking_class_id = await pickForeUpBookingClass(html, scheduleId);
+  if (sid) {
+    out.schedule_id = sid;
+    out.booking_class_id = await pickForeUpBookingClass(html, sid);
+  }
   return out;
 }
 
@@ -654,7 +674,19 @@ export function catalogHolesFromChronogolfCourse(course) {
  * defaultAffiliationTypeId. Marketplace v2 `/teetimes?course_ids=` often returns
  * status=closed for these clubs; the club teetimes API (chronogolf_slc shape) works.
  */
-async function enrichChronogolfFromPage(bookingUrl) {
+/** Club overview URL. Widget and /en/club/{id} pages do not include the course ids. */
+export function chronogolfClubPageUrl(bookingUrl) {
+  try {
+    const u = new URL(String(bookingUrl || '').trim());
+    const clubMatch = u.pathname.match(/\/club\/([^/]+)/i);
+    if (!clubMatch) return String(bookingUrl || '').trim();
+    return `https://www.chronogolf.com/club/${clubMatch[1]}`;
+  } catch {
+    return String(bookingUrl || '').trim();
+  }
+}
+
+export async function enrichChronogolfFromPage(bookingUrl) {
   const out = {
     club_id: null,
     course_id: null,
@@ -665,20 +697,7 @@ async function enrichChronogolfFromPage(bookingUrl) {
     meta: null,
   };
   if (!bookingUrl) return out;
-  let pageUrl = String(bookingUrl).trim();
-  try {
-    const u = new URL(pageUrl);
-    // Prefer the club overview URL (strip /booking and query).
-    const clubMatch = u.pathname.match(/^(\/club\/[^/]+)/i);
-    if (clubMatch) {
-      u.pathname = clubMatch[1];
-      u.search = '';
-      u.hash = '';
-      pageUrl = u.toString().replace(/\/$/, '');
-    }
-  } catch {
-    /* keep raw */
-  }
+  const pageUrl = chronogolfClubPageUrl(bookingUrl);
 
   let html;
   try {
@@ -896,13 +915,26 @@ async function supabaseJson(res) {
 }
 
 export async function fetchRegistryCourses(env) {
-  const res = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/course_registry?select=slug,record,updated_at&order=slug`,
-    { headers: sbHeaders(env) },
-  );
-  if (!res.ok) return [];
-  const rows = await supabaseJson(res);
-  if (!Array.isArray(rows)) return [];
+  // PostgREST stops at max_rows (1000). A second California pass was re-checking
+  // courses already saved because they fell past that page.
+  const pageSize = 1000;
+  const rows = [];
+  for (let from = 0; from < 20_000; from += pageSize) {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/course_registry?select=slug,record,updated_at&order=slug`,
+      {
+        headers: {
+          ...sbHeaders(env),
+          Range: `${from}-${from + pageSize - 1}`,
+        },
+      },
+    );
+    if (!res.ok) return rows;
+    const batch = await supabaseJson(res);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
   return rows;
 }
 
@@ -1349,7 +1381,41 @@ function rememberImportedInIndex(index, slug, record) {
   if (entry.google_place_id) index.byPlaceId.set(entry.google_place_id, entry);
 }
 
-function normalizeImportStubRecord(raw) {
+const IMPORT_BOOKING_STATUSES = new Set(['pending', 'ready', 'phone', 'unsupported', 'private', 'closed']);
+
+const IMPORT_HINT_FIELDS = [
+  'schedule_id',
+  'booking_class_id',
+  'club_id',
+  'course_id',
+  'affiliation_type_id',
+  'golf_club_id',
+  'golf_course_id',
+  'trutee_org_slug',
+  'trutee_course_id',
+  'golfpay_course_id',
+  'cps_tenant',
+  'cps_course_id',
+  'facility_id',
+  'teeitup_course_id',
+  'teeitup_alias',
+  'quick18_tenant',
+  'quick18_course_id',
+  'golfwithaccess_course_id',
+  'golfwithaccess_slug',
+  'clubcaddie_course_id',
+  'clubcaddie_apikey',
+  'teesnap_tenant',
+  'teesnap_course_id',
+  'golfrev_course_id',
+  'golfrev_htc',
+];
+
+/**
+ * CSV stubs stay platform-empty and pending. Discovery import rows already carry
+ * a booking URL, platform, and vendor ids, and those are kept.
+ */
+export function normalizeImportStubRecord(raw) {
   const name = String(raw?.name || '').trim();
   const area = String(raw?.area || '').trim();
   const address = String(raw?.address || '').trim();
@@ -1357,18 +1423,46 @@ function normalizeImportStubRecord(raw) {
   const website = String(raw?.website || '').trim();
   const timezone = String(raw?.timezone || '').trim() || 'America/Denver';
   const placeId = String(raw?.google_place_id || '').trim();
+  const platform = String(raw?.platform || '').trim();
+  const bookingUrl = String(raw?.booking_url || '').trim();
+  const status = String(raw?.booking_status || '').trim();
+  const note = String(raw?.booking_status_note || '').trim();
   const record = {
     name,
     area,
-    platform: '',
-    booking_url: '',
+    platform,
+    booking_url: bookingUrl,
     timezone,
-    booking_status: 'pending',
+    booking_status: IMPORT_BOOKING_STATUSES.has(status) ? status : 'pending',
   };
   if (address) record.address = address;
   if (phone) record.phone_number = phone;
   if (website) record.website = website;
   if (placeId) record.google_place_id = placeId;
+  const photoRef = String(raw?.photo_reference || '').trim();
+  if (photoRef) record.photo_reference = photoRef;
+  if (note) record.booking_status_note = note;
+  const lat = Number(raw?.lat);
+  const lng = Number(raw?.lng);
+  if (Number.isFinite(lat)) record.lat = lat;
+  if (Number.isFinite(lng)) record.lng = lng;
+  const holes = Number(raw?.holes);
+  if (holes === 9 || holes === 18) record.holes = holes;
+  const par = Number(raw?.par);
+  if (Number.isInteger(par) && par >= 27 && par <= 76) record.par = par;
+  const yardage = Number(raw?.yardage);
+  if (Number.isInteger(yardage) && yardage >= 1000 && yardage <= 8000) record.yardage = yardage;
+  const about = String(raw?.editorial_note || '').trim();
+  if (about) record.editorial_note = about.slice(0, 600);
+  for (const key of IMPORT_HINT_FIELDS) {
+    const value = raw?.[key];
+    if (value == null || String(value).trim() === '') continue;
+    record[key] = String(value).trim();
+  }
+  if (Array.isArray(raw?.course_ids) && raw.course_ids.length) {
+    const ids = raw.course_ids.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    if (ids.length) record.course_ids = ids;
+  }
   return record;
 }
 
@@ -1405,6 +1499,15 @@ export async function saveCourse(env, { slug, record, prepaid, rates, isNew }) {
 
   const rateResult = await upsertRates(env, slug, rates, syncedRecord.rates_updated_at);
   if (rateResult.error) return rateResult;
+
+  if (isNew) {
+    try {
+      const { savePlaceSnapshot } = await import('./coursePhotoEnrich.js');
+      await savePlaceSnapshot(env, slug, syncedRecord);
+    } catch {
+      // The course is already saved. The photo job can copy a picture later.
+    }
+  }
 
   return {
     ok: true,
@@ -1563,6 +1666,85 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         if (result.error) return corsResponse(result, result.status);
         if (!dryRun && result.counts.updated > 0) invalidateCoursesCache?.();
         return corsResponse(result);
+      }
+
+      if (path === '/admin/courses/discover' && request.method === 'POST') {
+        const admin = await requireAdmin(env, request);
+        if (admin.error) return corsResponse({ error: admin.error }, admin.status);
+
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          return corsResponse({ error: 'invalid_body' }, 400);
+        }
+        const state = String(body.state || '').trim().toUpperCase();
+        if (!/^[A-Z]{2}$/.test(state)) return corsResponse({ error: 'invalid_state' }, 400);
+
+        const rows = await fetchRegistryCourses(env);
+        if (!rows.length) return corsResponse({ error: 'catalog_unavailable' }, 503);
+        const catalog = rows.map((row) => row.record).filter(Boolean);
+        try {
+          const { prepareStateDiscovery } = await import('./stateDiscovery.js');
+          const prepared = await prepareStateDiscovery(state, catalog);
+          return corsResponse(prepared);
+        } catch (err) {
+          return corsResponse({ error: err?.message || 'discover_failed' }, 502);
+        }
+      }
+
+      if (path === '/admin/courses/discover/inspect' && request.method === 'POST') {
+        const admin = await requireAdmin(env, request);
+        if (admin.error) return corsResponse({ error: admin.error }, admin.status);
+
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          return corsResponse({ error: 'invalid_body' }, 400);
+        }
+        const courses = Array.isArray(body.courses) ? body.courses.slice(0, 3) : null;
+        if (!courses?.length) return corsResponse({ error: 'missing_courses' }, 400);
+        try {
+          const { inspectDiscoveredCourse } = await import('./stateDiscovery.js');
+          const { applyCourseValidity } = await import('./courseValidity.js');
+          const registry = await fetchRegistryCourses(env);
+          const catalog = registry.map((row) => row.record).filter(Boolean);
+          const existing = await fetchExistingCourseIndex(env);
+          const inspected = [];
+          let added = 0;
+          for (const course of courses) {
+            const found = await inspectDiscoveredCourse(course, env.GOOGLE_PLACES_KEY || '', catalog, env);
+            const judged = await applyCourseValidity(found, env);
+            if (judged.validity?.action === 'import' && judged.import_row) {
+              const record = normalizeImportStubRecord(judged.import_row.record);
+              const slug = String(judged.import_row.slug || '').trim() || slugFromCourseName(record.name || '');
+              const dup = findImportDuplicate(existing, slug, record);
+              if (dup) {
+                judged.validity = { action: 'skip', note: `Already on tee-time.io as ${dup.matched_name}.` };
+                judged.catalog_match = dup.matched_name;
+                judged.import_row = null;
+              } else {
+                const saved = await saveCourse(env, { slug, record, prepaid: false, rates: {}, isNew: true });
+                if (saved.error) {
+                  judged.validity = {
+                    action: 'review',
+                    note: 'This course checked out, but saving it failed. It is held for review.',
+                  };
+                } else {
+                  rememberImportedInIndex(existing, slug, record);
+                  judged.validity = { ...judged.validity, added: true, slug };
+                  added += 1;
+                }
+              }
+            }
+            inspected.push(judged);
+          }
+          if (added > 0) invalidateCoursesCache?.();
+          return corsResponse({ courses: inspected });
+        } catch (err) {
+          return corsResponse({ error: err?.message || 'inspect_failed' }, 502);
+        }
       }
 
       if (path === '/admin/courses/import' && request.method === 'POST') {

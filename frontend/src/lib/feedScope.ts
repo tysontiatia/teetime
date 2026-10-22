@@ -1,12 +1,14 @@
 import type { FeedItem } from './feedApi';
 import type { Course } from '../types';
 import { filterWorkerCourses } from './platformRegistry';
-import { buildTimesFetchScope, type TimesFetchScope } from './timesFetchScope';
+import { buildTimesFetchScope, type ResolvedPlaceAnchor, type TimesFetchScope } from './timesFetchScope';
 
 export type FeedScopeInput = {
   fetchAllUtah?: boolean;
   locationQuery?: string;
   radiusMi?: number;
+  resolvedPlace?: ResolvedPlaceAnchor | null;
+  placePending?: boolean;
 };
 
 export type FeedScopeResult = {
@@ -28,6 +30,8 @@ export function buildFeedScope(
     fetchAllUtah: input.fetchAllUtah === true,
     locationQuery: input.locationQuery?.trim() ?? '',
     radiusMi: input.radiusMi,
+    resolvedPlace: input.resolvedPlace,
+    placePending: input.placePending,
   });
 
   const scopeReady = workerCourses.length > 0;

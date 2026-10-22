@@ -937,6 +937,272 @@ html[data-theme='dark'] .install-step-icon{ color: var(--fairway); }
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
+.finder-view-toggle{
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
+.finder-view-toggle button{
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.finder-view-toggle button.is-on{
+  background: var(--ink);
+  color: var(--paper);
+}
+html[data-theme='dark'] .finder-view-toggle button.is-on{
+  background: var(--fairway);
+  color: var(--fairway-ink);
+}
+
+.finder-layout.is-map{
+  display: grid;
+  grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.finder-layout.is-map .mp-grid{
+  --mp-card-w: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.finder-map-pane{
+  position: sticky;
+  top: calc(var(--app-header-height) + 8px);
+  height: calc(100dvh - var(--app-header-height) - 16px);
+  min-height: 420px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--card);
+  z-index: 1;
+  isolation: isolate;
+}
+.finder-map,
+.finder-map .leaflet-container{
+  height: 100%;
+  width: 100%;
+  background: #0b120e;
+  font-family: inherit;
+}
+.finder-map{ position: relative; }
+.finder-pin.leaflet-div-icon{
+  background: transparent;
+  border: none;
+}
+.finder-pin-pill,
+.finder-pin-dot{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.finder-pin-pill{
+  border-radius: 999px;
+  background: #121b15;
+  color: #eef2ec;
+  border: 1px solid rgba(255,255,255,.18);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  white-space: nowrap;
+}
+.finder-pin-pill.is-selected,
+.finder-pin-pill.is-hover{
+  background: #c6f24e;
+  color: #0b120e;
+  border-color: transparent;
+}
+.finder-pin-pill.is-sold{
+  background: #2a3330;
+  color: #9aa59e;
+}
+.finder-pin-pill.is-checking{
+  color: #c6f24e;
+}
+.finder-pin-dot{
+  border-radius: 999px;
+  background: #121b15;
+  border: 2px solid rgba(255,255,255,.7);
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+.finder-pin-dot.is-selected,
+.finder-pin-dot.is-hover{
+  background: #c6f24e;
+  border-color: #0b120e;
+}
+.finder-map-search{
+  position: absolute;
+  z-index: 500;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0,0,0,.28);
+  cursor: pointer;
+}
+.finder-map-empty{
+  position: absolute;
+  z-index: 500;
+  left: 16px;
+  right: 16px;
+  top: 58px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  font-size: 13.5px;
+  text-align: center;
+}
+.finder-map-card{
+  position: absolute;
+  z-index: 500;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  margin: 0 auto;
+  max-width: 440px;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(0,0,0,.35);
+}
+.finder-map-card-photo{
+  display: block;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--sand);
+}
+.finder-map-card-photo img,
+.finder-map-card-fallback{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.finder-map-card-fallback{
+  background: linear-gradient(135deg, #1e4d3b 0%, #3f8f68 100%);
+  font-size: 28px;
+}
+.finder-map-card-body{
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.finder-map-card-top{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.finder-map-card-name{
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.finder-map-card-close{
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.finder-map-card-meta{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.finder-map-card-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+.finder-map-card-when{
+  font-size: 13px;
+  font-weight: 650;
+  min-width: 0;
+}
+.finder-map-card-go{
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  text-decoration: none;
+}
+.finder-map-pane .leaflet-bar{
+  border: none;
+  box-shadow: none;
+  margin-top: 14px;
+  margin-right: 12px;
+}
+.finder-map-pane .leaflet-bar a{
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+}
+.finder-map-pane .leaflet-bar a:last-child{
+  border-bottom: 1px solid var(--line);
+}
+.finder-map-pane .leaflet-control-attribution{
+  background: rgba(11,18,14,.72);
+  color: rgba(238,242,236,.7);
+  font-size: 10px;
+}
+.finder-map-pane .leaflet-control-attribution a{ color: inherit; }
+
+.mp-course.is-compact .mp-course-photo{ aspect-ratio: 16 / 7; }
+.mp-course.is-map-active .mp-course-media{
+  box-shadow: 0 0 0 2px var(--fairway);
+}
+
 .times-grid{
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2112,6 +2378,8 @@ html[data-theme='dark'] .app-banner--warn{
 .result-meta-tools{
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
   margin-left: auto;
   flex-shrink: 0;

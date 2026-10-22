@@ -191,7 +191,8 @@ export function CoursePage() {
     setTeeTimesFetchFailed(false);
     void (async () => {
       try {
-        const { times, ok } = await fetchTeeTimesForCourse(record, courseId, date, holes, players);
+        const sheetHoles = record.holes === 9 && holes === 18 ? 9 : holes;
+        const { times, ok } = await fetchTeeTimesForCourse(record, courseId, date, sheetHoles, players);
         if (!cancelled) {
           setRawTimes(times);
           hasTimesRef.current = times.length > 0;
@@ -562,7 +563,7 @@ export function CoursePage() {
                           href={proShopTelHref}
                           aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
                         >
-                          Call pro shop
+                          Call {proShopPhone}
                         </a>
                       ) : null}
                       <div className="rail-empty-actions-links">
@@ -594,7 +595,7 @@ export function CoursePage() {
                           href={proShopTelHref}
                           aria-label={`Call ${course.name} pro shop at ${proShopPhone}`}
                         >
-                          Call pro shop
+                          Call {proShopPhone}
                         </a>
                       ) : null}
                     </>
