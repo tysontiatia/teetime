@@ -18,6 +18,7 @@ jobs:
         run: bash scripts/build-pages.sh
         env:
           VITE_LAUNCHDARKLY_CLIENT_SIDE_ID: 6a4e663319d3db0a5e25b9d2
+          VITE_MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
       - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

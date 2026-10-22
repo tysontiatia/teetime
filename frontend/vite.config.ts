@@ -87,11 +87,16 @@ export default defineConfig({
   plugins: [react(), repoPublicDevAssets()],
   // Deployed under https://tee-time.io/app/ (marketing stays at /)
   base: '/app/',
+  optimizeDeps: {
+    // Prebundling MapLibre points its tile worker at a URL Vite cannot load.
+    exclude: ['maplibre-gl'],
+  },
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/@supabase/supabase-js')) return 'supabase';
+          if (id.includes('node_modules/maplibre-gl')) return 'maplibre';
           if (id.includes('node_modules/leaflet') || id.includes('node_modules/react-leaflet')) return 'map';
           if (id.includes('node_modules/react-router')) return 'router';
         },

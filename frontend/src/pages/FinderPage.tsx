@@ -174,6 +174,7 @@ export function FinderPage() {
   const [mapHoverId, setMapHoverId] = useState<string | null>(null);
   const querySentinelRef = useRef<HTMLDivElement>(null);
   const queryDockRef = useRef<HTMLDivElement>(null);
+  const mapShellRef = useRef(false);
   const [queryScrolledAway, setQueryScrolledAway] = useState(false);
   const [queryPinnedOpen, setQueryPinnedOpen] = useState(false);
   const [queryDockHoldPx, setQueryDockHoldPx] = useState<number | null>(null);
@@ -205,12 +206,6 @@ export function FinderPage() {
   ]);
 
   useEffect(() => {
-    if (!isCompactShell) {
-      setQueryScrolledAway(false);
-      setQueryPinnedOpen(false);
-      setQueryDockHoldPx(null);
-      return;
-    }
     const el = querySentinelRef.current;
     if (!el) return;
 
@@ -225,7 +220,7 @@ export function FinderPage() {
           if (!entry) return;
           const away = !entry.isIntersecting;
           setQueryScrolledAway(away);
-          if (!away) {
+          if (!away && !mapShellRef.current) {
             setQueryPinnedOpen(false);
             setQueryDockHoldPx(null);
           }
@@ -917,8 +912,9 @@ export function FinderPage() {
     fetchAllUtah ? 'Statewide' : wherePlaceLabel,
   ];
 
-  const queryCollapsed = isCompactShell && queryScrolledAway && !queryPinnedOpen;
-  const queryPinned = isCompactShell && queryScrolledAway && queryPinnedOpen;
+  const mapShell = mapOpen && !isCompactShell && !showOutOfMarket;
+  const queryCollapsed = (mapShell || queryScrolledAway) && !queryPinnedOpen;
+  const queryPinned = (mapShell || queryScrolledAway) && queryPinnedOpen;
   const queryDockClass = [
     'finder-query-dock',
     queryCollapsed ? 'is-collapsed' : '',
@@ -937,6 +933,97 @@ export function FinderPage() {
     setQueryPinnedOpen(false);
     setQueryDockHoldPx(null);
   };
+
+  const viewToggle = !isCompactShell ? (
+    <div className="finder-view-toggle" role="group" aria-label="Results layout">
+      <button
+        type="button"
+        className={!mapOpen ? 'is-on' : undefined}
+        aria-pressed={!mapOpen}
+        onClick={() => setMapOpen(false)}
+      >
+        List
+      </button>
+      <button
+        type="button"
+        className={mapOpen ? 'is-on' : undefined}
+        aria-pressed={mapOpen}
+        onClick={() => setMapOpen(true)}
+      >
+        Map
+      </button>
+    </div>
+  ) : null;
+
+  const sortControl = (
+    <label className="result-sort">
+      <span className="result-sort-prefix">Sort</span>
+      <select
+        value={params.sortBy}
+        aria-label="Sort courses"
+        onChange={(e) => setParam('sort', e.target.value as SortBy)}
+      >
+        {FINDER_SORT_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  const querySummaryButton = (
+    <button
+      type="button"
+      className="finder-query-summary"
+      aria-expanded={queryPinned}
+      aria-controls="finder-query-details"
+      onClick={openPinnedQuery}
+    >
+      <span className="finder-query-summary-text">{querySummaryParts.join(' · ')}</span>
+      <span className="finder-query-summary-hint">Edit</span>
+    </button>
+  );
+
+  const querySummaryBar = (placement: 'sticky' | 'docked') => (
+    <div className={`finder-query-bar is-${placement}`}>
+      {querySummaryButton}
+      {!showOutOfMarket ? (
+        <div className="finder-query-bar-tools">
+          {viewToggle}
+          {!isCompactShell ? (
+            <FinderDayOutlook
+              dateYmd={params.date}
+              lat={timesFetchScope.anchor.lat}
+              lng={timesFetchScope.anchor.lng}
+              regionLabel={
+                params.locationQuery.trim() ||
+                (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
+              }
+            />
+          ) : null}
+              <label className="result-sort">
+                <span className="result-sort-prefix">Sort</span>
+                <select
+                  value={params.sortBy}
+                  aria-label="Sort courses"
+                  onChange={(e) => setParam('sort', e.target.value as SortBy)}
+                >
+                  {FINDER_SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  useEffect(() => {
+    mapShellRef.current = mapShell;
+  }, [mapShell]);
 
   useEffect(() => {
     if (!mapOpen || !mapFocusId || isCompactShell) return;
@@ -1000,7 +1087,7 @@ export function FinderPage() {
 
   return (
     <div className="container">
-      <div className="finder-page">
+      <div className={`finder-page${mapShell ? ' is-map-shell' : ''}`}>
         {catalogError ? (
           <div className="app-banner app-banner--error" role="alert">
             <strong>Could not load courses.</strong> {catalogError}
@@ -1028,19 +1115,13 @@ export function FinderPage() {
           </div>
         ) : null}
 
-        {queryCollapsed
+        {queryCollapsed && isCompactShell
           ? createPortal(
               <div className="finder-query-collapsed">
-                <button
-                  type="button"
-                  className="finder-query-summary"
-                  aria-expanded={false}
-                  aria-controls="finder-query-details"
-                  onClick={openPinnedQuery}
-                >
-                  <span className="finder-query-summary-text">{querySummaryParts.join(' · ')}</span>
-                  <span className="finder-query-summary-hint">Edit</span>
-                </button>
+                <div className="finder-query-bar is-fixed">
+                  {querySummaryButton}
+                  {!showOutOfMarket ? sortControl : null}
+                </div>
               </div>,
               document.body,
             )
@@ -1248,7 +1329,9 @@ export function FinderPage() {
         </div>
         <div className="finder-query-sentinel" ref={querySentinelRef} aria-hidden />
 
-        <div className="result-meta">
+        {queryCollapsed && !isCompactShell ? querySummaryBar(mapShell ? 'docked' : 'sticky') : null}
+
+        <div className={`result-meta${queryCollapsed ? ' is-tools-hidden' : ''}`}>
           <div className="result-meta-lead">
             <span
               className={`result-count${
@@ -1263,26 +1346,7 @@ export function FinderPage() {
           </div>
           {!showOutOfMarket ? (
             <div className="result-meta-tools">
-              {!isCompactShell ? (
-              <div className="finder-view-toggle" role="group" aria-label="Results layout">
-                <button
-                  type="button"
-                  className={!mapOpen ? 'is-on' : undefined}
-                  aria-pressed={!mapOpen}
-                  onClick={() => setMapOpen(false)}
-                >
-                  List
-                </button>
-                <button
-                  type="button"
-                  className={mapOpen ? 'is-on' : undefined}
-                  aria-pressed={mapOpen}
-                  onClick={() => setMapOpen(true)}
-                >
-                  Map
-                </button>
-              </div>
-              ) : null}
+              {!isCompactShell ? viewToggle : null}
               <FinderDayOutlook
                 dateYmd={params.date}
                 lat={timesFetchScope.anchor.lat}
@@ -1476,6 +1540,11 @@ export function FinderPage() {
               hoveredId={mapHoverId}
               anchor={timesFetchScope.anchor}
               lockView={areaBounds != null}
+              recordsBySlug={recordsBySlug}
+              dateYmd={params.date}
+              players={params.players}
+              holes={params.holes}
+              timeOfDay={params.timeOfDay}
               detailHref={(course) => `/course/${course.id}?${courseDetailQueryString(params)}`}
               onSelect={setMapFocusId}
               onHover={setMapHoverId}

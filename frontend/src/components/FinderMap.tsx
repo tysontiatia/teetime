@@ -1,13 +1,17 @@
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents, ZoomControl } from 'react-leaflet';
-import type { Course, TeeTime } from '../types';
-import { formatCityState } from '../lib/courseRecord';
+import { Map as MapLibreMap, Marker, NavigationControl, setWorkerUrl } from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import type { Course, TeeTime, TimeOfDayPreset } from '../types';
+import { mapStyleUrl } from '../lib/env';
+import { formatCityState, resolveCourseBookingMode, type CourseRecord } from '../lib/courseRecord';
 import type { MapBounds } from '../lib/mapBounds';
 import { formatTime12h } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
+import { buildBookingUrl } from '../lib/bookingUrl';
+import { liveTimesEmptyBadge } from '../lib/liveTimesEmpty';
+import type { HolesFilter } from '../lib/holesFilter';
 
 type PinTone = 'price' | 'open' | 'checking' | 'sold' | 'quiet';
 
@@ -17,6 +21,12 @@ type PinGroup = {
   lng: number;
   courses: Course[];
 };
+
+setWorkerUrl(maplibreWorkerUrl);
+
+function mapStyle(dark: boolean): string {
+  return mapStyleUrl(dark);
+}
 
 function useDarkMap(): boolean {
   const [dark, setDark] = useState(
@@ -33,6 +43,115 @@ function useDarkMap(): boolean {
   return dark;
 }
 
+function clusterCell(zoom: number): number {
+  if (zoom >= 12) return 0;
+  if (zoom >= 10) return 64;
+  return 92;
+}
+
+const HIDDEN_BASEMAP_LABELS = [
+  'Highway shield',
+  'Highway shield (US)',
+  'Highway shield interstate (US)',
+  'Highway shield interstate top (US)',
+  'Highway junction',
+];
+
+/** Drop route shields and island names, and stop city names from looking like pins. */
+function quietBasemap(map: MapLibreMap) {
+  for (const id of HIDDEN_BASEMAP_LABELS) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+  }
+  if (map.getLayer('Road labels')) {
+    map.setFilter('Road labels', [
+      'all',
+      ['!in', 'subclass', 'gondola', 'cable_car'],
+      ['!in', 'class', 'ferry', 'service', 'motorway'],
+    ]);
+  }
+  if (map.getLayer('Place labels')) {
+    map.setFilter('Place labels', [
+      '!in',
+      'class',
+      'continent',
+      'country',
+      'state',
+      'region',
+      'province',
+      'city',
+      'town',
+      'place',
+      'island',
+    ]);
+  }
+  for (const id of ['City labels', 'Town labels', 'Capital city labels']) {
+    if (!map.getLayer(id)) continue;
+    map.setPaintProperty(id, 'icon-opacity', 0);
+    map.setLayoutProperty(id, 'text-anchor', 'center');
+    map.setLayoutProperty(id, 'text-offset', [0, 0]);
+    map.setPaintProperty(id, 'text-color', 'hsl(0, 0%, 74%)');
+    map.setPaintProperty(id, 'text-halo-color', 'hsla(150, 20%, 6%, 0.72)');
+    map.setPaintProperty(id, 'text-halo-width', 1.2);
+  }
+}
+
+function shortCourseName(name: string): string {
+  const stripped = name
+    .replace(/\s+(golf\s+(course|club|links|resort)|country\s+club)$/i, '')
+    .trim();
+  const base = stripped || name.trim();
+  return base.length > 24 ? `${base.slice(0, 23)}…` : base;
+}
+
+function locatedCourses(courses: Course[]): Course[] {
+  return courses.filter((course) => typeof course.lat === 'number' && typeof course.lng === 'number');
+}
+
+function clusterCourses(map: MapLibreMap, courses: Course[], zoom: number): PinGroup[] {
+  const cell = clusterCell(zoom);
+  const located = locatedCourses(courses);
+  if (cell === 0) {
+    return located.map((course) => ({
+      id: course.id,
+      lat: course.lat as number,
+      lng: course.lng as number,
+      courses: [course],
+    }));
+  }
+  const buckets = new Map<string, Course[]>();
+  for (const course of located) {
+    const point = map.project([course.lng as number, course.lat as number]);
+    const key = `${Math.floor(point.x / cell)}:${Math.floor(point.y / cell)}`;
+    const list = buckets.get(key);
+    if (list) list.push(course);
+    else buckets.set(key, [course]);
+  }
+  const groups: PinGroup[] = [];
+  for (const [key, list] of buckets) {
+    const lat = list.reduce((sum, course) => sum + (course.lat as number), 0) / list.length;
+    const lng = list.reduce((sum, course) => sum + (course.lng as number), 0) / list.length;
+    groups.push({ id: list.length === 1 ? list[0].id : key, lat, lng, courses: list });
+  }
+  return groups;
+}
+
+function telHref(phone: string | undefined | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  return digits ? `tel:${digits}` : null;
+}
+
+function websiteHref(url: string | undefined | null): string | null {
+  const raw = String(url || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+function bookingSource(course: Course, record: CourseRecord | undefined) {
+  return record ?? { platform: course.platform, booking_url: course.bookingUrl, timezone: course.timezone };
+}
+
 function pinTone(
   times: TeeTime[] | undefined,
   pending: boolean,
@@ -41,8 +160,8 @@ function pinTone(
   if (pending && (!times || times.length === 0)) return { label: '…', tone: 'checking' };
   if (times && times.length > 0) {
     const prices = times
-      .map((t) => t.price)
-      .filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0);
+      .map((time) => time.price)
+      .filter((price): price is number => typeof price === 'number' && Number.isFinite(price) && price > 0);
     if (prices.length === 0) return { label: 'Open', tone: 'open' };
     return { label: `$${Math.round(Math.min(...prices))}`, tone: 'price' };
   }
@@ -50,186 +169,153 @@ function pinTone(
   return { label: '', tone: 'quiet' };
 }
 
-function clusterCourses(map: L.Map, courses: Course[], zoom: number): PinGroup[] {
-  const cell = zoom >= 13 ? 0 : zoom >= 11 ? 52 : zoom >= 9 ? 70 : 88;
-  const located = courses.filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number');
-  if (cell === 0) {
-    return located.map((c) => ({ id: c.id, lat: c.lat as number, lng: c.lng as number, courses: [c] }));
+function cheapestOpen(courses: Course[], timesByCourse: Map<string, TeeTime[]>): number | null {
+  let min = Infinity;
+  for (const course of courses) {
+    const times = timesByCourse.get(course.id);
+    if (!times) continue;
+    for (const time of times) {
+      if (typeof time.price === 'number' && time.price > 0 && time.price < min) min = time.price;
+    }
   }
-  const buckets = new Map<string, Course[]>();
-  for (const course of located) {
-    const point = map.project([course.lat as number, course.lng as number], zoom);
-    const key = `${Math.floor(point.x / cell)}:${Math.floor(point.y / cell)}`;
-    const list = buckets.get(key);
-    if (list) list.push(course);
-    else buckets.set(key, [course]);
-  }
-  const groups: PinGroup[] = [];
-  for (const [key, list] of buckets) {
-    const lat = list.reduce((sum, c) => sum + (c.lat as number), 0) / list.length;
-    const lng = list.reduce((sum, c) => sum + (c.lng as number), 0) / list.length;
-    groups.push({ id: list.length === 1 ? list[0].id : key, lat, lng, courses: list });
-  }
-  return groups;
+  return min < Infinity ? Math.round(min) : null;
 }
 
-function pinIcon(label: string, tone: PinTone, selected: boolean, hovered: boolean): L.DivIcon {
-  const quiet = tone === 'quiet' && !label;
-  const cls = [
-    quiet ? 'finder-pin-dot' : 'finder-pin-pill',
-    `is-${tone}`,
-    selected ? 'is-selected' : '',
-    hovered ? 'is-hover' : '',
-  ]
+function pinCopy(
+  group: PinGroup,
+  timesByCourse: Map<string, TeeTime[]>,
+  pendingSlugs: Set<string>,
+  fetchedSlugs: Set<string>,
+  focus: Course | null,
+): { price: string; name: string; tone: PinTone } {
+  if (group.courses.length === 1) {
+    const course = group.courses[0];
+    const pin = pinTone(timesByCourse.get(course.id), pendingSlugs.has(course.id), fetchedSlugs.has(course.id));
+    return { price: pin.label, name: shortCourseName(course.name), tone: pin.tone };
+  }
+  const price = cheapestOpen(group.courses, timesByCourse);
+  const label = price != null ? `${group.courses.length} · $${price}` : `${group.courses.length}`;
+  const tone: PinTone = price != null ? 'price' : 'quiet';
+  return { price: label, name: focus ? shortCourseName(focus.name) : '', tone };
+}
+
+function pinButton(price: string, name: string, tone: PinTone, selected: boolean, hovered: boolean): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  const named = Boolean(name);
+  button.className = ['finder-pin-pill', `is-${tone}`, named ? 'is-named' : '', selected ? 'is-selected' : '', hovered ? 'is-hover' : '']
     .filter(Boolean)
     .join(' ');
-  const width = quiet ? 14 : Math.max(46, label.length * 9 + 18);
-  const height = quiet ? 14 : 30;
-  return L.divIcon({
-    className: 'finder-pin',
-    html: `<span class="${cls}">${label}</span>`,
-    iconSize: [width, height],
-    iconAnchor: [width / 2, height],
-  });
+  const aria = [name, price].filter(Boolean).join(', ');
+  if (aria) button.setAttribute('aria-label', aria);
+  if (price) {
+    const priceEl = document.createElement('span');
+    priceEl.className = 'finder-pin-price';
+    priceEl.textContent = price;
+    button.append(priceEl);
+  }
+  if (name) {
+    const nameEl = document.createElement('span');
+    nameEl.className = 'finder-pin-name';
+    nameEl.textContent = name;
+    button.append(nameEl);
+  }
+  if (!price && !name) button.textContent = '•';
+  return button;
 }
 
-function MapController({
-  courses,
-  lockView,
-  selectedId,
-  onUserMove,
-  onClear,
-}: {
-  courses: Course[];
-  lockView: boolean;
-  selectedId: string | null;
-  onUserMove: (bounds: MapBounds) => void;
-  onClear: () => void;
-}) {
-  const map = useMap();
-  const fittedKey = useRef<string | null>(null);
-  const programmatic = useRef(false);
-  const lastSelected = useRef<string | null>(null);
-  const courseKey = courses.map((c) => c.id).join('|');
+type CardLink = {
+  href: string;
+  label: string;
+  aria?: string;
+  external?: boolean;
+  primary?: boolean;
+};
 
-  const moveQuietly = (run: () => void) => {
-    programmatic.current = true;
-    run();
-    window.setTimeout(() => {
-      programmatic.current = false;
-    }, 600);
-  };
-
-  useEffect(() => {
-    if (lockView || courses.length === 0 || fittedKey.current === courseKey) return;
-    fittedKey.current = courseKey;
-    moveQuietly(() => {
-      if (courses.length === 1 && typeof courses[0].lat === 'number' && typeof courses[0].lng === 'number') {
-        map.setView([courses[0].lat, courses[0].lng], 12);
-        return;
-      }
-      const bounds = L.latLngBounds(
-        courses
-          .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number')
-          .map((c) => [c.lat as number, c.lng as number] as [number, number]),
-      );
-      if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+function selectionActions(
+  course: Course,
+  record: CourseRecord | undefined,
+  times: TeeTime[],
+  pending: boolean,
+  fetched: boolean,
+  detailHref: string,
+  dateYmd: string,
+  players: number,
+  holes: HolesFilter,
+  timeOfDay: TimeOfDayPreset,
+): { status: string; links: CardLink[] } {
+  const source = bookingSource(course, record);
+  const mode = resolveCourseBookingMode(source);
+  const viewCourse: CardLink = { href: detailHref, label: 'View course', primary: true };
+  if (mode === 'phone' || mode === 'booking_link') {
+    const call = telHref(record?.phone_number);
+    const phone = record?.phone_number?.trim() || '';
+    const site = websiteHref(record?.website);
+    const book = buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
+      dateYmd,
+      players,
+      holes: holes === 9 ? 9 : 18,
     });
-  }, [courseKey, courses, lockView, map]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      lastSelected.current = null;
-      return;
+    const links: CardLink[] = [];
+    if (mode === 'booking_link' && book) {
+      links.push({ href: book, label: 'Book on site', external: true, primary: true });
     }
-    if (selectedId === lastSelected.current) return;
-    lastSelected.current = selectedId;
-    const course = courses.find((c) => c.id === selectedId);
-    if (!course || typeof course.lat !== 'number' || typeof course.lng !== 'number') return;
-    const point = L.latLng(course.lat, course.lng);
-    if (map.getBounds().contains(point)) return;
-    moveQuietly(() => map.panTo(point));
-  }, [courses, map, selectedId]);
-
-  useMapEvents({
-    moveend: () => {
-      if (programmatic.current) {
-        programmatic.current = false;
-        return;
-      }
-      const bounds = map.getBounds();
-      onUserMove({
-        south: bounds.getSouth(),
-        west: bounds.getWest(),
-        north: bounds.getNorth(),
-        east: bounds.getEast(),
+    if (call && phone) {
+      links.push({
+        href: call,
+        label: 'Call',
+        aria: `Call ${course.name} pro shop at ${phone}`,
+        primary: links.length === 0,
       });
-    },
-    click: () => onClear(),
-  });
-
-  return null;
+    }
+    if (mode === 'phone' && site) {
+      links.push({ href: site, label: 'Website', external: true, primary: links.length === 0 });
+    }
+    if (links.length === 0) links.push(viewCourse);
+    return {
+      status: mode === 'phone' ? 'Book by phone' : 'Book on their site',
+      links,
+    };
+  }
+  if (times.length > 0) {
+    const next = times[0];
+    const when = formatTime12h(next.startsAt, courseTimezone(course.timezone));
+    const price = typeof next.price === 'number' ? ` · $${Math.round(next.price)}` : '';
+    return {
+      status: `${when}${price}`,
+      links: [{ href: detailHref, label: 'View times', primary: true }],
+    };
+  }
+  if (pending) return { status: 'Checking times…', links: [] };
+  if (fetched) {
+    const narrowed = timeOfDay !== 'any' || holes === 9;
+    return {
+      status: narrowed ? liveTimesEmptyBadge(timeOfDay, holes).label : 'Sold out',
+      links: [viewCourse],
+    };
+  }
+  return { status: '', links: [viewCourse] };
 }
 
-function PinLayer({
-  courses,
-  timesByCourse,
-  pendingSlugs,
-  fetchedSlugs,
-  selectedId,
-  hoveredId,
-  onSelect,
-  onHover,
-}: {
-  courses: Course[];
-  timesByCourse: Map<string, TeeTime[]>;
-  pendingSlugs: Set<string>;
-  fetchedSlugs: Set<string>;
-  selectedId: string | null;
-  hoveredId: string | null;
-  onSelect: (id: string | null) => void;
-  onHover: (id: string | null) => void;
-}) {
-  const map = useMap();
-  const [zoom, setZoom] = useState(() => map.getZoom());
-  useMapEvents({
-    zoomend: () => setZoom(map.getZoom()),
-  });
-
-  const groups = useMemo(() => clusterCourses(map, courses, zoom), [map, courses, zoom]);
-
-  return (
-    <>
-      {groups.map((group) => {
-        const single = group.courses.length === 1 ? group.courses[0] : null;
-        const pin = single
-          ? pinTone(timesByCourse.get(single.id), pendingSlugs.has(single.id), fetchedSlugs.has(single.id))
-          : { label: `+${group.courses.length}`, tone: 'price' as PinTone };
-        const selected = group.courses.some((c) => c.id === selectedId);
-        const hovered = group.courses.some((c) => c.id === hoveredId);
-        return (
-          <Marker
-            key={group.id}
-            position={[group.lat, group.lng]}
-            icon={pinIcon(pin.label, single ? pin.tone : 'price', selected, hovered)}
-            zIndexOffset={selected || hovered ? 800 : 0}
-            eventHandlers={{
-              click: (event) => {
-                L.DomEvent.stopPropagation(event.originalEvent);
-                if (single) {
-                  onSelect(single.id);
-                  return;
-                }
-                map.flyTo([group.lat, group.lng], Math.min(map.getZoom() + 2, 14));
-              },
-              mouseover: () => onHover(single?.id ?? null),
-              mouseout: () => onHover(null),
-            }}
-          />
-        );
-      })}
-    </>
-  );
+function boundsOf(courses: Course[]): [[number, number], [number, number]] | null {
+  const located = locatedCourses(courses);
+  if (located.length === 0) return null;
+  let south = Infinity;
+  let north = -Infinity;
+  let west = Infinity;
+  let east = -Infinity;
+  for (const course of located) {
+    const lat = course.lat as number;
+    const lng = course.lng as number;
+    south = Math.min(south, lat);
+    north = Math.max(north, lat);
+    west = Math.min(west, lng);
+    east = Math.max(east, lng);
+  }
+  return [
+    [west, south],
+    [east, north],
+  ];
 }
 
 type Props = {
@@ -241,6 +327,11 @@ type Props = {
   hoveredId: string | null;
   anchor: { lat: number; lng: number };
   lockView: boolean;
+  recordsBySlug: Map<string, CourseRecord>;
+  dateYmd: string;
+  players: number;
+  holes: HolesFilter;
+  timeOfDay: TimeOfDayPreset;
   detailHref: (course: Course) => string;
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
@@ -256,80 +347,230 @@ export function FinderMap({
   hoveredId,
   anchor,
   lockView,
+  recordsBySlug,
+  dateYmd,
+  players,
+  holes,
+  timeOfDay,
   detailHref,
   onSelect,
   onHover,
   onSearchArea,
 }: Props) {
   const dark = useDarkMap();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markersRef = useRef<Marker[]>([]);
+  const quietMoveRef = useRef(false);
+  const gestureRef = useRef(false);
+  const pinClickRef = useRef(false);
+  const fittedKeyRef = useRef<string | null>(null);
+  const lastSelectedRef = useRef<string | null>(null);
+  const styleUrlRef = useRef(mapStyle(dark));
+  const [mapReady, setMapReady] = useState(false);
+  const [zoom, setZoom] = useState(11);
   const [searchBounds, setSearchBounds] = useState<MapBounds | null>(null);
-  const pinClick = useRef(false);
-  const located = courses.filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number');
-  const selected = located.find((c) => c.id === selectedId) ?? null;
+  const anchorRef = useRef(anchor);
+  const onSelectRef = useRef(onSelect);
+  const onHoverRef = useRef(onHover);
+  const onSearchRef = useRef(onSearchArea);
+  const onClearRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    anchorRef.current = anchor;
+    onSelectRef.current = onSelect;
+    onHoverRef.current = onHover;
+    onSearchRef.current = onSearchArea;
+    onClearRef.current = () => onSelect(null);
+  }, [anchor, onHover, onSearchArea, onSelect]);
+
+  const searchKey = `${anchor.lat.toFixed(3)},${anchor.lng.toFixed(3)}`;
+  const located = locatedCourses(courses);
+  const selected = located.find((course) => course.id === selectedId) ?? null;
   const selectedTimes = selected ? (timesByCourse.get(selected.id) ?? []) : [];
-  const next = selectedTimes[0];
   const place = selected ? formatCityState(selected.city, selected.state) : '';
-  const miles =
-    selected && typeof selected.distanceMi === 'number' ? `${selected.distanceMi.toFixed(1)} mi` : '';
+  const selectedCard = selected
+    ? selectionActions(
+        selected,
+        recordsBySlug.get(selected.id),
+        selectedTimes,
+        pendingSlugs.has(selected.id),
+        fetchedSlugs.has(selected.id),
+        detailHref(selected),
+        dateYmd,
+        players,
+        holes,
+        timeOfDay,
+      )
+    : null;
+  const miles = selected && typeof selected.distanceMi === 'number' ? `${selected.distanceMi.toFixed(1)} mi` : '';
+
+  const runQuiet = useCallback((run: () => void) => {
+    quietMoveRef.current = true;
+    run();
+    window.setTimeout(() => {
+      quietMoveRef.current = false;
+    }, 1100);
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || mapRef.current) return;
+    const map = new MapLibreMap({
+      container,
+      style: styleUrlRef.current,
+      center: [anchorRef.current.lng, anchorRef.current.lat],
+      zoom: 11,
+      minZoom: 3.5,
+      maxZoom: 18,
+      attributionControl: { compact: false },
+      cancelPendingTileRequestsWhileZooming: false,
+      fadeDuration: 0,
+    });
+    map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
+    map.on('style.load', () => quietBasemap(map));
+    if (map.isStyleLoaded()) quietBasemap(map);
+    map.scrollZoom.setZoomRate(1 / 90);
+    map.scrollZoom.setWheelZoomRate(1 / 320);
+    map.on('zoomstart', (event) => {
+      if (event.originalEvent) gestureRef.current = true;
+    });
+    map.on('dragstart', () => {
+      gestureRef.current = true;
+    });
+    map.on('zoomend', () => setZoom(map.getZoom()));
+    map.on('moveend', () => {
+      if (quietMoveRef.current) {
+        quietMoveRef.current = false;
+        return;
+      }
+      if (!gestureRef.current) return;
+      gestureRef.current = false;
+      const bounds = map.getBounds();
+      setSearchBounds({
+        south: bounds.getSouth(),
+        west: bounds.getWest(),
+        north: bounds.getNorth(),
+        east: bounds.getEast(),
+      });
+    });
+    map.on('click', () => {
+      if (pinClickRef.current) {
+        pinClickRef.current = false;
+        return;
+      }
+      onClearRef.current();
+    });
+    const resize = new ResizeObserver(() => map.resize());
+    resize.observe(container);
+    mapRef.current = map;
+    setMapReady(true);
+    return () => {
+      resize.disconnect();
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const nextStyle = mapStyle(dark);
+    if (styleUrlRef.current === nextStyle) return;
+    styleUrlRef.current = nextStyle;
+    map.setStyle(nextStyle);
+  }, [dark, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || lockView || courses.length === 0 || fittedKeyRef.current === searchKey) return;
+    const points = locatedCourses(courses);
+    const bounds = boundsOf(points);
+    if (!bounds) return;
+    fittedKeyRef.current = searchKey;
+    map.resize();
+    runQuiet(() => {
+      if (points.length === 1) {
+        map.easeTo({
+          center: [points[0].lng as number, points[0].lat as number],
+          zoom: 14,
+          duration: 900,
+        });
+        return;
+      }
+      map.fitBounds(bounds, { padding: 48, maxZoom: 13, duration: 900 });
+    });
+  }, [courses, lockView, mapReady, runQuiet, searchKey]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    if (!selectedId) {
+      lastSelectedRef.current = null;
+      return;
+    }
+    if (selectedId === lastSelectedRef.current) return;
+    lastSelectedRef.current = selectedId;
+    const course = courses.find((item) => item.id === selectedId);
+    if (!course || typeof course.lat !== 'number' || typeof course.lng !== 'number') return;
+    const point: [number, number] = [course.lng, course.lat];
+    if (map.getBounds().contains(point)) return;
+    runQuiet(() => map.easeTo({ center: point, duration: 700 }));
+  }, [courses, mapReady, runQuiet, selectedId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    markersRef.current.forEach((marker) => marker.remove());
+    const groups = clusterCourses(map, courses, map.getZoom());
+    const markers: Marker[] = [];
+    for (const group of groups) {
+      const focus =
+        group.courses.find((course) => course.id === selectedId) ??
+        group.courses.find((course) => course.id === hoveredId) ??
+        null;
+      const pin = pinCopy(group, timesByCourse, pendingSlugs, fetchedSlugs, focus);
+      const selected = group.courses.some((course) => course.id === selectedId);
+      const hovered = group.courses.some((course) => course.id === hoveredId);
+      const button = pinButton(pin.price, pin.name, pin.tone, selected, hovered);
+      const single = group.courses.length === 1 ? group.courses[0] : null;
+      button.addEventListener('pointerdown', (event) => event.stopPropagation());
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        pinClickRef.current = true;
+        if (single) {
+          onSelectRef.current(single.id);
+          return;
+        }
+        const bounds = boundsOf(group.courses);
+        if (!bounds) return;
+        runQuiet(() => map.fitBounds(bounds, { padding: 72, maxZoom: 16, duration: 800 }));
+      });
+      if (single) {
+        button.addEventListener('mouseenter', () => onHoverRef.current(single.id));
+        button.addEventListener('mouseleave', () => onHoverRef.current(null));
+      }
+      const marker = new Marker({ element: button, anchor: 'bottom' })
+        .setLngLat([group.lng, group.lat])
+        .addTo(map);
+      if (selected || hovered) marker.getElement().style.zIndex = '3';
+      markers.push(marker);
+    }
+    markersRef.current = markers;
+  }, [courses, fetchedSlugs, hoveredId, mapReady, pendingSlugs, runQuiet, selectedId, timesByCourse, zoom]);
 
   return (
     <div className="finder-map">
-      <MapContainer
-        center={[anchor.lat, anchor.lng]}
-        zoom={11}
-        zoomControl={false}
-        scrollWheelZoom
-      >
-        <TileLayer
-          attribution="Tiles &copy; Esri"
-          url={
-            dark
-              ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
-              : 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
-          }
-        />
-        <TileLayer
-          url={
-            dark
-              ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
-              : 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}'
-          }
-        />
-        <ZoomControl position="topright" />
-        <MapController
-          courses={located}
-          lockView={lockView}
-          selectedId={selectedId}
-          onUserMove={(bounds) => setSearchBounds(bounds)}
-          onClear={() => {
-            if (pinClick.current) {
-              pinClick.current = false;
-              return;
-            }
-            onSelect(null);
-          }}
-        />
-        <PinLayer
-          courses={located}
-          timesByCourse={timesByCourse}
-          pendingSlugs={pendingSlugs}
-          fetchedSlugs={fetchedSlugs}
-          selectedId={selectedId}
-          hoveredId={hoveredId}
-          onSelect={(id) => {
-            pinClick.current = true;
-            onSelect(id);
-          }}
-          onHover={onHover}
-        />
-      </MapContainer>
+      <div ref={containerRef} className="finder-map-canvas" />
 
       {searchBounds ? (
         <button
           type="button"
           className="finder-map-search"
           onClick={() => {
-            onSearchArea(searchBounds);
+            onSearchRef.current(searchBounds);
             setSearchBounds(null);
           }}
         >
@@ -357,12 +598,7 @@ export function FinderMap({
               <Link to={detailHref(selected)} className="finder-map-card-name">
                 {selected.name}
               </Link>
-              <button
-                type="button"
-                className="finder-map-card-close"
-                aria-label="Close"
-                onClick={() => onSelect(null)}
-              >
+              <button type="button" className="finder-map-card-close" aria-label="Close" onClick={() => onSelect(null)}>
                 ×
               </button>
             </div>
@@ -380,18 +616,34 @@ export function FinderMap({
               {selectedTimes.length > 0 ? <span>{selectedTimes.length} open</span> : null}
             </p>
             <div className="finder-map-card-row">
-              <span className="finder-map-card-when">
-                {next
-                  ? `${formatTime12h(next.startsAt, courseTimezone(selected.timezone))}${
-                      typeof next.price === 'number' ? ` · $${Math.round(next.price)}` : ''
-                    }`
-                  : pendingSlugs.has(selected.id)
-                    ? 'Checking times…'
-                    : 'No openings'}
-              </span>
-              <Link to={detailHref(selected)} className="btn btn-primary finder-map-card-go">
-                View times
-              </Link>
+              {selectedCard?.status ? (
+                <span className={`finder-map-card-when${selectedCard.status === 'Sold out' ? ' is-soldout' : ''}`}>
+                  {selectedCard.status}
+                </span>
+              ) : null}
+              <div className="finder-map-card-actions">
+                {selectedCard?.links.map((link) => {
+                  const className = `btn ${link.primary ? 'btn-primary' : 'btn-ghost'} finder-map-card-go`;
+                  if (link.external || link.href.startsWith('tel:')) {
+                    return (
+                      <a
+                        key={`${link.label}-${link.href}`}
+                        className={className}
+                        href={link.href}
+                        aria-label={link.aria}
+                        {...(link.external ? { target: '_blank', rel: 'noreferrer' } : {})}
+                      >
+                        {link.label}
+                      </a>
+                    );
+                  }
+                  return (
+                    <Link key={`${link.label}-${link.href}`} to={link.href} className={className}>
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

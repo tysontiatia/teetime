@@ -39,3 +39,18 @@ const DEFAULT_POSTHOG_KEY = 'phc_RCaOhjbjWX2KDt0rzHvFuYRFlfM5D6vQfcdiOA7TnfF';
 export function getPosthogKey(): string {
   return (import.meta.env.VITE_POSTHOG_KEY || DEFAULT_POSTHOG_KEY).trim();
 }
+
+/** MapTiler key for the Find map. Public in the browser; restrict it by domain in MapTiler. */
+export function getMapTilerKey(): string {
+  return (import.meta.env.VITE_MAPTILER_KEY || '').trim();
+}
+
+/** Streets map. Uses MapTiler when a key is set, otherwise the free OpenMapTiles host. */
+export function mapStyleUrl(dark: boolean): string {
+  const key = getMapTilerKey();
+  if (key) {
+    const name = dark ? 'streets-v2-dark' : 'streets-v2';
+    return `https://api.maptiler.com/maps/${name}/style.json?key=${encodeURIComponent(key)}`;
+  }
+  return dark ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/bright';
+}
