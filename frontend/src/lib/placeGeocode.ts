@@ -76,7 +76,7 @@ export async function geocodePlaceQuery(query: string): Promise<ResolvedPlaceAnc
   if (cache.has(key)) return cache.get(key) ?? null;
   const zip = extractZip(query);
   const onlyZip = Boolean(zip && query.replace(/\D/g, '') === zip);
-  let place: ResolvedPlaceAnchor | null = null;
+  let place: ResolvedPlaceAnchor | null;
   try {
     place = onlyZip && zip ? await geocodeZip(zip) : await geocodeCity(query.trim());
   } catch {

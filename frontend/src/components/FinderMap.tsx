@@ -5,25 +5,9 @@ import { Link } from 'react-router-dom';
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents, ZoomControl } from 'react-leaflet';
 import type { Course, TeeTime } from '../types';
 import { formatCityState } from '../lib/courseRecord';
+import type { MapBounds } from '../lib/mapBounds';
 import { formatTime12h } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
-
-export type MapBounds = {
-  south: number;
-  west: number;
-  north: number;
-  east: number;
-};
-
-export function courseInMapBounds(course: { lat?: number; lng?: number }, bounds: MapBounds): boolean {
-  if (typeof course.lat !== 'number' || typeof course.lng !== 'number') return false;
-  return (
-    course.lat >= bounds.south &&
-    course.lat <= bounds.north &&
-    course.lng >= bounds.west &&
-    course.lng <= bounds.east
-  );
-}
 
 type PinTone = 'price' | 'open' | 'checking' | 'sold' | 'quiet';
 
@@ -49,7 +33,7 @@ function useDarkMap(): boolean {
   return dark;
 }
 
-export function pinTone(
+function pinTone(
   times: TeeTime[] | undefined,
   pending: boolean,
   fetched: boolean,
