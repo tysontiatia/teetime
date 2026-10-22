@@ -24,7 +24,7 @@ type Props = {
 export function FeedOpeningRow({ item, record, minPlayers }: Props) {
   const { short, city: titleCity } = parseCourseTitle(item.course_name);
   const city = record ? resolveCourseCity(record) : expandDisplayCity(titleCity);
-  const photo = record ? coursePhotoUrl(record, 240) : undefined;
+  const photo = record ? coursePhotoUrl(record) : undefined;
   const price = formatFeedPrice(item.price_cents);
   const spots = feedSpotsLabel(item.spots_open);
   const courseHref = `/course/${item.course_slug}?date=${item.play_date}&players=${minPlayers}&holes=${item.holes}`;
