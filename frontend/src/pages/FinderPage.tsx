@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Course, FetchRadiusMi, SearchParams, SortBy, TeeTime, TimeOfDayPreset } from '../types';
@@ -29,6 +29,7 @@ import {
 } from '../lib/platformRegistry';
 import { resolveCourseBookingMode } from '../lib/courseRecord';
 import { useAuth } from '../state/AuthContext';
+import { FinderHeaderSlotsContext } from '../state/FinderHeaderSlots';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
@@ -39,8 +40,11 @@ import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderMap } from '../components/FinderMap';
 import { courseInMapBounds, type MapBounds } from '../lib/mapBounds';
+import { openWrappedPicker } from '../lib/openNativePicker';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
+import { DatePickerSheet } from '../components/DatePickerSheet';
+import { RoundPickerSheet } from '../components/RoundPickerSheet';
 import { SlotActionSheet } from '../components/SlotActionSheet';
 import { slotActionMeta } from '../lib/slotAction';
 import {
@@ -52,7 +56,7 @@ import {
 } from '../lib/pendingAuthAction';
 import { courseDetailQueryString, rememberFinderSearch, rememberedFinderSearchParams } from '../lib/finderUrl';
 import { captureEvent } from '../lib/analytics';
-import { holesFilterLabel, parseHolesFilter } from '../lib/holesFilter';
+import { holesFilterLabel, holesFilterOptionLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
   buildTimesFetchScope,
   courseMatchesLocationQuery,
@@ -124,6 +128,9 @@ type SlotActionTarget = {
   resumeBook?: boolean;
 };
 
+/** Keeps map pins above the phone's bottom course card. */
+const PHONE_MAP_PADDING = { top: 24, right: 16, bottom: 270, left: 16 };
+
 export function FinderPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -167,17 +174,26 @@ export function FinderPage() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
+  const [roundSheetOpen, setRoundSheetOpen] = useState(false);
   const isCompactShell = useIsCompactShell();
-  const mapOpen = sp.get('view') === 'map' && !isCompactShell;
+  const wantsMap = sp.get('view') === 'map';
+  const mapOpen = wantsMap && !isCompactShell;
   const [areaBounds, setAreaBounds] = useState<MapBounds | null>(null);
   const [mapFocusId, setMapFocusId] = useState<string | null>(null);
   const [mapHoverId, setMapHoverId] = useState<string | null>(null);
+  const phoneDeckRef = useRef<HTMLDivElement>(null);
+  const deckLockRef = useRef(false);
+  const deckUserRef = useRef(false);
+  const deckFocusRef = useRef<string | null>(null);
   const querySentinelRef = useRef<HTMLDivElement>(null);
   const queryDockRef = useRef<HTMLDivElement>(null);
   const mapShellRef = useRef(false);
   const [queryScrolledAway, setQueryScrolledAway] = useState(false);
   const [queryPinnedOpen, setQueryPinnedOpen] = useState(false);
   const [queryDockHoldPx, setQueryDockHoldPx] = useState<number | null>(null);
+  const headerSlots = useContext(FinderHeaderSlotsContext);
+  const headerSearchActive = Boolean(headerSlots?.searchEl);
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
 
   const refetchResults = useCallback(() => {
@@ -329,7 +345,7 @@ export function FinderPage() {
 
   /** Map "search this area" swaps the tee-time pool to courses inside the viewport, capped so a wide zoom doesn't fetch the whole catalog. */
   const mapFetchPool = useMemo(() => {
-    if (!mapOpen || !areaBounds) return fetchPool;
+    if (!wantsMap || !areaBounds) return fetchPool;
     const anchor = {
       lat: (areaBounds.south + areaBounds.north) / 2,
       lng: (areaBounds.west + areaBounds.east) / 2,
@@ -343,7 +359,7 @@ export function FinderPage() {
           (distanceFromAnchor(b, anchor) ?? Number.POSITIVE_INFINITY),
       )
       .slice(0, 40);
-  }, [areaBounds, courses, fetchPool, mapOpen]);
+  }, [areaBounds, courses, fetchPool, wantsMap]);
 
   const serviceArea = useMemo(
     () =>
@@ -549,7 +565,7 @@ export function FinderPage() {
   }, [gridCourses, bookingOnlyInScope, loadingTimes, timesByCourse, params.sortBy]);
 
   const listedCourses = useMemo(() => {
-    if (!mapOpen || !areaBounds) return displayCourses;
+    if (!wantsMap || !areaBounds) return displayCourses;
     const anchor = {
       lat: (areaBounds.south + areaBounds.north) / 2,
       lng: (areaBounds.west + areaBounds.east) / 2,
@@ -562,7 +578,7 @@ export function FinderPage() {
         distanceMi: distanceFromAnchor(c, anchor) ?? undefined,
       }));
     return sortFinderGridCourses(inArea, timesByCourse, params.sortBy);
-  }, [areaBounds, courses, displayCourses, mapOpen, params.sortBy, timesByCourse]);
+  }, [areaBounds, courses, displayCourses, wantsMap, params.sortBy, timesByCourse]);
 
   const inventoryFirst = isInventoryFirstSort(params.sortBy);
 
@@ -912,7 +928,8 @@ export function FinderPage() {
     fetchAllUtah ? 'Statewide' : wherePlaceLabel,
   ];
 
-  const mapShell = mapOpen && !isCompactShell && !showOutOfMarket;
+  const mapShell = mapOpen && !showOutOfMarket;
+  const phoneMap = wantsMap && isCompactShell && !showOutOfMarket;
   const queryCollapsed = (mapShell || queryScrolledAway) && !queryPinnedOpen;
   const queryPinned = (mapShell || queryScrolledAway) && queryPinnedOpen;
   const queryDockClass = [
@@ -934,29 +951,29 @@ export function FinderPage() {
     setQueryDockHoldPx(null);
   };
 
-  const viewToggle = !isCompactShell ? (
+  const viewToggle = (
     <div className="finder-view-toggle" role="group" aria-label="Results layout">
       <button
         type="button"
-        className={!mapOpen ? 'is-on' : undefined}
-        aria-pressed={!mapOpen}
+        className={!wantsMap ? 'is-on' : undefined}
+        aria-pressed={!wantsMap}
         onClick={() => setMapOpen(false)}
       >
         List
       </button>
       <button
         type="button"
-        className={mapOpen ? 'is-on' : undefined}
-        aria-pressed={mapOpen}
+        className={wantsMap ? 'is-on' : undefined}
+        aria-pressed={wantsMap}
         onClick={() => setMapOpen(true)}
       >
         Map
       </button>
     </div>
-  ) : null;
+  );
 
-  const sortControl = (
-    <label className="result-sort">
+  const renderSortControl = () => (
+    <label className="result-sort" onMouseDown={openWrappedPicker}>
       <span className="result-sort-prefix">Sort</span>
       <select
         value={params.sortBy}
@@ -1002,36 +1019,277 @@ export function FinderPage() {
               }
             />
           ) : null}
-              <label className="result-sort">
-                <span className="result-sort-prefix">Sort</span>
-                <select
-                  value={params.sortBy}
-                  aria-label="Sort courses"
-                  onChange={(e) => setParam('sort', e.target.value as SortBy)}
-                >
-                  {FINDER_SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {renderSortControl()}
         </div>
       ) : null}
     </div>
   );
+
+  const whereIsPrompt = !params.locationQuery.trim() && !fetchAllUtah && timesFetchScope.anchor.source !== 'gps';
+  const whereValue = whereIsPrompt ? 'Course or city' : whereLabel;
+  const roundValue = `${params.players} · ${holesFilterOptionLabel(params.holes)}`;
+
+  const headerOutlook = (
+    <FinderDayOutlook
+      dateYmd={params.date}
+      lat={timesFetchScope.anchor.lat}
+      lng={timesFetchScope.anchor.lng}
+      regionLabel={
+        params.locationQuery.trim() ||
+        (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
+      }
+    />
+  );
+
+  const headerWhen = (
+    <div className="find-search-seg is-when">
+      <span className="find-search-kicker">When</span>
+      <span className="find-search-when">
+        <button
+          type="button"
+          className="find-search-nudge"
+          aria-label="Previous day"
+          disabled={prevDateDisabled}
+          onClick={() => shiftDate(-1)}
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          className="find-search-date-open"
+          onClick={() => setDateSheetOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={dateSheetOpen}
+          aria-label={`Date, ${formatDateCompact(params.date)}`}
+        >
+          {formatDateCompact(params.date)}
+        </button>
+        <button type="button" className="find-search-nudge" aria-label="Next day" onClick={() => shiftDate(1)}>
+          ›
+        </button>
+      </span>
+    </div>
+  );
+
+  const headerPlayers = (
+    <button
+      type="button"
+      className="find-search-seg is-round"
+      onClick={() => setRoundSheetOpen(true)}
+      aria-haspopup="dialog"
+      aria-expanded={roundSheetOpen}
+      aria-label={`Players and holes, ${roundValue}`}
+    >
+      <span className="find-search-kicker">Round</span>
+      <span className="find-search-value">{roundValue}</span>
+    </button>
+  );
+
+  const headerWhere = (
+    <button
+      type="button"
+      className="find-search-seg is-where"
+      onClick={() => setLocationSheetOpen(true)}
+      aria-haspopup="dialog"
+      aria-expanded={locationSheetOpen}
+    >
+      <span className="find-search-kicker">Where</span>
+      <span className={`find-search-value${whereIsPrompt ? ' is-placeholder' : ''}`}>{whereValue}</span>
+    </button>
+  );
+
+  const headerSearch = headerSlots?.searchEl
+    ? createPortal(
+        isCompactShell ? (
+          <div className="find-search-bar">
+            <button
+              type="button"
+              className="find-search-date"
+              onClick={() => setDateSheetOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={dateSheetOpen}
+              aria-label={`Date, ${formatDateCompact(params.date)}`}
+            >
+              <span className="find-search-date-label">{formatDateCompact(params.date)}</span>
+            </button>
+            <div className="find-search-placefield">
+              <button
+                type="button"
+                className="find-search-placehit"
+                onClick={() => setLocationSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={locationSheetOpen}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.9" />
+                  <path d="M16.2 16.2L20 20" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                </svg>
+                <span className="find-search-place">{whereLabel}</span>
+              </button>
+              <button
+                type="button"
+                className="find-search-roundbtn"
+                onClick={() => setRoundSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={roundSheetOpen}
+                aria-label={`Players and holes, ${roundValue}`}
+              >
+                <span className="find-search-round">{roundValue}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="find-search" role="group" aria-label="Search tee times">
+            {headerWhen}
+            {headerPlayers}
+            {headerWhere}
+          </div>
+        ),
+        headerSlots.searchEl,
+      )
+    : null;
+
+  const headerFilters = headerSlots?.filtersEl
+    ? createPortal(
+        <div className="find-header-filters">
+          <div className="filter-row" role="group" aria-label="Time of day">
+            {timeChip('morning', 'Morning')}
+            {timeChip('afternoon', 'Afternoon')}
+            {timeChip('evening', 'Twilight')}
+          </div>
+          {isCompactShell && !showOutOfMarket ? <div className="find-header-tools">{renderSortControl()}</div> : null}
+        </div>,
+        headerSlots.filtersEl,
+      )
+    : null;
+
+  const resultMeta = (
+    <div className={`result-meta${headerSearchActive ? (isCompactShell ? ' is-tools-hidden' : '') : queryCollapsed ? ' is-tools-hidden' : ''}`}>
+      <div className="result-meta-lead">
+        <span
+          className={`result-count${
+            loadingTimes && withTimesCount === 0 && !showOutOfMarket ? ' is-finding' : ''
+          }`}
+        >
+          <strong>{resultCountPrimary}</strong>
+        </span>
+        {resultCountSecondary && !showOutOfMarket ? (
+          <span className="result-count-secondary">{resultCountSecondary}</span>
+        ) : null}
+        {!showOutOfMarket ? headerOutlook : null}
+      </div>
+      {!showOutOfMarket ? (
+        <div className="result-meta-tools">
+          {viewToggle}
+          {isCompactShell ? null : renderSortControl()}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const headerMeta = headerSlots?.metaEl ? createPortal(resultMeta, headerSlots.metaEl) : null;
 
   useEffect(() => {
     mapShellRef.current = mapShell;
   }, [mapShell]);
 
   useEffect(() => {
+    if (!phoneMap) {
+      deckFocusRef.current = null;
+      return;
+    }
+    if (mapFocusId && listedCourses.some((course) => course.id === mapFocusId)) return;
+    const first = listedCourses.find(
+      (course) => typeof course.lat === 'number' && typeof course.lng === 'number',
+    );
+    if (first) setMapFocusId(first.id);
+  }, [listedCourses, mapFocusId, phoneMap]);
+
+  useEffect(() => {
+    if (!phoneMap || !mapFocusId || deckUserRef.current) return;
+    const deck = phoneDeckRef.current;
+    const node = deck?.querySelector(`[data-course-id="${CSS.escape(mapFocusId)}"]`);
+    if (!(node instanceof HTMLElement) || !deck) return;
+    deckFocusRef.current = mapFocusId;
+    const left = node.offsetLeft - (deck.clientWidth - node.offsetWidth) / 2;
+    if (Math.abs(deck.scrollLeft - left) < 12) return;
+    const jump = Math.abs(deck.scrollLeft - left) > deck.clientWidth;
+    deckLockRef.current = true;
+    deck.scrollTo({ left, behavior: jump ? 'auto' : 'smooth' });
+    const release = window.setTimeout(() => {
+      deckLockRef.current = false;
+    }, jump ? 60 : 480);
+    return () => {
+      window.clearTimeout(release);
+      deckLockRef.current = false;
+    };
+  }, [listedCourses, mapFocusId, phoneMap]);
+
+  useEffect(() => {
+    const deck = phoneDeckRef.current;
+    if (!phoneMap || !deck) return;
+    let timer = 0;
+    const pickCentered = () => {
+      if (deckLockRef.current) {
+        timer = window.setTimeout(pickCentered, 80);
+        return;
+      }
+      deckUserRef.current = false;
+      const mid = deck.scrollLeft + deck.clientWidth / 2;
+      let bestId: string | null = null;
+      let best = Infinity;
+      for (const child of deck.children) {
+        if (!(child instanceof HTMLElement)) continue;
+        const dist = Math.abs(child.offsetLeft + child.offsetWidth / 2 - mid);
+        if (dist < best) {
+          best = dist;
+          bestId = child.getAttribute('data-course-id');
+        }
+      }
+      if (bestId && bestId !== deckFocusRef.current) {
+        deckFocusRef.current = bestId;
+        setMapFocusId(bestId);
+      }
+    };
+    const onScroll = () => {
+      window.clearTimeout(timer);
+      if (deckLockRef.current) {
+        timer = window.setTimeout(pickCentered, 80);
+        return;
+      }
+      deckUserRef.current = true;
+      timer = window.setTimeout(pickCentered, 80);
+    };
+    deck.addEventListener('scroll', onScroll, { passive: true });
+    deck.addEventListener('scrollend', pickCentered);
+    return () => {
+      deck.removeEventListener('scroll', onScroll);
+      deck.removeEventListener('scrollend', pickCentered);
+      window.clearTimeout(timer);
+    };
+  }, [phoneMap]);
+
+  useEffect(() => {
     if (!mapOpen || !mapFocusId || isCompactShell) return;
     const node = document.querySelector(`[data-course-id="${CSS.escape(mapFocusId)}"]`);
-    node?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (!(node instanceof HTMLElement)) return;
+    const scroller = node.closest('.finder-results');
+    if (!(scroller instanceof HTMLElement)) {
+      node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    const pad = 10;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const room = scrollerRect.height - pad * 2;
+    const delta =
+      nodeRect.height >= room
+        ? nodeRect.top - scrollerRect.top - pad
+        : nodeRect.top - scrollerRect.top - (scrollerRect.height - nodeRect.height) / 2;
+    scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: 'smooth' });
   }, [isCompactShell, mapFocusId, mapOpen]);
 
-  const renderFinderCard = (course: Course) => {
+  const renderFinderCard = (course: Course, layout: 'list' | 'sheet' = 'list') => {
     const times = timesByCourse.get(course.id) ?? [];
     const inFetchPool = fetchSlugSet.has(course.id);
     const record = recordsBySlug.get(course.id);
@@ -1040,7 +1298,12 @@ export function FinderPage() {
     );
     const noLiveInventory = bookingMode !== 'live';
     const outOfScope = !noLiveInventory && !inFetchPool && !fetchAllUtah;
-    const timesPending = !noLiveInventory && inFetchPool && pendingSlugs.has(course.id);
+    // pendingSlugs is filled in an effect, one paint after courses arrive. Treat that
+    // gap as still checking so map load doesn't flash sold-out photo cards.
+    const timesPending =
+      !noLiveInventory &&
+      inFetchPool &&
+      (pendingSlugs.has(course.id) || (loadingTimes && times.length === 0));
     const detailHref = `/course/${course.id}?${courseDetailQueryString(params)}`;
     const variant =
       bookingMode === 'phone' ? 'phone' : bookingMode === 'booking_link' ? 'bookingLink' : 'inventory';
@@ -1076,7 +1339,9 @@ export function FinderPage() {
           });
           setSlotAction({ course, time, times, bookHref, detailHref });
         }}
-        compact={mapOpen && !isCompactShell}
+        compact={layout === 'list' && mapOpen}
+        hero={layout === 'sheet' || (layout === 'list' && isCompactShell)}
+        sheet={layout === 'sheet'}
         mapActive={mapFocusId === course.id}
         onMapHover={
           mapOpen ? (active) => setMapHoverId(active ? course.id : null) : undefined
@@ -1087,7 +1352,10 @@ export function FinderPage() {
 
   return (
     <div className="container">
-      <div className={`finder-page${mapShell ? ' is-map-shell' : ''}`}>
+      <div className={`finder-page${mapShell ? ' is-map-shell' : ''}${phoneMap ? ' is-phone-map' : ''}${headerSearchActive ? ' is-header-search' : ''}`}>
+        {headerSearch}
+        {headerFilters}
+        {headerMeta}
         {catalogError ? (
           <div className="app-banner app-banner--error" role="alert">
             <strong>Could not load courses.</strong> {catalogError}
@@ -1115,12 +1383,12 @@ export function FinderPage() {
           </div>
         ) : null}
 
-        {queryCollapsed && isCompactShell
+        {queryCollapsed && isCompactShell && !headerSearchActive
           ? createPortal(
               <div className="finder-query-collapsed">
                 <div className="finder-query-bar is-fixed">
                   {querySummaryButton}
-                  {!showOutOfMarket ? sortControl : null}
+                  {!showOutOfMarket ? renderSortControl() : null}
                 </div>
               </div>,
               document.body,
@@ -1329,53 +1597,14 @@ export function FinderPage() {
         </div>
         <div className="finder-query-sentinel" ref={querySentinelRef} aria-hidden />
 
-        {queryCollapsed && !isCompactShell ? querySummaryBar(mapShell ? 'docked' : 'sticky') : null}
+        {queryCollapsed && !isCompactShell && !headerSearchActive
+          ? querySummaryBar(mapShell ? 'docked' : 'sticky')
+          : null}
 
-        <div className={`result-meta${queryCollapsed ? ' is-tools-hidden' : ''}`}>
-          <div className="result-meta-lead">
-            <span
-              className={`result-count${
-                loadingTimes && withTimesCount === 0 && !showOutOfMarket ? ' is-finding' : ''
-              }`}
-            >
-              <strong>{resultCountPrimary}</strong>
-            </span>
-            {resultCountSecondary && !showOutOfMarket ? (
-              <span className="result-count-secondary">{resultCountSecondary}</span>
-            ) : null}
-          </div>
-          {!showOutOfMarket ? (
-            <div className="result-meta-tools">
-              {!isCompactShell ? viewToggle : null}
-              <FinderDayOutlook
-                dateYmd={params.date}
-                lat={timesFetchScope.anchor.lat}
-                lng={timesFetchScope.anchor.lng}
-                regionLabel={
-                  params.locationQuery.trim() ||
-                  (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
-                }
-              />
-              <label className="result-sort">
-                <span className="result-sort-prefix">Sort</span>
-                <select
-                  value={params.sortBy}
-                  aria-label="Sort courses"
-                  onChange={(e) => setParam('sort', e.target.value as SortBy)}
-                >
-                  {FINDER_SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : null}
-        </div>
+        {headerMeta ? null : resultMeta}
 
         <div className={`finder-layout${mapOpen && !showOutOfMarket ? ' is-map' : ''}`}>
-        <div className="finder-results">
+        <div className="finder-results" hidden={phoneMap ? true : undefined}>
         {showOutOfMarket ? (
           <div className="empty-search empty-search--market">
             <div className="empty-search-kicker">Coming soon</div>
@@ -1500,20 +1729,21 @@ export function FinderPage() {
           </div>
         ) : null}
 
+        {!phoneMap ? (
         <div className={`mp-grid${loadingTimes ? ' is-loading' : ''}`}>
           {showCatalogSkeleton
             ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
             : null}
           {!showOutOfMarket && !showCatalogSkeleton ? (
             <>
-              {mainGridCourses.map(renderFinderCard)}
+              {mainGridCourses.map((course) => renderFinderCard(course))}
               {noTimesCourses.length > 0 ? (
                 <>
                   <div className="mp-grid-section">
                     <p className="mp-grid-section-title">{noTimesSection.title}</p>
                     <p className="mp-grid-section-copy">{noTimesSection.copy}</p>
                   </div>
-                  {noTimesCourses.map(renderFinderCard)}
+                  {noTimesCourses.map((course) => renderFinderCard(course))}
                 </>
               ) : null}
               {alsoNearbyCourses.length > 0 ? (
@@ -1522,14 +1752,20 @@ export function FinderPage() {
                     <p className="mp-grid-section-title">Also nearby</p>
                     <p className="mp-grid-section-copy">Book on their site, or call the pro shop.</p>
                   </div>
-                  {alsoNearbyCourses.map(renderFinderCard)}
+                  {alsoNearbyCourses.map((course) => renderFinderCard(course))}
                 </>
               ) : null}
             </>
           ) : null}
         </div>
+        ) : null}
         </div>
-        {mapOpen && !showOutOfMarket ? (
+        {phoneMap ? (
+          <div className="phone-map-deck" ref={phoneDeckRef}>
+            {listedCourses.map((course) => renderFinderCard(course, 'sheet'))}
+          </div>
+        ) : null}
+        {(mapOpen || phoneMap) && !showOutOfMarket ? (
           <div className="finder-map-pane">
             <FinderMap
               courses={listedCourses}
@@ -1546,6 +1782,9 @@ export function FinderPage() {
               holes={params.holes}
               timeOfDay={params.timeOfDay}
               detailHref={(course) => `/course/${course.id}?${courseDetailQueryString(params)}`}
+              hideSelectionCard={phoneMap}
+              coursesLoading={catalogLoading}
+              viewportPadding={phoneMap ? PHONE_MAP_PADDING : undefined}
               onSelect={setMapFocusId}
               onHover={setMapHoverId}
               onSearchArea={setAreaBounds}
@@ -1621,6 +1860,24 @@ export function FinderPage() {
         onClose={closeSignInToShare}
         variant="share"
         returnTo={returnTo}
+      />
+      <DatePickerSheet
+        open={dateSheetOpen}
+        value={params.date}
+        today={todayYmd}
+        onClose={() => setDateSheetOpen(false)}
+        onSelect={(ymd) => {
+          setParam('date', clampDateToTodayOrLater(ymd));
+          setDateSheetOpen(false);
+        }}
+      />
+      <RoundPickerSheet
+        open={roundSheetOpen}
+        players={params.players}
+        holes={params.holes}
+        onClose={() => setRoundSheetOpen(false)}
+        onPlayers={(players) => setParam('players', String(players))}
+        onHoles={(holes) => setParam('holes', holes === 'any' ? 'any' : String(holes))}
       />
       <LocationSearchSheet
         open={locationSheetOpen}

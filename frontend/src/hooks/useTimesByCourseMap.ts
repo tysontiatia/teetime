@@ -52,7 +52,9 @@ export function useTimesByCourseMap(
   const [sourceBySlug, setSourceBySlug] = useState<Map<string, InventorySource>>(() =>
     cacheHit ? cloneSourceMap(cacheHit.sourceBySlug) : new Map(),
   );
-  const [loading, setLoading] = useState(false);
+  // Stay "finding" until a fetch settles. A false start paints every course with an
+  // empty sheet ("N courses") for a frame before the effect flips loading on.
+  const [loading, setLoading] = useState(() => cacheHit == null);
   const [failedSlugs, setFailedSlugs] = useState<string[]>(() => cacheHit?.failedSlugs ?? []);
   const [attemptedSlugCount, setAttemptedSlugCount] = useState(() => cacheHit?.attemptedSlugCount ?? 0);
   const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(new Set());
@@ -65,7 +67,7 @@ export function useTimesByCourseMap(
 
   useEffect(() => {
     if (catalogLoading) {
-      setLoading(false);
+      if (timesMemCache?.key !== searchKey) setLoading(true);
       setFailedSlugs([]);
       setAttemptedSlugCount(0);
       setPendingSlugs(new Set());

@@ -57,6 +57,10 @@ type Props = {
   onSelectTime?: (time: TeeTime, bookHref: string | null) => void;
   /** Shorter photo and two tee times — used beside the map. */
   compact?: boolean;
+  /** Phone list: the photo is the hero and the name sits under it. */
+  hero?: boolean;
+  /** Phone map card: shorter hero photo, still with two tee times. */
+  sheet?: boolean;
   /** Highlight while this course is selected on the map. */
   mapActive?: boolean;
   onMapHover?: (active: boolean) => void;
@@ -94,13 +98,15 @@ export function CourseMarketplaceCard({
   shareDisabled = true,
   onSelectTime,
   compact = false,
+  hero = false,
+  sheet = false,
   mapActive = false,
   onMapHover,
 }: Props) {
   const bookingLinkOnly = variant === 'bookingLink';
   const phoneOnly = variant === 'phone';
   const noLiveInventory = bookingLinkOnly || phoneOnly;
-  const top = times.slice(0, compact ? 2 : 5);
+  const top = times.slice(0, hero || sheet || compact ? 2 : 5);
   const hasTimes = !noLiveInventory && times.length > 0;
   const weatherPoints = useCourseHourlyWeather(course.lat, course.lng, dateYmd, hasTimes);
   const hotId = top[0]?.id;
@@ -145,8 +151,8 @@ export function CourseMarketplaceCard({
   return (
     <article
       className={`mp-course${isEmptyLive ? ' is-empty' : ''}${compact ? ' is-compact' : ''}${
-        mapActive ? ' is-map-active' : ''
-      }`}
+        hero ? ' is-hero' : ''
+      }${sheet ? ' is-sheet' : ''}${mapActive ? ' is-map-active' : ''}`}
       data-course-id={course.id}
       onMouseEnter={onMapHover ? () => onMapHover(true) : undefined}
       onMouseLeave={onMapHover ? () => onMapHover(false) : undefined}
@@ -160,21 +166,21 @@ export function CourseMarketplaceCard({
               <div className="mp-photo-fallback" aria-hidden />
             )}
             <div className="mp-course-scrim">
-              <div className="mp-course-scrim-main">
-                <div className="course-name">{course.name}</div>
-                {hasRating || meta ? (
-                  <div className="course-meta">
-                    {hasRating ? <RatingMark rating={course.rating!} /> : null}
-                    {hasRating && meta ? (
-                      <span className="sep" aria-hidden>
-                        ·
-                      </span>
-                    ) : null}
-                    {meta || null}
-                  </div>
-                ) : null}
+                <div className="mp-course-scrim-main">
+                  <div className="course-name">{course.name}</div>
+                  {hasRating || meta ? (
+                    <div className="course-meta">
+                      {hasRating ? <RatingMark rating={course.rating!} /> : null}
+                      {hasRating && meta ? (
+                        <span className="sep" aria-hidden>
+                          ·
+                        </span>
+                      ) : null}
+                      {meta || null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
           </Link>
 
           <span

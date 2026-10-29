@@ -10,6 +10,7 @@ import { courseDistanceMap } from '../lib/feedDistanceMap';
 import type { FetchRadiusMi } from '../types';
 import { DEFAULT_FETCH_RADIUS_MI, distanceFromAnchor, parseFetchRadiusMi } from '../lib/timesFetchScope';
 import { useResolvedPlace } from '../lib/useResolvedPlace';
+import { openWrappedPicker } from '../lib/openNativePicker';
 
 type PlayersFilter = 1 | 2 | 3 | 4;
 
@@ -162,7 +163,7 @@ export function FeedPage() {
         </header>
 
         <div className="feed-filters" role="group" aria-label="Openings filters">
-          <label className="sort-control radius-control feed-radius-control">
+          <label className="sort-control radius-control feed-radius-control" onMouseDown={openWrappedPicker}>
             <span className="visually-hidden">Search radius</span>
             <select
               value={radiusSelectValue}

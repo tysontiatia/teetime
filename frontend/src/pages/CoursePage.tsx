@@ -14,6 +14,7 @@ import {
 import { courseTimezone } from '../lib/teeTimeInstant';
 import type { SearchParams, TeeTime, TimeOfDayPreset } from '../types';
 import { parseSortBy } from '../lib/sort';
+import { openWrappedPicker } from '../lib/openNativePicker';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { fetchTeeTimesForCourse } from '../lib/workerTimes';
 import { capabilityHint, getPlatformCapability, workerSupportedPlatform } from '../lib/platformRegistry';
@@ -641,7 +642,7 @@ export function CoursePage() {
           </div>
 
           <div className="rail-filters">
-            <label className="rail-filter-chip">
+            <label className="rail-filter-chip" onMouseDown={openWrappedPicker}>
               <span className="visually-hidden">Players</span>
               <select aria-label="Players" value={players} onChange={(e) => setParam('players', e.target.value)}>
                 <option value="1">1 player</option>
@@ -650,7 +651,7 @@ export function CoursePage() {
                 <option value="4">4 players</option>
               </select>
             </label>
-            <label className="rail-filter-chip">
+            <label className="rail-filter-chip" onMouseDown={openWrappedPicker}>
               <span className="visually-hidden">Holes</span>
               <select aria-label="Holes" value={holes} onChange={(e) => setParam('holes', e.target.value)}>
                 <option value="18">18 holes</option>
@@ -658,7 +659,7 @@ export function CoursePage() {
                 <option value="any">Any holes</option>
               </select>
             </label>
-            <label className="rail-filter-chip">
+            <label className="rail-filter-chip" onMouseDown={openWrappedPicker}>
               <span className="visually-hidden">Time of day</span>
               <select aria-label="Time of day" value={tod} onChange={(e) => setParam('tod', e.target.value)}>
                 {TOD_OPTIONS.map((o) => (

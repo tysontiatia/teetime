@@ -333,6 +333,12 @@ type Props = {
   holes: HolesFilter;
   timeOfDay: TimeOfDayPreset;
   detailHref: (course: Course) => string;
+  /** Phone map draws the selected course in a card under the map. */
+  hideSelectionCard?: boolean;
+  /** Hide the empty-area note while the catalog is still loading. */
+  coursesLoading?: boolean;
+  /** Keeps pins in the visible map, above a bottom card. */
+  viewportPadding?: { top: number; right: number; bottom: number; left: number };
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
   onSearchArea: (bounds: MapBounds) => void;
@@ -353,6 +359,9 @@ export function FinderMap({
   holes,
   timeOfDay,
   detailHref,
+  hideSelectionCard = false,
+  coursesLoading = false,
+  viewportPadding,
   onSelect,
   onHover,
   onSearchArea,
@@ -476,6 +485,12 @@ export function FinderMap({
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!mapReady || !map) return;
+    map.setPadding(viewportPadding ?? { top: 0, right: 0, bottom: 0, left: 0 });
+  }, [mapReady, viewportPadding]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map) return;
     const nextStyle = mapStyle(dark);
     if (styleUrlRef.current === nextStyle) return;
@@ -578,11 +593,11 @@ export function FinderMap({
         </button>
       ) : null}
 
-      {located.length === 0 ? (
+      {located.length === 0 && !coursesLoading ? (
         <p className="finder-map-empty">No courses in this view yet. Move the map and search this area.</p>
       ) : null}
 
-      {selected ? (
+      {selected && !hideSelectionCard ? (
         <div className="finder-map-card">
           <Link to={detailHref(selected)} className="finder-map-card-photo" aria-label={selected.name}>
             {selected.photoUrl ? (

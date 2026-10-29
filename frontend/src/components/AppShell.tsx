@@ -4,7 +4,6 @@ import { useAuth } from '../state/AuthContext';
 import { profileAvatarUrlFromUser } from '../lib/profileAvatar';
 import { UserAvatar } from './UserAvatar';
 import { UserMenu } from './UserMenu';
-import { AppBottomNav } from './AppBottomNav';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OpeningsPreviewProvider } from '../state/OpeningsPreviewContext';
 import { AlertActivityProvider, useAlertActivity } from '../state/AlertActivityContext';
@@ -15,6 +14,7 @@ import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { useKeyboardInsetCssVar } from '../hooks/useKeyboardInsetCssVar';
 import { AlertsIcon, PlanIcon } from './icons/AppIcons';
+import { FinderHeaderSlotsContext } from '../state/FinderHeaderSlots';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/teetimehq/';
 
@@ -28,6 +28,14 @@ function LogoMark() {
       <img className="app-header-logo-img is-light" src="/logo-icon-light.svg" alt="" width={26} height={26} />
       <img className="app-header-logo-img is-dark" src="/logo-icon-dark.svg" alt="" width={26} height={26} />
     </span>
+  );
+}
+
+function MenuGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -133,6 +141,26 @@ function AppShellInner() {
   const youRouteActive =
     path === '/plan' || path.startsWith('/plan/') || path === '/share' || path.startsWith('/share/');
   const isAdmin = path.startsWith('/admin');
+  const isFind = path === '/' || path === '';
+  const headerRef = useRef<HTMLElement>(null);
+  const [searchEl, setSearchEl] = useState<HTMLElement | null>(null);
+  const [filtersEl, setFiltersEl] = useState<HTMLElement | null>(null);
+  const [metaEl, setMetaEl] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const apply = () => {
+      document.documentElement.style.setProperty('--app-header-offset', `${el.offsetHeight}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--app-header-offset');
+    };
+  }, [path, isCompact]);
 
   const openGeneralSignIn = () => {
     if (isCompact) setHubAuth({ variant: 'general', returnTo: path });
@@ -144,9 +172,24 @@ function AppShellInner() {
   }, []);
 
   return (
+    <FinderHeaderSlotsContext.Provider value={{ searchEl, filtersEl, metaEl, setSearchEl, setFiltersEl, setMetaEl }}>
     <div className="app-shell">
-      <header className="app-header">
-        <div className="container app-header-inner">
+      <header className={`app-header${isFind ? ' is-find' : ''}`} ref={headerRef}>
+        <div className={`container app-header-inner${isCompact && !isAdmin ? ' is-brand-bar' : ''}`}>
+          {isCompact && !isAdmin ? (
+            <button
+              type="button"
+              className={`app-header-menu-btn${userMenuOpen ? ' is-open' : ''}`}
+              aria-expanded={userMenuOpen}
+              aria-haspopup="menu"
+              aria-label={alertsBadge ? `Open menu, ${unreadCount} new alerts` : 'Open menu'}
+              onClick={() => setUserMenuOpen((open) => !open)}
+            >
+              <MenuGlyph />
+              {alertsBadge ? <span className="app-header-alerts-badge">{alertsBadge}</span> : null}
+            </button>
+          ) : null}
+
           <Link to={path === '/' || path === '' ? '.' : '/'} className="app-header-logo">
             <LogoMark />
             <span>
@@ -154,7 +197,9 @@ function AppShellInner() {
             </span>
           </Link>
 
-          {!isAdmin ? (
+          {isFind && !isCompact ? <div className="app-header-search" ref={setSearchEl} /> : null}
+
+          {!isCompact && !isAdmin ? (
             <div className="app-header-trailing">
               <a
                 className="app-header-ig"
@@ -235,7 +280,8 @@ function AppShellInner() {
                 </button>
               )}
             </div>
-          ) : (
+          ) : null}
+          {isAdmin ? (
             <div className="app-header-trailing">
               {loading ? null : user ? (
                 <button
@@ -251,8 +297,16 @@ function AppShellInner() {
                 </button>
               ) : null}
             </div>
-          )}
+          ) : null}
+          {isCompact && !isAdmin ? <span className="app-header-brand-balance" aria-hidden /> : null}
         </div>
+        {isFind ? (
+          <div className="container app-header-find">
+            {isCompact ? <div className="app-header-search" ref={setSearchEl} /> : null}
+            <div className="app-header-filters" ref={setFiltersEl} />
+            <div className="app-header-meta" ref={setMetaEl} />
+          </div>
+        ) : null}
       </header>
 
       <UserMenu
@@ -262,6 +316,10 @@ function AppShellInner() {
         anchorRef={accountBtnRef}
         showInstall={showInstallEntry}
         onInstall={() => setInstallOpen(true)}
+        alertsBadge={alertsBadge}
+        onSignIn={openGeneralSignIn}
+        onOpenAlerts={() => requestHubAuth('alert', '/account')}
+        onOpenPlan={() => requestHubAuth('you', '/plan')}
       />
 
       <InstallAppBanner
@@ -292,8 +350,10 @@ function AppShellInner() {
       />
 
       <main className="app-main">
-        {/* Reset page errors on navigation without remounting the shell (modal state lives here). */}
-        <ErrorBoundary key={location.key}>
+        {/* Reset page errors when the route changes. Search-param updates stay on the
+            same page, so they must not remount Find — that was destroying the map and
+            flashing the full course list before tee times loaded back in. */}
+        <ErrorBoundary key={location.pathname}>
           <Outlet />
         </ErrorBoundary>
       </main>
@@ -302,8 +362,8 @@ function AppShellInner() {
         <p className="app-footer-note">Made with ❤️ in Salt Lake City</p>
       </footer>
 
-      <AppBottomNav onRequestHubAuth={isCompact ? requestHubAuth : undefined} />
     </div>
+    </FinderHeaderSlotsContext.Provider>
   );
 }
 

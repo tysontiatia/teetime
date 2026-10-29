@@ -7,7 +7,7 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { UserAvatar } from './UserAvatar';
 import { useTheme, type ThemePreference } from '../state/ThemeContext';
-import { AlertsIcon, PlanIcon } from './icons/AppIcons';
+import { AlertsIcon, FindIcon, PlanIcon } from './icons/AppIcons';
 import {
   countPushSubscriptions,
   disablePushAlerts,
@@ -23,13 +23,29 @@ type UserMenuProps = {
   anchorRef?: RefObject<HTMLElement | null>;
   showInstall?: boolean;
   onInstall?: () => void;
+  alertsBadge?: string | null;
+  /** Compact, signed out: the menu is the only way to Alerts, Plan, and sign-in. */
+  onSignIn?: () => void;
+  onOpenAlerts?: () => void;
+  onOpenPlan?: () => void;
 };
 
 function MenuIcon({ children }: { children: ReactNode }) {
   return <span className="user-menu-item-icon" aria-hidden>{children}</span>;
 }
 
-export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onInstall }: UserMenuProps) {
+export function UserMenu({
+  open,
+  onClose,
+  initial,
+  anchorRef,
+  showInstall,
+  onInstall,
+  alertsBadge,
+  onSignIn,
+  onOpenAlerts,
+  onOpenPlan,
+}: UserMenuProps) {
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const { preference, resolved, setPreference } = useTheme();
@@ -42,7 +58,7 @@ export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onIns
   const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [anchorStyle, setAnchorStyle] = useState<CSSProperties | undefined>();
 
-  useBodyScrollLock(open && Boolean(user));
+  useBodyScrollLock(open);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -124,7 +140,102 @@ export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onIns
     setPushMsg('Push on — we’ll notify this device.');
   };
 
-  if (!open || !user) return null;
+  if (!open) return null;
+  if (!user && !isCompact) return null;
+
+  const path = location.pathname.replace(/\/$/, '') || '/';
+  const findActive = path === '/';
+  const alertsActive = path === '/account' || path.startsWith('/account/');
+  const planActive =
+    path === '/plan' || path.startsWith('/plan/') || path === '/share' || path.startsWith('/share/');
+
+  const hubItem = (
+    label: string,
+    icon: ReactNode,
+    active: boolean,
+    href: string,
+    signedOut?: () => void,
+    badge?: string | null,
+  ) => {
+    const className = `user-menu-item${active ? ' is-active' : ''}`;
+    const body = (
+      <>
+        <MenuIcon>{icon}</MenuIcon>
+        <span className="user-menu-item-label">{label}</span>
+        {badge ? <span className="user-menu-item-badge">{badge}</span> : null}
+      </>
+    );
+    if (!user && signedOut) {
+      return (
+        <button type="button" className={className} role="menuitem" onClick={() => { onClose(); signedOut(); }}>
+          {body}
+        </button>
+      );
+    }
+    return (
+      <Link to={href} className={className} role="menuitem" aria-current={active ? 'page' : undefined} onClick={onClose}>
+        {body}
+      </Link>
+    );
+  };
+
+  if (!user) {
+    return (
+      <div className="user-menu-backdrop" role="presentation" onClick={onClose}>
+        <div
+          className="user-menu-panel"
+          role="menu"
+          aria-label="Menu"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="user-menu-head">
+            <div className="user-menu-head-text">
+              <div className="user-menu-name">Menu</div>
+            </div>
+            <button type="button" className="user-menu-close btn btn-ghost" onClick={onClose} aria-label="Close menu">
+              ✕
+            </button>
+          </div>
+          <nav className="user-menu-nav">
+            {hubItem('Find', <FindIcon />, findActive, '/')}
+            {hubItem('Alerts', <AlertsIcon />, false, '/account', onOpenAlerts)}
+            {hubItem('Plan', <PlanIcon />, false, '/plan', onOpenPlan)}
+            {showInstall && onInstall ? (
+              <button
+                type="button"
+                className="user-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onClose();
+                  onInstall();
+                }}
+              >
+                <MenuIcon>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.9" />
+                    <path d="M12 17.2h.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                    <path d="M9 8.5h6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                  </svg>
+                </MenuIcon>
+                <span className="user-menu-item-label">Install app</span>
+              </button>
+            ) : null}
+          </nav>
+          <button
+            type="button"
+            className="btn btn-primary user-menu-sign-in"
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              onSignIn?.();
+            }}
+          >
+            Sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const displayName =
     (user.user_metadata?.full_name as string | undefined) ||
@@ -141,8 +252,6 @@ export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onIns
       {label}
     </button>
   );
-
-  const showHubLinks = !isCompact;
 
   return (
     <div className="user-menu-backdrop" role="presentation" onClick={onClose}>
@@ -165,22 +274,9 @@ export function UserMenu({ open, onClose, initial, anchorRef, showInstall, onIns
         </div>
 
         <nav className="user-menu-nav">
-          {showHubLinks ? (
-            <>
-              <Link to="/account" className="user-menu-item" role="menuitem" onClick={onClose}>
-                <MenuIcon>
-                  <AlertsIcon />
-                </MenuIcon>
-                <span className="user-menu-item-label">Alerts</span>
-              </Link>
-              <Link to="/plan" className="user-menu-item" role="menuitem" onClick={onClose}>
-                <MenuIcon>
-                  <PlanIcon />
-                </MenuIcon>
-                <span className="user-menu-item-label">Plan</span>
-              </Link>
-            </>
-          ) : null}
+          {isCompact ? hubItem('Find', <FindIcon />, findActive, '/') : null}
+          {hubItem('Alerts', <AlertsIcon />, alertsActive, '/account', undefined, alertsBadge)}
+          {hubItem('Plan', <PlanIcon />, planActive, '/plan')}
           <Link to="/feed" className="user-menu-item" role="menuitem" onClick={onClose}>
             <MenuIcon>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
