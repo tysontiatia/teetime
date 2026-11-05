@@ -37,6 +37,7 @@ import { NotificationModal } from '../components/NotificationModal';
 import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
+import { FinderForecastStrip } from '../components/FinderForecastStrip';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
 import { FinderMap } from '../components/FinderMap';
 import { courseInMapBounds, type MapBounds } from '../lib/mapBounds';
@@ -44,6 +45,7 @@ import { openWrappedPicker } from '../lib/openNativePicker';
 import { FinderDayOutlook } from '../components/FinderDayOutlook';
 import { LocationSearchSheet } from '../components/LocationSearchSheet';
 import { DatePickerSheet } from '../components/DatePickerSheet';
+import { FilterSheet } from '../components/FilterSheet';
 import { RoundPickerSheet } from '../components/RoundPickerSheet';
 import { SlotActionSheet } from '../components/SlotActionSheet';
 import { slotActionMeta } from '../lib/slotAction';
@@ -176,6 +178,7 @@ export function FinderPage() {
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [roundSheetOpen, setRoundSheetOpen] = useState(false);
+  const [timeSheetOpen, setTimeSheetOpen] = useState(false);
   const isCompactShell = useIsCompactShell();
   const wantsMap = sp.get('view') === 'map';
   const mapOpen = wantsMap && !isCompactShell;
@@ -914,7 +917,7 @@ export function FinderPage() {
         ? 'Afternoon'
         : params.timeOfDay === 'evening'
           ? 'Twilight'
-          : 'Any';
+          : 'Anytime';
 
   const partySummaryLabel =
     params.holes === 'any'
@@ -951,6 +954,13 @@ export function FinderPage() {
     setQueryDockHoldPx(null);
   };
 
+  const headerSortLabels: Record<SortBy, string> = {
+    soonest: 'Earliest',
+    distance: 'Closest',
+    price: 'Price',
+    rating: 'Top rated',
+  };
+
   const viewToggle = (
     <div className="finder-view-toggle" role="group" aria-label="Results layout">
       <button
@@ -982,7 +992,7 @@ export function FinderPage() {
       >
         {FINDER_SORT_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
-            {opt.label}
+            {headerSortLabels[opt.value]}
           </option>
         ))}
       </select>
@@ -1025,8 +1035,6 @@ export function FinderPage() {
     </div>
   );
 
-  const whereIsPrompt = !params.locationQuery.trim() && !fetchAllUtah && timesFetchScope.anchor.source !== 'gps';
-  const whereValue = whereIsPrompt ? 'Course or city' : whereLabel;
   const roundValue = `${params.players} · ${holesFilterOptionLabel(params.holes)}`;
 
   const headerOutlook = (
@@ -1039,63 +1047,6 @@ export function FinderPage() {
         (timesFetchScope.anchor.source === 'gps' ? 'Near you' : 'Salt Lake area')
       }
     />
-  );
-
-  const headerWhen = (
-    <div className="find-search-seg is-when">
-      <span className="find-search-kicker">When</span>
-      <span className="find-search-when">
-        <button
-          type="button"
-          className="find-search-nudge"
-          aria-label="Previous day"
-          disabled={prevDateDisabled}
-          onClick={() => shiftDate(-1)}
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          className="find-search-date-open"
-          onClick={() => setDateSheetOpen(true)}
-          aria-haspopup="dialog"
-          aria-expanded={dateSheetOpen}
-          aria-label={`Date, ${formatDateCompact(params.date)}`}
-        >
-          {formatDateCompact(params.date)}
-        </button>
-        <button type="button" className="find-search-nudge" aria-label="Next day" onClick={() => shiftDate(1)}>
-          ›
-        </button>
-      </span>
-    </div>
-  );
-
-  const headerPlayers = (
-    <button
-      type="button"
-      className="find-search-seg is-round"
-      onClick={() => setRoundSheetOpen(true)}
-      aria-haspopup="dialog"
-      aria-expanded={roundSheetOpen}
-      aria-label={`Players and holes, ${roundValue}`}
-    >
-      <span className="find-search-kicker">Round</span>
-      <span className="find-search-value">{roundValue}</span>
-    </button>
-  );
-
-  const headerWhere = (
-    <button
-      type="button"
-      className="find-search-seg is-where"
-      onClick={() => setLocationSheetOpen(true)}
-      aria-haspopup="dialog"
-      aria-expanded={locationSheetOpen}
-    >
-      <span className="find-search-kicker">Where</span>
-      <span className={`find-search-value${whereIsPrompt ? ' is-placeholder' : ''}`}>{whereValue}</span>
-    </button>
   );
 
   const headerSearch = headerSlots?.searchEl
@@ -1136,35 +1087,115 @@ export function FinderPage() {
               >
                 <span className="find-search-round">{roundValue}</span>
               </button>
+              <button
+                type="button"
+                className="find-search-timebtn"
+                onClick={() => setTimeSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={timeSheetOpen}
+                aria-label={`Time, ${todSummaryLabel}`}
+              >
+                <span className="find-search-time">{todSummaryLabel}</span>
+              </button>
             </div>
           </div>
         ) : (
-          <div className="find-search" role="group" aria-label="Search tee times">
-            {headerWhen}
-            {headerPlayers}
-            {headerWhere}
+          <div className="find-search-bar is-desktop">
+            <button
+              type="button"
+              className="find-search-date"
+              onClick={() => setDateSheetOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={dateSheetOpen}
+              aria-label={`Date, ${formatDateCompact(params.date)}`}
+            >
+              <span className="find-search-date-label">{formatDateCompact(params.date)}</span>
+            </button>
+            <div className="find-query is-flat" role="group" aria-label="Search tee times">
+              <button
+                type="button"
+                className="find-query-seg is-where"
+                onClick={() => setLocationSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={locationSheetOpen}
+                aria-label={`Where, ${whereLabel}`}
+              >
+                <svg className="find-where-pin" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M12 21s6-5.4 6-10a6 6 0 10-12 0c0 4.6 6 10 6 10z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  />
+                  <circle cx="12" cy="11" r="2.1" fill="currentColor" />
+                </svg>
+                <span className="find-query-value">{whereLabel}</span>
+              </button>
+              <button
+                type="button"
+                className="find-query-seg is-round"
+                onClick={() => setRoundSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={roundSheetOpen}
+                aria-label={`Round, ${roundValue}`}
+              >
+                <span className="find-query-value">{roundValue}</span>
+              </button>
+              <button
+                type="button"
+                className="find-query-seg is-time"
+                onClick={() => setTimeSheetOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={timeSheetOpen}
+                aria-label={`Time, ${todSummaryLabel}`}
+              >
+                <span className="find-query-value">{todSummaryLabel}</span>
+              </button>
+            </div>
           </div>
         ),
         headerSlots.searchEl,
       )
     : null;
 
-  const headerFilters = headerSlots?.filtersEl
-    ? createPortal(
-        <div className="find-header-filters">
-          <div className="filter-row" role="group" aria-label="Time of day">
-            {timeChip('morning', 'Morning')}
-            {timeChip('afternoon', 'Afternoon')}
-            {timeChip('evening', 'Twilight')}
-          </div>
-          {isCompactShell && !showOutOfMarket ? <div className="find-header-tools">{renderSortControl()}</div> : null}
-        </div>,
-        headerSlots.filtersEl,
-      )
-    : null;
+  const headerResultMeta = (
+    <div className="result-meta course-availability-meta">
+      <div className="find-results-summary">
+        <span
+          className={`result-count${
+            loadingTimes && withTimesCount === 0 && !showOutOfMarket ? ' is-finding' : ''
+          }`}
+        >
+          <strong>{resultCountPrimary}</strong>
+        </span>
+        {!showOutOfMarket && resultCountSecondary ? (
+          <span className="result-count-secondary">{resultCountSecondary}</span>
+        ) : null}
+        {!showOutOfMarket ? headerOutlook : null}
+      </div>
+      {!showOutOfMarket ? (
+        <div className="find-results-tools">
+          <div className="find-header-tools">{viewToggle}</div>
+          <label className="course-availability-sort is-tool">
+            <span className="course-availability-sort-label">Sort</span>
+            <select
+              value={params.sortBy}
+              aria-label="Sort courses"
+              onChange={(e) => setParam('sort', e.target.value)}
+            >
+              {FINDER_SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {headerSortLabels[opt.value]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+    </div>
+  );
 
   const resultMeta = (
-    <div className={`result-meta${headerSearchActive ? (isCompactShell ? ' is-tools-hidden' : '') : queryCollapsed ? ' is-tools-hidden' : ''}`}>
+    <div className={`result-meta${headerSearchActive || queryCollapsed ? ' is-tools-hidden' : ''}`}>
       <div className="result-meta-lead">
         <span
           className={`result-count${
@@ -1181,13 +1212,15 @@ export function FinderPage() {
       {!showOutOfMarket ? (
         <div className="result-meta-tools">
           {viewToggle}
-          {isCompactShell ? null : renderSortControl()}
+          {renderSortControl()}
         </div>
       ) : null}
     </div>
   );
 
-  const headerMeta = headerSlots?.metaEl ? createPortal(resultMeta, headerSlots.metaEl) : null;
+  const headerMeta = headerSlots?.metaEl
+    ? createPortal(isCompactShell ? resultMeta : headerResultMeta, headerSlots.metaEl)
+    : null;
 
   useEffect(() => {
     mapShellRef.current = mapShell;
@@ -1354,7 +1387,6 @@ export function FinderPage() {
     <div className="container">
       <div className={`finder-page${mapShell ? ' is-map-shell' : ''}${phoneMap ? ' is-phone-map' : ''}${headerSearchActive ? ' is-header-search' : ''}`}>
         {headerSearch}
-        {headerFilters}
         {headerMeta}
         {catalogError ? (
           <div className="app-banner app-banner--error" role="alert">
@@ -1603,6 +1635,15 @@ export function FinderPage() {
 
         {headerMeta ? null : resultMeta}
 
+        {!isCompactShell && !showOutOfMarket ? (
+          <FinderForecastStrip
+            dateYmd={params.date}
+            lat={timesFetchScope.anchor.lat}
+            lng={timesFetchScope.anchor.lng}
+            onSelect={(ymd) => setParam('date', clampDateToTodayOrLater(ymd))}
+          />
+        ) : null}
+
         <div className={`finder-layout${mapOpen && !showOutOfMarket ? ' is-map' : ''}`}>
         <div className="finder-results" hidden={phoneMap ? true : undefined}>
         {showOutOfMarket ? (
@@ -1660,7 +1701,7 @@ export function FinderPage() {
           <div className="empty-search">
             <div className="empty-search-title">No courses match that search</div>
             <p>
-              Try clearing the location box, switching time of day to <strong>Any</strong>, or picking another date.
+              Try clearing the location box, switching time of day to <strong>Anytime</strong>, or picking another date.
               {!fetchAllUtah && timesFetchScope.outOfScopeCount > 0
                 ? ' Widen the radius or try Statewide for more courses, or search a city like St. George.'
                 : ' The full live catalog stays available when your search matches again.'}
@@ -1683,7 +1724,7 @@ export function FinderPage() {
               ) : null}
               {params.timeOfDay !== 'any' ? (
                 <button type="button" className="btn" onClick={() => setParam('tod', 'any')}>
-                  Any time of day
+                  Anytime
                 </button>
               ) : null}
               <button
@@ -1785,6 +1826,7 @@ export function FinderPage() {
               hideSelectionCard={phoneMap}
               coursesLoading={catalogLoading}
               viewportPadding={phoneMap ? PHONE_MAP_PADDING : undefined}
+              userLocation={userLocation}
               onSelect={setMapFocusId}
               onHover={setMapHoverId}
               onSearchArea={setAreaBounds}
@@ -1879,6 +1921,39 @@ export function FinderPage() {
         onPlayers={(players) => setParam('players', String(players))}
         onHoles={(holes) => setParam('holes', holes === 'any' ? 'any' : String(holes))}
       />
+      <FilterSheet
+        open={timeSheetOpen}
+        title="Time of day"
+        closeLabel="Close time of day"
+        onClose={() => setTimeSheetOpen(false)}
+      >
+        <div className="location-sheet-radius">
+          <div className="picker-choice-row" role="radiogroup" aria-label="Time of day">
+            {(
+              [
+                ['any', 'Anytime'],
+                ['morning', 'Morning'],
+                ['afternoon', 'Afternoon'],
+                ['evening', 'Twilight'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={params.timeOfDay === value}
+                className={`location-sheet-radius-chip${params.timeOfDay === value ? ' is-on' : ''}`}
+                onClick={() => {
+                  setParam('tod', value === 'any' ? '' : value);
+                  setTimeSheetOpen(false);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </FilterSheet>
       <LocationSearchSheet
         open={locationSheetOpen}
         onClose={() => setLocationSheetOpen(false)}

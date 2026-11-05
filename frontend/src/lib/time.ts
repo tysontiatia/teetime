@@ -87,6 +87,13 @@ export function formatDateLong(ymd: string) {
   return dt.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
+/** Weekday chip for the desktop header pill — "Thu, Nov 5". */
+export function formatDateChip(ymd: string) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
+  return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 /** Compact calendar label without weekday — better for dense mobile meta. */
 export function formatDateCompact(ymd: string) {
   const [y, m, d] = ymd.split('-').map(Number);

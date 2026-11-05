@@ -339,6 +339,8 @@ type Props = {
   coursesLoading?: boolean;
   /** Keeps pins in the visible map, above a bottom card. */
   viewportPadding?: { top: number; right: number; bottom: number; left: number };
+  /** Browser GPS fix. Drawn as a blue dot; omitted when location was denied. */
+  userLocation?: { lat: number; lng: number } | null;
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
   onSearchArea: (bounds: MapBounds) => void;
@@ -362,6 +364,7 @@ export function FinderMap({
   hideSelectionCard = false,
   coursesLoading = false,
   viewportPadding,
+  userLocation = null,
   onSelect,
   onHover,
   onSearchArea,
@@ -370,6 +373,7 @@ export function FinderMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
+  const youMarkerRef = useRef<Marker | null>(null);
   const quietMoveRef = useRef(false);
   const gestureRef = useRef(false);
   const pinClickRef = useRef(false);
@@ -570,11 +574,29 @@ export function FinderMap({
       const marker = new Marker({ element: button, anchor: 'bottom' })
         .setLngLat([group.lng, group.lat])
         .addTo(map);
-      if (selected || hovered) marker.getElement().style.zIndex = '3';
+      marker.getElement().style.zIndex = selected || hovered ? '4' : '2';
       markers.push(marker);
     }
     markersRef.current = markers;
   }, [courses, fetchedSlugs, hoveredId, mapReady, pendingSlugs, runQuiet, selectedId, timesByCourse, zoom]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || !userLocation) return;
+    const dot = document.createElement('div');
+    dot.className = 'finder-you';
+    dot.setAttribute('role', 'img');
+    dot.setAttribute('aria-label', 'Your location');
+    const marker = new Marker({ element: dot, anchor: 'center' })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(map);
+    marker.getElement().style.zIndex = '1';
+    youMarkerRef.current = marker;
+    return () => {
+      marker.remove();
+      if (youMarkerRef.current === marker) youMarkerRef.current = null;
+    };
+  }, [mapReady, userLocation]);
 
   return (
     <div className="finder-map">

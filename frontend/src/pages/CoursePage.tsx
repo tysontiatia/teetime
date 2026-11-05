@@ -47,6 +47,8 @@ import { CourseDetailPanel } from '../components/CourseDetailPanel';
 import { CourseReviewsSection } from '../components/CourseReviewsSection';
 import { AlertsIcon, PlanIcon } from '../components/icons/AppIcons';
 import { CourseStatsBar } from '../components/CourseStatsBar';
+import { CourseAvailabilityBar } from '../components/CourseAvailabilityBar';
+import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
 import {
   fetchCourseCatalogMeta,
@@ -65,7 +67,7 @@ const SLOT_PREVIEW = 12;
 type DetailTab = 'times' | 'info' | 'reviews';
 
 const TOD_OPTIONS: { value: TimeOfDayPreset; label: string }[] = [
-  { value: 'any', label: 'All day' },
+  { value: 'any', label: 'Anytime' },
   { value: 'morning', label: 'Morning' },
   { value: 'afternoon', label: 'Afternoon' },
   { value: 'evening', label: 'Twilight' },
@@ -82,6 +84,7 @@ export function CoursePage() {
   const location = useLocation();
   const [sp, setSp] = useSearchParams();
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const isCompact = useIsCompactShell();
   const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
   const coursesById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
@@ -394,7 +397,15 @@ export function CoursePage() {
 
   const canShare = !unsupported && times.length > 0;
   const openCount = times.length;
-  const todLabel = TOD_OPTIONS.find((o) => o.value === tod)?.label ?? 'All day';
+  const todLabel = TOD_OPTIONS.find((o) => o.value === tod)?.label ?? 'Anytime';
+  const showAvailabilityBar = !isCompact && !unsupported;
+  const holesLocked = record?.holes === 9;
+  const countLabel =
+    loadingTimes && openCount === 0
+      ? 'Finding tee times'
+      : openCount === 1
+        ? '1 tee time'
+        : `${openCount} tee times`;
   const detailTabs = unsupported
     ? TABS.map((tab) => (tab.id === 'times' ? { ...tab, label: 'Book' } : tab))
     : TABS;
@@ -408,7 +419,30 @@ export function CoursePage() {
   };
 
   return (
-    <div className={`container course-detail course-detail--${detailTab}`}>
+    <div className={`container course-detail course-detail--${detailTab}${showAvailabilityBar ? ' has-availability-bar' : ''}`}>
+      {showAvailabilityBar ? (
+        <CourseAvailabilityBar
+          courseName={course.name}
+          date={date}
+          todayYmd={todayYmd}
+          prevDateDisabled={prevDateDisabled}
+          onShiftDate={shiftDate}
+          onDate={(ymd) => setParam('date', ymd)}
+          players={players}
+          onPlayers={(next) => setParam('players', String(next))}
+          holes={holesLocked ? 9 : holes}
+          holesLocked={holesLocked}
+          onHoles={(next) => setParam('holes', next === 'any' ? 'any' : String(next))}
+          tod={tod}
+          onTod={(next) => setParam('tod', next === 'any' ? 'any' : next)}
+          sort={sort === 'price' ? 'price' : 'soonest'}
+          onSort={(next) => setParam('sort', next === 'soonest' ? '' : next)}
+          countLabel={countLabel}
+          finding={loadingTimes && openCount === 0}
+          lat={typeof course.lat === 'number' ? course.lat : undefined}
+          lng={typeof course.lng === 'number' ? course.lng : undefined}
+        />
+      ) : null}
       <div className="back-row">
         <AppBackLink to={`/?${finderBackSearch}`} className="back-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -694,7 +728,7 @@ export function CoursePage() {
                 <div className="rail-empty-actions-links">
                   {tod !== 'any' ? (
                     <button type="button" className="tee-empty-action" onClick={() => setParam('tod', 'any')}>
-                      Any time of day
+                      Anytime
                     </button>
                   ) : null}
                   <button type="button" className="tee-empty-action" onClick={() => shiftDate(1)}>

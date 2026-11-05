@@ -13,7 +13,6 @@ import { SignInPromptModal, type SignInPromptVariant } from './SignInPromptModal
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { useKeyboardInsetCssVar } from '../hooks/useKeyboardInsetCssVar';
-import { AlertsIcon, PlanIcon } from './icons/AppIcons';
 import { FinderHeaderSlotsContext } from '../state/FinderHeaderSlots';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/teetimehq/';
@@ -142,10 +141,17 @@ function AppShellInner() {
     path === '/plan' || path.startsWith('/plan/') || path === '/share' || path.startsWith('/share/');
   const isAdmin = path.startsWith('/admin');
   const isFind = path === '/' || path === '';
+  const isCourse = path.startsWith('/course/');
   const headerRef = useRef<HTMLElement>(null);
   const [searchEl, setSearchEl] = useState<HTMLElement | null>(null);
   const [filtersEl, setFiltersEl] = useState<HTMLElement | null>(null);
   const [metaEl, setMetaEl] = useState<HTMLElement | null>(null);
+  const [courseBar, setCourseBar] = useState(false);
+  const showCourseBar = isCourse && !isCompact && courseBar;
+
+  useEffect(() => {
+    if (!isCourse) setCourseBar(false);
+  }, [isCourse]);
 
   useEffect(() => {
     const el = headerRef.current;
@@ -172,10 +178,12 @@ function AppShellInner() {
   }, []);
 
   return (
-    <FinderHeaderSlotsContext.Provider value={{ searchEl, filtersEl, metaEl, setSearchEl, setFiltersEl, setMetaEl }}>
+    <FinderHeaderSlotsContext.Provider
+      value={{ searchEl, filtersEl, metaEl, setSearchEl, setFiltersEl, setMetaEl, courseBar, setCourseBar }}
+    >
     <div className="app-shell">
-      <header className={`app-header${isFind ? ' is-find' : ''}`} ref={headerRef}>
-        <div className={`container app-header-inner${isCompact && !isAdmin ? ' is-brand-bar' : ''}`}>
+      <header className={`app-header${isFind ? ' is-find' : ''}${showCourseBar ? ' is-course' : ''}`} ref={headerRef}>
+        <div className={`container app-header-inner${isCompact && !isAdmin ? ' is-brand-bar' : ''}${!isCompact && !isAdmin ? ' is-nav' : ''}`}>
           {isCompact && !isAdmin ? (
             <button
               type="button"
@@ -197,21 +205,31 @@ function AppShellInner() {
             </span>
           </Link>
 
-          {isFind && !isCompact ? <div className="app-header-search" ref={setSearchEl} /> : null}
+          {!isCompact && !isAdmin ? (
+            <nav className="app-header-nav" aria-label="Primary">
+              <Link to="/" className={isFind ? 'is-active' : undefined} aria-current={isFind ? 'page' : undefined}>
+                Find
+              </Link>
+              <Link
+                to="/account"
+                className={alertsActive ? 'is-active' : undefined}
+                aria-current={alertsActive ? 'page' : undefined}
+              >
+                Alerts
+                {alertsBadge ? <span className="app-header-nav-badge">{alertsBadge}</span> : null}
+              </Link>
+              <Link
+                to="/plan"
+                className={youRouteActive ? 'is-active' : undefined}
+                aria-current={youRouteActive ? 'page' : undefined}
+              >
+                Plan
+              </Link>
+            </nav>
+          ) : null}
 
           {!isCompact && !isAdmin ? (
             <div className="app-header-trailing">
-              <a
-                className="app-header-ig"
-                href={INSTAGRAM_URL}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Follow Tee-Time on Instagram"
-                title="Follow on Instagram"
-              >
-                <InstagramIcon />
-                <span className="app-header-ig-label">Follow</span>
-              </a>
               {showInstallEntry ? (
                 <button
                   type="button"
@@ -237,23 +255,6 @@ function AppShellInner() {
                   </svg>
                 </button>
               ) : null}
-              <Link
-                to="/account"
-                className={`app-header-icon-btn app-header-alerts-btn${alertsActive ? ' is-active' : ''}`}
-                aria-label={alertsBadge ? `Tee time alerts, ${unreadCount} new` : 'Tee time alerts'}
-                title="Alerts"
-              >
-                <AlertsIcon />
-                {alertsBadge ? <span className="app-header-alerts-badge">{alertsBadge}</span> : null}
-              </Link>
-              <Link
-                to="/plan"
-                className={`app-header-icon-btn app-header-plan-btn${youRouteActive ? ' is-active' : ''}`}
-                aria-label="Plan rounds"
-                title="Plan"
-              >
-                <PlanIcon />
-              </Link>
               {loading ? (
                 <span className="app-header-loading" aria-hidden>
                   …
@@ -298,11 +299,35 @@ function AppShellInner() {
               ) : null}
             </div>
           ) : null}
-          {isCompact && !isAdmin ? <span className="app-header-brand-balance" aria-hidden /> : null}
+          {isCompact && !isAdmin ? (
+            <div className="app-header-trailing is-compact">
+              {loading ? (
+                <span className="app-header-loading" aria-hidden>
+                  …
+                </span>
+              ) : user ? (
+                <button
+                  type="button"
+                  ref={accountBtnRef}
+                  className={`app-header-account-btn${userMenuOpen ? ' is-open' : ''}`}
+                  aria-expanded={userMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Open account menu"
+                  onClick={() => setUserMenuOpen((o) => !o)}
+                >
+                  <AvatarChip avatar={avatar} initial={initial} />
+                </button>
+              ) : (
+                <button className="btn btn-primary app-header-sign-in" type="button" onClick={openGeneralSignIn}>
+                  Sign in
+                </button>
+              )}
+            </div>
+          ) : null}
         </div>
-        {isFind ? (
+        {isFind || showCourseBar ? (
           <div className="container app-header-find">
-            {isCompact ? <div className="app-header-search" ref={setSearchEl} /> : null}
+            <div className="app-header-search" ref={setSearchEl} />
             <div className="app-header-filters" ref={setFiltersEl} />
             <div className="app-header-meta" ref={setMetaEl} />
           </div>
@@ -359,7 +384,18 @@ function AppShellInner() {
       </main>
 
       <footer className="app-footer">
-        <p className="app-footer-note">Made with ❤️ in Salt Lake City</p>
+        <p className="app-footer-note">
+          Made with ❤️ in Salt Lake City
+          <a
+            className="app-footer-ig"
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <InstagramIcon />
+            Instagram
+          </a>
+        </p>
       </footer>
 
     </div>

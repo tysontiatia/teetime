@@ -172,6 +172,94 @@ export async function fetchWasatchDayOutlook(dateYmd: string): Promise<DayOutloo
   return fetchDayOutlook({ lat: WASATCH_LAT, lng: WASATCH_LNG, dateYmd });
 }
 
+export type DatedOutlook = DayOutlook & { dateYmd: string };
+
+const rangeCache = new Map<string, { fetchedAt: number; data: DatedOutlook[] }>();
+const rangeInflight = new Map<string, Promise<DatedOutlook[]>>();
+
+function rememberOutlook(lat: number, lng: number, row: DatedOutlook) {
+  outlookCache.set(outlookCacheKey(lat, lng, row.dateYmd), {
+    fetchedAt: Date.now(),
+    data: {
+      highF: row.highF,
+      lowF: row.lowF,
+      maxWindMph: row.maxWindMph,
+      maxPrecipProb: row.maxPrecipProb,
+    },
+  });
+}
+
+/** Inclusive daily outlook for a date window. One Open-Meteo request. */
+export async function fetchOutlookRange(params: {
+  lat: number;
+  lng: number;
+  startYmd: string;
+  endYmd: string;
+}): Promise<DatedOutlook[]> {
+  const { lat, lng, startYmd, endYmd } = params;
+  const key = `${lat.toFixed(3)},${lng.toFixed(3)},${startYmd},${endYmd}`;
+  const hit = rangeCache.get(key);
+  if (hit && Date.now() - hit.fetchedAt < OUTLOOK_TTL_MS) return hit.data;
+
+  let req = rangeInflight.get(key);
+  if (!req) {
+    req = (async () => {
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.searchParams.set('latitude', String(lat));
+      url.searchParams.set('longitude', String(lng));
+      url.searchParams.set('timezone', 'America/Denver');
+      url.searchParams.set('start_date', startYmd);
+      url.searchParams.set('end_date', endYmd);
+      url.searchParams.set(
+        'daily',
+        'temperature_2m_max,temperature_2m_min,wind_speed_10m_max,precipitation_probability_max',
+      );
+      url.searchParams.set('temperature_unit', 'fahrenheit');
+      url.searchParams.set('wind_speed_unit', 'mph');
+
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error('outlook_fetch_failed');
+      const data = (await res.json()) as {
+        daily?: {
+          time?: string[];
+          temperature_2m_max?: number[];
+          temperature_2m_min?: number[];
+          wind_speed_10m_max?: number[];
+          precipitation_probability_max?: number[];
+        };
+      };
+      const times = data.daily?.time ?? [];
+      const rows: DatedOutlook[] = [];
+      for (let i = 0; i < times.length; i++) {
+        const hi = data.daily?.temperature_2m_max?.[i];
+        const lo = data.daily?.temperature_2m_min?.[i];
+        if (typeof hi !== 'number' || typeof lo !== 'number') continue;
+        const wind = data.daily?.wind_speed_10m_max?.[i];
+        const pop = data.daily?.precipitation_probability_max?.[i];
+        const row: DatedOutlook = {
+          dateYmd: times[i]!.slice(0, 10),
+          highF: hi,
+          lowF: lo,
+          maxWindMph: typeof wind === 'number' ? wind : 0,
+          maxPrecipProb: typeof pop === 'number' ? pop : 0,
+        };
+        rows.push(row);
+        rememberOutlook(lat, lng, row);
+      }
+      if (!rows.length) throw new Error('outlook_parse_failed');
+      rangeCache.set(key, { fetchedAt: Date.now(), data: rows });
+      return rows;
+    })();
+    rangeInflight.set(key, req);
+  }
+
+  try {
+    return await req;
+  } finally {
+    rangeInflight.delete(key);
+  }
+}
+
 export function pickNearestHour(points: WeatherPoint[], startsAtIso: string) {
   const target = new Date(startsAtIso).getTime();
   let best: WeatherPoint | null = null;
