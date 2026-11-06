@@ -6,6 +6,8 @@ import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { formatDateShort, formatTime12h } from '../lib/time';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { buildBookingUrl } from '../lib/bookingUrl';
+import { captureEvent } from '../lib/analytics';
+import { noteOutboundBooking } from '../lib/bookingFollowUp';
 
 type ShareOption = {
   startsAt: string;
@@ -241,7 +243,21 @@ export function SharePage() {
                     Course details
                   </Link>
                   {bookingHref ? (
-                    <a className="btn btn-primary" href={bookingHref} target="_blank" rel="noreferrer">
+                    <a
+                      className="btn btn-primary"
+                      href={bookingHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => {
+                        if (!o.courseId) return;
+                        captureEvent('outbound_booking_click', {
+                          course: cname,
+                          course_id: o.courseId,
+                          surface: 'share',
+                        });
+                        noteOutboundBooking(o.courseId, cname);
+                      }}
+                    >
                       Book →
                     </a>
                   ) : null}

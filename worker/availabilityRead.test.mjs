@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildTeeTimesBySlug,
+  countPeekDays,
   liveFillAttemptTimeoutMs,
   normalizedRowsToBatchTimes,
   parseTeeTimesIds,
@@ -300,4 +301,46 @@ test('normalizedRowsToBatchTimes uses course timezone for wall clock', () => {
     new Date(pt[0].startsAt).getTime() - new Date(mt[0].startsAt).getTime(),
     60 * 60 * 1000,
   );
+});
+
+test('countPeekDays keeps the next day that fits players and time of day', () => {
+  const now = Date.parse('2026-11-05T18:00:00.000Z');
+  const days = countPeekDays(
+    [
+      {
+        play_date: '2026-11-06',
+        play_starts_at: '2026-11-06T15:00:00.000Z',
+        starts_at_local: '08:00:00',
+        spots_open: 1,
+      },
+      {
+        play_date: '2026-11-06',
+        play_starts_at: '2026-11-06T20:00:00.000Z',
+        starts_at_local: '13:00:00',
+        spots_open: 4,
+      },
+      {
+        play_date: '2026-11-07',
+        play_starts_at: '2026-11-07T15:10:00.000Z',
+        starts_at_local: '08:10:00',
+        spots_open: 4,
+      },
+      {
+        play_date: '2026-11-07',
+        play_starts_at: '2026-11-07T15:20:00.000Z',
+        starts_at_local: '08:20:00',
+        spots_open: 4,
+      },
+      {
+        play_date: '2026-11-04',
+        play_starts_at: '2026-11-04T15:00:00.000Z',
+        starts_at_local: '08:00:00',
+        spots_open: 4,
+      },
+    ],
+    2,
+    'morning',
+    now,
+  );
+  assert.deepEqual(days, [{ date: '2026-11-07', count: 2 }]);
 });

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Course, FetchRadiusMi } from '../types';
 import { formatCityState } from '../lib/courseRecord';
 import { FETCH_RADIUS_OPTIONS_MI } from '../lib/timesFetchScope';
+import { extractZip } from '../lib/zipSearch';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export type LocationSearchSheetProps = {
@@ -87,6 +88,8 @@ export function LocationSearchSheet({
 
   const q = normalize(draft);
   const currentQ = normalize(currentQuery);
+  const trimmedDraft = draft.trim();
+  const zipQuery = extractZip(trimmedDraft) === trimmedDraft ? trimmedDraft : null;
 
   const matchedCourses = useMemo(() => {
     if (!q) return [] as Course[];
@@ -249,6 +252,34 @@ export function LocationSearchSheet({
             {nearMeActive && !q ? <span className="location-sheet-check" aria-hidden>✓</span> : null}
           </button>
 
+          {zipQuery ? (
+            <button
+              type="button"
+              className={`location-sheet-row${currentQ === zipQuery ? ' is-active' : ''}`}
+              onClick={() => {
+                onSelectQuery(zipQuery);
+                onClose();
+              }}
+            >
+              <span className="location-sheet-row-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.9" />
+                </svg>
+              </span>
+              <span className="location-sheet-row-text">
+                <span className="location-sheet-row-title">{zipQuery}</span>
+                <span className="location-sheet-row-sub">Courses near this ZIP</span>
+              </span>
+              {currentQ === zipQuery ? <span className="location-sheet-check" aria-hidden>✓</span> : null}
+            </button>
+          ) : null}
+
           {matchedCourses.length > 0 ? (
             <div className="location-sheet-section">
               <div className="location-sheet-section-label">Courses</div>
@@ -326,7 +357,7 @@ export function LocationSearchSheet({
             </div>
           ) : null}
 
-          {q && matchedCourses.length === 0 && matchedLocations.length === 0 ? (
+          {q && !zipQuery && matchedCourses.length === 0 && matchedLocations.length === 0 ? (
             <p className="location-sheet-empty">
               {courses.length === 0
                 ? 'Loading courses…'

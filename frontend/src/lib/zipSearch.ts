@@ -1,8 +1,9 @@
 import usCentroids from '../data/usZipCentroids.json';
 
-type ZipCoord = { lat: number; lng: number; state: string };
+/** Compact file: [lat, lng, state]. Older builds used { lat, lng, state }. */
+type ZipEntry = [number, number, string] | { lat: number; lng: number; state?: string };
 
-const US_ZIP_CENTROIDS = usCentroids as unknown as Record<string, ZipCoord>;
+const US_ZIP_CENTROIDS = usCentroids as unknown as Record<string, ZipEntry>;
 
 /** Extract a 5-digit ZIP from a free-text location query, if present. */
 export function extractZip(query: string): string | null {
@@ -13,7 +14,11 @@ export function extractZip(query: string): string | null {
 /** Look up the centroid (lat/lng) for a ZIP code across all US states. */
 export function lookupZipCentroid(zip: string): { lat: number; lng: number } | null {
   const c = US_ZIP_CENTROIDS[zip];
-  return c ? { lat: c.lat, lng: c.lng } : null;
+  if (!c) return null;
+  const lat = Array.isArray(c) ? c[0] : c.lat;
+  const lng = Array.isArray(c) ? c[1] : c.lng;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
 }
 
 /** Extract ZIP from a US street address when present. */
@@ -33,7 +38,7 @@ type CourseZipAnchor = {
 
 /**
  * Mean lat/lng of catalog courses whose address contains this ZIP.
- * Used when the ZIP is outside the Utah centroids file (other states).
+ * Used when the ZIP is missing from the centroid file.
  */
 export function lookupZipFromCatalog(
   zip: string,
@@ -52,8 +57,8 @@ export function lookupZipFromCatalog(
 }
 
 /**
- * Resolve a location query to a ZIP anchor: Utah centroids first, then catalog
- * courses with that ZIP in their address (enables non-Utah ZIPs once catalogued).
+ * Resolve a location query to a ZIP anchor: bundled centroids first, then catalog
+ * courses with that ZIP in their address.
  */
 export function resolveZipQuery(
   query: string,
@@ -61,8 +66,8 @@ export function resolveZipQuery(
 ): ResolvedZip | null {
   const zip = extractZip(query);
   if (!zip) return null;
-  const fromUtah = lookupZipCentroid(zip);
-  if (fromUtah) return { zip, anchor: fromUtah };
+  const fromFile = lookupZipCentroid(zip);
+  if (fromFile) return { zip, anchor: fromFile };
   if (courses?.length) {
     const fromCatalog = lookupZipFromCatalog(zip, courses);
     if (fromCatalog) return { zip, anchor: fromCatalog };

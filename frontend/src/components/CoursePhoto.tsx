@@ -6,10 +6,11 @@ type Props = {
   height: number;
   className?: string;
   style?: CSSProperties;
+  loading?: 'lazy' | 'eager';
 };
 
 /** Course hero/card photo with a calm placeholder when the URL is missing or fails to load. */
-export function CoursePhoto({ src, alt = '', height, className, style }: Props) {
+export function CoursePhoto({ src, alt = '', height, className, style, loading = 'lazy' }: Props) {
   const [failed, setFailed] = useState(false);
   const showImage = Boolean(src) && !failed;
 
@@ -40,7 +41,7 @@ export function CoursePhoto({ src, alt = '', height, className, style }: Props) 
       className={className}
       src={src}
       alt={alt}
-      loading="lazy"
+      loading={loading}
       decoding="async"
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}

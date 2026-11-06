@@ -30,6 +30,7 @@ import { SlotActionSheet } from '../components/SlotActionSheet';
 import { slotActionMeta } from '../lib/slotAction';
 import { useAuth } from '../state/AuthContext';
 import { captureEvent } from '../lib/analytics';
+import { noteOutboundBooking } from '../lib/bookingFollowUp';
 import {
   authReturnPath,
   clearPendingAuthAction,
@@ -620,6 +621,15 @@ export function CoursePage() {
                           href={bookingLinkHref}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() => {
+                            captureEvent('outbound_booking_click', {
+                              course: course.name,
+                              course_id: course.id,
+                              surface: 'course',
+                              signed_in: Boolean(user?.id),
+                            });
+                            noteOutboundBooking(course.id, course.name);
+                          }}
                         >
                           Book on site
                         </a>
@@ -884,6 +894,7 @@ export function CoursePage() {
             surface: 'course',
             signed_in: Boolean(user?.id),
           });
+          noteOutboundBooking(course.id, course.name);
           const id = slotAction.time.id;
           setHiddenSlotIds((prev) => {
             const next = new Set(prev);

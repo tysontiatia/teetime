@@ -44,7 +44,7 @@ import {
   handleGolfRev,
   normalizeGolfRevTimesWorker,
 } from './golfrev.js';
-import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
+import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleOpeningsPeekRequest, handleTeeTimesBatchRequest } from './availabilityRead.js';
 import {
   evalDatesForPref,
   loadPreferenceForUser,
@@ -2097,6 +2097,13 @@ export default {
       if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
       const params = Object.fromEntries(url.searchParams.entries());
       return cachedGetResponse(request, 45, () => handleAvailabilityRequest(env, params));
+    }
+
+    if (path === '/v1/openings-peek' && request.method === 'GET') {
+      const rl = await checkIpRateLimit(request, RATE_LIMITS.teeTimesBatch);
+      if (rl.limited) return rateLimitResponse(CORS_HEADERS, rl);
+      const params = Object.fromEntries(url.searchParams.entries());
+      return cachedGetResponse(request, 60, () => handleOpeningsPeekRequest(env, params));
     }
 
     if (path === '/v1/tee-times' && request.method === 'GET') {

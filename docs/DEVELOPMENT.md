@@ -4,11 +4,11 @@ This guide explains how to develop and test Tee-Time **without deploying to prod
 
 ## Environments
 
-| Environment | URL | Auth | Worker | LaunchDarkly |
-|---|---|---|---|---|
-| **Local** | `http://localhost:5173/app/` (port is fixed) | Yes (after Supabase URL setup) | Optional local (`wrangler dev`) or production | `test` |
-| **PR preview** | `https://<hash>.utah-tee-times.pages.dev` | Yes (after Supabase wildcard) | Production worker (read APIs) | `test` |
-| **Production** | `https://tee-time.io` | Yes | Production worker | `production` |
+| Environment | URL | Auth | Worker |
+|---|---|---|---|
+| **Local** | `http://localhost:5173/app/` (port is fixed) | Yes (after Supabase URL setup) | Optional local (`wrangler dev`) or production |
+| **PR preview** | `https://<hash>.utah-tee-times.pages.dev` | Yes (after Supabase wildcard) | Production worker (read APIs) |
+| **Production** | `https://tee-time.io` | Yes | Production worker |
 
 ## Quick start (local)
 
@@ -26,7 +26,6 @@ Optional: copy `frontend/.env.example` → `frontend/.env.local` and set:
 
 ```bash
 VITE_WORKER_URL=http://127.0.0.1:8787
-VITE_LAUNCHDARKLY_CLIENT_SIDE_ID=6a4e663319d3db0a5e25b9d1
 ```
 
 If you skip `VITE_WORKER_URL`, the app uses the **production Worker** for tee-time fetches (fine for UI work).
@@ -90,7 +89,6 @@ For most feature work, **local + production Worker** is enough. Use `npm run dev
 feature branch → local dev (npm run dev) → open PR
     → CI lint/build → Cloudflare preview deploy
     → merge to main → production deploy
-    → LaunchDarkly flag rollout in production
 ```
 
 ### PR checks
@@ -106,13 +104,6 @@ Every pull request deploys a **Cloudflare Pages preview** URL. Test the full bui
 ### Production deploy
 
 Merging to `main` deploys Pages + Worker automatically.
-
-## LaunchDarkly by environment
-
-- **Local / preview:** `test` environment (`6a4e663319d3db0a5e25b9d1`)
-- **Production:** `production` environment (`6a4e663319d3db0a5e25b9d2`) — set via `VITE_LAUNCHDARKLY_CLIENT_SIDE_ID` in the production build
-
-Ship new features behind flags (default OFF in production), then enable via the LaunchDarkly dashboard without redeploying.
 
 ## Catalog changes
 

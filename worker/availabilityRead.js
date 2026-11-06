@@ -436,6 +436,80 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
   });
 }
 
+const PEEK_MAX_IDS = 40;
+const PEEK_MAX_DATES = 6;
+
+function hourFromLocal(startsAtLocal) {
+  const m = String(startsAtLocal || '').match(/^(\d{1,2})/);
+  return m ? Number(m[1]) : NaN;
+}
+
+function matchesPeekTod(startsAtLocal, tod) {
+  if (!tod || tod === 'any') return true;
+  const h = hourFromLocal(startsAtLocal);
+  if (!Number.isFinite(h)) return false;
+  if (tod === 'morning') return h < 12;
+  if (tod === 'afternoon') return h >= 12 && h < 16;
+  return h >= 16;
+}
+
+/** Count open snapshot slots per day. Used to point an empty search at a day that has times. */
+export function countPeekDays(rows, players, tod, nowMs = Date.now()) {
+  const counts = new Map();
+  for (const slot of rows) {
+    if (!slot?.play_date || !slot.play_starts_at) continue;
+    if (new Date(slot.play_starts_at).getTime() <= nowMs) continue;
+    if (slot.spots_open != null && slot.spots_open < players) continue;
+    if (players > 1 && slot.spots_open == null) continue;
+    if (!matchesPeekTod(slot.starts_at_local, tod)) continue;
+    counts.set(slot.play_date, (counts.get(slot.play_date) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, count]) => ({ date, count }));
+}
+
+/**
+ * Snapshot-only look ahead. GET /v1/openings-peek?dates=&ids=&holes=&players=&tod=
+ * Does not call course sites.
+ */
+export async function handleOpeningsPeekRequest(env, params) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
+    return corsResponse({ error: 'availability_unconfigured' }, 503);
+  }
+
+  const dates = [];
+  for (const part of String(params.dates || '').split(',')) {
+    const ymd = parseYmd(part.trim());
+    if (ymd && !dates.includes(ymd)) dates.push(ymd);
+    if (dates.length >= PEEK_MAX_DATES) break;
+  }
+  const parsed = parseTeeTimesIds(params.ids, PEEK_MAX_IDS);
+  const players = parsePlayers(params.players);
+  const holes = parseHoles(params.holes);
+  const tod = ['morning', 'afternoon', 'evening'].includes(params.tod) ? params.tod : 'any';
+
+  if (dates.length === 0 || !parsed.ok) {
+    return corsResponse({ error: 'missing_params' }, 400);
+  }
+
+  const holesQuery = holes ? `&holes=eq.${holes}` : '';
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/tee_time_slots` +
+      `?course_slug=in.(${postgrestInList(parsed.slugs)})` +
+      `&play_date=in.(${postgrestInList(dates)})` +
+      `&status=eq.open` +
+      holesQuery +
+      `&select=play_date,play_starts_at,starts_at_local,spots_open` +
+      `&order=play_date.asc` +
+      `&limit=2000`,
+    { headers: sbHeaders(env) },
+  );
+  if (!res.ok) return corsResponse({ ok: true, days: [] });
+  const rows = await res.json();
+  return corsResponse({ ok: true, days: countPeekDays(Array.isArray(rows) ? rows : [], players, tod) });
+}
+
 /** Mountain calendar date YYYY-MM-DD for an instant. */
 function mtDateYmd(nowMs = Date.now()) {
   const parts = new Intl.DateTimeFormat('en-CA', {

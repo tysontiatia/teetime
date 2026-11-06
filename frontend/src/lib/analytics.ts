@@ -42,9 +42,14 @@ export function initAnalytics(): boolean {
   if (!key) return false;
   posthog.init(key, {
     api_host: 'https://us.i.posthog.com',
+    // Route changes are captured in PostHogTracker. Pageleave stays on for web analytics.
     capture_pageview: false,
+    capture_pageleave: true,
     persistence: 'localStorage+cookie',
+    // People exist only after identify(), so anonymous search stays cheap.
     person_profiles: 'identified_only',
+    session_recording: { maskAllInputs: true },
+    capture_exceptions: true,
   });
   started = true;
   return true;
@@ -74,9 +79,18 @@ export function captureAppPageview(path: string): void {
   });
 }
 
-export function identifyAnalyticsUser(id: string, email?: string | null): void {
+export function identifyAnalyticsUser(
+  id: string,
+  props?: { email?: string | null; name?: string | null; isAdmin?: boolean },
+): void {
   if (!canCapture()) return;
-  posthog.identify(id, email ? { email } : undefined);
+  const set: Record<string, string | boolean> = {
+    signed_in: true,
+    is_admin: Boolean(props?.isAdmin),
+  };
+  if (props?.email) set.email = props.email;
+  if (props?.name) set.name = props.name;
+  posthog.identify(id, set, { first_signed_in_at: new Date().toISOString() });
 }
 
 export function resetAnalytics(): void {

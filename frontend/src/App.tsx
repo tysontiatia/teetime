@@ -17,7 +17,6 @@ import { AdminCoursesDiscoverPage } from './pages/admin/AdminCoursesDiscoverPage
 import { AdminCourseQaPage } from './pages/admin/AdminCourseQaPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AuthProvider } from './state/AuthContext';
-import { LaunchDarklyProvider } from './state/LaunchDarklyContext';
 import { CourseCatalogProvider } from './state/CourseCatalogContext';
 import { PostHogTracker } from './components/PostHogTracker';
 
@@ -52,12 +51,10 @@ function App() {
     <ErrorBoundary>
       <CourseCatalogProvider>
         <AuthProvider>
-          <LaunchDarklyProvider>
-            <BrowserRouter basename="/app">
-              <PostHogTracker />
-              <RoutedApp />
-            </BrowserRouter>
-          </LaunchDarklyProvider>
+          <BrowserRouter basename="/app">
+            <PostHogTracker />
+            <RoutedApp />
+          </BrowserRouter>
         </AuthProvider>
       </CourseCatalogProvider>
     </ErrorBoundary>

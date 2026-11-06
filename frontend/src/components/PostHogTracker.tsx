@@ -4,16 +4,16 @@ import {
   captureAppPageview,
   consumeAnalyticsQueryFlag,
   identifyAnalyticsUser,
+  captureEvent,
   initAnalytics,
-  optOutAnalytics,
   resetAnalytics,
 } from '../lib/analytics';
 import { useAuth } from '../state/AuthContext';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 
 /**
- * SPA pageviews + identify after Google sign-in.
- * Waits for the admin check so testers with `profiles.is_admin` are never counted.
+ * SPA pageviews, and a person profile after Google sign-in.
+ * Admins are identified with is_admin so they can be filtered out of product insights.
  */
 export function PostHogTracker() {
   const { pathname, search } = useLocation();
@@ -29,26 +29,23 @@ export function PostHogTracker() {
 
   useEffect(() => {
     if (hold) return;
-    if (isAdmin) {
-      optOutAnalytics();
-      setReady(false);
-      lastIdentified.current = null;
-      return;
-    }
     setReady(initAnalytics());
-  }, [hold, isAdmin]);
+  }, [hold]);
 
   useEffect(() => {
-    if (hold || !ready || isAdmin) return;
+    if (hold || !ready) return;
     captureAppPageview(pathname.replace(/\/$/, '') || '/');
-  }, [hold, ready, isAdmin, pathname]);
+  }, [hold, ready, pathname]);
 
   useEffect(() => {
-    if (hold || !ready || isAdmin) return;
+    if (hold || !ready) return;
     const id = user?.id ?? null;
     if (user && id) {
       if (lastIdentified.current !== id) {
-        identifyAnalyticsUser(id, user.email);
+        const meta = user.user_metadata as { full_name?: string; name?: string } | undefined;
+        const name = meta?.full_name || meta?.name || null;
+        identifyAnalyticsUser(id, { email: user.email, name, isAdmin });
+        captureEvent('signed_in', { is_admin: isAdmin });
         lastIdentified.current = id;
       }
       return;

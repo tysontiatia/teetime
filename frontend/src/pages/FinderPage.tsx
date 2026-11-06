@@ -6,6 +6,7 @@ import {
   matchesPreset,
   minutesSince,
   toYmd,
+  shiftYmd,
   formatDateShort,
   formatDateCompact,
   formatTime12h,
@@ -58,6 +59,8 @@ import {
 } from '../lib/pendingAuthAction';
 import { courseDetailQueryString, rememberFinderSearch, rememberedFinderSearchParams } from '../lib/finderUrl';
 import { captureEvent } from '../lib/analytics';
+import { noteOutboundBooking } from '../lib/bookingFollowUp';
+import { openDayButtonLabel, peekOpenDays, type OpenDay } from '../lib/openingsPeek';
 import { holesFilterLabel, holesFilterOptionLabel, parseHolesFilter } from '../lib/holesFilter';
 import {
   buildTimesFetchScope,
@@ -91,6 +94,16 @@ function clampPlayers(n: number): 1 | 2 | 3 | 4 {
   if (n === 2) return 2;
   if (n === 3) return 3;
   return 4;
+}
+
+function LiveMarketPills({ names }: { names: string[] }) {
+  return (
+    <ul className="empty-search-markets" aria-label="Live states">
+      {names.map((name) => (
+        <li key={name}>{name}</li>
+      ))}
+    </ul>
+  );
 }
 
 function sortCoursesByDistanceThenName(a: Course, b: Course): number {
@@ -626,6 +639,31 @@ export function FinderPage() {
   const noTimesCourses =
     finderGroups && finderGroups.openings.length > 0 ? finderGroups.noTimes : [];
   const alsoNearbyCourses = hasLiveGroup ? (finderGroups?.alsoNearby ?? []) : [];
+
+  const searchArriveKey = [
+    params.date,
+    params.players,
+    params.holes,
+    params.timeOfDay,
+    params.locationQuery,
+    params.fetchScope,
+    params.radiusMi ?? '',
+  ].join('|');
+  const [arrivePlayKey, setArrivePlayKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (loadingTimes || catalogLoading) return;
+    setArrivePlayKey(searchArriveKey);
+  }, [loadingTimes, catalogLoading, searchArriveKey]);
+  const arriveIndex = useMemo(() => {
+    const ids: string[] = [];
+    if (loadingTimes || arrivePlayKey !== searchArriveKey) return new Map<string, number>();
+    for (const course of mainGridCourses) {
+      if (ids.length >= 3) break;
+      if ((timesByCourse.get(course.id)?.length ?? 0) === 0) continue;
+      ids.push(course.id);
+    }
+    return new Map(ids.map((id, index) => [id, index]));
+  }, [arrivePlayKey, loadingTimes, mainGridCourses, searchArriveKey, timesByCourse]);
   const noTimesSection = liveTimesEmptySection(params.timeOfDay, params.holes);
 
   // Detect unsupported zip code searches with no results
@@ -652,16 +690,60 @@ export function FinderPage() {
     return { zip, state, stateName: STATE_NAMES[state] || state };
   }, [catalogLoading, catalogError, showOutOfMarket, displayCourses.length, params.locationQuery, workerCourses]);
 
+  const marketEmpty = showOutOfMarket || unsupportedZipState != null;
+  const [requestedStateCode, setRequestedStateCode] = useState<string | null>(null);
+  const stateRequestNoted =
+    unsupportedZipState != null && requestedStateCode === unsupportedZipState.state;
+
   const handleRequestState = useCallback(() => {
-    if (unsupportedZipState) {
-      captureEvent('request_state', {
-        state: unsupportedZipState.state,
-        zip: unsupportedZipState.zip,
-      });
-    }
-  }, [unsupportedZipState]);
+    if (!unsupportedZipState || requestedStateCode === unsupportedZipState.state) return;
+    captureEvent('request_state', {
+      state: unsupportedZipState.state,
+      zip: unsupportedZipState.zip,
+    });
+    setRequestedStateCode(unsupportedZipState.state);
+  }, [requestedStateCode, unsupportedZipState]);
 
   const listedTeeCount = listedCourses.reduce((n, c) => n + (timesByCourse.get(c.id)?.length ?? 0), 0);
+  const emptyOpenings =
+    !marketEmpty && !catalogLoading && !loadingTimes && listedTeeCount === 0 && listedCourses.length > 0;
+  const peekSlugKey = useMemo(() => {
+    const ids: string[] = [];
+    for (const course of listedCourses) {
+      const record = recordsBySlug.get(course.id);
+      const mode = resolveCourseBookingMode(
+        record ?? { platform: course.platform, booking_url: course.bookingUrl },
+      );
+      if (mode !== 'live') continue;
+      ids.push(course.id);
+      if (ids.length >= 40) break;
+    }
+    return ids.join(',');
+  }, [listedCourses, recordsBySlug]);
+  const [nextOpenDay, setNextOpenDay] = useState<OpenDay | null>(null);
+  useEffect(() => {
+    if (!emptyOpenings || !peekSlugKey) {
+      setNextOpenDay(null);
+      return;
+    }
+    let cancel = false;
+    void peekOpenDays({
+      fromYmd: params.date,
+      slugs: peekSlugKey.split(','),
+      holes: params.holes,
+      players: params.players,
+      tod: params.timeOfDay,
+    })
+      .then((days) => {
+        if (!cancel) setNextOpenDay(days[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancel) setNextOpenDay(null);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [emptyOpenings, peekSlugKey, params.date, params.holes, params.players, params.timeOfDay]);
 
   const resultCountPrimary = catalogLoading
     ? 'Loading courses…'
@@ -821,16 +903,6 @@ export function FinderPage() {
     const next = new URLSearchParams(sp);
     next.delete('q');
     next.delete('scope');
-    setSp(next, { replace: true });
-    setLastUpdatedAt(Date.now());
-  }, [sp, setSp]);
-
-  const browseLiveMarket = useCallback(() => {
-    setLocationDraft('');
-    const next = new URLSearchParams(sp);
-    next.delete('q');
-    next.set('scope', 'all');
-    next.delete('radius');
     setSp(next, { replace: true });
     setLastUpdatedAt(Date.now());
   }, [sp, setSp]);
@@ -1157,7 +1229,7 @@ export function FinderPage() {
       )
     : null;
 
-  const headerResultMeta = (
+  const headerResultMeta = marketEmpty ? null : (
     <div className="result-meta course-availability-meta">
       <div className="find-results-summary">
         <span
@@ -1194,7 +1266,7 @@ export function FinderPage() {
     </div>
   );
 
-  const resultMeta = (
+  const resultMeta = marketEmpty ? null : (
     <div className={`result-meta${headerSearchActive || queryCollapsed ? ' is-tools-hidden' : ''}`}>
       <div className="result-meta-lead">
         <span
@@ -1218,7 +1290,7 @@ export function FinderPage() {
     </div>
   );
 
-  const headerMeta = headerSlots?.metaEl
+  const headerMeta = headerSlots?.metaEl && !marketEmpty
     ? createPortal(isCompactShell ? resultMeta : headerResultMeta, headerSlots.metaEl)
     : null;
 
@@ -1379,6 +1451,7 @@ export function FinderPage() {
         onMapHover={
           mapOpen ? (active) => setMapHoverId(active ? course.id : null) : undefined
         }
+        arrive={layout === 'list' ? arriveIndex.get(course.id) : undefined}
       />
     );
   };
@@ -1635,7 +1708,7 @@ export function FinderPage() {
 
         {headerMeta ? null : resultMeta}
 
-        {!isCompactShell && !showOutOfMarket ? (
+        {!isCompactShell && !marketEmpty ? (
           <FinderForecastStrip
             dateYmd={params.date}
             lat={timesFetchScope.anchor.lat}
@@ -1655,17 +1728,13 @@ export function FinderPage() {
                 : 'Tee-Time isn’t in your area yet'}
             </div>
             <p>
-              We’re live in {serviceArea.liveMarkets} today
               {serviceArea.visitorRegion
-                ? `, and ${serviceArea.visitorRegion.name} is on the roadmap`
-                : ', and we’re expanding'}
-              . Browse {serviceArea.liveMarkets} if you’re heading that way, or follow along for
-              launch news.
+                ? `${serviceArea.visitorRegion.name} is on the roadmap. `
+                : 'We’re expanding. '}
+              These states are live today.
             </p>
+            <LiveMarketPills names={serviceArea.liveMarketNames} />
             <div className="empty-search-actions">
-              <button type="button" className="btn btn-primary" onClick={browseLiveMarket}>
-                Browse {serviceArea.liveMarkets} tee times
-              </button>
               <a
                 className="btn"
                 href="https://www.instagram.com/teetimehq/"
@@ -1685,17 +1754,19 @@ export function FinderPage() {
               {unsupportedZipState.stateName} isn't fully covered
             </div>
             <p>
-              We found your zip code ({unsupportedZipState.zip}), but {unsupportedZipState.stateName} isn't in our live coverage yet.
-              We're live in {serviceArea.liveMarkets} today. Request {unsupportedZipState.stateName} to let us know where you're playing.
+              We found {unsupportedZipState.zip}. Live tee times aren’t in {unsupportedZipState.stateName} yet.
+              Request it, or look in a state we already cover.
             </p>
-            <div className="empty-search-actions">
-              <button type="button" className="btn btn-primary" onClick={handleRequestState}>
-                Request {unsupportedZipState.stateName}
-              </button>
-              <button type="button" className="btn" onClick={browseLiveMarket}>
-                Browse {serviceArea.liveMarkets} instead
-              </button>
-            </div>
+            <LiveMarketPills names={serviceArea.liveMarketNames} />
+            {stateRequestNoted ? (
+              <p className="empty-search-note">Noted. We'll use this when we pick the next state.</p>
+            ) : (
+              <div className="empty-search-actions">
+                <button type="button" className="btn btn-primary" onClick={handleRequestState}>
+                  Request {unsupportedZipState.stateName}
+                </button>
+              </div>
+            )}
           </div>
         ) : !showOutOfMarket && !catalogLoading && !loadingTimes && !catalogError && displayCourses.length === 0 && workerCourses.length > 0 ? (
           <div className="empty-search">
@@ -1742,7 +1813,7 @@ export function FinderPage() {
           </div>
         ) : null}
 
-        {!showOutOfMarket && !catalogLoading && !loadingTimes && listedTeeCount === 0 && listedCourses.length > 0 ? (
+        {emptyOpenings ? (
           <div className="empty-openings-hint">
             <div className="empty-openings-hint-copy">
               <p className="empty-openings-hint-title">
@@ -1760,17 +1831,15 @@ export function FinderPage() {
               type="button"
               className="btn btn-primary empty-openings-hint-cta"
               onClick={() => {
-                const d = new Date(params.date + 'T12:00:00');
-                d.setDate(d.getDate() + 1);
-                setParam('date', toYmd(d));
+                setParam('date', nextOpenDay?.date ?? shiftYmd(params.date, 1));
               }}
             >
-              Try tomorrow
+              {nextOpenDay ? openDayButtonLabel(nextOpenDay, params.date) : 'Try tomorrow'}
             </button>
           </div>
         ) : null}
 
-        {!phoneMap ? (
+        {!phoneMap && !marketEmpty ? (
         <div className={`mp-grid${loadingTimes ? ' is-loading' : ''}`}>
           {showCatalogSkeleton
             ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
@@ -1895,6 +1964,7 @@ export function FinderPage() {
             surface: 'find',
             signed_in: Boolean(user?.id),
           });
+          noteOutboundBooking(slotAction.course.id, slotAction.course.name);
         }}
       />
       <SignInPromptModal

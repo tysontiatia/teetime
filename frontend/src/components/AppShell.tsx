@@ -8,6 +8,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { OpeningsPreviewProvider } from '../state/OpeningsPreviewContext';
 import { AlertActivityProvider, useAlertActivity } from '../state/AlertActivityContext';
 import { InstallAppModal } from './InstallAppModal';
+import { BookingFollowUp } from './BookingFollowUp';
 import { InstallAppBanner } from './InstallAppBanner';
 import { SignInPromptModal, type SignInPromptVariant } from './SignInPromptModal';
 import { usePwaInstall } from '../hooks/usePwaInstall';
@@ -346,6 +347,8 @@ function AppShellInner() {
         onOpenAlerts={() => requestHubAuth('alert', '/account')}
         onOpenPlan={() => requestHubAuth('you', '/plan')}
       />
+
+      <BookingFollowUp />
 
       <InstallAppBanner
         open={bannerReady && canSoftPrompt}

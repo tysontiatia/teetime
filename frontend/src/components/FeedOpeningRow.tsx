@@ -14,6 +14,7 @@ import {
 } from '../lib/feedDisplay';
 import { CoursePhoto } from './CoursePhoto';
 import { captureEvent } from '../lib/analytics';
+import { noteOutboundBooking } from '../lib/bookingFollowUp';
 
 type Props = {
   item: FeedItem;
@@ -99,6 +100,7 @@ export function FeedOpeningRow({ item, record, minPlayers }: Props) {
                 price: item.price_cents,
                 surface: 'feed',
               });
+              noteOutboundBooking(item.course_slug, item.course_name);
             }}
           >
             Book

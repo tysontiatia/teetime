@@ -1,6 +1,6 @@
-// Generates a compact Utah ZIP -> [lat, lng] centroid map for the finder's
-// zip-code search. Uses the bundled `zipcodes` dataset (dev dependency) so the
-// runtime app ships only the small JSON, with no network or data dependency.
+// Generates ZIP centroid maps for the finder's zip search.
+// Uses the bundled `zipcodes` dataset (dev dependency) so the runtime app
+// ships only the JSON, with no network lookup for a known US zip.
 //
 // Regenerate with: node scripts/generate-utah-zips.mjs
 import { writeFileSync, mkdirSync } from 'fs';
@@ -9,20 +9,44 @@ import { fileURLToPath } from 'url';
 import zipcodes from 'zipcodes';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(__dirname, '../frontend/src/data/utahZipCentroids.json');
+const UTAH_OUT = resolve(__dirname, '../frontend/src/data/utahZipCentroids.json');
+const US_OUT = resolve(__dirname, '../frontend/src/data/usZipCentroids.json');
 
-// Utah ZIP codes live in the 84001–84791 range.
-const out = {};
-let count = 0;
-for (let z = 84001; z <= 84799; z++) {
-  const zip = String(z).padStart(5, '0');
-  const info = zipcodes.lookup(zip);
-  if (!info || info.state !== 'UT') continue;
-  if (typeof info.latitude !== 'number' || typeof info.longitude !== 'number') continue;
-  out[zip] = [Number(info.latitude.toFixed(4)), Number(info.longitude.toFixed(4))];
-  count++;
+function round4(n) {
+  return Number(n.toFixed(4));
 }
 
-mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, JSON.stringify(out) + '\n');
-console.log(`Wrote ${count} Utah ZIP centroids to ${OUT}`);
+const utah = {};
+const us = {};
+for (const [zip, info] of Object.entries(zipcodes.codes)) {
+  if (!/^\d{5}$/.test(zip) || !info) continue;
+  if (typeof info.latitude !== 'number' || typeof info.longitude !== 'number') continue;
+  if (typeof info.state !== 'string' || info.state.length !== 2) continue;
+  const lat = round4(info.latitude);
+  const lng = round4(info.longitude);
+  us[zip] = [lat, lng, info.state];
+  if (info.state === 'UT') utah[zip] = [lat, lng];
+}
+
+// Guard against another interpolated dataset. These pins are the real cities.
+const EXPECTED = {
+  '84101': { lat: 40.76, lng: -111.89 },
+  '84790': { lat: 37.08, lng: -113.56 },
+  '85251': { lat: 33.49, lng: -111.92 },
+  '89101': { lat: 36.17, lng: -115.14 },
+  '83301': { lat: 42.56, lng: -114.47 },
+};
+for (const [zip, expect] of Object.entries(EXPECTED)) {
+  const got = us[zip];
+  if (!got) throw new Error(`Missing centroid for ${zip}`);
+  const dLat = Math.abs(got[0] - expect.lat);
+  const dLng = Math.abs(got[1] - expect.lng);
+  if (dLat > 0.2 || dLng > 0.2) {
+    throw new Error(`${zip} landed at ${got[0]},${got[1]}, expected near ${expect.lat},${expect.lng}`);
+  }
+}
+
+mkdirSync(dirname(US_OUT), { recursive: true });
+writeFileSync(UTAH_OUT, JSON.stringify(utah) + '\n');
+writeFileSync(US_OUT, JSON.stringify(us));
+console.log(`Wrote ${Object.keys(utah).length} Utah ZIPs and ${Object.keys(us).length} US ZIPs`);

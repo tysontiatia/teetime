@@ -21,6 +21,7 @@ export function TeeSlotCard({
   weatherPoints,
   selected = false,
   className,
+  arriveDelay,
   onClick,
 }: {
   startsAt: string;
@@ -32,6 +33,8 @@ export function TeeSlotCard({
   weatherPoints?: WeatherPoint[] | null;
   selected?: boolean;
   className?: string;
+  /** Milliseconds. Set on the first tee times of a finished search so they tick in. */
+  arriveDelay?: number;
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const timeLabel = formatTime12h(startsAt, timeZone);
@@ -60,8 +63,9 @@ export function TeeSlotCard({
     <button
       type="button"
       className={`tee-slot-card${selected ? ' is-sel' : ''}${reopenedAt ? ' is-reopened' : ''}${
-        className ? ` ${className}` : ''
-      }`}
+        arriveDelay != null ? ' is-arrive' : ''
+      }${className ? ` ${className}` : ''}`}
+      style={arriveDelay != null ? { animationDelay: `${arriveDelay}ms` } : undefined}
       onClick={onClick}
       aria-label={ariaLabel}
     >

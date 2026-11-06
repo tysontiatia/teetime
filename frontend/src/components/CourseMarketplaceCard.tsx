@@ -12,6 +12,8 @@ import { TeeSlotCard } from './TeeSlotCard';
 import { buildBookingUrl } from '../lib/bookingUrl';
 import { formatCityState } from '../lib/courseRecord';
 import { AlertsIcon, PlanIcon } from './icons/AppIcons';
+import { captureEvent } from '../lib/analytics';
+import { noteOutboundBooking } from '../lib/bookingFollowUp';
 
 /** Location meta — rating is shown separately as a muted trust signal. */
 function metaLine(course: Course): string {
@@ -64,6 +66,8 @@ type Props = {
   /** Highlight while this course is selected on the map. */
   mapActive?: boolean;
   onMapHover?: (active: boolean) => void;
+  /** Stagger index for the search-arrival tick. Omit once a card has already arrived. */
+  arrive?: number;
 };
 
 function telHref(phone: string | undefined | null): string | null {
@@ -102,6 +106,7 @@ export function CourseMarketplaceCard({
   sheet = false,
   mapActive = false,
   onMapHover,
+  arrive,
 }: Props) {
   const bookingLinkOnly = variant === 'bookingLink';
   const phoneOnly = variant === 'phone';
@@ -152,7 +157,10 @@ export function CourseMarketplaceCard({
     <article
       className={`mp-course${isEmptyLive ? ' is-empty' : ''}${compact ? ' is-compact' : ''}${
         hero ? ' is-hero' : ''
-      }${sheet ? ' is-sheet' : ''}${mapActive ? ' is-map-active' : ''}`}
+      }${sheet ? ' is-sheet' : ''}${mapActive ? ' is-map-active' : ''}${
+        arrive != null ? ' is-arrive' : ''
+      }`}
+      style={arrive != null ? { animationDelay: `${arrive * 160}ms` } : undefined}
       data-course-id={course.id}
       onMouseEnter={onMapHover ? () => onMapHover(true) : undefined}
       onMouseLeave={onMapHover ? () => onMapHover(false) : undefined}
@@ -233,7 +241,7 @@ export function CourseMarketplaceCard({
               top.length >= 4 ? ' is-dense' : ''
             }`}
           >
-            {top.map((t) => {
+            {top.map((t, index) => {
               const bookHref =
                 dateYmd != null
                   ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
@@ -254,6 +262,9 @@ export function CourseMarketplaceCard({
                   reopenedAt={t.reopenedAt}
                   weatherPoints={weatherPoints}
                   selected={t.id === hotId}
+                  arriveDelay={
+                    arrive != null && index < 3 ? arrive * 180 + index * 110 : undefined
+                  }
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectTime?.(t, bookHref);
@@ -315,7 +326,15 @@ export function CourseMarketplaceCard({
                     href={openSiteHref}
                     target="_blank"
                     rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      captureEvent('outbound_booking_click', {
+                        course: course.name,
+                        course_id: course.id,
+                        surface: 'find',
+                      });
+                      noteOutboundBooking(course.id, course.name);
+                    }}
                   >
                     Book on site
                   </a>

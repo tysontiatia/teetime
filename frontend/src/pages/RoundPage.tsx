@@ -24,6 +24,8 @@ import { buildBookingUrl } from '../lib/bookingUrl';
 import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
+import { captureEvent } from '../lib/analytics';
+import { noteOutboundBooking } from '../lib/bookingFollowUp';
 import { supabase } from '../lib/supabase';
 import { useRoundOptionsAvailability } from '../hooks/useRoundOptionsAvailability';
 import type { OptionAvailability } from '../lib/roundOptionAvailability';
@@ -268,6 +270,7 @@ export function RoundPage() {
     const priceLabel = typeof o.price === 'number' ? ` · $${Math.round(o.price)}` : '';
     return {
       optionId: o.id,
+      courseId: o.course_id,
       href,
       timeLabel,
       priceLabel,
@@ -500,6 +503,16 @@ export function RoundPage() {
               href={readyToBook.href}
               target="_blank"
               rel="noreferrer"
+              onClick={() => {
+                const name = readyToBook.courseId ? coursesById.get(readyToBook.courseId)?.name : null;
+                if (!readyToBook.courseId || !name) return;
+                captureEvent('outbound_booking_click', {
+                  course: name,
+                  course_id: readyToBook.courseId,
+                  surface: 'round',
+                });
+                noteOutboundBooking(readyToBook.courseId, name);
+              }}
             >
               Book {readyToBook.timeLabel}
               {readyToBook.priceLabel} →
@@ -669,6 +682,16 @@ export function RoundPage() {
                             href={bookHref}
                             target="_blank"
                             rel="noreferrer"
+                            onClick={() => {
+                              const name = o.course_id ? coursesById.get(o.course_id)?.name : null;
+                              if (!o.course_id || !name) return;
+                              captureEvent('outbound_booking_click', {
+                                course: name,
+                                course_id: o.course_id,
+                                surface: 'round',
+                              });
+                              noteOutboundBooking(o.course_id, name);
+                            }}
                           >
                             Book {timeLabel}
                             {typeof o.price === 'number' ? ` · $${Math.round(o.price)}` : ''} →

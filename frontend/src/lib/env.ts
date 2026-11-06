@@ -5,10 +5,6 @@ const DEFAULT_SUPABASE_ANON_KEY =
 
 const DEFAULT_WORKER_URL = 'https://api.tee-time.io';
 
-// LaunchDarkly client-side ID for the `test` environment in your LaunchDarkly project.
-// This is not a secret; it determines which LD environment to evaluate against.
-const DEFAULT_LAUNCHDARKLY_CLIENT_SIDE_ID_TEST = '6a4e663319d3db0a5e25b9d1';
-
 export function getSupabaseUrl(): string {
   return import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
 }
@@ -19,10 +15,6 @@ export function getSupabaseAnonKey(): string {
 
 export function getWorkerBaseUrl(): string {
   return (import.meta.env.VITE_WORKER_URL || DEFAULT_WORKER_URL).replace(/\/$/, '');
-}
-
-export function getLaunchDarklyClientSideId(): string {
-  return import.meta.env.VITE_LAUNCHDARKLY_CLIENT_SIDE_ID || DEFAULT_LAUNCHDARKLY_CLIENT_SIDE_ID_TEST;
 }
 
 /** VAPID public key (safe to expose). Falls back to production key when unset. */

@@ -931,6 +931,65 @@ html[data-theme='dark'] .modal-msg.err{
 }
 .install-banner-install{ padding: 8px 14px; font-size: 13px; }
 .install-banner-dismiss{ padding: 8px 10px; font-size: 13px; color: var(--ink-3); }
+
+.booking-followup-backdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--scrim);
+  animation: user-menu-fade-in 0.18s ease;
+}
+.booking-followup{
+  position: relative;
+  width: min(400px, 100%);
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: var(--shadow-hover);
+  animation: booking-followup-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes booking-followup-in{
+  from{ opacity: 0; transform: translateY(10px) scale(0.98); }
+  to{ opacity: 1; transform: none; }
+}
+.booking-followup-photo{
+  position: relative;
+  height: 176px;
+  background: var(--sand);
+}
+.booking-followup-photo img,
+.booking-followup-photo > div{
+  width: 100%;
+  height: 176px;
+}
+.booking-followup-body{
+  padding: 16px 16px 16px;
+}
+.booking-followup-q{
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.booking-followup-actions{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+.booking-followup-actions .btn{
+  width: 100%;
+  min-height: 44px;
+  font-size: 15px;
+}
 .app-header-install-btn{ color: var(--ink-2); }
 html[data-theme='dark'] .app-header-install-btn{ color: var(--fairway); }
 
@@ -2702,6 +2761,27 @@ html[data-theme='dark'] .user-menu-item-badge{
   .user-menu-panel{ animation: none; }
 }
 
+@keyframes finder-arrive{
+  0%{ opacity: 0; transform: translateY(72px); }
+  50%{ opacity: 1; transform: translateY(22px); }
+  100%{ opacity: 1; transform: none; }
+}
+.mp-course.is-arrive{
+  animation: finder-arrive 1.15s cubic-bezier(0.16, 0.7, 0.3, 1) both;
+}
+@keyframes finder-slot-arrive{
+  0%{ opacity: 0; transform: scale(0.72); }
+  55%{ opacity: 1; transform: scale(1.08); border-color: var(--fairway); }
+  100%{ opacity: 1; transform: none; }
+}
+.tee-slot-card.is-arrive{
+  animation: finder-slot-arrive 0.85s cubic-bezier(0.16, 0.7, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce){
+  .mp-course.is-arrive,
+  .tee-slot-card.is-arrive{ animation: none; }
+}
+
 .app-header-avatar-chip img{
   width: 100%;
   height: 100%;
@@ -3758,10 +3838,88 @@ html[data-theme='dark'] .app-banner--warn{
   margin-bottom: 6px;
 }
 .empty-search--market{
-  max-width: 640px;
+  width: min(460px, 100%);
+  max-width: 460px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 4px 0;
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+.finder-page:has(.empty-search--market) .finder-layout{
+  display: block;
+}
+.finder-page:has(.empty-search--market) .finder-results{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(100dvh - var(--app-header-offset, 220px) - 88px);
+}
+.empty-search--market .empty-search-kicker{
+  margin-bottom: 10px;
+  color: var(--pine-deep);
+}
+html[data-theme='dark'] .empty-search--market .empty-search-kicker{
+  color: var(--fairway);
+}
+.empty-search--market .empty-search-title{
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin: 0 0 12px;
+}
+.empty-search--market p{
+  max-width: 38ch;
+  margin: 0 auto;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.empty-search-markets{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.empty-search-markets li{
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--pine-deep);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+html[data-theme='dark'] .empty-search-markets li{
+  background: color-mix(in srgb, var(--fairway) 14%, transparent);
+  color: var(--fairway);
+}
+.empty-search--market .empty-search-actions{
+  justify-content: center;
+  margin-top: 22px;
+}
+.empty-search--market .empty-search-note{
+  margin: 22px auto 0;
+  max-width: 32ch;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--pine-deep);
+}
+html[data-theme='dark'] .empty-search--market .empty-search-note{
+  color: var(--fairway);
 }
 .empty-search-actions .btn{
   text-decoration: none;
+}
+.app-header-meta:empty{
+  display: none;
 }
 
 .mp-card-status{

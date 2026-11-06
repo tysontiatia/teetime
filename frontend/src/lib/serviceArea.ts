@@ -201,7 +201,7 @@ export function catalogStateCodes(courses: CourseRegion[]): Set<string> {
 /** States with enough catalog to mention in copy (drops 1-off imports). */
 const LIVE_MARKET_MIN_COURSES = 5;
 
-export function formatLiveMarkets(courses: CourseRegion[]): string {
+export function listLiveMarketNames(courses: CourseRegion[]): string[] {
   const counts = new Map<string, number>();
   for (const c of courses) {
     const st = courseState(c);
@@ -214,7 +214,11 @@ export function formatLiveMarkets(courses: CourseRegion[]): string {
     .map((code) => REGION_BY_KEY.get(code.toLowerCase())?.name)
     .filter((n): n is string => Boolean(n));
   const unique = [...new Set(names)];
-  if (unique.length === 0) return 'Utah';
+  return unique.length > 0 ? unique : ['Utah'];
+}
+
+export function formatLiveMarkets(courses: CourseRegion[]): string {
+  const unique = listLiveMarketNames(courses);
   if (unique.length === 1) return unique[0]!;
   if (unique.length === 2) return `${unique[0]} and ${unique[1]}`;
   return `${unique.slice(0, -1).join(', ')}, and ${unique[unique.length - 1]}`;
@@ -268,6 +272,7 @@ export type ServiceAreaStatus = {
   outside: boolean;
   visitorRegion: UsRegion | null;
   liveMarkets: string;
+  liveMarketNames: string[];
 };
 
 export function resolveServiceArea(input: {
@@ -279,20 +284,21 @@ export function resolveServiceArea(input: {
   catalogHitsForQuery: number;
 }): ServiceAreaStatus {
   const liveCodes = catalogStateCodes(input.courses);
+  const liveMarketNames = listLiveMarketNames(input.courses);
   const liveMarkets = formatLiveMarkets(input.courses);
-  const empty: ServiceAreaStatus = { outside: false, visitorRegion: null, liveMarkets };
+  const empty: ServiceAreaStatus = { outside: false, visitorRegion: null, liveMarkets, liveMarketNames };
 
   if (input.fetchAll) return empty;
 
   const fromQuery = regionFromQuery(input.locationQuery);
   if (fromQuery && !liveCodes.has(fromQuery.code) && input.catalogHitsForQuery === 0) {
-    return { outside: true, visitorRegion: fromQuery, liveMarkets };
+    return { outside: true, visitorRegion: fromQuery, liveMarkets, liveMarketNames };
   }
 
   const loc = input.userLocation;
   if (!loc) {
     if (input.locationQuery.trim() && input.catalogHitsForQuery === 0 && fromQuery) {
-      return { outside: true, visitorRegion: fromQuery, liveMarkets };
+      return { outside: true, visitorRegion: fromQuery, liveMarkets, liveMarketNames };
     }
     return empty;
   }
@@ -307,5 +313,6 @@ export function resolveServiceArea(input: {
     outside: true,
     visitorRegion: fromQuery || gpsRegion,
     liveMarkets,
+    liveMarketNames,
   };
 }
