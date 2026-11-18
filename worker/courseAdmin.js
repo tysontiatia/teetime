@@ -499,7 +499,7 @@ function stripPlatformFields(record, platform) {
 
 const FOREUP_UA = 'TeeTimeIO/1.0 (+https://tee-time.io)';
 
-async function fetchForeUpBookingPage(bookingUrl) {
+export async function fetchForeUpBookingPage(bookingUrl) {
   try {
     const pageUrl = bookingUrl.split('#')[0];
     const res = await fetch(pageUrl, {
