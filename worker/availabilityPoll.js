@@ -3,7 +3,9 @@ import { courseHasGolfWithAccess } from './golfwithaccess.js';
 import { courseHasClubCaddie } from './clubcaddie.js';
 import { courseHasTeeSnap } from './teesnap.js';
 import { courseHasGolfRev } from './golfrev.js';
-import { DEFAULT_TIMEZONE, courseTimezoneFor, localParts } from './courseTimezone.js';
+import { DEFAULT_TIMEZONE, courseTimezoneFor, localParts, wallClockToUtcInstant } from './courseTimezone.js';
+
+export { wallClockToUtcInstant };
 
 /**
  * Background availability poller — snapshots vendor tee sheets into Supabase.
@@ -150,29 +152,6 @@ function courseTimezone(course) {
   return courseTimezoneFor(course);
 }
 
-function wallClockToUtcInstant(y, mo, d, hh, mm, timeZone = MT) {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  const read = (ms) => {
-    const parts = fmt.formatToParts(new Date(ms));
-    const get = (t) => Number(parts.find((p) => p.type === t)?.value ?? NaN);
-    return { y: get('year'), mo: get('month'), d: get('day'), hh: get('hour'), mm: get('minute') };
-  };
-  const lo = Date.UTC(y, mo - 1, d - 1, 6, 0, 0);
-  const hi = Date.UTC(y, mo - 1, d + 1, 6, 0, 0);
-  for (let t = lo; t <= hi; t += 60 * 1000) {
-    const g = read(t);
-    if (g.y === y && g.mo === mo && g.d === d && g.hh === hh && g.mm === mm) return new Date(t);
-  }
-  return new Date(Date.UTC(y, mo - 1, d, hh + 7, mm, 0));
-}
 
 function rawTimeToLocalTime(dateYmd, rawTime) {
   const s = String(rawTime || '').trim();
@@ -644,6 +623,11 @@ async function applyPollDiff(env, {
     if (!startsAtLocal) continue;
     const holes = row.holes === 9 ? 9 : 18;
     const key = slotKey(startsAtLocal, holes);
+    // Vendors sometimes list the same time twice (two rates for one tee time).
+    // Two copies in one upsert make Postgres reject the whole batch (21000:
+    // "ON CONFLICT DO UPDATE command cannot affect row a second time"), which
+    // dropped up to 100 tee times at once. Keep the first copy.
+    if (seen.has(key)) continue;
     seen.add(key);
 
     const price_cents = parsePriceCents(row.price);

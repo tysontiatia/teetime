@@ -4,6 +4,7 @@
  */
 
 import { slugFromCourseName } from './courseAdmin.js';
+import { wallClockToUtcInstant } from './courseTimezone.js';
 
 const REOPENED_LOOKBACK_MS = 6 * 60 * 60 * 1000;
 /** Max course slugs per /v1/tee-times request (URL + PostgREST bound). */
@@ -588,29 +589,7 @@ function courseTimezone(course) {
   return tz || MT_TZ;
 }
 
-function wallClockToUtcInstant(y, mo, d, hh, mm, timeZone = MT_TZ) {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  const read = (ms) => {
-    const parts = fmt.formatToParts(new Date(ms));
-    const get = (t) => Number(parts.find((p) => p.type === t)?.value ?? NaN);
-    return { y: get('year'), mo: get('month'), d: get('day'), hh: get('hour'), mm: get('minute') };
-  };
-  const lo = Date.UTC(y, mo - 1, d - 1, 6, 0, 0);
-  const hi = Date.UTC(y, mo - 1, d + 1, 6, 0, 0);
-  for (let t = lo; t <= hi; t += 60 * 1000) {
-    const g = read(t);
-    if (g.y === y && g.mo === mo && g.d === d && g.hh === hh && g.mm === mm) return new Date(t);
-  }
-  return new Date(Date.UTC(y, mo - 1, d, hh + 7, mm, 0));
-}
+// Shared with the poller; the old copy here stepped through two days a minute at a time.
 
 /** Convert vendor rawTime + play date to UTC ISO (course wall clock; default Mountain). */
 export function rawTimeToStartsAtIso(dateYmd, rawTime, timeZone = MT_TZ) {

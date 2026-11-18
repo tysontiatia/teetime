@@ -109,3 +109,58 @@ export function localParts(timeZone, date = new Date()) {
     minute: Number(get('minute')),
   };
 }
+
+const offsetFormatters = new Map();
+
+/** Minutes the zone is ahead of UTC at instant `ms` (negative in the Americas). */
+function zoneOffsetMinutes(ms, timeZone) {
+  let fmt = offsetFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    offsetFormatters.set(timeZone, fmt);
+  }
+  const parts = fmt.formatToParts(new Date(ms));
+  const get = (t) => Number(parts.find((p) => p.type === t)?.value ?? NaN);
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'));
+  return Math.round((asUtc - Math.floor(ms / 60000) * 60000) / 60000);
+}
+
+/**
+ * The UTC instant of a wall-clock time in a zone.
+ *
+ * This used to step through two days a minute at a time (up to 2,880 formats
+ * per tee time, ~5 ms each), which pushed the 5-minute poll past the Worker's
+ * 30 s CPU limit. Now: guess with the offset at that wall time read as UTC,
+ * then correct once with the offset at the guess. Two formats, cached per zone.
+ *
+ * Same answers as before for real tee times. Across a DST change the earlier
+ * reading of a repeated hour is kept, and a time inside the skipped hour moves
+ * forward by the gap, like a clock does.
+ */
+export function wallClockToUtcInstant(y, mo, d, hh, mm, timeZone = DEFAULT_TIMEZONE) {
+  const zone = String(timeZone || '').trim() || DEFAULT_TIMEZONE;
+  const wall = Date.UTC(y, mo - 1, d, hh, mm, 0);
+  try {
+    const first = wall - zoneOffsetMinutes(wall, zone) * 60000;
+    const offset = zoneOffsetMinutes(first, zone);
+    let instant = wall - offset * 60000;
+    // Skipped hour (spring forward): no instant reads as `wall`; `first` is the
+    // same clock time after the jump, i.e. moved forward by the gap.
+    if (instant + zoneOffsetMinutes(instant, zone) * 60000 !== wall) return new Date(first);
+    // Repeated hour (fall back): prefer the earlier instant when it reads the same.
+    const earlier = instant - 60 * 60000;
+    if (earlier + zoneOffsetMinutes(earlier, zone) * 60000 === wall) instant = earlier;
+    if (Number.isFinite(instant)) return new Date(instant);
+  } catch {
+    // Unknown zone: fall through to Mountain Standard Time, as before.
+  }
+  return new Date(Date.UTC(y, mo - 1, d, hh + 7, mm, 0));
+}
