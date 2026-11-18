@@ -25,6 +25,7 @@
     "sync:coordinates": "node scripts/sync-coordinates.mjs"
   },
   "devDependencies": {
+    "geo-tz": "8.1.10",
     "zipcodes": "^8.0.0"
   }
 }

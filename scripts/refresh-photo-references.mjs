@@ -10,9 +10,11 @@ import {
 
 loadDotEnv();
 
-const API_KEY = process.env.GOOGLE_PLACES_KEY || process.env.RESEND_API_KEY;
+// Only the Places key. Never fall back to another service's secret: that would
+// send it to Google in every request URL.
+const API_KEY = process.env.GOOGLE_PLACES_KEY;
 if (!API_KEY) {
-  console.error('Missing GOOGLE_PLACES_KEY env var (add to .env, or set RESEND_API_KEY if misnamed).');
+  console.error('Missing GOOGLE_PLACES_KEY env var (add it to .env).');
   console.error('Run: GOOGLE_PLACES_KEY=your_key node scripts/refresh-photo-references.mjs');
   process.exit(1);
 }

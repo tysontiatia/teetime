@@ -2,6 +2,8 @@
  * Admin course catalog API — registry + course_catalog + course_rates writes.
  */
 
+import { courseTimezoneFor, withCourseTimezone } from './courseTimezone.js';
+
 const PLATFORM_ID_FIELDS = {
   foreup: ['schedule_id', 'booking_class_id'],
   foreup_login: ['schedule_id', 'booking_class_id'],
@@ -914,35 +916,106 @@ async function supabaseJson(res) {
   }
 }
 
-export async function fetchRegistryCourses(env) {
-  // PostgREST stops at max_rows (1000). A second California pass was re-checking
-  // courses already saved because they fell past that page.
+export class RegistryReadError extends Error {
+  constructor(message, status = 0) {
+    super(message);
+    this.name = 'RegistryReadError';
+    this.status = status;
+  }
+}
+
+/**
+ * Every row of a PostgREST read, page by page, with no row cap.
+ *
+ * PostgREST stops each response at max_rows (1000). The first page asks for an
+ * exact count, and the read throws unless it collected that many rows, so a
+ * failed page, a lower max_rows, or an empty page can never pass as the whole
+ * table. A partial course list is worse than none: discovery treats a missing
+ * course as new and imports a duplicate. Rows are de-duplicated by slug in case
+ * an insert shifts a page boundary mid-read.
+ */
+export async function fetchAllRows(env, pathAndQuery, label = pathAndQuery.split('?')[0]) {
   const pageSize = 1000;
   const rows = [];
-  for (let from = 0; from < 20_000; from += pageSize) {
-    const res = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/course_registry?select=slug,record,updated_at&order=slug`,
-      {
+  const seen = new Set();
+  let total = null;
+  for (let from = 0; ; ) {
+    let res;
+    try {
+      res = await fetch(`${env.SUPABASE_URL}/rest/v1/${pathAndQuery}`, {
         headers: {
           ...sbHeaders(env),
           Range: `${from}-${from + pageSize - 1}`,
+          ...(from === 0 ? { Prefer: 'count=exact' } : {}),
         },
-      },
-    );
-    if (!res.ok) return rows;
-    const batch = await supabaseJson(res);
-    if (!Array.isArray(batch) || batch.length === 0) break;
-    rows.push(...batch);
-    if (batch.length < pageSize) break;
+      });
+    } catch (err) {
+      throw new RegistryReadError(`${label} read failed at row ${from}: ${err?.message || err}`);
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new RegistryReadError(`${label} read failed at row ${from}: HTTP ${res.status} ${body.slice(0, 200)}`, res.status);
+    }
+    if (from === 0) {
+      const match = /\/(\d+)$/.exec(res.headers.get('content-range') || '');
+      if (match) total = Number(match[1]);
+    }
+    const batch = await res.json().catch(() => null);
+    if (!Array.isArray(batch)) throw new RegistryReadError(`${label} read returned no rows array at row ${from}`);
+    for (const row of batch) {
+      const key = row?.slug;
+      if (key != null && seen.has(key)) continue;
+      if (key != null) seen.add(key);
+      rows.push(row);
+    }
+    if (batch.length === 0) break;
+    from += batch.length;
+    if (total != null ? from >= total : batch.length < pageSize) break;
+  }
+  if (total != null && rows.length < total) {
+    throw new RegistryReadError(`${label} read stopped at ${rows.length} of ${total} rows`);
   }
   return rows;
+}
+
+/** Every registry row, including pending, private, and closed. Admin and discovery. */
+export async function fetchRegistryCourses(env) {
+  return fetchAllRows(env, 'course_registry?select=slug,record,updated_at&order=slug', 'course_registry');
+}
+
+/**
+ * Public rows only, from the course_registry_public view (filtered, slimmed,
+ * stored photo URL joined). Before that migration is applied it falls back to
+ * the full registry plus a photo query, filtered here, so the site keeps working.
+ */
+export async function fetchPublicRegistryRows(env) {
+  try {
+    return await fetchAllRows(env, 'course_registry_public?select=slug,record&order=slug', 'course_registry_public');
+  } catch (err) {
+    if (!(err instanceof RegistryReadError) || err.status !== 404) throw err;
+    console.warn('[courses] course_registry_public view missing; reading the full registry until the migration is applied');
+  }
+  const [rows, photos] = await Promise.all([
+    fetchRegistryCourses(env),
+    fetchAllRows(env, 'course_catalog?select=slug,photo_storage_url&photo_storage_url=not.is.null&order=slug', 'course_catalog'),
+  ]);
+  const photoBySlug = new Map(photos.map((p) => [p.slug, p.photo_storage_url]));
+  return rows
+    .filter((r) => isPublicRegistryRecord(r.record))
+    .map((r) => {
+      const url = photoBySlug.get(r.slug);
+      return url ? { ...r, record: { ...r.record, photo_storage_url: url } } : r;
+    });
 }
 
 export function registryRowsToCourses(rows) {
   return withDerivedState(
     rows
       .map((r) => ({ ...r.record, slug: r.slug }))
-      .filter((rec) => isPublicRegistryRecord(rec)),
+      .filter((rec) => isPublicRegistryRecord(rec))
+      // Rows saved before timezones came from coordinates may still carry the
+      // old state guess; every reader (poller, Find, alerts) gets the pin's zone.
+      .map((rec) => withCourseTimezone(rec)),
   );
 }
 
@@ -1292,15 +1365,14 @@ function getPlatformWarnings(record) {
 const IMPORT_BATCH_MAX = 300;
 
 async function fetchExistingCourseIndex(env) {
-  const [regRes, catRes] = await Promise.all([
-    fetch(`${env.SUPABASE_URL}/rest/v1/course_registry?select=slug,record`, { headers: sbHeaders(env) }),
-    fetch(`${env.SUPABASE_URL}/rest/v1/course_catalog?select=slug,name`, { headers: sbHeaders(env) }),
+  // These used to be single unpaged reads, so past 1,000 courses the duplicate
+  // check could not see the rest of the catalog. Both now read every row or throw.
+  const [regRows, catRows] = await Promise.all([
+    fetchAllRows(env, 'course_registry?select=slug,record&order=slug', 'course_registry'),
+    fetchAllRows(env, 'course_catalog?select=slug,name&order=slug', 'course_catalog'),
   ]);
   const bySlug = new Map();
   const byPlaceId = new Map();
-
-  const catRows = await supabaseJson(catRes);
-  const regRows = await supabaseJson(regRes);
 
   if (Array.isArray(catRows)) {
     for (const row of catRows) {
@@ -1421,7 +1493,7 @@ export function normalizeImportStubRecord(raw) {
   const address = String(raw?.address || '').trim();
   const phone = String(raw?.phone_number || '').trim();
   const website = String(raw?.website || '').trim();
-  const timezone = String(raw?.timezone || '').trim() || 'America/Denver';
+  const timezone = courseTimezoneFor(raw);
   const placeId = String(raw?.google_place_id || '').trim();
   const platform = String(raw?.platform || '').trim();
   const bookingUrl = String(raw?.booking_url || '').trim();
@@ -1471,7 +1543,7 @@ export async function saveCourse(env, { slug, record, prepaid, rates, isNew }) {
     return { error: 'missing_slug_or_name', status: 400 };
   }
 
-  const cleanRecord = { ...record };
+  const cleanRecord = withCourseTimezone({ ...record });
   if (cleanRecord.platform) {
     stripPlatformFields(cleanRecord, cleanRecord.platform);
   }
@@ -1502,8 +1574,8 @@ export async function saveCourse(env, { slug, record, prepaid, rates, isNew }) {
 
   if (isNew) {
     try {
-      const { savePlaceSnapshot } = await import('./coursePhotoEnrich.js');
-      await savePlaceSnapshot(env, slug, syncedRecord);
+      const { copyNewCoursePhoto } = await import('./coursePhotoEnrich.js');
+      await copyNewCoursePhoto(env, slug, syncedRecord);
     } catch {
       // The course is already saved. The photo job can copy a picture later.
     }
@@ -1921,14 +1993,5 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
       return null;
     },
 
-    async handlePublicCourses(env) {
-      const rows = await fetchRegistryCourses(env);
-      if (rows.length > 0) {
-        return corsResponse(registryRowsToCourses(rows));
-      }
-      const res = await fetch('https://tee-time.io/courses.json');
-      if (!res.ok) return corsResponse({ error: 'courses_unavailable' }, 502);
-      return corsResponse(await res.json());
-    },
   };
 }

@@ -20,6 +20,7 @@ import {
   enrichForeUpFromPage,
   locationsCompatibleForImport,
 } from './courseAdmin.js';
+import { courseTimezoneFor } from './courseTimezone.js';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
@@ -72,12 +73,6 @@ export function stateFromAddress(address) {
   return /\b([A-Z]{2})[\s,]+\d{5}(?:-\d{4})?\b/.exec(String(address || ''))?.[1] || '';
 }
 
-function timezoneForState(state) {
-  if (state === 'ID') return 'America/Boise';
-  if (state === 'AZ') return 'America/Phoenix';
-  if (state === 'NV' || state === 'CA' || state === 'OR' || state === 'WA') return 'America/Los_Angeles';
-  return 'America/Denver';
-}
 
 function cityFromAddress(address) {
   const parts = String(address || '')
@@ -986,7 +981,7 @@ export async function inspectDiscoveredCourse(course, apiKey, catalog = [], env 
     ...(photoReference ? { photo_reference: photoReference } : {}),
     phone_number: phone,
     website,
-    timezone: timezoneForState(foundState),
+    timezone: courseTimezoneFor({ lat: course.lat, lng: course.lng }),
     catalog_match: null,
     source: 'openstreetmap',
   };

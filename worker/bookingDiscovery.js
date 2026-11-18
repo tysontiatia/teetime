@@ -5,6 +5,7 @@
  */
 
 import { parseBookingUrl, slugFromCourseName } from './courseAdmin.js';
+import { courseTimezoneFor } from './courseTimezone.js';
 
 const LIVE_ADAPTERS = new Set([
   'foreup',
@@ -743,7 +744,7 @@ export function toImportRecord(course) {
     area: course.area || '',
     platform: course.platform || '',
     booking_url: course.booking_url || '',
-    timezone: course.timezone || 'America/Denver',
+    timezone: courseTimezoneFor(course),
     booking_status: course.booking_status || 'pending',
   };
   if (course.address) record.address = course.address;

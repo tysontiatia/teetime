@@ -1,14 +1,22 @@
 /**
  * Copies one course photo into Supabase Storage.
- * A course is looked up once: a stored photo id is downloaded, a stored place
- * id gets one Place Details call, and a course with neither gets one text
- * search. photos_fetched_at is set after that attempt so later passes do not
- * ask Google again. A failed download stays unstamped and retries the copy.
+ * A stored photo id is downloaded, a stored place id gets one Place Details
+ * call for its photo, and a course with neither gets one text search.
+ *
+ * Every attempt is recorded on course_catalog:
+ * - a copy, or "Google has no photo", stamps photos_fetched_at and stops;
+ * - a place Google no longer knows (NOT_FOUND) is stamped place_not_found and stops;
+ * - anything else counts an attempt and waits longer before the next one,
+ *   then gives up after MAX_PHOTO_ATTEMPTS;
+ * - a key or quota error ends the batch without counting against the course.
  */
 
 import { courseNameMatchTokens, courseNamesLikelyDuplicate } from './courseAdmin.js';
 
 const BATCH_SIZE = 10;
+export const MAX_PHOTO_ATTEMPTS = 6;
+const RETRY_BASE_MS = 30 * 60 * 1000;
+const STOP_PAUSE_MS = 60 * 60 * 1000;
 
 function sbHeaders(env, json = false) {
   const h = { apikey: env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}` };
@@ -26,42 +34,72 @@ export function firstPhotoReference(photos) {
   return String(photo.photo_reference || photo.name || '').trim();
 }
 
-export function placeFactsFromDetails(result) {
-  if (!result || typeof result !== 'object') return null;
-  const rating = Number(result.rating);
-  const reviewCount = Number(result.user_ratings_total ?? result.userRatingCount);
+/**
+ * Legacy Places status → what the photo job should do next.
+ * ok: use the answer. gone: the place id is dead, stop for good.
+ * stop: the key or quota is the problem, end the batch. retry: try later.
+ */
+export function classifyPlacesStatus(status) {
+  if (status === 'OK') return 'ok';
+  if (status === 'NOT_FOUND' || status === 'INVALID_REQUEST' || status === 'ZERO_RESULTS') return 'gone';
+  if (status === 'OVER_QUERY_LIMIT' || status === 'REQUEST_DENIED') return 'stop';
+  return 'retry';
+}
+
+/** HTTP status from the new Places API (Text Search, Photo media) → next step. */
+export function classifyPlacesHttp(status) {
+  if (status >= 200 && status < 300) return 'ok';
+  if (status === 429 || status === 401 || status === 403) return 'stop';
+  return 'retry';
+}
+
+/** Wait after the nth failed attempt: 30 min, 1 h, 2 h, 4 h, 8 h. */
+export function photoRetryDelayMs(attempts) {
+  return RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1);
+}
+
+/**
+ * The course_catalog patch that records a failed attempt.
+ * `previousAttempts` is the count before this attempt.
+ */
+export function photoFailurePatch(previousAttempts, result, now = new Date()) {
+  const at = now.toISOString();
+  if (result === 'gone') {
+    return { photos_fetched_at: at, photo_failed_reason: 'place_not_found', photo_next_attempt_at: null };
+  }
+  if (result === 'stop') {
+    return { photo_next_attempt_at: new Date(now.getTime() + STOP_PAUSE_MS).toISOString() };
+  }
+  const attempts = (Number(previousAttempts) || 0) + 1;
+  if (attempts >= MAX_PHOTO_ATTEMPTS) {
+    return {
+      photo_attempts: attempts,
+      photos_fetched_at: at,
+      photo_failed_reason: 'gave_up',
+      photo_next_attempt_at: null,
+    };
+  }
   return {
-    rating: Number.isFinite(rating) ? rating : null,
-    review_count: Number.isFinite(reviewCount) ? reviewCount : null,
-    photo_reference: firstPhotoReference(result.photos),
-    phone: String(result.formatted_phone_number || result.nationalPhoneNumber || '').trim(),
+    photo_attempts: attempts,
+    photo_next_attempt_at: new Date(now.getTime() + photoRetryDelayMs(attempts)).toISOString(),
   };
 }
 
-/** One Place Details call for the stored rating, review count, photo id, and phone. */
-async function placeFactsForPlace(placeId, apiKey, { phone = false } = {}) {
-  const fields = ['rating', 'user_ratings_total', 'photos'];
-  if (phone) fields.push('formatted_phone_number');
-  const url =
-    'https://maps.googleapis.com/maps/api/place/details/json' +
-    `?place_id=${encodeURIComponent(placeId)}` +
-    `&fields=${fields.join(',')}` +
-    `&key=${encodeURIComponent(apiKey)}`;
-  const res = await fetch(url);
-  const data = await res.json().catch(() => null);
-  if (!res.ok || data?.status !== 'OK') return null;
-  return placeFactsFromDetails(data.result);
-}
-
-/** Place Details for the photo id only. Null means the lookup failed and should be retried. */
+/** Place Details for the photo id only. */
 async function photoReferenceForPlace(placeId, apiKey) {
   const url =
     'https://maps.googleapis.com/maps/api/place/details/json' +
     `?place_id=${encodeURIComponent(placeId)}&fields=photos&key=${encodeURIComponent(apiKey)}`;
-  const res = await fetch(url);
+  let res;
+  try {
+    res = await fetch(url);
+  } catch {
+    return { status: 'retry', photo_reference: '' };
+  }
   const data = await res.json().catch(() => null);
-  if (!res.ok || data?.status !== 'OK') return null;
-  return firstPhotoReference(data.result?.photos);
+  if (!res.ok || !data) return { status: 'retry', photo_reference: '' };
+  const status = classifyPlacesStatus(data.status);
+  return { status, photo_reference: status === 'ok' ? firstPhotoReference(data.result?.photos) : '' };
 }
 
 function distanceKm(lat1, lng1, lat2, lng2) {
@@ -109,11 +147,10 @@ export function choosePhotoCandidate(courseName, places, origin = {}) {
 /**
  * One Text Search for a course that has no stored place.
  * Photos are included in the same Pro request as the name.
- * Null means the request failed and should be retried.
  */
 async function searchPhotoOnce(record, apiKey) {
   const name = String(record?.name || '').trim();
-  if (!name) return { photo_reference: '', place_id: '' };
+  if (!name) return { status: 'ok', photo_reference: '', place_id: '' };
   const lat = Number(record?.lat);
   const lng = Number(record?.lng);
   const body = { textQuery: name, pageSize: 5 };
@@ -122,17 +159,23 @@ async function searchPhotoOnce(record, apiKey) {
       circle: { center: { latitude: lat, longitude: lng }, radius: 20000 },
     };
   }
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.photos',
-    },
-    body: JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.location,places.photos',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { status: 'retry', photo_reference: '', place_id: '' };
+  }
+  const status = classifyPlacesHttp(res.status);
   const data = await res.json().catch(() => null);
-  if (!res.ok || !data) return null;
+  if (status !== 'ok' || !data) return { status: status === 'ok' ? 'retry' : status, photo_reference: '', place_id: '' };
   const candidates = (data.places || []).map((place) => ({
     name: place.displayName?.text || '',
     photo_reference: firstPhotoReference(place.photos),
@@ -141,8 +184,8 @@ async function searchPhotoOnce(record, apiKey) {
     lng: place.location?.longitude,
   }));
   const best = choosePhotoCandidate(name, candidates, { lat, lng });
-  if (!best) return { photo_reference: '', place_id: '' };
-  return { photo_reference: best.photo_reference, place_id: best.place_id };
+  if (!best) return { status: 'ok', photo_reference: '', place_id: '' };
+  return { status: 'ok', photo_reference: best.photo_reference, place_id: best.place_id };
 }
 
 function photoMediaUrl(photoRef, apiKey) {
@@ -155,29 +198,38 @@ function photoMediaUrl(photoRef, apiKey) {
   );
 }
 
-async function fetchPendingCatalogRows(env) {
+async function fetchPendingCatalogRows(env, now = new Date()) {
+  // Without the attempt columns (migration not applied) this returns no rows,
+  // which pauses the cron instead of calling Google in a loop.
+  const due = encodeURIComponent(now.toISOString());
   const res = await fetch(
     `${env.SUPABASE_URL}/rest/v1/course_catalog` +
-      `?select=slug,name,photo_storage_url` +
+      `?select=slug,name,photo_storage_url,photo_attempts` +
       `&photo_storage_url=is.null` +
       `&photos_fetched_at=is.null` +
-      `&order=created_at.asc&limit=${BATCH_SIZE}`,
+      `&or=(photo_next_attempt_at.is.null,photo_next_attempt_at.lte.${due})` +
+      `&order=photo_next_attempt_at.asc.nullsfirst,created_at.asc&limit=${BATCH_SIZE}`,
     { headers: sbHeaders(env) },
   );
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.error('[photos] pending rows query failed', res.status, (await res.text()).slice(0, 200));
+    return [];
+  }
   return res.json();
 }
 
 async function fetchCoursesMissingPhotos(env) {
   const rows = [];
-  for (let from = 0; from < 20_000; from += 1000) {
+  for (let from = 0; ; from += 1000) {
     const res = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/course_catalog?select=slug,name,photos_fetched_at&photo_storage_url=is.null&order=slug`,
+      `${env.SUPABASE_URL}/rest/v1/course_catalog` +
+        `?select=slug,name,photos_fetched_at,photo_attempts,photo_next_attempt_at` +
+        `&photo_storage_url=is.null&order=slug`,
       { headers: { ...sbHeaders(env), Range: `${from}-${from + 999}` } },
     );
-    if (!res.ok) break;
-    const batch = await res.json().catch(() => []);
-    if (!Array.isArray(batch) || batch.length === 0) break;
+    if (!res.ok) throw new Error(`course_catalog read failed (${res.status}) after ${rows.length} rows`);
+    const batch = await res.json().catch(() => null);
+    if (!Array.isArray(batch)) throw new Error(`course_catalog read returned no rows array after ${rows.length} rows`);
     rows.push(...batch);
     if (batch.length < 1000) break;
   }
@@ -210,6 +262,10 @@ async function patchRegistryRecord(env, slug, record) {
   });
 }
 
+/**
+ * One copy attempt. Returns { result } where result is
+ * copied | none | retry | gone | stop. The caller records failures.
+ */
 async function enrichOne(env, row, { alreadyLookedUp = false } = {}) {
   let record = (await fetchRegistryRecord(env, row.slug)) || {};
   if (!record.name && row.name) record = { ...record, name: row.name };
@@ -218,15 +274,15 @@ async function enrichOne(env, row, { alreadyLookedUp = false } = {}) {
   if (!photoRef && !alreadyLookedUp) {
     if (record.google_place_id) {
       const lookedUp = await photoReferenceForPlace(record.google_place_id, env.GOOGLE_PLACES_KEY);
-      if (lookedUp == null) return 'retry';
-      photoRef = lookedUp;
+      if (lookedUp.status !== 'ok') return { result: lookedUp.status };
+      photoRef = lookedUp.photo_reference;
       if (photoRef) {
         record = { ...record, photo_reference: photoRef };
         await patchRegistryRecord(env, row.slug, record);
       }
     } else {
       const found = await searchPhotoOnce(record, env.GOOGLE_PLACES_KEY);
-      if (found == null) return 'retry';
+      if (found.status !== 'ok') return { result: found.status };
       photoRef = found.photo_reference;
       const next = { ...record };
       if (photoRef) next.photo_reference = photoRef;
@@ -238,15 +294,28 @@ async function enrichOne(env, row, { alreadyLookedUp = false } = {}) {
     }
   }
   if (!photoRef) {
-    await patchCatalog(env, row.slug, { photos_fetched_at: stamp });
-    return 'none';
+    await patchCatalog(env, row.slug, { photos_fetched_at: stamp, photo_next_attempt_at: null });
+    return { result: 'none' };
   }
 
-  const photoRes = await fetch(photoMediaUrl(photoRef, env.GOOGLE_PLACES_KEY));
-  if (!photoRes.ok) return 'retry';
+  let photoRes;
+  try {
+    photoRes = await fetch(photoMediaUrl(photoRef, env.GOOGLE_PLACES_KEY));
+  } catch {
+    return { result: 'retry' };
+  }
+  if (!photoRes.ok) {
+    const result = classifyPlacesHttp(photoRes.status);
+    // 400/404: the photo id expired. Drop it so the next attempt asks for a fresh one.
+    if (result === 'retry' && (photoRes.status === 400 || photoRes.status === 404)) {
+      const { photo_reference: _expired, ...rest } = record;
+      await patchRegistryRecord(env, row.slug, rest);
+    }
+    return { result };
+  }
   const photoBuffer = await photoRes.arrayBuffer();
   const type = photoRes.headers.get('content-type') || 'image/jpeg';
-  if (!type.startsWith('image/')) return 'retry';
+  if (!type.startsWith('image/')) return { result: 'retry' };
   const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
   const storagePath = `${row.slug}.${ext}`;
   const uploadRes = await fetch(`${env.SUPABASE_URL}/storage/v1/object/course-photos/${storagePath}`, {
@@ -259,63 +328,69 @@ async function enrichOne(env, row, { alreadyLookedUp = false } = {}) {
     },
     body: photoBuffer,
   });
-  if (!uploadRes.ok) return 'retry';
+  if (!uploadRes.ok) return { result: 'retry' };
 
   await patchCatalog(env, row.slug, {
     photo_storage_path: storagePath,
     photo_storage_url: `${env.SUPABASE_URL}/storage/v1/object/public/course-photos/${storagePath}`,
     photos_fetched_at: stamp,
+    photo_next_attempt_at: null,
+    photo_failed_reason: null,
   });
-  return 'copied';
+  return { result: 'copied' };
 }
 
-async function catalogPhotoUrl(env, slug) {
+/** Writes the attempt count / backoff / give-up for a failed attempt. */
+async function recordOutcome(env, row, outcome) {
+  if (outcome.result === 'copied' || outcome.result === 'none') return;
+  await patchCatalog(env, row.slug, photoFailurePatch(row.photo_attempts, outcome.result));
+}
+
+async function catalogPhotoRow(env, slug) {
   const res = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/course_catalog?slug=eq.${encodeURIComponent(slug)}&select=photo_storage_url`,
+    `${env.SUPABASE_URL}/rest/v1/course_catalog?slug=eq.${encodeURIComponent(slug)}` +
+      `&select=photo_storage_url,photo_attempts`,
     { headers: sbHeaders(env) },
   );
-  if (!res.ok) return '';
+  if (!res.ok) return null;
   const rows = await res.json().catch(() => []);
-  return rows?.[0]?.photo_storage_url || '';
+  return rows?.[0] || null;
 }
 
-/** Saves the Google rating, review count, phone, and photo once. Skips anything already stored. */
-export async function savePlaceSnapshot(env, slug, record) {
-  if (!env.GOOGLE_PLACES_KEY || !env.SUPABASE_SERVICE_KEY || !record) return record;
-  const next = { ...record };
-  const needsPhotoRef = !String(next.photo_reference || '').trim();
-  const needsRating = Boolean(next.google_place_id) && (next.rating == null || next.review_count == null);
-  const needsPhone = Boolean(next.google_place_id) && !String(next.phone_number || '').trim();
-  let alreadyLookedUp = !needsPhotoRef;
-  if (next.google_place_id && (needsRating || needsPhotoRef || needsPhone)) {
-    const facts = await placeFactsForPlace(next.google_place_id, env.GOOGLE_PLACES_KEY, { phone: needsPhone });
-    if (!facts) return next;
-    alreadyLookedUp = true;
-    if (needsRating && facts.rating != null) next.rating = facts.rating;
-    if (needsRating && facts.review_count != null) next.review_count = facts.review_count;
-    if (needsPhotoRef && facts.photo_reference) next.photo_reference = facts.photo_reference;
-    if (needsPhone && facts.phone) next.phone_number = facts.phone;
-    await patchRegistryRecord(env, slug, next);
-  }
-  if (!(await catalogPhotoUrl(env, slug))) {
-    await enrichOne(env, { slug, name: next.name }, { alreadyLookedUp });
-  }
-  return next;
+/**
+ * Copies a photo for a course that was just saved. Discovery already stored a
+ * photo id from its Nearby Search, so this is normally a download with no
+ * Places lookup. It used to buy a second Place Details call for rating and
+ * phone; that call is gone.
+ */
+export async function copyNewCoursePhoto(env, slug, record) {
+  if (!env.GOOGLE_PLACES_KEY || !env.SUPABASE_SERVICE_KEY || !record) return;
+  const row = await catalogPhotoRow(env, slug);
+  if (!row || row.photo_storage_url) return;
+  const outcome = await enrichOne(env, { slug, name: record.name });
+  await recordOutcome(env, { slug, photo_attempts: row.photo_attempts }, outcome);
 }
 
 /**
  * One lookup each for courses that were saved before a photo id was kept.
  * A stored photo id is only downloaded. Anything else gets one name search,
- * then the result is stored so it is not searched again.
+ * then the result is stored so it is not searched again. Courses that are
+ * waiting out a backoff, or that the photo job already gave up on, are skipped.
  */
 export async function fillMissingCoursePhotos(env) {
   if (!env.GOOGLE_PLACES_KEY || !env.SUPABASE_SERVICE_KEY) {
     return { error: 'photos_not_configured' };
   }
   const rows = await fetchCoursesMissingPhotos(env);
-  const counts = { checked: rows.length, filled: 0, none: 0, failed: 0 };
+  const counts = { checked: rows.length, filled: 0, none: 0, failed: 0, waiting: 0 };
   const filled = [];
+  const now = Date.now();
   for (const row of rows) {
+    const nextAt = Date.parse(row.photo_next_attempt_at || '');
+    if (Number.isFinite(nextAt) && nextAt > now) {
+      counts.waiting += 1;
+      continue;
+    }
     try {
       const record = await fetchRegistryRecord(env, row.slug);
       if (!record?.name) {
@@ -327,28 +402,33 @@ export async function fillMissingCoursePhotos(env) {
         counts.none += 1;
         continue;
       }
+      let outcome = null;
       if (!String(record.photo_reference || '').trim()) {
         const found = await searchPhotoOnce(record, env.GOOGLE_PLACES_KEY);
-        if (found == null) {
-          counts.failed += 1;
-          await sleep(200);
-          continue;
-        }
-        const next = { ...record };
-        if (found.photo_reference) next.photo_reference = found.photo_reference;
-        if (!next.google_place_id && found.place_id) next.google_place_id = found.place_id;
-        if (next.photo_reference !== record.photo_reference || next.google_place_id !== record.google_place_id) {
-          await patchRegistryRecord(env, row.slug, next);
+        if (found.status !== 'ok') {
+          outcome = { result: found.status };
+        } else {
+          const next = { ...record };
+          if (found.photo_reference) next.photo_reference = found.photo_reference;
+          if (!next.google_place_id && found.place_id) next.google_place_id = found.place_id;
+          if (next.photo_reference !== record.photo_reference || next.google_place_id !== record.google_place_id) {
+            await patchRegistryRecord(env, row.slug, next);
+          }
         }
       }
-      const outcome = await enrichOne(env, row, { alreadyLookedUp: true });
-      if (outcome === 'copied') {
+      if (!outcome) outcome = await enrichOne(env, row, { alreadyLookedUp: true });
+      await recordOutcome(env, row, outcome);
+      if (outcome.result === 'copied') {
         counts.filled += 1;
         filled.push(row.name || row.slug);
-      } else if (outcome === 'none') {
+      } else if (outcome.result === 'none') {
         counts.none += 1;
       } else {
         counts.failed += 1;
+      }
+      if (outcome.result === 'stop') {
+        counts.stopped = 'Google refused the key or quota. Stopped early.';
+        break;
       }
     } catch {
       counts.failed += 1;
@@ -363,10 +443,20 @@ export async function handleCoursePhotoEnrichPoll(env) {
 
   const rows = await fetchPendingCatalogRows(env);
   for (const row of rows) {
+    let outcome;
     try {
-      await enrichOne(env, row);
+      outcome = await enrichOne(env, row);
     } catch {
-      // Leave photos_fetched_at untouched so this row is retried next tick.
+      outcome = { result: 'retry' };
+    }
+    try {
+      await recordOutcome(env, row, outcome);
+    } catch {
+      // Recording failed; the row is retried next tick, the same as before.
+    }
+    if (outcome.result === 'stop') {
+      console.error('[photos] Google refused the key or quota; ending this batch');
+      break;
     }
     await sleep(300);
   }

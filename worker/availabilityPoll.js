@@ -3,15 +3,19 @@ import { courseHasGolfWithAccess } from './golfwithaccess.js';
 import { courseHasClubCaddie } from './clubcaddie.js';
 import { courseHasTeeSnap } from './teesnap.js';
 import { courseHasGolfRev } from './golfrev.js';
+import { DEFAULT_TIMEZONE, courseTimezoneFor, localParts } from './courseTimezone.js';
 
 /**
  * Background availability poller — snapshots vendor tee sheets into Supabase.
  *
- * Cron is a UTC heartbeat every 5 minutes; golf hours, tiers, and burst windows
- * are evaluated in America/Denver inside handleAvailabilityPoll.
+ * Cron is a UTC heartbeat every 5 minutes. Golf hours, the 8:00 booking-release
+ * burst, "today", and the hot/warm/cold tiers are all evaluated in each course's
+ * own time zone (from its coordinates), so a Florida course and a Hawaii course
+ * polled in the same tick each use their local clock.
  */
 
-const MT = 'America/Denver';
+/** Fallback zone for the legacy claim RPC and courses with no pin or zone. */
+const MT = DEFAULT_TIMEZONE;
 
 /** Poll horizon: today through +14 days (alert + search window). */
 const POLL_MAX_DAY_OFFSET = 14;
@@ -69,22 +73,39 @@ const ALERT_POLL_MAX_PAIRS = 40;
 // ── Mountain Time helpers ───────────────────────────────────────────
 
 function mtParts(date = new Date()) {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: MT,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(date);
-  const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
-  return {
-    dateYmd: `${get('year')}-${get('month')}-${get('day')}`,
-    hour: Number(get('hour')),
-    minute: Number(get('minute')),
-  };
+  return localParts(MT, date);
+}
+
+/**
+ * Each course's local date and clock for this tick, keyed by slug.
+ * Computed once per zone, so thousands of courses cost a handful of formats.
+ * @returns {Map<string, { dateYmd: string, hour: number, minute: number, timeZone: string }>}
+ */
+export function courseClocks(courses, now = new Date()) {
+  const byZone = new Map();
+  const out = new Map();
+  for (const course of courses) {
+    const timeZone = courseTimezone(course);
+    let parts = byZone.get(timeZone);
+    if (!parts) {
+      parts = { ...localParts(timeZone, now), timeZone };
+      byZone.set(timeZone, parts);
+    }
+    out.set(course.slug, parts);
+  }
+  return out;
+}
+
+function earliestDate(clocks) {
+  let min = null;
+  for (const clock of clocks.values()) if (!min || clock.dateYmd < min) min = clock.dateYmd;
+  return min;
+}
+
+function latestDate(clocks) {
+  let max = null;
+  for (const clock of clocks.values()) if (!max || clock.dateYmd > max) max = clock.dateYmd;
+  return max;
 }
 
 function addDaysYmd(ymd, days) {
@@ -108,12 +129,14 @@ function pollIntervalMs(days) {
   return null;
 }
 
-function isGolfHours(mt) {
-  return mt.hour >= GOLF_HOUR_START && mt.hour < GOLF_HOUR_END;
+/** `clock` is a course's local time from courseClocks / localParts. */
+export function isGolfHours(clock) {
+  return clock.hour >= GOLF_HOUR_START && clock.hour < GOLF_HOUR_END;
 }
 
-function isBookingBurstWindow(mt) {
-  return mt.hour === 8 && mt.minute < 10;
+/** 8:00–8:10 local, when most tee sheets release the next booking day. */
+export function isBookingBurstWindow(clock) {
+  return clock.hour === 8 && clock.minute < 10;
 }
 
 function slugFromCourseName(name) {
@@ -124,8 +147,7 @@ function slugFromCourseName(name) {
 }
 
 function courseTimezone(course) {
-  const tz = String(course?.timezone || '').trim();
-  return tz || MT;
+  return courseTimezoneFor(course);
 }
 
 function wallClockToUtcInstant(y, mo, d, hh, mm, timeZone = MT) {
@@ -351,14 +373,61 @@ async function claimPollBatch(env, todayMt, maxPlayDate, batchSize) {
   return res.json();
 }
 
+class ClaimRpcMissing extends Error {}
+
+/**
+ * Claim using each course's local date (claim_availability_poll_batch_local).
+ * Only courses passed in are claimable, so off-hours courses are never polled.
+ */
+async function claimPollBatchLocal(env, clocks, maxOffset, batchSize) {
+  const courses = [...clocks].map(([slug, clock]) => ({ slug, today: clock.dateYmd }));
+  if (!courses.length) return [];
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/claim_availability_poll_batch_local`, {
+    method: 'POST',
+    headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({
+      p_courses: courses,
+      p_max_offset: maxOffset,
+      p_batch_size: batchSize,
+      p_now: new Date().toISOString(),
+    }),
+  });
+  if (res.status === 404) {
+    throw new ClaimRpcMissing('claim_availability_poll_batch_local is not deployed');
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    const detail = `claim_availability_poll_batch_local HTTP ${res.status}: ${text.slice(0, 400)}`;
+    console.error(`[poll] FATAL: claim RPC failed — poller cannot run. ${detail}`);
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
 /**
  * Hot dates first (today+tomorrow), then a residual warm/cold fill.
  * Dedupes if a pair somehow appears in both claims.
+ * `clocks` holds only the courses inside their golf hours.
  */
-async function claimPollBatches(env, todayMt, maxPlayDate) {
-  const hotMax = addDaysYmd(todayMt, 1);
-  const claimedHot = await claimPollBatch(env, todayMt, hotMax, HOT_CLAIM_BATCH_SIZE);
-  const claimedRest = await claimPollBatch(env, todayMt, maxPlayDate, REST_CLAIM_BATCH_SIZE);
+async function claimPollBatches(env, clocks) {
+  let claimedHot;
+  let claimedRest;
+  try {
+    claimedHot = await claimPollBatchLocal(env, clocks, 1, HOT_CLAIM_BATCH_SIZE);
+    claimedRest = await claimPollBatchLocal(env, clocks, POLL_MAX_DAY_OFFSET, REST_CLAIM_BATCH_SIZE);
+  } catch (err) {
+    if (!(err instanceof ClaimRpcMissing)) throw err;
+    // Worker deployed before 20261118000100_claim_poll_batch_local.sql: keep
+    // polling on Mountain Time and drop claims for courses outside their hours.
+    console.warn('[poll] local claim RPC missing; using the Mountain Time claim until the migration is applied');
+    const todayMt = mtParts().dateYmd;
+    const maxPlayDate = addDaysYmd(todayMt, POLL_MAX_DAY_OFFSET);
+    claimedHot = await claimPollBatch(env, todayMt, addDaysYmd(todayMt, 1), HOT_CLAIM_BATCH_SIZE);
+    claimedRest = await claimPollBatch(env, todayMt, maxPlayDate, REST_CLAIM_BATCH_SIZE);
+    const inHours = (row) => clocks.has(row.course_slug);
+    claimedHot = claimedHot.filter(inHours);
+    claimedRest = claimedRest.filter(inHours);
+  }
   const seen = new Set();
   const out = [];
   for (const row of [...claimedHot, ...claimedRest]) {
@@ -512,21 +581,29 @@ function pollableCourses(courses) {
     .map((c) => ({ ...c, slug: slugFromCourseName(c.name) }));
 }
 
-function regularPlayDates(todayMt) {
+function regularPlayDates(today) {
   const dates = [];
   for (let offset = 0; offset <= POLL_MAX_DAY_OFFSET; offset++) {
-    dates.push(addDaysYmd(todayMt, offset));
+    dates.push(addDaysYmd(today, offset));
   }
   return dates;
 }
 
-function buildCandidatePairs(courses, todayMt, burstCourses = []) {
-  const dates = new Set(regularPlayDates(todayMt));
-  for (const { slug, play_date } of burstCourses) {
-    if (daysUntil(play_date, todayMt) <= 14) dates.add(play_date);
+/** Each course's own today … today+14, plus its burst date when it has one. */
+export function buildCandidatePairs(courses, clocks, burstCourses = []) {
+  const burstBySlug = new Map();
+  for (const burst of burstCourses) {
+    if (!burstBySlug.has(burst.slug)) burstBySlug.set(burst.slug, []);
+    burstBySlug.get(burst.slug).push(burst.play_date);
   }
   const pairs = [];
   for (const course of courses) {
+    const today = clocks.get(course.slug)?.dateYmd;
+    if (!today) continue;
+    const dates = new Set(regularPlayDates(today));
+    for (const play_date of burstBySlug.get(course.slug) || []) {
+      if (daysUntil(play_date, today) <= POLL_MAX_DAY_OFFSET) dates.add(play_date);
+    }
     for (const play_date of dates) {
       pairs.push({ course_slug: course.slug, play_date, course });
     }
@@ -915,12 +992,14 @@ async function pollCourseDate(
   };
 }
 
-// ── Burst candidates (8:00–8:10 MT, once per course per day) ────────
+// ── Burst candidates (8:00–8:10 course-local, once per course per day) ──
 
-async function loadBurstCandidates(env, courses, todayMt, mt) {
-  if (!isBookingBurstWindow(mt)) return [];
-
-  const slugs = courses.map((c) => c.slug);
+async function loadBurstCandidates(env, courses, clocks) {
+  const inWindow = courses.filter((c) => {
+    const clock = clocks.get(c.slug);
+    return clock && isBookingBurstWindow(clock);
+  });
+  const slugs = inWindow.map((c) => c.slug);
   if (!slugs.length) return [];
 
   const res = await fetch(
@@ -936,20 +1015,22 @@ async function loadBurstCandidates(env, courses, todayMt, mt) {
   const bySlug = new Map(catalog.map((r) => [r.slug, r]));
   const out = [];
 
-  for (const course of courses) {
+  for (const course of inWindow) {
+    const today = clocks.get(course.slug).dateYmd;
     const meta = bySlug.get(course.slug);
     const windowDays = Number(meta?.booking_window_days ?? course.booking_window_days);
     if (!Number.isFinite(windowDays) || windowDays < 1) continue;
-    if (meta?.last_booking_burst_poll_on === todayMt) continue;
+    if (meta?.last_booking_burst_poll_on === today) continue;
 
-    const play_date = addDaysYmd(todayMt, windowDays);
-    if (daysUntil(play_date, todayMt) > 14) continue;
+    const play_date = addDaysYmd(today, windowDays);
+    if (daysUntil(play_date, today) > 14) continue;
     out.push({ slug: course.slug, play_date, course });
   }
   return out;
 }
 
-async function markBurstPollDone(env, course, todayMt) {
+/** `today` is the course's local date, so "once per day" follows its own midnight. */
+async function markBurstPollDone(env, course, today) {
   await fetch(`${env.SUPABASE_URL}/rest/v1/course_catalog?on_conflict=slug`, {
     method: 'POST',
     headers: sbHeaders(env, {
@@ -959,7 +1040,7 @@ async function markBurstPollDone(env, course, todayMt) {
     body: JSON.stringify({
       slug: course.slug,
       name: course.name,
-      last_booking_burst_poll_on: todayMt,
+      last_booking_burst_poll_on: today,
     }),
   });
 }
@@ -979,7 +1060,7 @@ async function pollOneClaimedCourse(env, {
   row,
   course,
   burstCandidates,
-  todayMt,
+  today,
   fetchTimesForCourse,
   normalizeTimesWorker,
   onPollNotifyEvents,
@@ -1018,7 +1099,7 @@ async function pollOneClaimedCourse(env, {
       const burst = burstCandidates.find(
         (b) => b.slug === row.course_slug && b.play_date === row.play_date,
       );
-      if (burst) await markBurstPollDone(env, burst.course, todayMt);
+      if (burst) await markBurstPollDone(env, burst.course, today);
 
       if (result.notify_events?.length && onPollNotifyEvents) {
         try {
@@ -1026,7 +1107,8 @@ async function pollOneClaimedCourse(env, {
             course,
             playDate: row.play_date,
             notifyEvents: result.notify_events,
-            todayMt,
+            // Named todayMt for the notifications API; it is the course's local date.
+            todayMt: today,
           });
         } catch (notifyErr) {
           console.error(`[poll] notify failed ${row.course_slug} ${row.play_date}:`, notifyErr);
@@ -1105,13 +1187,15 @@ async function loadScheduleLastPolledMap(env, pairs) {
  * Expand active notification_preferences into distinct (course, play_date) watches.
  * @returns {Promise<{ course: object, course_slug: string, play_date: string }[]>}
  */
-async function loadAlertWatchPairs(env, courses, todayMt) {
+async function loadAlertWatchPairs(env, courses, clocks) {
   const byName = new Map(courses.map((c) => [c.name, c]));
+  // The earliest local date across zones; each pair is then checked against its own course's date.
+  const earliest = earliestDate(clocks) || mtParts().dateYmd;
 
   const [specRes, openRes] = await Promise.all([
     fetch(
       `${env.SUPABASE_URL}/rest/v1/notification_preferences` +
-        `?active=eq.true&target_date=not.is.null&target_date=gte.${todayMt}` +
+        `?active=eq.true&target_date=not.is.null&target_date=gte.${earliest}` +
         `&select=course_id,target_date`,
       { headers: sbHeaders(env) },
     ),
@@ -1128,11 +1212,14 @@ async function loadAlertWatchPairs(env, courses, todayMt) {
   /** @type {Map<string, { course: object, course_slug: string, play_date: string }>} */
   const pairs = new Map();
 
+  const todayFor = (course) => clocks.get(course.slug)?.dateYmd || earliest;
   const add = (course, play_date) => {
-    if (!course || !play_date || play_date < todayMt) return;
-    if (daysUntil(play_date, todayMt) > POLL_MAX_DAY_OFFSET) return;
+    if (!course || !play_date) return;
+    const today = todayFor(course);
+    if (play_date < today) return;
+    if (daysUntil(play_date, today) > POLL_MAX_DAY_OFFSET) return;
     const key = `${course.slug}|${play_date}`;
-    if (!pairs.has(key)) pairs.set(key, { course, course_slug: course.slug, play_date });
+    if (!pairs.has(key)) pairs.set(key, { course, course_slug: course.slug, play_date, today });
   };
 
   for (const pref of specific) {
@@ -1149,8 +1236,9 @@ async function loadAlertWatchPairs(env, courses, todayMt) {
       Array.isArray(pref.days_of_week) && pref.days_of_week.length
         ? pref.days_of_week
         : [0, 1, 2, 3, 4, 5, 6];
+    const today = todayFor(course);
     for (let d = 0; d < horizon; d++) {
-      const play_date = addDaysYmd(todayMt, d);
+      const play_date = addDaysYmd(today, d);
       const [y, m, day] = play_date.split('-').map(Number);
       const dow = new Date(Date.UTC(y, m - 1, day)).getUTCDay();
       if (!dowAllow.includes(dow)) continue;
@@ -1181,8 +1269,8 @@ export async function handleAlertMicroPoll(env, deps) {
   const courses = pollableCourses(await loadCourses(env));
   if (!courses.length) return { polled: 0 };
 
-  const todayMt = mtParts().dateYmd;
-  const allPairs = await loadAlertWatchPairs(env, courses, todayMt);
+  const clocks = courseClocks(courses);
+  const allPairs = await loadAlertWatchPairs(env, courses, clocks);
   if (!allPairs.length) return { polled: 0 };
 
   await ensureScheduleRows(
@@ -1227,7 +1315,7 @@ export async function handleAlertMicroPoll(env, deps) {
             course: row.course,
             playDate: row.play_date,
             notifyEvents: result.notify_events,
-            todayMt,
+            todayMt: row.today,
           });
         } catch (notifyErr) {
           console.error(`[alert-poll] notify failed ${row.course_slug} ${row.play_date}:`, notifyErr);
@@ -1299,7 +1387,7 @@ export async function pollAlertCourseDate(env, {
         course,
         playDate,
         notifyEvents: result.notify_events,
-        todayMt: todayMt || mtParts().dateYmd,
+        todayMt: todayMt || localParts(courseTimezone(course)).dateYmd,
       });
     }
   }
@@ -1334,8 +1422,28 @@ export async function handleAvailabilityPoll(env, deps) {
     return;
   }
 
-  const mt = mtParts();
-  if (!isGolfHours(mt)) {
+  // Golf hours are per course now, so the course list comes first (it is cached).
+  let loaded;
+  try {
+    loaded = await loadCourses(env);
+  } catch (err) {
+    // Never poll a partial or stale-static list; record the failed run instead.
+    const runId = await createPollRun(env);
+    if (runId) {
+      await finishPollRun(env, runId, {
+        status: 'failed',
+        courses_claimed: 0,
+        error_summary: `courses:${String(err?.message || err).slice(0, 400)}`,
+      });
+    }
+    return;
+  }
+  const allCourses = pollableCourses(loaded);
+  const allClocks = courseClocks(allCourses);
+  const courses = allCourses.filter((c) => isGolfHours(allClocks.get(c.slug)));
+  const clocks = new Map(courses.map((c) => [c.slug, allClocks.get(c.slug)]));
+
+  if (!courses.length) {
     const runId = await createPollRun(env);
     if (runId) {
       await finishPollRun(env, runId, {
@@ -1358,12 +1466,8 @@ export async function handleAvailabilityPoll(env, deps) {
     return;
   }
 
-  const courses = pollableCourses(await loadCourses(env));
-  if (!courses.length) return;
-
-  const todayMt = mt.dateYmd;
-  const burstCandidates = await loadBurstCandidates(env, courses, todayMt, mt);
-  const candidatePairs = buildCandidatePairs(courses, todayMt, burstCandidates);
+  const burstCandidates = await loadBurstCandidates(env, courses, clocks);
+  const candidatePairs = buildCandidatePairs(courses, clocks, burstCandidates);
 
   const pollRunId = await createPollRun(env);
   if (!pollRunId) {
@@ -1380,7 +1484,8 @@ export async function handleAvailabilityPoll(env, deps) {
   const errors = [];
 
   try {
-    let maxPlayDate = addDaysYmd(todayMt, POLL_MAX_DAY_OFFSET);
+    const earliestToday = earliestDate(clocks);
+    let maxPlayDate = addDaysYmd(latestDate(clocks), POLL_MAX_DAY_OFFSET);
     for (const b of burstCandidates) {
       if (b.play_date > maxPlayDate) maxPlayDate = b.play_date;
     }
@@ -1391,12 +1496,13 @@ export async function handleAvailabilityPoll(env, deps) {
       env,
       candidatePairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
     );
-    const claimed = await claimPollBatches(env, todayMt, maxPlayDate);
+    const claimed = await claimPollBatches(env, clocks);
 
     if (!claimed.length) {
-      const schedRows = await countDueScheduleRows(env, todayMt, maxPlayDate);
+      const schedRows = await countDueScheduleRows(env, earliestToday, maxPlayDate);
       const msg =
-        `claim returned 0 (today=${todayMt}, pairs=${schedulePairs}, ensured=${ensured}, ` +
+        `claim returned 0 (today=${earliestToday}…, courses_in_hours=${courses.length}, ` +
+        `pairs=${schedulePairs}, ensured=${ensured}, ` +
         `schedule_rows_in_range=${schedRows ?? 'unknown'})`;
       console.warn(`[poll] ${msg}`);
       if (schedRows != null && schedRows > 0) {
@@ -1416,7 +1522,7 @@ export async function handleAvailabilityPoll(env, deps) {
         row,
         course,
         burstCandidates,
-        todayMt,
+        today: clocks.get(row.course_slug)?.dateYmd || earliestToday,
         fetchTimesForCourse,
         normalizeTimesWorker,
         onPollNotifyEvents,

@@ -1605,13 +1605,13 @@
 
       const photoWrap = document.createElement('div');
       photoWrap.className = 'lah-photo';
-      if (course && course.photo_reference) {
+      if (course && course.photo_storage_url) {
         const img = document.createElement('img');
         img.alt = '';
         img.loading = 'lazy';
         img.decoding = 'async';
         img.referrerPolicy = 'no-referrer';
-        img.src = placePhotoUrl(course.photo_reference, course.slug);
+        img.src = placePhotoUrl(null, course.slug);
         photoWrap.appendChild(img);
       } else {
         const fb = document.createElement('div');
@@ -1936,16 +1936,16 @@
       if (!wash || !img || !Array.isArray(courses)) return;
       const pick = courses
         .slice()
-        .filter(function (c) { return c && c.photo_reference; })
+        .filter(function (c) { return c && c.photo_storage_url; })
         .sort(function (a, b) { return (Number(b.review_count) || 0) - (Number(a.review_count) || 0); })[0];
       if (!pick) return;
       img.onload = function () { wash.classList.add('is-ready'); };
       img.onerror = function () { wash.classList.remove('is-ready'); };
-      img.src = placePhotoUrl(pick.photo_reference, pick.slug);
+      img.src = placePhotoUrl(null, pick.slug);
     }
 
     function initCourses() {
-      // Prefer live registry (same source as /app/) so photo_reference stays fresh.
+      // Prefer live registry (same source as /app/) so stored photos (photo_storage_url) stay current.
       // Fall back to static /courses.json if the worker is unreachable.
       fetch(WORKER_URL + '/v1/courses')
         .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('worker')); })

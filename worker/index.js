@@ -8,8 +8,9 @@ import {
   teeItUpBookingRange,
   ymdInTimeZone,
 } from './bookingRange.js';
-import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName, withDerivedState } from './courseAdmin.js';
+import { RegistryReadError, createCourseAdminHandlers, fetchPublicRegistryRows, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
 import { handleCoursePhotoEnrichPoll } from './coursePhotoEnrich.js';
+import { courseTimezoneFor, localParts } from './courseTimezone.js';
 import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
 import {
   buildQuick18BookingUrl,
@@ -904,71 +905,53 @@ export function normalizeGolfPayTimesWorker(_course, data) {
 // ── Supabase + Resend config (set via wrangler secrets) ──────────────
 // env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, env.RESEND_API_KEY
 
-// ── Courses list (registry in Supabase, else static JSON) ─────────────
+// ── Courses list (public registry rows in Supabase) ──────────────────
 let coursesCache = null;
 let coursesCacheAt = 0;
 const COURSES_CACHE_MS = 60_000;
+/** Serve the last complete list this long while Supabase is failing, then error. */
+const COURSES_STALE_MAX_MS = 30 * 60_000;
 
-/** slug -> photo_storage_url, for courses already cached to Supabase Storage. */
-async function fetchCatalogPhotoUrls(env) {
-  try {
-    // PostgREST stops at max_rows (1000). Courses added after that first page,
-    // including California, were left without a photo on Find.
-    const pageSize = 1000;
-    const photoUrls = new Map();
-    for (let from = 0; from < 20_000; from += pageSize) {
-      const res = await fetch(
-        `${env.SUPABASE_URL}/rest/v1/course_catalog?select=slug,photo_storage_url&photo_storage_url=not.is.null&order=slug`,
-        {
-          headers: {
-            ...sbHeaders(env),
-            Range: `${from}-${from + pageSize - 1}`,
-          },
-        },
-      );
-      if (!res.ok) break;
-      const rows = await res.json();
-      if (!Array.isArray(rows) || rows.length === 0) break;
-      for (const row of rows) {
-        if (row.photo_storage_url) photoUrls.set(row.slug, row.photo_storage_url);
-      }
-      if (rows.length < pageSize) break;
-    }
-    return photoUrls;
-  } catch {
-    return new Map();
-  }
-}
-
+/**
+ * Public courses for Find, the poller, and alerts.
+ *
+ * Reads every public row (course_registry_public) or throws. A failed read
+ * serves the last complete list for up to 30 minutes and logs loudly; after
+ * that, or with no list yet, it throws. It never returns a partial list or the
+ * old static courses.json, which is a stale subset of the registry.
+ */
 async function loadCourses(env) {
   if (coursesCache && Date.now() - coursesCacheAt < COURSES_CACHE_MS) {
     return coursesCache;
   }
-
-  if (env.SUPABASE_SERVICE_KEY) {
-    try {
-      const rows = await fetchRegistryCourses(env);
-      if (rows.length > 0) {
-        const photoUrls = await fetchCatalogPhotoUrls(env);
-        const withPhotos = rows.map((r) => {
-          const photoStorageUrl = photoUrls.get(r.slug);
-          return photoStorageUrl
-            ? { ...r, record: { ...r.record, photo_storage_url: photoStorageUrl } }
-            : r;
-        });
-        coursesCache = registryRowsToCourses(withPhotos);
-        coursesCacheAt = Date.now();
-        return coursesCache;
-      }
-    } catch {
-      // fall through to static JSON
-    }
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
+    throw new Error('loadCourses: SUPABASE_URL and SUPABASE_SERVICE_KEY are required');
   }
 
-  const res = await fetch('https://tee-time.io/courses.json');
-  coursesCache = withDerivedState(await res.json());
-  coursesCacheAt = Date.now();
-  return coursesCache;
+  try {
+    const rows = await fetchPublicRegistryRows(env);
+    if (!rows.length) throw new Error('loadCourses: course registry returned no public courses');
+    // TEMPORARY: the landing page on Pages still checks `photo_reference` to
+    // decide whether to show a photo. The view drops that long Google id, so
+    // flag stored photos instead. /place-photo serves by slug and ignores the
+    // value. Remove once the landing page that checks photo_storage_url is live.
+    coursesCache = registryRowsToCourses(rows).map((course) =>
+      course.photo_storage_url && !course.photo_reference ? { ...course, photo_reference: 'stored' } : course,
+    );
+    coursesCacheAt = Date.now();
+    return coursesCache;
+  } catch (err) {
+    const ageMs = coursesCache ? Date.now() - coursesCacheAt : Infinity;
+    if (ageMs < COURSES_STALE_MAX_MS) {
+      console.error(
+        `[courses] registry read failed; serving the list from ${Math.round(ageMs / 1000)}s ago:`,
+        err?.message || err,
+      );
+      return coursesCache;
+    }
+    console.error('[courses] registry read failed and no recent list to serve:', err?.message || err);
+    throw err;
+  }
 }
 
 // ── Normalize helpers (duplicated from app.html for worker context) ──
@@ -2000,13 +1983,23 @@ async function handleScheduled(env) {
 }
 
 async function handlePollWithAlerts(env) {
-  const courses = await loadCourses(env);
-  const ctx = createAlertContext(env, courses);
+  let courses = null;
+  let loadError = null;
+  try {
+    courses = await loadCourses(env);
+  } catch (err) {
+    loadError = err;
+  }
+  const ctx = courses ? createAlertContext(env, courses) : null;
+  // The poller records a failed run when the course list could not be read.
   await handleAvailabilityPoll(env, {
-    loadCourses: async () => courses,
+    loadCourses: async () => {
+      if (loadError) throw loadError;
+      return courses;
+    },
     fetchTimesForCourse,
     normalizeTimesWorker,
-    onPollNotifyEvents: (payload) => notifyOnPollEvents(ctx, payload),
+    onPollNotifyEvents: ctx ? (payload) => notifyOnPollEvents(ctx, payload) : null,
   });
 }
 
@@ -2036,7 +2029,12 @@ async function handleAlertCreateCheck(request, env) {
   const watchId = body.search_watch_id || body.searchWatchId;
   if (!preferenceId && !watchId) return corsResponse({ error: 'missing_preference_id' }, 400);
 
-  const courses = await loadCourses(env);
+  let courses;
+  try {
+    courses = await loadCourses(env);
+  } catch {
+    return corsResponse({ error: 'courses_unavailable' }, 503);
+  }
   const ctx = createAlertContext(env, courses);
 
   if (watchId) {
@@ -2056,17 +2054,8 @@ async function handleAlertCreateCheck(request, env) {
   if (!course) return corsResponse({ error: 'course_not_found' }, 404);
 
   const courseWithSlug = { ...course, slug: slugFromCourseName(course.name) };
-  const todayMt = (() => {
-    const fmt = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Denver',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    const parts = fmt.formatToParts(new Date());
-    const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
-    return `${get('year')}-${get('month')}-${get('day')}`;
-  })();
+  // The course's own date (named todayMt for the notifications API).
+  const todayMt = localParts(courseTimezoneFor(course)).dateYmd;
 
   const dates = evalDatesForPref(pref, todayMt);
   if (!dates.length) return corsResponse({ ok: true, checked: 0, reason: 'no_dates' });
@@ -2169,8 +2158,12 @@ export default {
 
     if (path === '/v1/courses' && request.method === 'GET') {
       return cachedGetResponse(request, 120, async () => {
-        const courses = await loadCourses(env);
-        return corsResponse(courses);
+        try {
+          return corsResponse(await loadCourses(env));
+        } catch {
+          // Not cached (non-200). The landing page falls back to its static copy.
+          return corsResponse({ error: 'courses_unavailable' }, 503);
+        }
       });
     }
 
@@ -2223,8 +2216,18 @@ export default {
     }
 
     if (path.startsWith('/admin/')) {
-      const adminRes = await courseAdmin.handleAdminRequest(request, env, path);
-      if (adminRes) return adminRes;
+      try {
+        const adminRes = await courseAdmin.handleAdminRequest(request, env, path);
+        if (adminRes) return adminRes;
+      } catch (err) {
+        if (err instanceof RegistryReadError) {
+          console.error(`[admin] ${path} stopped: ${err.message}`);
+          // Discovery and import must not run on a partial catalog: they would
+          // treat the missing courses as new and save duplicates.
+          return corsResponse({ error: 'registry_unavailable', detail: err.message }, 503);
+        }
+        throw err;
+      }
       return corsResponse({ error: 'not_found' }, 404);
     }
 

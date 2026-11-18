@@ -14,3 +14,6 @@ data/candidates/
 Thumbs.db
 *.log
 .idea/
+
+# Local backups written by scripts (may hold course records)
+data/backups/
