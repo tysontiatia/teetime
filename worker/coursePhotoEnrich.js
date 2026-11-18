@@ -9,14 +9,20 @@
  * - anything else counts an attempt and waits longer before the next one,
  *   then gives up after MAX_PHOTO_ATTEMPTS;
  * - a key or quota error ends the batch without counting against the course.
+ *
+ * Only public courses get a photo: QA stubs are checked again a day later and
+ * never cost a Google call. The course website's share image (og:image, saved
+ * by the crawler as photo_candidate_url) is tried before any Places lookup.
  */
 
-import { courseNameMatchTokens, courseNamesLikelyDuplicate } from './courseAdmin.js';
+import { courseNameMatchTokens, courseNamesLikelyDuplicate, isPublicRegistryRecord } from './courseAdmin.js';
 
 const BATCH_SIZE = 10;
 export const MAX_PHOTO_ATTEMPTS = 6;
 const RETRY_BASE_MS = 30 * 60 * 1000;
 const STOP_PAUSE_MS = 60 * 60 * 1000;
+const NOT_PUBLIC_PAUSE_MS = 24 * 60 * 60 * 1000;
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 function sbHeaders(env, json = false) {
   const h = { apikey: env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}` };
@@ -69,6 +75,9 @@ export function photoFailurePatch(previousAttempts, result, now = new Date()) {
   }
   if (result === 'stop') {
     return { photo_next_attempt_at: new Date(now.getTime() + STOP_PAUSE_MS).toISOString() };
+  }
+  if (result === 'not_public') {
+    return { photo_next_attempt_at: new Date(now.getTime() + NOT_PUBLIC_PAUSE_MS).toISOString() };
   }
   const attempts = (Number(previousAttempts) || 0) + 1;
   if (attempts >= MAX_PHOTO_ATTEMPTS) {
@@ -266,10 +275,63 @@ async function patchRegistryRecord(env, slug, record) {
  * One copy attempt. Returns { result } where result is
  * copied | none | retry | gone | stop. The caller records failures.
  */
+/** Store an image response for a course and record the stored URL. */
+async function storePhoto(env, slug, photoRes, stamp) {
+  const type = photoRes.headers.get('content-type') || 'image/jpeg';
+  if (!type.startsWith('image/')) return false;
+  const photoBuffer = await photoRes.arrayBuffer();
+  if (photoBuffer.byteLength < 2_000 || photoBuffer.byteLength > MAX_PHOTO_BYTES) return false;
+  const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
+  const storagePath = `${slug}.${ext}`;
+  const uploadRes = await fetch(`${env.SUPABASE_URL}/storage/v1/object/course-photos/${storagePath}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      apikey: env.SUPABASE_SERVICE_KEY,
+      'Content-Type': type,
+      'x-upsert': 'true',
+    },
+    body: photoBuffer,
+  });
+  if (!uploadRes.ok) return false;
+  await patchCatalog(env, slug, {
+    photo_storage_path: storagePath,
+    photo_storage_url: `${env.SUPABASE_URL}/storage/v1/object/public/course-photos/${storagePath}`,
+    photos_fetched_at: stamp,
+    photo_next_attempt_at: null,
+    photo_failed_reason: null,
+  });
+  return true;
+}
+
+/** The course website's share image, saved by the crawler. No Google call. */
+async function tryWebsitePhoto(env, slug, record, stamp) {
+  const url = String(record.photo_candidate_url || '').trim();
+  if (!/^https?:\/\//i.test(url)) return false;
+  let res;
+  try {
+    res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15000), headers: { Accept: 'image/*' } });
+  } catch {
+    res = null;
+  }
+  if (res?.ok && (await storePhoto(env, slug, res, stamp))) return true;
+  // Do not try the same image again; fall through to Places.
+  const { photo_candidate_url: _tried, ...rest } = record;
+  await patchRegistryRecord(env, slug, { ...rest, photo_candidate_failed: url });
+  return false;
+}
+
 async function enrichOne(env, row, { alreadyLookedUp = false } = {}) {
   let record = (await fetchRegistryRecord(env, row.slug)) || {};
   if (!record.name && row.name) record = { ...record, name: row.name };
   const stamp = new Date().toISOString();
+  // QA stubs and hidden courses never cost a Places call.
+  if (!isPublicRegistryRecord(record)) return { result: 'not_public' };
+  if (await tryWebsitePhoto(env, row.slug, record, stamp)) return { result: 'copied' };
+  if (record.photo_candidate_url) {
+    record = { ...record, photo_candidate_failed: record.photo_candidate_url };
+    delete record.photo_candidate_url;
+  }
   let photoRef = String(record.photo_reference || '').trim();
   if (!photoRef && !alreadyLookedUp) {
     if (record.google_place_id) {
@@ -313,30 +375,7 @@ async function enrichOne(env, row, { alreadyLookedUp = false } = {}) {
     }
     return { result };
   }
-  const photoBuffer = await photoRes.arrayBuffer();
-  const type = photoRes.headers.get('content-type') || 'image/jpeg';
-  if (!type.startsWith('image/')) return { result: 'retry' };
-  const ext = type.includes('png') ? 'png' : type.includes('webp') ? 'webp' : 'jpg';
-  const storagePath = `${row.slug}.${ext}`;
-  const uploadRes = await fetch(`${env.SUPABASE_URL}/storage/v1/object/course-photos/${storagePath}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-      apikey: env.SUPABASE_SERVICE_KEY,
-      'Content-Type': type,
-      'x-upsert': 'true',
-    },
-    body: photoBuffer,
-  });
-  if (!uploadRes.ok) return { result: 'retry' };
-
-  await patchCatalog(env, row.slug, {
-    photo_storage_path: storagePath,
-    photo_storage_url: `${env.SUPABASE_URL}/storage/v1/object/public/course-photos/${storagePath}`,
-    photos_fetched_at: stamp,
-    photo_next_attempt_at: null,
-    photo_failed_reason: null,
-  });
+  if (!(await storePhoto(env, row.slug, photoRes, stamp))) return { result: 'retry' };
   return { result: 'copied' };
 }
 
@@ -418,7 +457,9 @@ export async function fillMissingCoursePhotos(env) {
       }
       if (!outcome) outcome = await enrichOne(env, row, { alreadyLookedUp: true });
       await recordOutcome(env, row, outcome);
-      if (outcome.result === 'copied') {
+      if (outcome.result === 'not_public') {
+        counts.waiting += 1;
+      } else if (outcome.result === 'copied') {
         counts.filled += 1;
         filled.push(row.name || row.slug);
       } else if (outcome.result === 'none') {

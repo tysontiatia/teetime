@@ -87,7 +87,26 @@ const SKIP_HOSTS = [
   'goo.gl',
   'maps.apple.com',
   'apple.com',
+  // Course directories from the national index: never a course's own tee sheet.
+  'worldgolf.com',
+  'igolf.com',
+  'golflink.com',
+  'golfadvisor.com',
+  'oobgolf.com',
+  'customscorecards.com',
+  // City code-of-ordinance and document sites. Their "/book" paths are law
+  // books, not tee sheets (Milford, UT linked one from its golf page).
+  'municipalcodeonline.com',
+  'municode.com',
+  'ecode360.com',
+  'amlegal.com',
+  'codepublishing.com',
+  'codelibrary.amlegal.com',
+  'generalcode.com',
 ];
+
+/** Pages that are documents, not tee sheets, whatever host they are on. */
+const NOT_A_TEE_SHEET = /ordinance|municipal[-_ ]?code|code[-_ ]of[-_ ]ordinances|agenda|meeting[-_ ]minutes|\.pdf(?:$|\?)/i;
 
 const BOOKING_TEXT =
   /\b(?:tee\s*-?\s*times?|book(?:ing)?(?:\s+a)?\s+tee\s*-?\s*time|book\s+now|book\s+online|online\s+booking|make\s+a\s+tee\s+time)\b/i;
@@ -140,6 +159,7 @@ export function bookingHostKey(url) {
 
 function skippedHost(url) {
   const host = hostOf(url);
+  if (NOT_A_TEE_SHEET.test(String(url || ''))) return true;
   return SKIP_HOSTS.some((skip) => host === skip || host.endsWith(`.${skip}`));
 }
 
@@ -631,10 +651,33 @@ function fetchedSummary(page, startUrl) {
   };
 }
 
+/**
+ * The page's share image (og:image, then twitter:image) as an absolute URL, or ''.
+ * Logos, icons, and favicons are skipped: they make poor course photos.
+ */
+export function ogImageFromHtml(html, pageUrl) {
+  const flat = String(html || '');
+  const metas = flat.match(/<meta\b[^>]*>/gi) || [];
+  const pick = (names) => {
+    for (const tag of metas) {
+      const key = (attr(tag, 'property') || attr(tag, 'name') || '').toLowerCase();
+      if (!names.includes(key)) continue;
+      const raw = decodeHtml(attr(tag, 'content') || '').trim();
+      const url = absoluteUrl(raw, pageUrl);
+      if (!url || !/^https?:\/\//i.test(url)) continue;
+      if (/logo|icon|favicon|placeholder|default[-_]?share/i.test(new URL(url).pathname)) continue;
+      return url;
+    }
+    return '';
+  };
+  return pick(['og:image:secure_url', 'og:image', 'og:image:url']) || pick(['twitter:image', 'twitter:image:src']);
+}
+
 function mergeFacts(pages) {
-  const facts = { holes: undefined, par: undefined, yardage: undefined, editorial_note: '', phone: '' };
+  const facts = { holes: undefined, par: undefined, yardage: undefined, editorial_note: '', phone: '', og_image: '' };
   for (const page of pages) {
     if (!page?.html || pageUnusable(page)) continue;
+    if (!facts.og_image) facts.og_image = ogImageFromHtml(page.html, page.finalUrl || page.url);
     const next = extractCourseFacts(page.html);
     if (!facts.holes && next.holes) facts.holes = next.holes;
     if (!facts.par && next.par) facts.par = next.par;

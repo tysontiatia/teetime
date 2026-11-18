@@ -1364,7 +1364,7 @@ function getPlatformWarnings(record) {
 
 const IMPORT_BATCH_MAX = 300;
 
-async function fetchExistingCourseIndex(env) {
+export async function fetchExistingCourseIndex(env) {
   // These used to be single unpaged reads, so past 1,000 courses the duplicate
   // check could not see the rest of the catalog. Both now read every row or throw.
   const [regRows, catRows] = await Promise.all([
@@ -1418,7 +1418,7 @@ async function fetchExistingCourseIndex(env) {
   return { bySlug, byPlaceId, list: [...bySlug.values()] };
 }
 
-function findImportDuplicate(index, slug, record) {
+export function findImportDuplicate(index, slug, record) {
   if (index.bySlug.has(slug)) {
     const hit = index.bySlug.get(slug);
     return { reason: 'exists', matched_slug: hit.slug, matched_name: hit.name };
@@ -1439,7 +1439,7 @@ function findImportDuplicate(index, slug, record) {
   return null;
 }
 
-function rememberImportedInIndex(index, slug, record) {
+export function rememberImportedInIndex(index, slug, record) {
   const entry = {
     slug,
     name: record.name || slug,

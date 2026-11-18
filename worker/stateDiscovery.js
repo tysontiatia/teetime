@@ -25,7 +25,7 @@ import { courseTimezoneFor } from './courseTimezone.js';
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-const STATE_NAMES = {
+export const STATE_NAMES = {
   AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
   CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', DC: 'District of Columbia',
   FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois',
@@ -325,6 +325,7 @@ export async function discoverWebsite(website) {
     yardage: facts.yardage,
     editorial_note: facts.editorial_note || '',
     phone_number: facts.phone || '',
+    og_image: facts.og_image || '',
     page_text: crawl.page_text || '',
     pages_fetched: (crawl.fetched || []).map((page) => page.finalUrl || page.url),
   };

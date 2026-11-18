@@ -93,3 +93,11 @@ test('Find writes a finished course and queues one that still needs a person', (
   assert.equal(courseSavePlan({ validity: { action: 'skip' }, import_row: { slug: 'c' } }), null);
   assert.equal(courseSavePlan({ validity: { action: 'review' } }), null);
 });
+
+test('index stubs skip the membership and Google questions but keep the website check', async () => {
+  const { questionsFor } = await import('./courseValidity.js');
+  const index = questionsFor({ source: 'course_index', website: 'https://a.com/', phone_number: '(801) 555-0100', page_text: 'x', google_place_id: '' });
+  assert.deepEqual(Object.keys(index).sort(), ['own_website', 'phone_supported']);
+  const map = questionsFor({ website: 'https://a.com/', google_place_id: 'p1' });
+  assert.ok(map.kind && map.same_place && map.own_website);
+});

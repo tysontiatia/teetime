@@ -82,3 +82,9 @@ test('a campground that only shares the course name does not supply the photo', 
   assert.equal(chosen.name, 'Benbow Golf Course');
   assert.equal(chosen.photo_reference, '');
 });
+
+test('a course that is not public waits a day and never counts an attempt', () => {
+  const now = new Date('2026-11-18T12:00:00Z');
+  const patch = photoFailurePatch(3, 'not_public', now);
+  assert.deepEqual(patch, { photo_next_attempt_at: '2026-11-19T12:00:00.000Z' });
+});

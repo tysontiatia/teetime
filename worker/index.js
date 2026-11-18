@@ -10,6 +10,7 @@ import {
 } from './bookingRange.js';
 import { RegistryReadError, createCourseAdminHandlers, fetchPublicRegistryRows, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
 import { handleCoursePhotoEnrichPoll } from './coursePhotoEnrich.js';
+import { handleCourseIndexCrawl } from './courseIndexCrawl.js';
 import { courseTimezoneFor, localParts } from './courseTimezone.js';
 import {
   MAX_SLUGS_PER_REQUEST,
@@ -2348,6 +2349,11 @@ export default {
     // Copies a stored course photo into Storage. One Google lookup, then it stops.
     if (cron === '*/15 * * * *') {
       ctx.waitUntil(handleCoursePhotoEnrichPoll(env));
+      // New courses from the course index: crawl a few queued clubs for a tee
+      // sheet and save them as hidden QA stubs. Idle unless rows are queued.
+      ctx.waitUntil(
+        handleCourseIndexCrawl(env).catch((err) => console.error('[index-crawl] run failed', err)),
+      );
     }
   },
 };

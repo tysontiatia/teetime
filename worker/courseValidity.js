@@ -12,35 +12,37 @@ function text(value, max = 400) {
   return String(value || '').trim().slice(0, max);
 }
 
-function questionsFor(course) {
-  const questions = {
-    kind: {
-      type: 'choice',
-      instructions: {
-        question: 'What kind of place is this?',
-        focus: 'Use `map_name`, `google_name`, `address`, and `page_text`.',
+export function questionsFor(course) {
+  const questions = {};
+  // Index stubs come with 18Birdies membership (public, municipal, …) already
+  // checked, and have no Google place, so only the website and page checks run.
+  if (course.source === 'course_index') return pageQuestions(course, questions);
+  questions.kind = {
+    type: 'choice',
+    instructions: {
+      question: 'What kind of place is this?',
+      focus: 'Use `map_name`, `google_name`, `address`, and `page_text`.',
+    },
+    criteria: {
+      public_course: {
+        what: 'An outdoor golf course where the public can play',
+        not_for: 'Members-only clubs, simulators, mini golf, or a closed business',
+        examples: ['Municipal 18-hole course', 'Public daily-fee course'],
       },
-      criteria: {
-        public_course: {
-          what: 'An outdoor golf course where the public can play',
-          not_for: 'Members-only clubs, simulators, mini golf, or a closed business',
-          examples: ['Municipal 18-hole course', 'Public daily-fee course'],
-        },
-        private_club: {
-          what: 'A golf club that is members-only',
-          not_for: 'A public course that also offers a membership',
-          examples: ['Private country club', 'Members and guests only'],
-        },
-        not_a_course: {
-          what: 'Not a playable outdoor golf course',
-          not_for: 'A real golf course that also has a range or a restaurant',
-          examples: ['Topgolf', 'Indoor simulator', 'Mini golf', 'Driving range only', 'Hotel'],
-        },
-        closed: {
-          what: 'A golf course that is permanently closed',
-          not_for: 'A course that is open for the season',
-          examples: ['Permanently closed', 'No longer operating'],
-        },
+      private_club: {
+        what: 'A golf club that is members-only',
+        not_for: 'A public course that also offers a membership',
+        examples: ['Private country club', 'Members and guests only'],
+      },
+      not_a_course: {
+        what: 'Not a playable outdoor golf course',
+        not_for: 'A real golf course that also has a range or a restaurant',
+        examples: ['Topgolf', 'Indoor simulator', 'Mini golf', 'Driving range only', 'Hotel'],
+      },
+      closed: {
+        what: 'A golf course that is permanently closed',
+        not_for: 'A course that is open for the season',
+        examples: ['Permanently closed', 'No longer operating'],
       },
     },
   };
@@ -55,6 +57,11 @@ function questionsFor(course) {
       },
     };
   }
+  return pageQuestions(course, questions);
+}
+
+/** Website, phone, layout and description checks against the crawled page. */
+function pageQuestions(course, questions) {
   if (course.website) {
     questions.own_website = {
       type: 'noul',
@@ -252,5 +259,23 @@ export async function applyCourseValidity(course, env) {
     delete next.page_text;
     next.validity = { action: 'review', note: 'Validity check failed, so this course is held.' };
     return next;
+  }
+}
+
+/**
+ * Page checks for a course-index stub: is `website` the course's own site, and
+ * does the page support the phone number. Returns which fields to drop, or
+ * nothing when the check is not configured or fails (the stub still goes to QA).
+ */
+export async function checkIndexStubPage(course, env) {
+  if (!env?.TYPESAFE_API_KEY || !course?.page_text) return { checked: false, drop: [] };
+  try {
+    const answers = await askJev({ ...course, source: 'course_index' }, env.TYPESAFE_API_KEY);
+    const drop = [];
+    if (course.website && typeof answers?.own_website?.noul === 'number' && answers.own_website.noul <= NO) drop.push('website');
+    if (course.phone_number && typeof answers?.phone_supported?.noul === 'number' && answers.phone_supported.noul <= NO) drop.push('phone_number');
+    return { checked: true, drop };
+  } catch {
+    return { checked: false, drop: [] };
   }
 }

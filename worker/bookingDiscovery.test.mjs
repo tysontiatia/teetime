@@ -325,3 +325,12 @@ test('chronogolf widget links resolve to the club page that lists course ids', (
     'https://www.chronogolf.com/club/gold-mountain-golf-club',
   );
 });
+
+test('city code-of-ordinance pages are never taken as a tee sheet', async () => {
+  const { inspectHtml } = await import('./bookingDiscovery.js');
+  const html = '<a href="https://milford.municipalcodeonline.com/book?type=ordinances">Book a tee time</a>' +
+    '<a href="https://www.example-city.gov/golf/ordinance-12.pdf">Book now</a>';
+  const found = inspectHtml(html, 'https://www.milfordcityutah.com/visitors/golf-course');
+  assert.equal(found.hits.length, 0);
+  assert.equal(found.unknowns.length, 0);
+});
