@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AppBackLink } from '../components/AppBackLink';
 import type { Course } from '../types';
-import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { useCourseCatalog, useFullRecords } from '../state/CourseCatalogContext';
 import { formatDateShort, formatTime12h } from '../lib/time';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { buildBookingUrl } from '../lib/bookingUrl';
@@ -88,6 +88,8 @@ export function SharePage() {
   const loc = useLocation();
   const { courses, recordsBySlug } = useCourseCatalog();
   const payload = useMemo(() => decodeHash(loc.hash), [loc.hash]);
+  // Booking links for shared options need each course's full record.
+  useFullRecords(payload?.options?.map((o) => o.courseId ?? '') ?? []);
   const coursesById = useMemo(() => new Map<string, Course>(courses.map((c) => [c.id, c])), [courses]);
   const [copyHint, setCopyHint] = useState<'idle' | 'ok' | 'fail'>('idle');
 

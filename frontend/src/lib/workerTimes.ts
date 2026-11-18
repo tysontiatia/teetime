@@ -1,12 +1,9 @@
 import type { TeeTime } from '../types';
 import type { CourseRecord } from './courseRecord';
-import { chronogolfSlcCourseIds } from './chronogolfSlc';
 import { getWorkerBaseUrl } from './env';
 import type { HolesFilter } from './holesFilter';
-import { normalizeTimesWorker } from './normalizeTimes';
-import { effectivePlatform, teeItUpAlias, workerSupportedPlatform } from './platformRegistry';
+import { effectivePlatform, workerSupportedPlatform } from './platformRegistry';
 import { bookingRelease } from './bookingWindow';
-import { courseTimezone, rawTeeTimeToIsoUtc } from './teeTimeInstant';
 
 type SnapshotAvailabilityResponse = {
   ok: boolean;
@@ -54,8 +51,6 @@ const SNAPSHOT_REVALIDATE_AFTER_MS = 12 * 60 * 1000;
 const TEE_TIMES_BATCH_TIMEOUT_MS = 35_000;
 /** Abort a single worker request if it stalls, so it can't hold a concurrency slot forever. */
 const REQUEST_TIMEOUT_MS = 15_000;
-/** GolfPay upstream often takes 15–25s; worker allows 30s — client must wait longer. */
-const GOLFPAY_REQUEST_TIMEOUT_MS = 35_000;
 /** Max slugs per /v1/tee-times request (matches worker TEE_TIMES_BATCH_MAX_IDS). */
 const TEE_TIMES_BATCH_CHUNK = 20;
 
@@ -71,41 +66,6 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timer);
   }
-}
-
-function parsePrice(s: string | null): number | undefined {
-  if (!s) return undefined;
-  const n = parseInt(s.replace(/[^0-9]/g, ''), 10);
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function rowsToTeeTimes(
-  courseSlug: string,
-  dateYmd: string,
-  rows: ReturnType<typeof normalizeTimesWorker>,
-  holesFilter: 9 | 18,
-  timeZone?: string | null,
-): TeeTime[] {
-  const tz = courseTimezone(timeZone);
-  const out: TeeTime[] = [];
-  let i = 0;
-  for (const row of rows) {
-    const h = (row.holes === 9 ? 9 : 18) as 9 | 18;
-    if (h !== holesFilter) continue;
-    if (!row.rawTime) continue;
-    if (row.spots != null && row.spots <= 0) continue;
-    const iso = rawTeeTimeToIsoUtc(dateYmd, row.rawTime, tz);
-    out.push({
-      id: `${courseSlug}-${dateYmd}-${h}-${i++}-${row.rawTime}`,
-      courseId: courseSlug,
-      startsAt: iso,
-      price: parsePrice(row.price),
-      spots: row.spots ?? undefined,
-      holes: h,
-    });
-  }
-  out.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  return out;
 }
 
 /** Drop slots that have already started (wall clock vs instant is encoded in ISO). */
@@ -124,8 +84,6 @@ export type TeeTimeFetchResult = {
   /** Release clock from that same sheet, when the vendor included one. */
   bookingOpensTime?: string;
 };
-
-const emptyOk: TeeTimeFetchResult = { times: [], ok: true };
 
 function snapshotToTeeTimes(
   courseSlug: string,
@@ -152,251 +110,7 @@ function snapshotToTeeTimes(
   return excludePastTeeTimes(out);
 }
 
-async function fetchTeeTimesLive(
-  course: CourseRecord,
-  courseSlug: string,
-  dateYmd: string,
-  holes: 9 | 18,
-  players: 1 | 2 | 3 | 4
-): Promise<TeeTimeFetchResult> {
-  const base = getWorkerBaseUrl();
-  let url: URL;
 
-  switch (effectivePlatform(course)) {
-    case 'foreup': {
-      if (!course.schedule_id) return emptyOk;
-      url = new URL(`${base}/foreup`);
-      url.searchParams.set('schedule_id', course.schedule_id);
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('holes', String(holes));
-      if (course.booking_class_id) url.searchParams.set('booking_class_id', course.booking_class_id);
-      const facilityMatch = String(course.booking_url || '').match(
-        /\/booking\/(?:index\/)?(\d+)(?:\/(\d+))?/i,
-      );
-      if (facilityMatch?.[1]) url.searchParams.set('facility_id', facilityMatch[1]);
-      break;
-    }
-    case 'chronogolf_slc': {
-      const { club_id, affiliation_type_id } = course;
-      const courseIds = chronogolfSlcCourseIds(course);
-      if (!club_id || !courseIds.length || !affiliation_type_id) return emptyOk;
-      url = new URL(`${base}/chronogolf-slc`);
-      url.searchParams.set('club_id', club_id);
-      url.searchParams.set('course_id', courseIds.join(','));
-      url.searchParams.set('affiliation_type_id', affiliation_type_id);
-      url.searchParams.set('nb_holes', String(holes));
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('players', String(players));
-      break;
-    }
-    case 'membersports': {
-      if (!course.golf_club_id || !course.golf_course_id) return emptyOk;
-      url = new URL(`${base}/membersports`);
-      url.searchParams.set('golf_club_id', course.golf_club_id);
-      url.searchParams.set('golf_course_id', course.golf_course_id);
-      url.searchParams.set('date', dateYmd);
-      break;
-    }
-    case 'chronogolf': {
-      if (!course.course_ids?.length) return emptyOk;
-      url = new URL(`${base}/chronogolf`);
-      url.searchParams.set('course_ids', course.course_ids.join(','));
-      url.searchParams.set('date', dateYmd);
-      break;
-    }
-    case 'teeitup': {
-      if (!course.facility_id) return emptyOk;
-      url = new URL(`${base}/teeitup`);
-      url.searchParams.set('facility_id', course.facility_id);
-      url.searchParams.set('alias', teeItUpAlias(course));
-      url.searchParams.set('date', dateYmd);
-      break;
-    }
-    case 'trutee': {
-      if (!course.trutee_course_id) return emptyOk;
-      url = new URL(`${base}/trutee`);
-      url.searchParams.set('course_id', course.trutee_course_id);
-      url.searchParams.set('date', dateYmd);
-      break;
-    }
-    case 'golfpay': {
-      const gpId =
-        (course.golfpay_course_id && String(course.golfpay_course_id).trim()) ||
-        String(course.booking_url_template || '').match(/[?&]_gshcid=(\d+)/i)?.[1] ||
-        String(course.booking_url || '').match(/[?&]_gshcid=(\d+)/i)?.[1] ||
-        '';
-      if (!gpId) return emptyOk;
-      url = new URL(`${base}/golfpay`);
-      url.searchParams.set('course_id', gpId);
-      url.searchParams.set('date', dateYmd);
-      break;
-    }
-    case 'quick18': {
-      let host: string;
-      try {
-        host = new URL(String(course.booking_url || '').trim()).hostname.toLowerCase();
-      } catch {
-        return emptyOk;
-      }
-      const tenant = host.match(/^([a-z0-9-]+)\.(quick18|play18)\.com$/i)?.[1] || '';
-      if (!tenant) return emptyOk;
-      url = new URL(`${base}/quick18`);
-      url.searchParams.set('tenant', tenant);
-      url.searchParams.set('host', host);
-      url.searchParams.set('date', dateYmd);
-      if (course.quick18_course_id) url.searchParams.set('course_id', String(course.quick18_course_id));
-      break;
-    }
-    case 'golfwithaccess': {
-      const courseId = String(course.golfwithaccess_course_id || '').trim();
-      let slug = String(course.golfwithaccess_slug || '').trim();
-      if (!slug) {
-        try {
-          const path = new URL(String(course.booking_url || '').trim()).pathname;
-          slug = path.match(/\/course\/([a-z0-9-]+)(?:\/|$)/i)?.[1] || '';
-        } catch {
-          slug = '';
-        }
-      }
-      if (!courseId && !slug) return emptyOk;
-      url = new URL(`${base}/golfwithaccess`);
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('players', String(players));
-      if (courseId) url.searchParams.set('course_id', courseId);
-      if (slug) url.searchParams.set('slug', slug);
-      break;
-    }
-    case 'clubcaddie': {
-      let host: string;
-      try {
-        host = new URL(String(course.booking_url || '').trim()).hostname.toLowerCase();
-      } catch {
-        return emptyOk;
-      }
-      if (!/^apimanager-[a-z0-9-]+\.clubcaddie\.com$/i.test(host)) return emptyOk;
-      const apiKey =
-        String(course.clubcaddie_apikey || '').trim() ||
-        (() => {
-          try {
-            return new URL(String(course.booking_url || '').trim()).pathname.match(
-              /\/webapi\/view\/([a-z0-9]+)(?:\/|$)/i,
-            )?.[1] || '';
-          } catch {
-            return '';
-          }
-        })();
-      if (!apiKey) return emptyOk;
-      url = new URL(`${base}/clubcaddie`);
-      url.searchParams.set('host', host);
-      url.searchParams.set('apikey', apiKey);
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('players', String(players));
-      if (course.clubcaddie_course_id) url.searchParams.set('course_id', String(course.clubcaddie_course_id));
-      break;
-    }
-    case 'teesnap': {
-      let host: string;
-      try {
-        host = new URL(String(course.booking_url || '').trim()).hostname.toLowerCase();
-      } catch {
-        return emptyOk;
-      }
-      const tenant =
-        String(course.teesnap_tenant || '').trim() || host.match(/^([a-z0-9-]+)\.teesnap\.net$/i)?.[1] || '';
-      if (!tenant) return emptyOk;
-      url = new URL(`${base}/teesnap`);
-      url.searchParams.set('tenant', tenant);
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('players', String(players));
-      if (course.teesnap_course_id) url.searchParams.set('course_id', String(course.teesnap_course_id));
-      break;
-    }
-    case 'golfrev': {
-      let courseId = String(course.golfrev_course_id || '').trim();
-      let htc = String(course.golfrev_htc || '').trim();
-      if (!courseId || !htc) {
-        try {
-          const u = new URL(String(course.booking_url || '').trim());
-          if (!courseId) courseId = u.searchParams.get('courseid') || u.searchParams.get('courseId') || '';
-          if (!htc) htc = u.searchParams.get('htc') || '';
-        } catch {
-          /* keep empty */
-        }
-      }
-      if (!courseId || !htc) return emptyOk;
-      url = new URL(`${base}/golfrev`);
-      url.searchParams.set('date', dateYmd);
-      url.searchParams.set('course_id', courseId);
-      url.searchParams.set('htc', htc);
-      break;
-    }
-    default:
-      return emptyOk;
-  }
-
-  try {
-    const timeoutMs =
-      effectivePlatform(course) === 'golfpay' ? GOLFPAY_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
-    const res = await fetchWithTimeout(url.toString(), { method: 'GET' }, timeoutMs);
-    if (!res.ok) return { times: [], ok: false, rateLimited: res.status === 429 };
-    let data: unknown;
-    try {
-      data = await res.json();
-    } catch {
-      return { times: [], ok: false };
-    }
-    // Worker proxies often return HTTP 200 with `{ error, status: 429 }` on upstream
-    // rate limits. Treating that as ok+[] paints a fake empty sheet and wipes Find.
-    const payloadErr = workerProxyError(data);
-    if (payloadErr?.bookingWindowDays) {
-      return {
-        times: [],
-        ok: true,
-        source: 'live',
-        bookingWindowDays: payloadErr.bookingWindowDays,
-        bookingOpensTime: payloadErr.bookingOpensTime,
-      };
-    }
-    if (payloadErr) {
-      return {
-        times: [],
-        ok: false,
-        rateLimited: payloadErr.rateLimited,
-      };
-    }
-    let rows = normalizeTimesWorker(course, data, String(holes));
-    // Chronogolf SLC capacity is applied upstream via affiliation_type_ids[] count;
-    // the payload has no spot field — stamp the requested size so UI filters work.
-    if (course.platform === 'chronogolf_slc') {
-      rows = rows.map((row) => ({ ...row, spots: row.spots ?? players }));
-    }
-    const times = excludePastTeeTimes(
-      rowsToTeeTimes(courseSlug, dateYmd, rows, holes, course.timezone),
-    );
-    return { times, ok: true, source: 'live' };
-  } catch {
-    return { times: [], ok: false };
-  }
-}
-
-/** Worker route error body (HTTP may still be 200). */
-function workerProxyError(data: unknown): { rateLimited: boolean; bookingWindowDays?: number; bookingOpensTime?: string } | null {
-  if (!data || typeof data !== 'object') return null;
-  const err = (data as { error?: unknown }).error;
-  if (err == null || err === false || err === '') return null;
-  if (err === 'booking_range') {
-    const days = Number((data as { booking_window_days?: unknown }).booking_window_days);
-    const opens = String((data as { booking_opens_time?: unknown }).booking_opens_time || '').trim();
-    if (Number.isFinite(days) && days >= 1) {
-      return { rateLimited: false, bookingWindowDays: days, bookingOpensTime: opens || undefined };
-    }
-  }
-  const status = Number((data as { status?: unknown }).status);
-  const msg = String(err);
-  return {
-    rateLimited: status === 429 || /429|rate.?limit/i.test(msg),
-  };
-}
 
 function mtNowParts(nowMs: number = Date.now()): { dateYmd: string; hour: number } {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -503,6 +217,9 @@ type BatchSlugSnapshot = {
   live_failed?: boolean;
   /** Worker skipped or timed out live-fill — do not treat empty as sold-out. */
   needs_live?: boolean;
+  /** The sheet said this date is past its N-day booking window. */
+  booking_window_days?: number;
+  booking_opens_time?: string;
 };
 
 type BatchTeeTimesResponse = {
@@ -526,6 +243,8 @@ type BatchRow = SnapshotAvailabilityResponse & {
   batchSource?: 'snapshot' | 'live';
   live_failed?: boolean;
   needs_live?: boolean;
+  bookingWindowDays?: number;
+  bookingOpensTime?: string;
 };
 
 async function fetchTeeTimesBatchFromSnapshot(
@@ -581,6 +300,9 @@ async function fetchTeeTimesBatchFromSnapshot(
           live_failed: row.live_failed === true,
           needs_live: row.needs_live === true,
         };
+        const days = Number(row.booking_window_days);
+        if (Number.isFinite(days) && days >= 1) parsed.bookingWindowDays = days;
+        if (row.booking_opens_time) parsed.bookingOpensTime = String(row.booking_opens_time);
         chunkMap.set(slug, parsed);
         out.set(slug, parsed);
       }
@@ -706,25 +428,26 @@ export type CourseTimesUpdate = {
   bookingOpensTime?: string;
 };
 
-/** Retry transient transport failures (network resets, ERR_INSUFFICIENT_RESOURCES, timeouts). */
-const MAX_FETCH_ATTEMPTS = 3;
-/** Chronogolf SLC 429s under Find load — retry with backoff instead of giving up. */
-const MAX_RATE_LIMIT_ATTEMPTS = 4;
 
 /** Platforms whose upstream is routinely multi-second — fetch last; don't thrash retries. */
 function isSlowLivePlatform(platform: string | undefined): boolean {
   return platform === 'golfpay';
 }
 
-function isRateLimitSensitivePlatform(platform: string | undefined): boolean {
-  return platform === 'chronogolf_slc' || platform === 'chronogolf';
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Live vendor only (skip snapshot) — used after a batch snapshot miss/stale. */
+/**
+ * A live read of one course, done by the Worker: GET /v1/tee-times?ids=slug&fresh=1.
+ *
+ * This used to call the vendor proxies from the browser with the course's
+ * vendor ids, so every visitor downloaded every course's ids. The Worker
+ * resolves them from its own copy of the catalog; the browser only sends the
+ * slug. `record` is kept for the platform (retry budget) and callers' types.
+ */
 async function fetchTeeTimesLiveWithRetry(
   record: CourseRecord,
   slug: string,
@@ -732,33 +455,23 @@ async function fetchTeeTimesLiveWithRetry(
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
 ): Promise<TeeTimeFetchResult> {
-  const maxAttempts = isSlowLivePlatform(record.platform) ? 1 : MAX_FETCH_ATTEMPTS;
+  const maxAttempts = isSlowLivePlatform(record.platform) ? 1 : 2;
   let last: TeeTimeFetchResult = { times: [], ok: false };
-  let rateLimitTries = 0;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      last = await fetchTeeTimesLive(record, slug, dateYmd, holes, players);
-    } catch {
-      last = { times: [], ok: false };
+    const row = (await fetchTeeTimesBatchFromSnapshot([slug], dateYmd, holes, players, { fresh: true })).get(slug);
+    if (row && row.batchSource === 'live' && !row.live_failed && Array.isArray(row.times)) {
+      return {
+        times: snapshotToTeeTimes(slug, dateYmd, row.times),
+        ok: true,
+        source: 'live',
+        bookingWindowDays: row.bookingWindowDays,
+        bookingOpensTime: row.bookingOpensTime,
+      };
     }
-    if (last.ok) return last;
-    if (last.rateLimited) {
-      rateLimitTries += 1;
-      if (
-        !isRateLimitSensitivePlatform(record.platform) ||
-        rateLimitTries >= MAX_RATE_LIMIT_ATTEMPTS
-      ) {
-        return last;
-      }
-      // Honor upstream rate limit with jittered backoff, then retry the same attempt slot.
-      await sleep(400 * 2 ** (rateLimitTries - 1) + Math.random() * 300);
-      attempt -= 1;
-      continue;
+    if (row && (row.times?.length ?? 0) > 0) {
+      last = { times: snapshotToTeeTimes(slug, dateYmd, row.times!), ok: false, source: 'snapshot' };
     }
-    // Backoff with jitter so transient-error retries don't stampede the same origin at once.
-    if (attempt < maxAttempts - 1) {
-      await sleep(250 * 2 ** attempt + Math.random() * 200);
-    }
+    if (attempt < maxAttempts - 1) await sleep(400 + Math.random() * 300);
   }
   return last;
 }

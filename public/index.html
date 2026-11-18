@@ -1708,6 +1708,21 @@
       );
     }
 
+    /** Name and photo for just the courses in the feed (the page no longer loads every course). */
+    function fetchFeedCourses(items) {
+      const slugs = [...new Set(items.map(function (item) { return item.course_slug; }).filter(Boolean))].slice(0, 50);
+      if (!slugs.length) return Promise.resolve({});
+      return fetch(WORKER_URL + '/v1/courses?slugs=' + encodeURIComponent(slugs.join(',')))
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) {
+          const bySlug = {};
+          (Array.isArray(rows) ? rows : []).forEach(function (c) { bySlug[slugFromName(c.name)] = c; });
+          return bySlug;
+        })
+        .catch(function () { return {}; });
+    }
+
+    /** `coursesBySlug` is null when only /v1/coverage was loaded; the feed's courses are fetched then. */
     function initLiveActivity(coursesBySlug, courseCount) {
       const section = document.getElementById('live-activity');
       if (!section) return;
@@ -1716,6 +1731,9 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
           const items = data && Array.isArray(data.items) ? data.items : [];
+          if (items.length && !coursesBySlug) {
+            return fetchFeedCourses(items).then(function (bySlug) { showLiveActivityFeed(items, bySlug); });
+          }
           if (items.length) {
             showLiveActivityFeed(items, coursesBySlug);
           } else {
@@ -1862,19 +1880,22 @@
     }
 
     function setCoverage(courses) {
-      const list = document.getElementById('statesList');
-      const lede = document.getElementById('statesLede');
       if (!Array.isArray(courses) || courses.length === 0) return;
-
       const counts = new Map();
       courses.forEach(function (c) {
         const st = stateOf(c);
         if (st) counts.set(st, (counts.get(st) || 0) + 1);
       });
-
-      const ranked = [...counts.entries()].sort(function (a, b) {
+      paintCoverage([...counts.entries()].sort(function (a, b) {
         return b[1] - a[1] || a[0].localeCompare(b[0]);
-      });
+      }));
+    }
+
+    /** `ranked` is [[state, courseCount], …], most courses first (from /v1/coverage or setCoverage). */
+    function paintCoverage(ranked) {
+      const list = document.getElementById('statesList');
+      const lede = document.getElementById('statesLede');
+      if (!Array.isArray(ranked) || ranked.length === 0) return;
       // Drop one-off imports and bad geocodes so they never reach marketing copy.
       let live = ranked.filter(function (e) { return e[1] >= LIVE_MARKET_MIN_COURSES; });
       if (live.length === 0) live = ranked.slice(0, 1);
@@ -1945,6 +1966,21 @@
     }
 
     function initCourses() {
+      // Coverage counts and the hero photo come from /v1/coverage (a few hundred
+      // bytes); feed cards fetch only their own courses. Before that endpoint is
+      // live, or if it fails, fall back to the full list as before.
+      fetch(WORKER_URL + '/v1/coverage')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('coverage')); })
+        .then(function (coverage) {
+          if (!coverage || !Array.isArray(coverage.states)) throw new Error('coverage');
+          paintCoverage(coverage.states.map(function (s) { return [s.state, s.courses]; }));
+          if (coverage.hero) setHeroWash([coverage.hero]);
+          initLiveActivity(null, coverage.total_courses || 0);
+        })
+        .catch(initCoursesFromFullList);
+    }
+
+    function initCoursesFromFullList() {
       // Prefer live registry (same source as /app/) so stored photos (photo_storage_url) stay current.
       // Fall back to static /courses.json if the worker is unreachable.
       fetch(WORKER_URL + '/v1/courses')

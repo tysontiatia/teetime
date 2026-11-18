@@ -370,3 +370,33 @@ test('countPeekDays keeps the next day that fits players and time of day', () =>
   );
   assert.deepEqual(days, [{ date: '2026-11-07', count: 2 }]);
 });
+
+test('a sheet past its booking window comes back as a confirmed empty day with the window', async () => {
+  const { liveFillTeeTimesBatch } = await import('./availabilityRead.js');
+  const by_slug = {};
+  const deps = {
+    loadCourses: async () => [{ slug: 'c', name: 'C', platform: 'foreup', timezone: 'America/Denver' }],
+    fetchTimesForCourse: async () => ({ error: 'booking_range', booking_window_days: 14, booking_opens_time: '07:00' }),
+    normalizeTimesWorker: () => [],
+  };
+  const result = await liveFillTeeTimesBatch(by_slug, ['c'], '2026-12-28', 18, 2, deps, { forceFresh: true });
+  assert.deepEqual(result, { filled: 1, failed: 0 });
+  assert.equal(by_slug.c.source, 'live');
+  assert.equal(by_slug.c.live_failed, false);
+  assert.deepEqual(by_slug.c.times, []);
+  assert.equal(by_slug.c.booking_window_days, 14);
+  assert.equal(by_slug.c.booking_opens_time, '07:00');
+});
+
+test('any other vendor error is still a failed fill', async () => {
+  const { liveFillTeeTimesBatch } = await import('./availabilityRead.js');
+  const by_slug = {};
+  const deps = {
+    loadCourses: async () => [{ slug: 'c', name: 'C', platform: 'foreup' }],
+    fetchTimesForCourse: async () => ({ error: 'upstream_error' }),
+    normalizeTimesWorker: () => [],
+  };
+  const result = await liveFillTeeTimesBatch(by_slug, ['c'], '2026-12-28', 18, 2, deps, { forceFresh: true });
+  assert.deepEqual(result, { filled: 0, failed: 1 });
+  assert.equal(by_slug.c.live_failed, true);
+});

@@ -26,7 +26,7 @@ import {
   ymdInTimeZone,
 } from '../lib/time';
 import { useAuth } from '../state/AuthContext';
-import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { useCourseCatalog, useFullRecords } from '../state/CourseCatalogContext';
 import type { TeeTime, TimeOfDayPreset } from '../types';
 import { CourseHighlights } from './CourseHighlights';
 import { buildCourseHighlights, courseAboutNotes } from './coursePlay';
@@ -97,12 +97,16 @@ export function StayCourse() {
   const locationRef = useRef(location);
   locationRef.current = location;
   const { user } = useAuth();
-  const { courses, recordsBySlug, loading: catalogLoading } = useCourseCatalog();
+  const { courses, indexBySlug, loading: catalogLoading } = useCourseCatalog();
   const course = useMemo(
     () => courses.find((c) => c.id === courseId) ?? null,
     [courses, courseId],
   );
-  const record = recordsBySlug.get(courseId);
+  // Details and deep links read the full record; tee times only need the index
+  // row (platform, holes) and go through /v1/tee-times, which resolves vendor ids.
+  const fullRecords = useFullRecords(courseId ? [courseId] : []);
+  const timesRecord = indexBySlug.get(courseId);
+  const record = fullRecords.bySlug.get(courseId) ?? timesRecord;
   const holesLocked = record?.holes === 9;
   const [playDate, setPlayDate] = useState(() => clampDateToTodayOrLater(params.get('date') || defaultFindDateYmd()));
   const [party, setParty] = useState<1 | 2 | 3 | 4>(() => clampPlayers(Number(params.get('players') || 1)));
@@ -231,7 +235,7 @@ export function StayCourse() {
       setLoadingTimes(Boolean(courseId));
       return;
     }
-    if (!record || resolveCourseBookingMode(record) !== 'live') {
+    if (!timesRecord || resolveCourseBookingMode(timesRecord) !== 'live') {
       setRawTimes([]);
       setFetchFailed(false);
       setLoadingTimes(false);
@@ -249,12 +253,12 @@ export function StayCourse() {
     // Same single-course path as the previous course page: fresh=1 so the worker
     // live-fills this course in one request. The Find hook skips that and then
     // makes a second browser live call when the snapshot is too old to trust.
-    const sheetHoles = record.holes === 9 && holes === 18 ? 9 : holes;
+    const sheetHoles = timesRecord.holes === 9 && holes === 18 ? 9 : holes;
     // Defer so Strict Mode's mount→cleanup→mount only starts one vendor request.
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const { times, ok } = await fetchTeeTimesForCourse(record, courseId, date, sheetHoles, players);
+          const { times, ok } = await fetchTeeTimesForCourse(timesRecord, courseId, date, sheetHoles, players);
           if (cancelled) return;
           if (!ok && times.length === 0 && hasTimesRef.current) return;
           setRawTimes(times);
@@ -275,7 +279,7 @@ export function StayCourse() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [catalogLoading, courseId, record, date, holes, players, refreshNonce]);
+  }, [catalogLoading, courseId, timesRecord, date, holes, players, refreshNonce]);
 
   useEffect(() => {
     const onVis = () => {

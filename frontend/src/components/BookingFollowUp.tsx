@@ -9,12 +9,14 @@ import {
   onBookingTabVisible,
   subscribeBookingFollowUp,
 } from '../lib/bookingFollowUp';
-import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { useCourseCatalog, useFullRecords } from '../state/CourseCatalogContext';
 import { CoursePhoto } from './CoursePhoto';
 
 export function BookingFollowUp() {
   const prompt = useSyncExternalStore(subscribeBookingFollowUp, getBookingFollowUp, getBookingFollowUp);
   const { recordsBySlug } = useCourseCatalog();
+  // Booking deep links need the course's full record; this loads it.
+  useFullRecords(prompt?.courseId ? [prompt.courseId] : []);
   const titleId = useId();
   const [thanks, setThanks] = useState(false);
   useBodyScrollLock(Boolean(prompt));

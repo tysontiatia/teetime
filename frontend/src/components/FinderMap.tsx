@@ -13,6 +13,7 @@ import { buildBookingUrl } from '../lib/bookingUrl';
 import { liveTimesEmptyBadge } from '../lib/liveTimesEmpty';
 import { bookingRelease } from '../lib/bookingWindow';
 import type { HolesFilter } from '../lib/holesFilter';
+import { useFullRecords } from '../state/CourseCatalogContext';
 
 type PinTone = 'price' | 'open' | 'checking' | 'sold' | 'quiet';
 
@@ -417,6 +418,8 @@ export function FinderMap({
   const searchKey = `${anchor.lat.toFixed(3)},${anchor.lng.toFixed(3)}`;
   const located = locatedCourses(courses);
   const selected = located.find((course) => course.id === selectedId) ?? null;
+  // Phone and website for the selected course come from its full record.
+  useFullRecords(selected ? [selected.id] : []);
   const selectedTimes = selected ? (timesByCourse.get(selected.id) ?? []) : [];
   const place = selected ? formatCityState(selected.city, selected.state) : '';
   const selectedCard = selected

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchRecentOpenings, type FeedItem } from '../lib/feedApi';
-import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { useCourseCatalog, useFullRecords } from '../state/CourseCatalogContext';
 import { useOpeningsPreview } from '../state/OpeningsPreviewContext';
 import { FeedOpeningRow } from '../components/FeedOpeningRow';
 import { buildFeedScope, feedScopeLabel, filterFeedItems } from '../lib/feedScope';
@@ -35,6 +35,8 @@ export function FeedPage() {
 
   const [minPlayers, setMinPlayers] = useState<PlayersFilter>(urlPlayers);
   const [items, setItems] = useState<FeedItem[]>([]);
+  // Booking links on feed cards need each course's full record.
+  useFullRecords(items.map((item) => item.course_slug));
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);

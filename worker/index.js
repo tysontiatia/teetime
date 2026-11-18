@@ -11,6 +11,13 @@ import {
 import { RegistryReadError, createCourseAdminHandlers, fetchPublicRegistryRows, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
 import { handleCoursePhotoEnrichPoll } from './coursePhotoEnrich.js';
 import { courseTimezoneFor, localParts } from './courseTimezone.js';
+import {
+  MAX_SLUGS_PER_REQUEST,
+  coverageFromCourses,
+  indexCourse,
+  parseSlugList,
+  publicCourse,
+} from './publicCourses.js';
 import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
 import {
   buildQuick18BookingUrl,
@@ -2156,14 +2163,33 @@ export default {
       return corsResponse({ points });
     }
 
-    if (path === '/v1/courses' && request.method === 'GET') {
+    if (request.method === 'GET' && (path === '/v1/courses' || path === '/v1/coverage' || path.startsWith('/v1/courses/'))) {
+      // Errors are not cached (non-200). The landing page falls back to its static copy.
       return cachedGetResponse(request, 120, async () => {
+        let courses;
         try {
-          return corsResponse(await loadCourses(env));
+          courses = await loadCourses(env);
         } catch {
-          // Not cached (non-200). The landing page falls back to its static copy.
           return corsResponse({ error: 'courses_unavailable' }, 503);
         }
+        if (path === '/v1/coverage') return corsResponse(coverageFromCourses(courses));
+        if (path === '/v1/courses/index') return corsResponse(courses.map(indexCourse));
+        if (path === '/v1/courses') {
+          const wanted = parseSlugList(url.searchParams.get('slugs'));
+          if (url.searchParams.has('slugs')) {
+            if (wanted.length > MAX_SLUGS_PER_REQUEST) {
+              return corsResponse({ error: 'too_many_slugs', max: MAX_SLUGS_PER_REQUEST }, 400);
+            }
+            const want = new Set(wanted);
+            return corsResponse(courses.filter((c) => want.has(c.slug)).map(publicCourse));
+          }
+          // Every full public record. Kept for the deployed site; new pages use the index.
+          return corsResponse(courses.map(publicCourse));
+        }
+        const slug = decodeURIComponent(path.slice('/v1/courses/'.length)).toLowerCase();
+        const course = parseSlugList(slug).length === 1 ? courses.find((c) => c.slug === slug) : null;
+        if (!course) return corsResponse({ error: 'course_not_found' }, 404);
+        return corsResponse(publicCourse(course));
       });
     }
 

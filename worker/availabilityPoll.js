@@ -460,12 +460,15 @@ async function loadExistingSlots(env, course_slug, play_date) {
 
 async function bulkInsert(env, table, rows, { onConflict } = {}) {
   if (!rows.length) return true;
-  const url = onConflict
-    ? `${env.SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`
-    : `${env.SUPABASE_URL}/rest/v1/${table}`;
+  // Rows can carry different keys (a price_changed event adds old/new price).
+  // PostgREST rejects a bulk insert whose objects differ (PGRST102) unless it is
+  // told the columns; then missing keys take the column default.
+  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))].join(',');
+  const query = [onConflict ? `on_conflict=${onConflict}` : '', `columns=${columns}`].filter(Boolean).join('&');
+  const url = `${env.SUPABASE_URL}/rest/v1/${table}?${query}`;
   const prefer = onConflict
-    ? 'resolution=merge-duplicates,return=minimal'
-    : 'return=minimal';
+    ? 'resolution=merge-duplicates,missing=default,return=minimal'
+    : 'missing=default,return=minimal';
   for (const part of chunk(rows, WRITE_CHUNK)) {
     const res = await fetch(url, {
       method: 'POST',

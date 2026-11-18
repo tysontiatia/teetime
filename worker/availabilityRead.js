@@ -689,7 +689,7 @@ function markNeedsLive(by_slug, slug) {
   };
 }
 
-async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps, options = {}) {
+export async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps, options = {}) {
   const forceFresh = options.forceFresh === true;
   const nowMs = Date.now();
   const need = slugs.filter((slug) =>
@@ -744,6 +744,24 @@ async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, 
         deps.fetchTimesForCourse(course, play_date, String(holes), String(players)),
         timeoutMs,
       );
+      // The sheet answered: this date is past its booking window. That is a
+      // confirmed empty day, plus when booking opens, not a failed fetch.
+      if (data && typeof data === 'object' && data.error === 'booking_range') {
+        const days = Number(data.booking_window_days);
+        by_slug[slug] = {
+          has_poll_coverage: true,
+          spots_known: true,
+          last_polled_at: new Date().toISOString(),
+          times: [],
+          source: 'live',
+          live_failed: false,
+          needs_live: false,
+          ...(Number.isFinite(days) && days >= 1 ? { booking_window_days: days } : {}),
+          ...(data.booking_opens_time ? { booking_opens_time: String(data.booking_opens_time) } : {}),
+        };
+        filled++;
+        return;
+      }
       if (data == null || (typeof data === 'object' && data.error)) {
         failed++;
         by_slug[slug] = { ...by_slug[slug], live_failed: true, needs_live: true };

@@ -21,7 +21,7 @@ import {
 import { getOrCreateVoterKey } from '../lib/voterKey';
 import { formatDateShort, formatTime12h } from '../lib/time';
 import { buildBookingUrl } from '../lib/bookingUrl';
-import { useCourseCatalog } from '../state/CourseCatalogContext';
+import { useCourseCatalog, useFullRecords } from '../state/CourseCatalogContext';
 import { copyTextToClipboard } from '../lib/clipboard';
 import { absoluteRoundUrl } from '../lib/shareUrl';
 import { captureEvent } from '../lib/analytics';
@@ -109,6 +109,8 @@ export function RoundPage() {
   const [playDate, setPlayDate] = useState<string | null>(null);
   const [hostPublicName, setHostPublicName] = useState<string | null>(null);
   const [options, setOptions] = useState<DbRoundOption[]>([]);
+  // Booking links for each option need the course's full record.
+  useFullRecords(options.map((o) => o.course_id ?? ''));
   const [votes, setVotes] = useState<DbRoundVote[]>([]);
   const [voters, setVoters] = useState<DbRoundVoter[]>([]);
   const [voteBusy, setVoteBusy] = useState<string | null>(null);
