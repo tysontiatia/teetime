@@ -11,6 +11,7 @@ import {
 import { RegistryReadError, createCourseAdminHandlers, fetchPublicRegistryRows, registryRowsToCourses, slugFromCourseName } from './courseAdmin.js';
 import { handleCoursePhotoEnrichPoll } from './coursePhotoEnrich.js';
 import { handleCourseIndexCrawl } from './courseIndexCrawl.js';
+import { handlePlatformHealth } from './platformHealth.js';
 import { courseTimezoneFor, localParts } from './courseTimezone.js';
 import {
   MAX_SLUGS_PER_REQUEST,
@@ -2353,6 +2354,12 @@ export default {
       // sheet and save them as hidden QA stubs. Idle unless rows are queued.
       ctx.waitUntil(
         handleCourseIndexCrawl(env).catch((err) => console.error('[index-crawl] run failed', err)),
+      );
+      // Once a day (14:00 UTC): platform health and failing-course check, emailed to admins.
+      ctx.waitUntil(
+        handlePlatformHealth(env, { loadCourses: () => loadCourses(env), sendEmail }).catch((err) =>
+          console.error('[health] run failed', err),
+        ),
       );
     }
   },

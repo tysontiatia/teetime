@@ -41,10 +41,33 @@ export function foreUpFacilityId(bookingUrl) {
   return /\/booking\/(\d+)(?:\/|$|#|\?)/.exec(String(bookingUrl || ''))?.[1] || '';
 }
 
-/** Online ForeUp sheets for the facility in this booking URL. */
+/** The facility name on a ForeUp booking page ("Mulligans Golf & Games"), or ''. */
+export function parseForeUpFacilityName(html) {
+  const raw = /"name"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(String(html || ''))?.[1] || '';
+  try {
+    return JSON.parse(`"${raw}"`).trim();
+  } catch {
+    return raw.trim();
+  }
+}
+
+/** The facility's city and state on a ForeUp booking page. */
+export function parseForeUpFacilityPlace(html) {
+  const text = String(html || '');
+  return {
+    city: /"city"\s*:\s*"([^"]*)"/.exec(text)?.[1]?.trim() || '',
+    state: /"state"\s*:\s*"([A-Za-z]{2})"/.exec(text)?.[1]?.toUpperCase() || '',
+  };
+}
+
+/** Online ForeUp sheets for the facility in this booking URL, and the facility's name and place. */
 export async function listForeUpSheets(bookingUrl) {
   const html = await fetchForeUpBookingPage(bookingUrl);
-  return parseForeUpSchedules(html).filter((s) => s.online);
+  return {
+    sheets: parseForeUpSchedules(html).filter((s) => s.online),
+    accountName: parseForeUpFacilityName(html),
+    accountPlace: parseForeUpFacilityPlace(html),
+  };
 }
 
 /** TeeItUp facilities for an alias: [{ id, name }]. */
@@ -77,7 +100,7 @@ export function teeItUpAliasFromUrl(bookingUrl) {
 
 /** Chronogolf club courses: { club_id, affiliation_type_id, sheets: [{ id, name, holes }] }. */
 export async function listChronogolfSheets(bookingUrl) {
-  const out = { club_id: null, affiliation_type_id: null, sheets: [] };
+  const out = { club_id: null, affiliation_type_id: null, sheets: [], name: '', place: { city: '', state: '' } };
   const m = /\/club\/([^/?#]+)/i.exec(String(bookingUrl || ''));
   if (!m) return out;
   try {
@@ -91,6 +114,8 @@ export async function listChronogolfSheets(bookingUrl) {
     const club = data?.props?.pageProps?.club;
     if (!club) return out;
     out.club_id = Number(club.id) > 0 ? String(club.id) : null;
+    out.name = String(club.name || '').trim();
+    out.place = { city: String(club.address?.city || '').trim(), state: String(club.address?.stateCode || '').trim().toUpperCase() };
     out.affiliation_type_id = Number(club.defaultAffiliationTypeId) > 0 ? String(club.defaultAffiliationTypeId) : null;
     out.sheets = (club.courses || [])
       .map((c) => ({ id: String(c?.id || '').trim(), name: String(c?.name || '').trim(), holes: Number(c?.holes) || null }))
@@ -161,15 +186,72 @@ export async function sheetFields(platform, sheet, context) {
 export async function listSheetsFor(platform, record) {
   if (platform === 'foreup') {
     const facilityId = foreUpFacilityId(record.booking_url);
-    return { sheets: facilityId ? await listForeUpSheets(record.booking_url) : [], context: { facilityId } };
+    const page = facilityId ? await listForeUpSheets(record.booking_url) : { sheets: [], accountName: '', accountPlace: null };
+    return { sheets: page.sheets, accountName: page.accountName, accountPlace: page.accountPlace, context: { facilityId } };
   }
   if (platform === 'teeitup') {
     const alias = String(record.teeitup_alias || '').trim() || teeItUpAliasFromUrl(record.booking_url);
-    return { sheets: await listTeeItUpSheets(alias), context: { alias } };
+    // TeeItUp has no account name; its facility names identify the courses.
+    return { sheets: await listTeeItUpSheets(alias), accountName: '', context: { alias } };
   }
   if (platform === 'chronogolf_slc' || platform === 'chronogolf') {
     const club = await listChronogolfSheets(record.booking_url);
-    return { sheets: club.sheets, context: { clubId: club.club_id || record.club_id, affiliationTypeId: club.affiliation_type_id || record.affiliation_type_id } };
+    return {
+      sheets: club.sheets,
+      accountName: club.name,
+      accountPlace: club.place,
+      context: { clubId: club.club_id || record.club_id, affiliationTypeId: club.affiliation_type_id || record.affiliation_type_id },
+    };
   }
-  return { sheets: [], context: {} };
+  return { sheets: [], accountName: '', context: {} };
+}
+
+export const SHEET_PLATFORMS = new Set(['foreup', 'teeitup', 'chronogolf', 'chronogolf_slc']);
+
+/**
+ * What to create for a new club once the crawl found its vendor account.
+ *
+ * - The account belongs to this club when its name, or one of its sheet
+ *   names, fits the club or one of its layouts. Otherwise the link is
+ *   rejected: it came from a sister course's or a management company's page,
+ *   which is how 16 existing courses ended up showing another club's times.
+ * - Two or more layouts that each fit a different sheet become separate
+ *   courses (Mulligan's The Meadow and The Ridge).
+ * - Otherwise one course, on the one sheet that fits, or on the crawled link
+ *   with a note when the sheets do not name it.
+ *
+ * Returns { reject: reason } or { plans: [{ layout, sheet|null, note }] }.
+ */
+export function planClubStubs(primary, layouts, { sheets = [], accountName = '', accountPlace = null } = {}) {
+  const clubName = primary.club_name;
+  // An account in another state is never this club's (Adobe Creek, Petaluma CA,
+  // linked Adobe Creek National's account in Fruita CO).
+  const accountState = String(accountPlace?.state || '').toUpperCase();
+  if (accountState && primary.state && accountState !== primary.state) {
+    return { reject: `The booking link's account (${accountName || 'unnamed'}) is in ${accountState}, not ${primary.state}; it belongs to another course.` };
+  }
+  const candidates = layouts.filter((l) => l.layout_kind !== 'rotation');
+  if (!sheets.length) return { plans: [{ layout: primary, sheet: null, note: '' }] };
+  const perLayout = candidates.map((layout) => ({ layout, sheet: sheetForName(layout.course_name, sheets, { clubName }) }));
+  const clubSheet = sheetForName(clubName, sheets, { clubName: '' });
+  const club = nameTokens(clubName);
+  const accountFits = Boolean(accountName) && nameStrength(nameTokens(accountName), club) != null;
+  const fitted = perLayout.filter((p) => p.sheet);
+  if (!fitted.length && !clubSheet && !accountFits) {
+    const names = [accountName, ...sheets.map((s) => s.name)].filter(Boolean).join(', ');
+    return { reject: `The booking link's account (${names}) does not match ${clubName}; it may belong to a sister course.` };
+  }
+  const bySheet = new Map();
+  for (const p of fitted) if (!bySheet.has(p.sheet.id)) bySheet.set(p.sheet.id, p);
+  if (bySheet.size >= 2) {
+    return { plans: [...bySheet.values()].map((p) => ({ layout: p.layout, sheet: p.sheet, note: `Own tee sheet "${p.sheet.name}".` })) };
+  }
+  const sheet = bySheet.size === 1 ? [...bySheet.values()][0].sheet : clubSheet || (sheets.length === 1 ? sheets[0] : null);
+  const notes = [];
+  if (!sheet) notes.push(`This account has ${sheets.length} tee sheets (${sheets.map((s) => s.name).join(', ')}); confirm the right one.`);
+  const accountCity = String(accountPlace?.city || '').trim();
+  if (accountCity && primary.city && nameTokens(accountCity).join(' ') !== nameTokens(primary.city).join(' ')) {
+    notes.push(`The booking account is in ${accountCity}; check it is this course.`);
+  }
+  return { plans: [{ layout: primary, sheet, note: notes.join(' ') }] };
 }

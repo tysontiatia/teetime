@@ -13,7 +13,7 @@
  *   node scripts/queue-course-crawl.mjs --state UT --apply
  */
 
-import { buildIndexStub } from '../worker/courseIndexCrawl.js';
+import { buildIndexStub, planClubCrawl } from '../worker/courseIndexCrawl.js';
 import { findImportDuplicate, fetchExistingCourseIndex } from '../worker/courseAdmin.js';
 import { discoverWebsite } from '../worker/stateDiscovery.js';
 import { loadDotEnv } from './lib/courses-json.mjs';
@@ -60,16 +60,19 @@ if (!APPLY) {
   const existing = await fetchExistingCourseIndex(env);
   for (const { primary, layouts } of picks) {
     const hit = primary.website ? await discoverWebsite(primary.website) : null;
-    const { slug, record } = buildIndexStub(primary, layouts, hit);
+    const { plans, split } = await planClubCrawl(primary, layouts, hit);
+    for (const plan of plans) {
+    const { slug, record } = buildIndexStub(plan.layout, layouts, plan.hit, { split, note: plan.note });
     const dup = findImportDuplicate(existing, slug, record);
     console.log(`${record.name}  [${slug}]`);
-    console.log(`  site:    ${primary.website || '(none)'} → ${hit ? hit.support : 'no website'}`);
+    console.log(`  site:    ${primary.website || '(none)'} → ${plan.hit ? plan.hit.support : 'no website'}`);
     console.log(`  booking: ${record.platform || '-'} ${record.booking_url || ''}`);
     console.log(`  facts:   ${[record.holes && `${record.holes} holes`, record.par && `par ${record.par}`, record.yardage && `${record.yardage} yd`, record.phone_number].filter(Boolean).join(' · ') || '-'}`);
     if (record.photo_candidate_url) console.log(`  photo:   ${record.photo_candidate_url}`);
     console.log(`  note:    ${record.booking_status_note || '-'}`);
     if (dup) console.log(`  ⚠ duplicate of ${dup.matched_name} (${dup.matched_slug}, ${dup.reason}): would go to review`);
     console.log('');
+    }
   }
   console.log('Preview only. Nothing written. Pass --apply to queue these for the Worker.');
   process.exit(0);
