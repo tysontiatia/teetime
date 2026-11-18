@@ -5,6 +5,7 @@
 
 import { slugFromCourseName } from './courseAdmin.js';
 import { wallClockToUtcInstant } from './courseTimezone.js';
+import { isPollableCourse } from './availabilityPoll.js';
 
 const REOPENED_LOOKBACK_MS = 6 * 60 * 60 * 1000;
 /** Max course slugs per /v1/tee-times request (URL + PostgREST bound). */
@@ -705,6 +706,9 @@ export async function liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, pl
   const byCourseSlug = new Map();
   for (const course of courses || []) {
     if (!course?.platform) continue;
+    // Same rule as the poller: no live fill for booking-link-only courses
+    // (TeeSnap blocks automated requests) or hidden ones.
+    if (!isPollableCourse(course)) continue;
     const slug = course.slug || slugFromCourseName(course.name);
     if (slug) byCourseSlug.set(slug, { ...course, slug });
   }

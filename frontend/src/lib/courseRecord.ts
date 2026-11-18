@@ -251,7 +251,11 @@ export function resolveCourseBookingMode(
 ): CourseBookingMode {
   const status = String(record?.booking_status || '').trim();
   if (status === 'phone') return 'phone';
-  if (getPlatformCapability(effectivePlatform(record ?? {})) === 'live_inventory') return 'live';
+  const platform = effectivePlatform(record ?? {});
+  // TeeSnap blocks automated requests (since about Sept 2026): courses marked
+  // unsupported show their Book link, not a live sheet that never loads.
+  if (status === 'unsupported' && platform === 'teesnap') return 'booking_link';
+  if (getPlatformCapability(platform) === 'live_inventory') return 'live';
   return 'booking_link';
 }
 

@@ -546,21 +546,25 @@ async function pruneAvailabilityHistory(env) {
 
 // ── Schedule planning ───────────────────────────────────────────────
 
+/** Whether the poller (and Find's live fill) should fetch this course's tee sheet. */
+export function isPollableCourse(c) {
+  const status = String(c?.booking_status || '').trim();
+  if (status === 'closed' || status === 'private' || status === 'phone' || status === 'pending') return false;
+  // TeeSnap blocks automated requests (since about Sept 2026). Courses marked
+  // unsupported are booking-link only; skip them instead of failing every poll.
+  if (status === 'unsupported' && courseHasTeeSnap(c)) return false;
+  // Play18 tenants are still stored as sagacity/unsupported until recategorize.
+  if (courseHasQuick18Sheet(c)) return true;
+  if (courseHasGolfWithAccess(c)) return true;
+  if (courseHasClubCaddie(c)) return true;
+  if (courseHasTeeSnap(c)) return true;
+  if (courseHasGolfRev(c)) return true;
+  if (status === 'unsupported') return false;
+  return Boolean(c?.platform && SUPPORTED_PLATFORMS.has(c.platform));
+}
+
 function pollableCourses(courses) {
-  return courses
-    .filter((c) => {
-      const status = String(c.booking_status || '').trim();
-      if (status === 'closed' || status === 'private' || status === 'phone') return false;
-      // Play18 tenants are still stored as sagacity/unsupported until recategorize.
-      if (courseHasQuick18Sheet(c)) return true;
-      if (courseHasGolfWithAccess(c)) return true;
-      if (courseHasClubCaddie(c)) return true;
-      if (courseHasTeeSnap(c)) return true;
-      if (courseHasGolfRev(c)) return true;
-      if (status === 'unsupported') return false;
-      return c.platform && SUPPORTED_PLATFORMS.has(c.platform);
-    })
-    .map((c) => ({ ...c, slug: slugFromCourseName(c.name) }));
+  return courses.filter(isPollableCourse).map((c) => ({ ...c, slug: slugFromCourseName(c.name) }));
 }
 
 function regularPlayDates(today) {

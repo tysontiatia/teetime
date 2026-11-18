@@ -86,3 +86,12 @@ test('moving the pin drops the stamp and falls back to the Worker lookup', () =>
   assert.equal(next.timezone, 'America/Denver');
   assert.equal('timezone_pin' in next, false);
 });
+
+test('TeeSnap courses marked unsupported are not polled; other live vendors still are', async () => {
+  const { isPollableCourse } = await import('./availabilityPoll.js');
+  assert.equal(isPollableCourse({ platform: 'teesnap', booking_status: 'unsupported', booking_url: 'https://blackoakgolf.teesnap.net/' }), false);
+  assert.equal(isPollableCourse({ platform: 'teesnap', booking_status: 'ready', booking_url: 'https://x.teesnap.net/' }), true);
+  assert.equal(isPollableCourse({ platform: 'quick18', booking_status: 'unsupported', booking_url: 'https://lakehavasu.quick18.com/teetimes/searchmatrix' }), true);
+  assert.equal(isPollableCourse({ platform: 'foreup', booking_status: 'pending' }), false);
+  assert.equal(isPollableCourse({ platform: 'foreup', booking_status: 'ready' }), true);
+});
