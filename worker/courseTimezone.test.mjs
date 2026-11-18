@@ -58,7 +58,7 @@ test('golf hours and the 8:00 burst are per course', () => {
   assert.equal(isGolfHours(clocks.get('hawaii')), false); // 02:05
 });
 
-test('each course gets its own 15-day window', () => {
+test('each course gets its own 7-day regular window', () => {
   // 04:30 UTC: already July 4 in New York, still July 3 in Denver.
   const at = new Date('2026-07-04T04:30:00Z');
   const courses = [
@@ -67,10 +67,10 @@ test('each course gets its own 15-day window', () => {
   ];
   const pairs = buildCandidatePairs(courses, courseClocks(courses, at));
   const datesFor = (slug) => pairs.filter((p) => p.course_slug === slug).map((p) => p.play_date);
-  assert.equal(datesFor('east').length, 15);
+  assert.equal(datesFor('east').length, 7);
   assert.equal(datesFor('east')[0], '2026-07-04');
   assert.equal(datesFor('west')[0], '2026-07-03');
-  assert.equal(datesFor('west').at(-1), '2026-07-17');
+  assert.equal(datesFor('west').at(-1), '2026-07-09');
 });
 
 test('an exact zone stamped for this pin beats the coarse Worker lookup', () => {
