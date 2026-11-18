@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decideCourseValidity } from './courseValidity.js';
+import { courseSavePlan, decideCourseValidity } from './courseValidity.js';
 
 function kind(choice, confidence = 0.9) {
   return { type: 'choice', choice, confidence, probabilities: { [choice]: confidence } };
@@ -85,4 +85,11 @@ test('a simulator is skipped', () => {
 test('a course with no way to book and no site is held', () => {
   const decision = decideCourseValidity({ kind: kind('public_course', 0.3) }, { osm_name: 'Valley of the Eagles' });
   assert.equal(decision.action, 'review');
+});
+
+test('Find writes a finished course and queues one that still needs a person', () => {
+  assert.deepEqual(courseSavePlan({ validity: { action: 'import' }, import_row: { slug: 'a' } }), { queue: false });
+  assert.deepEqual(courseSavePlan({ validity: { action: 'review' }, import_row: { slug: 'b' } }), { queue: true });
+  assert.equal(courseSavePlan({ validity: { action: 'skip' }, import_row: { slug: 'c' } }), null);
+  assert.equal(courseSavePlan({ validity: { action: 'review' } }), null);
 });

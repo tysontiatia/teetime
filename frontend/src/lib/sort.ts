@@ -103,9 +103,12 @@ export function bucketFinderCourses(
   opts: {
     isLive: (course: Course) => boolean;
     isPending: (course: Course) => boolean;
+    /** Date is past this course's booking window and no times are on the sheet. */
+    isNotOpen?: (course: Course) => boolean;
   },
-): { openings: Course[]; noTimes: Course[]; alsoNearby: Course[] } {
+): { openings: Course[]; notOpen: Course[]; noTimes: Course[]; alsoNearby: Course[] } {
   const openings: Course[] = [];
+  const notOpen: Course[] = [];
   const noTimes: Course[] = [];
   const alsoNearby: Course[] = [];
   for (const c of pool) {
@@ -115,7 +118,8 @@ export function bucketFinderCourses(
     }
     const n = timesByCourseId.get(c.id)?.length ?? 0;
     if (n > 0 || opts.isPending(c)) openings.push(c);
+    else if (opts.isNotOpen?.(c)) notOpen.push(c);
     else noTimes.push(c);
   }
-  return { openings, noTimes, alsoNearby };
+  return { openings, notOpen, noTimes, alsoNearby };
 }

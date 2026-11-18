@@ -11,6 +11,7 @@ import { formatTime12h } from '../lib/time';
 import { courseTimezone } from '../lib/teeTimeInstant';
 import { buildBookingUrl } from '../lib/bookingUrl';
 import { liveTimesEmptyBadge } from '../lib/liveTimesEmpty';
+import { bookingRelease } from '../lib/bookingWindow';
 import type { HolesFilter } from '../lib/holesFilter';
 
 type PinTone = 'price' | 'open' | 'checking' | 'sold' | 'quiet';
@@ -57,8 +58,10 @@ const HIDDEN_BASEMAP_LABELS = [
   'Highway junction',
 ];
 
+const PLACE_LABELS = ['City labels', 'Town labels', 'Capital city labels', 'Place labels', 'State labels'];
+
 /** Drop route shields and island names, and stop city names from looking like pins. */
-function quietBasemap(map: MapLibreMap) {
+function quietBasemap(map: MapLibreMap, dark: boolean) {
   for (const id of HIDDEN_BASEMAP_LABELS) {
     if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
   }
@@ -84,14 +87,21 @@ function quietBasemap(map: MapLibreMap) {
       'island',
     ]);
   }
-  for (const id of ['City labels', 'Town labels', 'Capital city labels']) {
+  for (const id of PLACE_LABELS) {
     if (!map.getLayer(id)) continue;
-    map.setPaintProperty(id, 'icon-opacity', 0);
-    map.setLayoutProperty(id, 'text-anchor', 'center');
-    map.setLayoutProperty(id, 'text-offset', [0, 0]);
-    map.setPaintProperty(id, 'text-color', 'hsl(0, 0%, 74%)');
-    map.setPaintProperty(id, 'text-halo-color', 'hsla(150, 20%, 6%, 0.72)');
-    map.setPaintProperty(id, 'text-halo-width', 1.2);
+    if (id !== 'Place labels' && id !== 'State labels') {
+      map.setPaintProperty(id, 'icon-opacity', 0);
+      map.setLayoutProperty(id, 'text-anchor', 'center');
+      map.setLayoutProperty(id, 'text-offset', [0, 0]);
+    }
+    if (dark) {
+      map.setPaintProperty(id, 'text-color', 'hsl(0, 0%, 78%)');
+      map.setPaintProperty(id, 'text-halo-color', 'hsla(150, 20%, 6%, 0.75)');
+      map.setPaintProperty(id, 'text-halo-width', 1.2);
+    } else {
+      map.setPaintProperty(id, 'text-color', 'hsl(0, 0%, 32%)');
+      map.setPaintProperty(id, 'text-halo-width', 0);
+    }
   }
 }
 
@@ -202,8 +212,7 @@ function pinCopy(
 function pinButton(price: string, name: string, tone: PinTone, selected: boolean, hovered: boolean): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  const named = Boolean(name);
-  button.className = ['finder-pin-pill', `is-${tone}`, named ? 'is-named' : '', selected ? 'is-selected' : '', hovered ? 'is-hover' : '']
+  button.className = ['finder-pin-pill', `is-${tone}`, selected ? 'is-selected' : '', hovered ? 'is-hover' : '']
     .filter(Boolean)
     .join(' ');
   const aria = [name, price].filter(Boolean).join(', ');
@@ -213,14 +222,9 @@ function pinButton(price: string, name: string, tone: PinTone, selected: boolean
     priceEl.className = 'finder-pin-price';
     priceEl.textContent = price;
     button.append(priceEl);
+  } else if (!name) {
+    button.textContent = '•';
   }
-  if (name) {
-    const nameEl = document.createElement('span');
-    nameEl.className = 'finder-pin-name';
-    nameEl.textContent = name;
-    button.append(nameEl);
-  }
-  if (!price && !name) button.textContent = '•';
   return button;
 }
 
@@ -243,6 +247,8 @@ function selectionActions(
   players: number,
   holes: HolesFilter,
   timeOfDay: TimeOfDayPreset,
+  sheetDays?: number,
+  sheetOpensTime?: string,
 ): { status: string; links: CardLink[] } {
   const source = bookingSource(course, record);
   const mode = resolveCourseBookingMode(source);
@@ -287,6 +293,8 @@ function selectionActions(
     };
   }
   if (pending) return { status: 'Checking times…', links: [] };
+  const closed = bookingRelease(record, dateYmd, undefined, sheetDays, sheetOpensTime);
+  if (closed) return { status: closed.label, links: [viewCourse] };
   if (fetched) {
     const narrowed = timeOfDay !== 'any' || holes === 9;
     return {
@@ -344,6 +352,9 @@ type Props = {
   onSelect: (id: string | null) => void;
   onHover: (id: string | null) => void;
   onSearchArea: (bounds: MapBounds) => void;
+  /** Days reported by the tee sheet for courses past their booking window. */
+  bookingWindows?: Record<string, number>;
+  bookingOpens?: Record<string, string>;
 };
 
 export function FinderMap({
@@ -368,9 +379,13 @@ export function FinderMap({
   onSelect,
   onHover,
   onSearchArea,
+  bookingWindows,
+  bookingOpens,
 }: Props) {
   const dark = useDarkMap();
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const nudgedRef = useRef<string | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const youMarkerRef = useRef<Marker | null>(null);
@@ -380,6 +395,8 @@ export function FinderMap({
   const fittedKeyRef = useRef<string | null>(null);
   const lastSelectedRef = useRef<string | null>(null);
   const styleUrlRef = useRef(mapStyle(dark));
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
   const [mapReady, setMapReady] = useState(false);
   const [zoom, setZoom] = useState(11);
   const [searchBounds, setSearchBounds] = useState<MapBounds | null>(null);
@@ -414,6 +431,8 @@ export function FinderMap({
         players,
         holes,
         timeOfDay,
+        selected ? bookingWindows?.[selected.id] : undefined,
+        selected ? bookingOpens?.[selected.id] : undefined,
       )
     : null;
   const miles = selected && typeof selected.distanceMi === 'number' ? `${selected.distanceMi.toFixed(1)} mi` : '';
@@ -441,8 +460,8 @@ export function FinderMap({
       fadeDuration: 0,
     });
     map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
-    map.on('style.load', () => quietBasemap(map));
-    if (map.isStyleLoaded()) quietBasemap(map);
+    map.on('style.load', () => quietBasemap(map, darkRef.current));
+    if (map.isStyleLoaded()) quietBasemap(map, darkRef.current);
     map.scrollZoom.setZoomRate(1 / 90);
     map.scrollZoom.setWheelZoomRate(1 / 320);
     map.on('zoomstart', (event) => {
@@ -492,6 +511,60 @@ export function FinderMap({
     if (!mapReady || !map) return;
     map.setPadding(viewportPadding ?? { top: 0, right: 0, bottom: 0, left: 0 });
   }, [mapReady, viewportPadding]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const card = cardRef.current;
+    if (!selected) {
+      nudgedRef.current = null;
+      return;
+    }
+    if (!mapReady || !map || !card || typeof selected.lat !== 'number' || typeof selected.lng !== 'number') return;
+    const media = window.matchMedia('(max-width: 900px)');
+    const lng = selected.lng;
+    const lat = selected.lat;
+    const place = () => {
+      if (media.matches) {
+        card.style.left = '';
+        card.style.top = '';
+        card.style.right = '';
+        card.style.bottom = '';
+        card.style.width = '';
+        card.classList.remove('is-placed');
+        return;
+      }
+      const point = map.project([lng, lat]);
+      const width = 340;
+      const height = card.offsetHeight || 120;
+      const paneW = map.getContainer().clientWidth;
+      const paneH = map.getContainer().clientHeight;
+      let left = point.x - width / 2;
+      let top = point.y - height - 36;
+      if (top < 12) top = point.y + 14;
+      left = Math.max(12, Math.min(left, Math.max(12, paneW - width - 12)));
+      top = Math.max(12, Math.min(top, Math.max(12, paneH - height - 12)));
+      card.style.left = `${left}px`;
+      card.style.top = `${top}px`;
+      card.style.right = 'auto';
+      card.style.bottom = 'auto';
+      card.style.width = `${width}px`;
+      card.classList.add('is-placed');
+    };
+    place();
+    if (media.matches && !viewportPadding && nudgedRef.current !== selected.id) {
+      nudgedRef.current = selected.id;
+      const point = map.project([lng, lat]);
+      const paneH = map.getContainer().clientHeight;
+      const overlap = point.y - (paneH - 170);
+      if (overlap > 0) map.panBy([0, overlap + 16], { duration: 350 });
+    }
+    map.on('move', place);
+    media.addEventListener('change', place);
+    return () => {
+      map.off('move', place);
+      media.removeEventListener('change', place);
+    };
+  }, [mapReady, selected, viewportPadding]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -620,7 +693,7 @@ export function FinderMap({
       ) : null}
 
       {selected && !hideSelectionCard ? (
-        <div className="finder-map-card">
+        <div ref={cardRef} className="finder-map-card">
           <Link to={detailHref(selected)} className="finder-map-card-photo" aria-label={selected.name}>
             {selected.photoUrl ? (
               <img src={selected.photoUrl} alt="" />

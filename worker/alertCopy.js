@@ -136,6 +136,18 @@ function formatPlayDateShort(ymd) {
  * }}
  */
 export function describeAlertPreference(pref, playDate) {
+  if (pref.search_label) {
+    const scheduleLine = pref.target_date ? formatPlayDateLong(pref.target_date) : 'Upcoming days';
+    return {
+      kind: pref.target_date ? 'one-time' : 'weekly',
+      title: 'Your search',
+      scheduleLine,
+      filtersLine: pref.search_label,
+      matchLine: null,
+      summaryLine: pref.search_label,
+    };
+  }
+
   const players = pref.players || pref.min_spots || 1;
   const playersLabel = `${players} player${players !== 1 ? 's' : ''}`;
   const windowName = windowLabelFromRange(pref.earliest_time, pref.latest_time);

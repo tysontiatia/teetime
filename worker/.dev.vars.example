@@ -8,5 +8,8 @@ SUPABASE_SERVICE_KEY=
 # Required for Places lookup / Details (website enrich in booking QA)
 GOOGLE_PLACES_KEY=
 
+# PostHog personal API key for the Find courses visitor list. Not the phc project key.
+POSTHOG_PERSONAL_API_KEY=
+
 # Required for /admin/* (same service role key as production)
 SUPABASE_SERVICE_KEY=

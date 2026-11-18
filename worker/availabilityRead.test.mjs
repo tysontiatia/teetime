@@ -120,6 +120,32 @@ test('buildTeeTimesBySlug hides open slots not seen recently (close-debounce gho
   assert.equal(by.ridge.times[0].id, 'live');
 });
 
+test('buildTeeTimesBySlug keeps stale slots when home asks for a count', () => {
+  const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const stale = new Date(Date.now() - 9 * 60 * 1000).toISOString();
+  const by = buildTeeTimesBySlug(
+    ['ridge'],
+    [{ course_slug: 'ridge', last_success_at: stale }],
+    [
+      {
+        id: 'earlier',
+        course_slug: 'ridge',
+        play_starts_at: future,
+        starts_at_local: '13:30:00',
+        price_cents: 5500,
+        spots_open: 4,
+        holes: 18,
+        last_seen_at: stale,
+      },
+    ],
+    [],
+    1,
+    { keepStale: true },
+  );
+  assert.equal(by.ridge.times.length, 1);
+  assert.equal(by.ridge.times[0].id, 'earlier');
+});
+
 test('snapshotNeedsLiveFill live-fills misses, empty sheets, and stale snapshots', () => {
   // MT calendar date for this instant is 2026-08-11 (noon Denver).
   const now = Date.parse('2026-08-11T18:00:00.000Z');

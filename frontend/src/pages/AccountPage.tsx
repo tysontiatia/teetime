@@ -5,7 +5,7 @@ import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { useAlertActivity } from '../state/AlertActivityContext';
 import { SMS_ALERTS_ENABLED } from '../lib/smsAlerts';
 import { supabase } from '../lib/supabase';
-import { toYmd } from '../lib/time';
+import { toYmd, formatDateShort } from '../lib/time';
 import {
   alertActivityHeadline,
   formatAlertActivityWhen,
@@ -123,6 +123,19 @@ function FlagIcon() {
   );
 }
 
+type SearchWatchRow = {
+  id: string;
+  active: boolean;
+  target_date: string | null;
+  players: number;
+  holes: string;
+  earliest_time: string;
+  latest_time: string;
+  place_label: string;
+  scope: string;
+  radius_mi: number | null;
+};
+
 export function AccountPage() {
   const { user } = useAuth();
   const isCompact = useIsCompactShell();
@@ -131,6 +144,7 @@ export function AccountPage() {
   const todayYmd = toYmd(new Date());
   const [loading, setLoading] = useState(true);
   const [prefs, setPrefs] = useState<NotificationPreferenceRow[]>([]);
+  const [watches, setWatches] = useState<SearchWatchRow[]>([]);
   const [prefsBusyId, setPrefsBusyId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AlertScheduleValue | null>(null);
@@ -166,6 +180,15 @@ export function AccountPage() {
     if (!error && data) setPrefs(data as NotificationPreferenceRow[]);
   }, []);
 
+  const loadWatches = useCallback(async (uid: string) => {
+    const { data, error } = await supabase
+      .from('search_watches')
+      .select('id, active, target_date, players, holes, earliest_time, latest_time, place_label, scope, radius_mi')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false });
+    if (!error && data) setWatches(data as SearchWatchRow[]);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -180,13 +203,13 @@ export function AccountPage() {
           await supabase.from('profiles').update({ notify_via: 'email' }).eq('id', user.id);
         }
       }
-      await loadPrefs(user.id);
+      await Promise.all([loadPrefs(user.id), loadWatches(user.id)]);
       if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user, loadPrefs]);
+  }, [user, loadPrefs, loadWatches]);
 
   const courseByCatalog = useMemo(() => {
     const m = new Map<string, (typeof courses)[number]>();
@@ -282,6 +305,32 @@ export function AccountPage() {
     flash('ok', 'Alert removed.');
   };
 
+  const setWatchActive = async (id: string, active: boolean) => {
+    setPrefsBusyId(id);
+    const { error } = await supabase.from('search_watches').update({ active }).eq('id', id);
+    setPrefsBusyId(null);
+    if (error) {
+      flash('err', error.message);
+      return;
+    }
+    setWatches((prev) => prev.map((w) => (w.id === id ? { ...w, active } : w)));
+    flash('ok', active ? 'Search resumed.' : 'Search paused.');
+  };
+
+  const removeWatch = async (id: string) => {
+    setPrefsBusyId(id);
+    const { error } = await supabase.from('search_watches').delete().eq('id', id);
+    setPrefsBusyId(null);
+    if (error) {
+      flash('err', error.message);
+      return;
+    }
+    setWatches((prev) => prev.filter((w) => w.id !== id));
+    flash('ok', 'Search removed.');
+  };
+
+  const alertCount = prefs.length + watches.length;
+
   if (!user) {
     /* Compact shell: AppShell opens the auth modal over Search instead of this page. */
     if (isCompact) return null;
@@ -332,7 +381,7 @@ export function AccountPage() {
                   className={`account-tab${tab === 'alerts' ? ' is-on' : ''}`}
                   onClick={() => setTab('alerts')}
                 >
-                  Alerts ({prefs.length})
+                  Alerts ({alertCount})
                 </button>
                 <button
                   type="button"
@@ -357,17 +406,17 @@ export function AccountPage() {
             >
               {isCompact ? null : (
                 <h2 id="account-col-alerts" className="account-column-title">
-                  Alerts ({prefs.length})
+                  Alerts ({alertCount})
                 </h2>
               )}
-              {prefs.length === 0 ? (
+              {prefs.length === 0 && watches.length === 0 ? (
                 <div className="account-prefs-empty-card">
                   <p className="account-prefs-empty-title">No alerts yet</p>
                   <p className="account-prefs-empty">
                     Search a course, pick a day and window, and we’ll email you when times open.
                   </p>
                 </div>
-              ) : (
+              ) : prefs.length > 0 ? (
                 <ul className="account-pref-list">
                   {prefs.map((p) => {
                     const course = courseByCatalog.get(p.course_id);
@@ -490,7 +539,53 @@ export function AccountPage() {
                     );
                   })}
                 </ul>
-              )}
+              ) : null}
+              {watches.length > 0 ? (
+                <>
+                  <h2 className="account-column-title">Searches ({watches.length})</h2>
+                  <ul className="account-pref-list">
+                    {watches.map((w) => {
+                      const busy = prefsBusyId === w.id;
+                      const holes = w.holes === '9' || w.holes === '18' ? `${w.holes} holes` : 'Any holes';
+                      return (
+                        <li key={w.id} className={`account-pref-card${w.active ? '' : ' is-paused'}`}>
+                          <div className="account-pref-card-main">
+                            <div className="account-pref-body">
+                              <div className="account-pref-title">{w.place_label}</div>
+                              <div className="account-pref-grid">
+                                <div className="account-pref-grid-item">
+                                  <span>{w.target_date ? formatDateShort(w.target_date) : 'Upcoming'}</span>
+                                </div>
+                                <div className="account-pref-grid-item">
+                                  <span>{windowLabel(rangeToWindow(w.earliest_time, w.latest_time))}</span>
+                                </div>
+                                <div className="account-pref-grid-item">
+                                  <span>
+                                    {w.players} player{w.players === 1 ? '' : 's'} · {holes}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="account-pref-actions">
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  disabled={busy}
+                                  onClick={() => void setWatchActive(w.id, !w.active)}
+                                >
+                                  {w.active ? 'Pause' : 'Resume'}
+                                </button>
+                                <button type="button" className="btn" disabled={busy} onClick={() => void removeWatch(w.id)}>
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              ) : null}
             </div>
 
             <div

@@ -15,8 +15,9 @@ import { usePwaInstall } from '../hooks/usePwaInstall';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { useKeyboardInsetCssVar } from '../hooks/useKeyboardInsetCssVar';
 import { FinderHeaderSlotsContext } from '../state/FinderHeaderSlots';
-
-const INSTAGRAM_URL = 'https://www.instagram.com/teetimehq/';
+import { PullToRefreshControl, PullToRefreshProvider } from './PullToRefresh';
+import { SiteFooter } from './SiteFooter';
+import { StayTabBar } from '../stay/StayTabBar';
 
 function AvatarChip({ avatar, initial }: { avatar?: string; initial: string }) {
   return <UserAvatar src={avatar} initial={initial} size={34} className="app-header-avatar-chip" />;
@@ -35,16 +36,6 @@ function MenuGlyph() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function InstagramIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="3.5" y="3.5" width="17" height="17" rx="5" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" />
     </svg>
   );
 }
@@ -112,7 +103,9 @@ function AppShellInner() {
   useEffect(() => {
     const p = path;
     if (p === '/' || p === '') {
-      document.title = 'Tee-Time · Find';
+      document.title = 'Tee-Time · Discovery';
+    } else if (p === '/search') {
+      document.title = 'Tee-Time · Search';
     } else if (p === '/plan') {
       document.title = 'Tee-Time · Plan';
     } else if (p === '/share') {
@@ -142,7 +135,9 @@ function AppShellInner() {
     path === '/plan' || path.startsWith('/plan/') || path === '/share' || path.startsWith('/share/');
   const isAdmin = path.startsWith('/admin');
   const isFind = path === '/' || path === '';
+  const isSearch = path === '/search';
   const isCourse = path.startsWith('/course/');
+  const isShowcase = isFind || isSearch || isCourse || path === '/favorites' || path === '/pricing';
   const headerRef = useRef<HTMLElement>(null);
   const [searchEl, setSearchEl] = useState<HTMLElement | null>(null);
   const [filtersEl, setFiltersEl] = useState<HTMLElement | null>(null);
@@ -179,10 +174,12 @@ function AppShellInner() {
   }, []);
 
   return (
+    <PullToRefreshProvider>
     <FinderHeaderSlotsContext.Provider
       value={{ searchEl, filtersEl, metaEl, setSearchEl, setFiltersEl, setMetaEl, courseBar, setCourseBar }}
     >
-    <div className="app-shell">
+    <div className={`app-shell${isShowcase ? ' is-showcase' : ''}`}>
+      <PullToRefreshControl />
       <header className={`app-header${isFind ? ' is-find' : ''}${showCourseBar ? ' is-course' : ''}`} ref={headerRef}>
         <div className={`container app-header-inner${isCompact && !isAdmin ? ' is-brand-bar' : ''}${!isCompact && !isAdmin ? ' is-nav' : ''}`}>
           {isCompact && !isAdmin ? (
@@ -386,23 +383,17 @@ function AppShellInner() {
         </ErrorBoundary>
       </main>
 
-      <footer className="app-footer">
-        <p className="app-footer-note">
-          Made with ❤️ in Salt Lake City
-          <a
-            className="app-footer-ig"
-            href={INSTAGRAM_URL}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <InstagramIcon />
-            Instagram
-          </a>
-        </p>
-      </footer>
+      {isShowcase ? null : (
+        <div className="app-footer">
+          <SiteFooter />
+        </div>
+      )}
+
+      <StayTabBar onSignIn={openGeneralSignIn} />
 
     </div>
     </FinderHeaderSlotsContext.Provider>
+    </PullToRefreshProvider>
   );
 }
 

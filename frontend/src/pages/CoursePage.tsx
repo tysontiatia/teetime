@@ -51,6 +51,7 @@ import { CourseStatsBar } from '../components/CourseStatsBar';
 import { CourseAvailabilityBar } from '../components/CourseAvailabilityBar';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { useCourseHourlyWeather } from '../hooks/useCourseHourlyWeather';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import {
   fetchCourseCatalogMeta,
   type CourseCatalogMeta,
@@ -149,6 +150,19 @@ export function CoursePage() {
   const [loadingTimes, setLoadingTimes] = useState(false);
   const [teeTimesFetchFailed, setTeeTimesFetchFailed] = useState(false);
   const [timesRetryNonce, setTimesRetryNonce] = useState(0);
+  const refreshWaitersRef = useRef<Array<() => void>>([]);
+  const settleRefresh = useCallback(() => {
+    const pending = refreshWaitersRef.current.splice(0);
+    for (const resolve of pending) resolve();
+  }, []);
+  usePullToRefresh(
+    useCallback(() => {
+      setTimesRetryNonce((n) => n + 1);
+      return new Promise<void>((resolve) => {
+        refreshWaitersRef.current.push(resolve);
+      });
+    }, []),
+  );
   const [hiddenSlotIds, setHiddenSlotIds] = useState<Set<string>>(() => new Set());
   const lastTimesFetchAtRef = useRef(0);
   const hasTimesRef = useRef(false);
@@ -189,6 +203,7 @@ export function CoursePage() {
     if (!courseId || !record || !workerSupportedPlatform(record.platform)) {
       setRawTimes([]);
       setTeeTimesFetchFailed(false);
+      settleRefresh();
       return;
     }
     let cancelled = false;
@@ -212,13 +227,16 @@ export function CoursePage() {
           setTeeTimesFetchFailed(true);
         }
       } finally {
-        if (!cancelled) setLoadingTimes(false);
+        if (!cancelled) {
+          setLoadingTimes(false);
+          settleRefresh();
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [courseId, record, date, holes, players, timesRetryNonce]);
+  }, [courseId, record, date, holes, players, timesRetryNonce, settleRefresh]);
 
   useEffect(() => {
     setHiddenSlotIds(new Set());
@@ -255,7 +273,12 @@ export function CoursePage() {
     return list;
   }, [rawTimes, hiddenSlotIds, tod, players, sort, record?.timezone, course?.timezone]);
 
-  const weatherPoints = useCourseHourlyWeather(course?.lat, course?.lng, date, times.length > 0);
+  const { points: weatherPoints, pending: weatherPending } = useCourseHourlyWeather(
+    course?.lat,
+    course?.lng,
+    date,
+    times.length > 0,
+  );
 
   useEffect(() => {
     setSelectedSlotId(null);
@@ -770,6 +793,7 @@ export function CoursePage() {
                       holes={t.holes}
                       reopenedAt={t.reopenedAt}
                       weatherPoints={weatherPoints}
+                      weatherPending={weatherPending}
                       selected={t.id === selected?.id}
                       onClick={() => {
                         captureEvent('tee_time_clicked', {

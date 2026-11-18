@@ -5,6 +5,8 @@
  * range when 9 and 18 holes are both offered; a single price is treated as 18.
  */
 
+import { bookingRange, daysInAdvance } from './bookingRange.js';
+
 const GR_UA = 'TeeTimeIO/1.0 (+https://tee-time.io)';
 const GR_ORIGIN = 'https://www.golfrev.com';
 const ID_RE = /^\d{1,10}$/;
@@ -199,5 +201,10 @@ export async function handleGolfRev(params, fetchImpl = fetch) {
   }
 
   const times = parseGolfRevTeeTimesHtml(text, date);
+  if (times.length === 0) {
+    const days = daysInAdvance(text);
+    const range = days ? bookingRange(days) : null;
+    if (range) return jsonResponse(range);
+  }
   return jsonResponse({ date, course_id: courseId, htc, times });
 }

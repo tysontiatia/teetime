@@ -201,8 +201,11 @@ function recentlyNotifiedKeys(logs, userId, courseId, playDate, channel, withinM
 }
 
 function filterSlotsForNotify(slots, pref, logs, playDate, { eventMode, channel }) {
+  const wantHoles =
+    pref.holes === 9 || pref.holes === '9' ? 9 : pref.holes === 18 || pref.holes === '18' ? 18 : null;
   const out = [];
   for (const slot of slots) {
+    if (wantHoles && slot.holes !== wantHoles) continue;
     if (!slotMatchesPref(pref, slot)) continue;
 
     if (eventMode) {
@@ -454,6 +457,134 @@ async function deliverToUser(ctx, {
   }
 }
 
+function milesBetween(a, b) {
+  const R = 3958.8;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+  return R * (2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)));
+}
+
+function coursePoint(course) {
+  const lat = Number(course?.lat);
+  const lng = Number(course?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng };
+}
+
+function watchMatchesCourse(watch, course) {
+  if (watch.scope === 'all') return true;
+  const point = coursePoint(course);
+  const lat = Number(watch.anchor_lat);
+  const lng = Number(watch.anchor_lng);
+  const radius = Number(watch.radius_mi) || 25;
+  if (!point || !Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  return milesBetween(point, { lat, lng }) <= radius + 0.25;
+}
+
+function watchToPref(watch, course) {
+  const players = Number(watch.players) || 1;
+  const place = String(watch.place_label || 'Your search').trim();
+  return {
+    user_id: watch.user_id,
+    course_id: course.name,
+    players,
+    min_spots: players,
+    earliest_time: watch.earliest_time,
+    latest_time: watch.latest_time,
+    target_date: watch.target_date,
+    look_ahead_days: watch.look_ahead_days,
+    holes: watch.holes,
+    search_label: `${place} · ${players} player${players === 1 ? '' : 's'}`,
+  };
+}
+
+async function loadActiveSearchWatches(env) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/search_watches?active=eq.true&select=*`,
+    { headers: sbHeaders(env) },
+  );
+  if (!res.ok) return [];
+  const rows = await res.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function searchWatchPrefsForCourse(env, course, playDate, todayMt) {
+  const watches = await loadActiveSearchWatches(env);
+  const out = [];
+  for (const watch of watches) {
+    if (!prefAppliesOnDate(watch, playDate, todayMt)) continue;
+    if (!watchMatchesCourse(watch, course)) continue;
+    out.push(watchToPref(watch, course));
+  }
+  return out;
+}
+
+export async function loadSearchWatchForUser(env, watchId, userId) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/search_watches` +
+      `?id=eq.${encodeURIComponent(watchId)}` +
+      `&user_id=eq.${encodeURIComponent(userId)}` +
+      `&select=*`,
+    { headers: sbHeaders(env) },
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return rows[0] || null;
+}
+
+function slugFromCourseName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/** Snapshot check for courses inside a new search watch. Skips live vendor calls. */
+export async function notifyNewSearchWatch(ctx, { watch, fetchSnapshotNormalizedTimes }) {
+  if (!watch?.active || !ctx?.courses?.length) return { checked: 0, sent: 0 };
+  const today = mtTodayYmd();
+  const dates = evalDatesForPref(watchToPref(watch, { name: watch.place_label || 'search' }), today);
+  if (!dates.length) return { checked: 0, sent: 0 };
+
+  const anchor = { lat: Number(watch.anchor_lat), lng: Number(watch.anchor_lng) };
+  const ranked = ctx.courses
+    .map((course) => {
+      const point = coursePoint(course);
+      if (!point || !watchMatchesCourse(watch, course)) return null;
+      const distance = Number.isFinite(anchor.lat) ? milesBetween(point, anchor) : 0;
+      return { course, distance };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 12);
+
+  let checked = 0;
+  let sent = 0;
+  const holes = watch.holes === '9' || watch.holes === 9 ? '9' : '18';
+  const players = Number(watch.players) || 2;
+  for (const playDate of dates.slice(0, 1)) {
+    for (const row of ranked) {
+      const course = row.course;
+      const slug = course.slug || slugFromCourseName(course.name);
+      const snapshot = await fetchSnapshotNormalizedTimes(ctx.env, slug, playDate, holes, players);
+      checked++;
+      if (!snapshot?.times?.length) continue;
+      const { sent: didSend } = await notifyPrefAgainstOpenInventory(ctx, {
+        pref: watchToPref(watch, course),
+        playDate,
+        times: snapshot.times,
+      });
+      if (didSend) sent++;
+    }
+  }
+  return { checked, sent };
+}
+
 /**
  * Called immediately after poll diff detects opened/reopened/spots_available slots.
  */
@@ -469,10 +600,12 @@ export async function notifyOnPollEvents(ctx, { course, playDate, notifyEvents, 
   if (!interesting.length) return;
 
   const prefs = await loadPrefsForCourseDate(ctx.env, course.name, playDate, todayMt || mtTodayYmd());
-  if (!prefs.length) return;
+  const watchPrefs = await searchWatchPrefsForCourse(ctx.env, course, playDate, todayMt || mtTodayYmd());
+  const allPrefs = [...prefs, ...watchPrefs];
+  if (!allPrefs.length) return;
 
   const slots = interesting.map(eventToSlot);
-  const userIds = [...new Set(prefs.map((p) => p.user_id))];
+  const userIds = [...new Set(allPrefs.map((p) => p.user_id))];
   const logSince = addDaysToYmd(mtTodayYmd(), -45);
   const logs = await loadRecentLogs(ctx.env, userIds, logSince);
 
@@ -482,7 +615,7 @@ export async function notifyOnPollEvents(ctx, { course, playDate, notifyEvents, 
     ? 'reopened'
     : 'opened';
 
-  for (const pref of prefs) {
+  for (const pref of allPrefs) {
     const matching = filterSlotsForNotify(slots, pref, logs, playDate, { eventMode: true });
     if (!matching.length) continue;
     await deliverToUser(ctx, {
@@ -511,17 +644,20 @@ export async function notifyPrefAgainstOpenInventory(ctx, {
       slotMatchesPref(pref, {
         rawTime: t.rawTime,
         spots_open: t.spots ?? null,
-        holes: 18,
+        holes: t.holes === 9 ? 9 : 18,
       }),
     )
-    .map((t) => ({
-      rawTime: t.rawTime,
-      holes: 18,
-      spots_open: t.spots ?? null,
-      price: t.price || null,
-      slotKey: slotNotifyKey(`${t.rawTime}:00`, 18),
-      event_type: 'opened',
-    }));
+    .map((t) => {
+      const holes = t.holes === 9 ? 9 : 18;
+      return {
+        rawTime: t.rawTime,
+        holes,
+        spots_open: t.spots ?? null,
+        price: t.price || null,
+        slotKey: slotNotifyKey(`${t.rawTime}:00`, holes),
+        event_type: 'opened',
+      };
+    });
 
   if (!slots.length) return { sent: false };
 

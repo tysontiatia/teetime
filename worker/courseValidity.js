@@ -150,6 +150,16 @@ function publishAs(course, keepBooking) {
   return null;
 }
 
+/**
+ * Import rows are written during Find. Review rows are the QA queue.
+ * Skip rows stay off the catalog.
+ */
+export function courseSavePlan(judged) {
+  const action = judged?.validity?.action;
+  if ((action !== 'import' && action !== 'review') || !judged?.import_row) return null;
+  return { queue: action === 'review' };
+}
+
 export function decideCourseValidity(answers, course) {
   const kind = answers?.kind;
   if (kind?.confidence >= KIND_CONFIDENCE) {

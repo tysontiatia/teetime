@@ -24,6 +24,8 @@ import {
   FINDER_SORT_OPTIONS,
 } from '../lib/sort';
 import { liveTimesEmptySection } from '../lib/liveTimesEmpty';
+import { bookingRelease } from '../lib/bookingWindow';
+import { windowToRange } from '../lib/alertPrefs';
 import {
   filterWorkerCourses,
   getPlatformCapability,
@@ -35,11 +37,13 @@ import { useCourseCatalog } from '../state/CourseCatalogContext';
 import { useTimesByCourseMap } from '../hooks/useTimesByCourseMap';
 import { useIsCompactShell } from '../hooks/useMediaQuery';
 import { NotificationModal } from '../components/NotificationModal';
+import { SearchWatchModal, type SearchWatchDraft } from '../components/SearchWatchModal';
 import { SignInPromptModal } from '../components/SignInPromptModal';
 import { PlanRoundModal } from '../components/PlanRoundModal';
 import { CourseCardSkeleton } from '../components/CourseCardSkeleton';
 import { FinderForecastStrip } from '../components/FinderForecastStrip';
 import { CourseMarketplaceCard } from '../components/CourseMarketplaceCard';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { FinderMap } from '../components/FinderMap';
 import { courseInMapBounds, type MapBounds } from '../lib/mapBounds';
 import { openWrappedPicker } from '../lib/openNativePicker';
@@ -188,6 +192,7 @@ export function FinderPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(Date.now());
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [notifCourseId, setNotifCourseId] = useState<string | null>(null);
+  const [watchOpen, setWatchOpen] = useState(false);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [roundSheetOpen, setRoundSheetOpen] = useState(false);
@@ -212,10 +217,15 @@ export function FinderPage() {
   const headerSearchActive = Boolean(headerSlots?.searchEl);
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
 
+  const refreshWaitersRef = useRef<Array<() => void>>([]);
   const refetchResults = useCallback(() => {
     setRefreshNonce((n) => n + 1);
     setLastUpdatedAt(Date.now());
+    return new Promise<void>((resolve) => {
+      refreshWaitersRef.current.push(resolve);
+    });
   }, []);
+  usePullToRefresh(refetchResults);
 
   useEffect(() => {
     captureEvent('search_performed', {
@@ -452,6 +462,8 @@ export function FinderPage() {
     failedSlugs,
     attemptedSlugCount,
     pendingSlugs,
+    bookingWindows,
+    bookingOpens,
   } = useTimesByCourseMap(
     mapFetchPool,
     recordsBySlug,
@@ -461,6 +473,12 @@ export function FinderPage() {
     refreshNonce,
     catalogLoading,
   );
+
+  useEffect(() => {
+    if (loadingTimes) return;
+    const pending = refreshWaitersRef.current.splice(0);
+    for (const resolve of pending) resolve();
+  }, [loadingTimes]);
 
   const showCatalogSkeleton = !catalogError && catalogLoading;
 
@@ -609,9 +627,12 @@ export function FinderPage() {
         fetchSlugSet.has(c.id) &&
         (timesByCourse.get(c.id)?.length ?? 0) === 0 &&
         (loadingTimes || pendingSlugs.has(c.id)),
+      isNotOpen: (c) =>
+        bookingRelease(recordsBySlug.get(c.id), params.date, todayYmdUtah(), bookingWindows[c.id], bookingOpens[c.id]) != null,
     });
     return {
       openings: sortCourses(buckets.openings, timesByCourse, params.sortBy),
+      notOpen: sortCourses(buckets.notOpen, timesByCourse, 'distance'),
       noTimes: sortCourses(buckets.noTimes, timesByCourse, 'distance'),
       alsoNearby: sortCourses(buckets.alsoNearby, timesByCourse, 'distance'),
     };
@@ -624,46 +645,34 @@ export function FinderPage() {
     fetchSlugSet,
     loadingTimes,
     params.sortBy,
+    params.date,
+    bookingWindows,
+    bookingOpens,
   ]);
 
   const hasLiveGroup = Boolean(
     finderGroups && finderGroups.openings.length + finderGroups.noTimes.length > 0,
   );
+  const mainIsNotOpen = Boolean(
+    finderGroups && finderGroups.openings.length === 0 && finderGroups.notOpen.length > 0,
+  );
   const mainGridCourses = finderGroups
     ? finderGroups.openings.length > 0
       ? finderGroups.openings
-      : finderGroups.noTimes.length > 0
-        ? finderGroups.noTimes
-        : finderGroups.alsoNearby
+      : finderGroups.notOpen.length > 0
+        ? finderGroups.notOpen
+        : finderGroups.noTimes.length > 0
+          ? finderGroups.noTimes
+          : finderGroups.alsoNearby
     : listedCourses;
+  const notOpenCourses =
+    finderGroups && finderGroups.openings.length > 0 ? finderGroups.notOpen : [];
   const noTimesCourses =
-    finderGroups && finderGroups.openings.length > 0 ? finderGroups.noTimes : [];
+    finderGroups && (finderGroups.openings.length > 0 || finderGroups.notOpen.length > 0)
+      ? finderGroups.noTimes
+      : [];
   const alsoNearbyCourses = hasLiveGroup ? (finderGroups?.alsoNearby ?? []) : [];
 
-  const searchArriveKey = [
-    params.date,
-    params.players,
-    params.holes,
-    params.timeOfDay,
-    params.locationQuery,
-    params.fetchScope,
-    params.radiusMi ?? '',
-  ].join('|');
-  const [arrivePlayKey, setArrivePlayKey] = useState<string | null>(null);
-  useEffect(() => {
-    if (loadingTimes || catalogLoading) return;
-    setArrivePlayKey(searchArriveKey);
-  }, [loadingTimes, catalogLoading, searchArriveKey]);
-  const arriveIndex = useMemo(() => {
-    const ids: string[] = [];
-    if (loadingTimes || arrivePlayKey !== searchArriveKey) return new Map<string, number>();
-    for (const course of mainGridCourses) {
-      if (ids.length >= 3) break;
-      if ((timesByCourse.get(course.id)?.length ?? 0) === 0) continue;
-      ids.push(course.id);
-    }
-    return new Map(ids.map((id, index) => [id, index]));
-  }, [arrivePlayKey, loadingTimes, mainGridCourses, searchArriveKey, timesByCourse]);
   const noTimesSection = liveTimesEmptySection(params.timeOfDay, params.holes);
 
   // Detect unsupported zip code searches with no results
@@ -749,19 +758,15 @@ export function FinderPage() {
     ? 'Loading courses…'
     : showOutOfMarket
       ? 'Outside live markets'
-      : listedTeeCount > 0
-      ? `${listedTeeCount} tee time${listedTeeCount === 1 ? '' : 's'}`
       : loadingTimes
         ? 'Finding tee times…'
-        : `${listedCourses.length} courses`;
+        : listedTeeCount > 0
+          ? `${listedTeeCount} tee time${listedTeeCount === 1 ? '' : 's'}`
+          : `${listedCourses.length} courses`;
 
-  const resultCountSecondary = catalogLoading
+  const resultCountSecondary = catalogLoading || loadingTimes
     ? null
-    : loadingTimes && listedTeeCount > 0
-      ? 'still checking a few…'
-      : loadingTimes
-        ? null
-        : (() => {
+    : (() => {
             const m = minutesSince(lastUpdatedAt);
             if (m == null) return null;
             if (m === 0) return 'Updated just now';
@@ -1234,7 +1239,7 @@ export function FinderPage() {
       <div className="find-results-summary">
         <span
           className={`result-count${
-            loadingTimes && withTimesCount === 0 && !showOutOfMarket ? ' is-finding' : ''
+            loadingTimes && !showOutOfMarket ? ' is-finding' : ''
           }`}
         >
           <strong>{resultCountPrimary}</strong>
@@ -1247,6 +1252,9 @@ export function FinderPage() {
       {!showOutOfMarket ? (
         <div className="find-results-tools">
           <div className="find-header-tools">{viewToggle}</div>
+          <button type="button" className="btn find-watch-btn" onClick={() => setWatchOpen(true)}>
+            Watch
+          </button>
           <label className="course-availability-sort is-tool">
             <span className="course-availability-sort-label">Sort</span>
             <select
@@ -1271,7 +1279,7 @@ export function FinderPage() {
       <div className="result-meta-lead">
         <span
           className={`result-count${
-            loadingTimes && withTimesCount === 0 && !showOutOfMarket ? ' is-finding' : ''
+            loadingTimes && !showOutOfMarket ? ' is-finding' : ''
           }`}
         >
           <strong>{resultCountPrimary}</strong>
@@ -1284,6 +1292,9 @@ export function FinderPage() {
       {!showOutOfMarket ? (
         <div className="result-meta-tools">
           {viewToggle}
+          <button type="button" className="btn find-watch-btn" onClick={() => setWatchOpen(true)}>
+            Watch
+          </button>
           {renderSortControl()}
         </div>
       ) : null}
@@ -1394,7 +1405,7 @@ export function FinderPage() {
     scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: 'smooth' });
   }, [isCompactShell, mapFocusId, mapOpen]);
 
-  const renderFinderCard = (course: Course, layout: 'list' | 'sheet' = 'list') => {
+  const renderFinderCard = (course: Course, layout: 'list' | 'sheet' = 'list', index = 0) => {
     const times = timesByCourse.get(course.id) ?? [];
     const inFetchPool = fetchSlugSet.has(course.id);
     const record = recordsBySlug.get(course.id);
@@ -1409,6 +1420,10 @@ export function FinderPage() {
       !noLiveInventory &&
       inFetchPool &&
       (pendingSlugs.has(course.id) || (loadingTimes && times.length === 0));
+    const bookingClosed =
+      !noLiveInventory && times.length === 0 && !timesPending
+        ? bookingRelease(record, params.date, todayYmdUtah(), bookingWindows[course.id], bookingOpens[course.id])
+        : null;
     const detailHref = `/course/${course.id}?${courseDetailQueryString(params)}`;
     const variant =
       bookingMode === 'phone' ? 'phone' : bookingMode === 'booking_link' ? 'bookingLink' : 'inventory';
@@ -1451,7 +1466,8 @@ export function FinderPage() {
         onMapHover={
           mapOpen ? (active) => setMapHoverId(active ? course.id : null) : undefined
         }
-        arrive={layout === 'list' ? arriveIndex.get(course.id) : undefined}
+        arrive={layout === 'list' && index < 4 ? index : undefined}
+        bookingClosed={bookingClosed}
       />
     );
   };
@@ -1817,14 +1833,18 @@ export function FinderPage() {
           <div className="empty-openings-hint">
             <div className="empty-openings-hint-copy">
               <p className="empty-openings-hint-title">
-                {alsoNearbyCourses.length > 0 || bookingOnlyInScope.length > 0
-                  ? `No live openings for ${formatDateShort(params.date)}`
-                  : `No openings for ${formatDateShort(params.date)}`}
+                {mainIsNotOpen && noTimesCourses.length === 0
+                  ? `Booking isn’t open for ${formatDateShort(params.date)} yet`
+                  : alsoNearbyCourses.length > 0 || bookingOnlyInScope.length > 0
+                    ? `No live openings for ${formatDateShort(params.date)}`
+                    : `No openings for ${formatDateShort(params.date)}`}
               </p>
               <p>
-                {alsoNearbyCourses.length > 0 || bookingOnlyInScope.length > 0
-                  ? 'Set an alert on a course below, or book nearby on their site.'
-                  : 'Set an alert on a course below, or try another day.'}
+                {mainIsNotOpen && noTimesCourses.length === 0
+                  ? 'These courses haven’t released that day. Each card says when booking opens.'
+                  : alsoNearbyCourses.length > 0 || bookingOnlyInScope.length > 0
+                    ? 'Set an alert on a course below, or book nearby on their site.'
+                    : 'Set an alert on a course below, or try another day.'}
               </p>
             </div>
             <button
@@ -1840,13 +1860,35 @@ export function FinderPage() {
         ) : null}
 
         {!phoneMap && !marketEmpty ? (
-        <div className={`mp-grid${loadingTimes ? ' is-loading' : ''}`}>
-          {showCatalogSkeleton
-            ? Array.from({ length: 9 }).map((_, i) => <CourseCardSkeleton key={i} />)
-            : null}
-          {!showOutOfMarket && !showCatalogSkeleton ? (
+        <div
+          className={`mp-grid${loadingTimes ? ' is-loading' : ''}`}
+          aria-busy={loadingTimes || undefined}
+        >
+          {showCatalogSkeleton || (!showOutOfMarket && loadingTimes) ? (
             <>
-              {mainGridCourses.map((course) => renderFinderCard(course))}
+              <p className="visually-hidden">Loading tee times</p>
+              {Array.from({ length: isCompactShell ? 4 : 6 }).map((_, i) => (
+                <CourseCardSkeleton key={i} />
+              ))}
+            </>
+          ) : !showOutOfMarket ? (
+            <>
+              {mainIsNotOpen ? (
+                <div className="mp-grid-section">
+                  <p className="mp-grid-section-title">Not open yet</p>
+                  <p className="mp-grid-section-copy">This day hasn’t been released. The badge shows when booking opens.</p>
+                </div>
+              ) : null}
+              {mainGridCourses.map((course, index) => renderFinderCard(course, 'list', index))}
+              {notOpenCourses.length > 0 ? (
+                <>
+                  <div className="mp-grid-section">
+                    <p className="mp-grid-section-title">Not open yet</p>
+                    <p className="mp-grid-section-copy">This day hasn’t been released. The badge shows when booking opens.</p>
+                  </div>
+                  {notOpenCourses.map((course) => renderFinderCard(course))}
+                </>
+              ) : null}
               {noTimesCourses.length > 0 ? (
                 <>
                   <div className="mp-grid-section">
@@ -1899,6 +1941,8 @@ export function FinderPage() {
               onSelect={setMapFocusId}
               onHover={setMapHoverId}
               onSearchArea={setAreaBounds}
+              bookingWindows={bookingWindows}
+              bookingOpens={bookingOpens}
             />
           </div>
         ) : null}
@@ -2062,6 +2106,26 @@ export function FinderPage() {
         defaultPlayers={params.players}
         defaultTimeOfDay={params.timeOfDay}
         onClose={() => setNotifCourseId(null)}
+      />
+      <SearchWatchModal
+        open={watchOpen}
+        onClose={() => setWatchOpen(false)}
+        scheduleLine={formatDateShort(params.date)}
+        filtersLine={`${params.players} player${params.players === 1 ? '' : 's'} · ${holesFilterOptionLabel(params.holes)} · ${todSummaryLabel}`}
+        draft={
+          {
+            targetDate: params.date,
+            players: params.players,
+            holes: params.holes === 9 ? '9' : params.holes === 18 ? '18' : 'any',
+            earliest: windowToRange(params.timeOfDay).earliest,
+            latest: windowToRange(params.timeOfDay).latest,
+            placeLabel: whereLabel,
+            anchorLat: timesFetchScope.anchor.lat,
+            anchorLng: timesFetchScope.anchor.lng,
+            radiusMi: fetchAllUtah ? null : radiusMi,
+            scope: fetchAllUtah ? 'all' : 'radius',
+          } satisfies SearchWatchDraft
+        }
       />
     </div>
   );

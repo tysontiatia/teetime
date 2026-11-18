@@ -27,6 +27,7 @@ import { ModalCloseButton } from './ModalCloseButton';
 import { AlertScheduleFields } from './AlertScheduleFields';
 import { AlertCourseSearch } from './AlertCourseSearch';
 import { captureEvent } from '../lib/analytics';
+import { isStandaloneDisplay } from '../lib/pwa';
 
 function todToWindow(tod: TimeOfDayPreset | AlertTimeWindow | undefined): AlertTimeWindow {
   if (tod === 'morning' || tod === 'afternoon' || tod === 'evening' || tod === 'any') return tod;
@@ -140,6 +141,9 @@ export function NotificationModal({
       cancelled = true;
     };
   }, [open, user?.id, saved]);
+
+  const askPush = Boolean(saved && user && pushSupported() && !pushOn);
+  const standalonePush = askPush && isStandaloneDisplay();
 
   if (!open) return null;
 
@@ -299,29 +303,44 @@ export function NotificationModal({
         {saved ? (
           <>
             <div className="modal-body">
-              <p className="alert-confirm-lede">We’ll email you when times match. Checking now for anything already open.</p>
+              <p className="alert-confirm-lede">
+                {standalonePush
+                  ? 'This app can ping you the moment a time opens.'
+                  : 'We’ll email you when times match. Checking now for anything already open.'}
+              </p>
               <div className="alert-summary">
                 <div className="alert-summary-kicker">{saved.title}</div>
                 <div className="alert-summary-schedule">{saved.scheduleLine}</div>
                 <div className="alert-summary-filters">{saved.filtersLine}</div>
               </div>
-              {pushSupported() && !pushOn ? (
+              {askPush ? (
                 <div className="alert-push-prompt">
                   <div className="alert-push-copy">
-                    <div className="alert-push-title">Also notify this device</div>
-                    <p className="alert-push-hint">Instant banner when a time opens. Email still goes to {user.email}.</p>
+                    <div className="alert-push-title">
+                      {standalonePush ? 'Turn on notifications' : 'Also notify this device'}
+                    </div>
+                    <p className="alert-push-hint">
+                      {standalonePush
+                        ? `Tee times go fast. Email still goes to ${user.email}.`
+                        : `Instant banner when a time opens. Email still goes to ${user.email}.`}
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-primary alert-push-btn"
-                    disabled={pushBusy}
-                    onClick={() => void onEnablePush()}
-                  >
-                    {pushBusy ? '…' : 'Enable push'}
-                  </button>
+                  {standalonePush ? null : (
+                    <button
+                      type="button"
+                      className="btn btn-primary alert-push-btn"
+                      disabled={pushBusy}
+                      onClick={() => void onEnablePush()}
+                    >
+                      {pushBusy ? '…' : 'Enable push'}
+                    </button>
+                  )}
                 </div>
               ) : (
-                <p className="alert-confirm-email">Email goes to {user.email}{pushOn ? ' · push is on' : ''}.</p>
+                <p className="alert-confirm-email">
+                  Email goes to {user.email}
+                  {pushOn ? ' · notifications are on for this device' : ''}.
+                </p>
               )}
               {pushMsg ? <p className="alert-push-msg">{pushMsg}</p> : null}
             </div>
@@ -331,7 +350,17 @@ export function NotificationModal({
                   Manage Alerts
                 </Link>
               )}
-              <button className="btn btn-primary" type="button" onClick={onClose}>
+              {standalonePush ? (
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  disabled={pushBusy}
+                  onClick={() => void onEnablePush()}
+                >
+                  {pushBusy ? '…' : 'Enable notifications'}
+                </button>
+              ) : null}
+              <button className={standalonePush ? 'btn' : 'btn btn-primary'} type="button" onClick={onClose}>
                 Done
               </button>
             </div>

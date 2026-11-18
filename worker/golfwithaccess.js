@@ -5,6 +5,8 @@
  * API returns `{ teeTimes: [] }`.
  */
 
+import { bookingRange, isPastBookingWindow, ymdInTimeZone } from './bookingRange.js';
+
 const GWA_ORIGIN = 'https://golfwithaccess.com';
 const GWA_UA = 'TeeTimeIO/1.0 (+https://tee-time.io)';
 const GWA_PLATFORM = 'access-web';
@@ -173,23 +175,32 @@ async function fetchJson(url, fetchImpl) {
   return res.json();
 }
 
-async function resolveCourseId(params, fetchImpl) {
+function windowDaysFromCourse(course) {
+  const n = Number(course?.bookingWindowInDays);
+  return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+async function resolveCourse(params, fetchImpl) {
   const direct = String(params.course_id || params.golfwithaccess_course_id || '').trim();
-  if (COURSE_UUID_RE.test(direct)) return direct.toLowerCase();
+  if (COURSE_UUID_RE.test(direct)) return { id: direct.toLowerCase(), windowDays: null };
 
   const slug = String(params.slug || params.facility_slug || '').trim().toLowerCase();
-  if (!SLUG_RE.test(slug)) return '';
+  if (!SLUG_RE.test(slug)) return { id: '', windowDays: null };
 
   const cached = facilityCourseCache.get(slug);
-  if (cached && Date.now() - cached.at < FACILITY_CACHE_MS && cached.id) return cached.id;
+  if (cached && Date.now() - cached.at < FACILITY_CACHE_MS && cached.id) {
+    return { id: cached.id, windowDays: cached.windowDays ?? null };
+  }
 
   const fac = await fetchJson(`${GWA_ORIGIN}/api/v0/facilities/${encodeURIComponent(slug)}`, fetchImpl);
   const courses = Array.isArray(fac?.courses) ? fac.courses : [];
   const bookable = courses.find((c) => c && c.isBookable !== false && COURSE_UUID_RE.test(String(c.id || '')));
   const fallback = courses.find((c) => c && COURSE_UUID_RE.test(String(c.id || '')));
-  const id = String((bookable || fallback)?.id || '').toLowerCase();
-  if (COURSE_UUID_RE.test(id)) facilityCourseCache.set(slug, { id, at: Date.now() });
-  return COURSE_UUID_RE.test(id) ? id : '';
+  const chosen = bookable || fallback;
+  const id = String(chosen?.id || '').toLowerCase();
+  const windowDays = windowDaysFromCourse(chosen);
+  if (COURSE_UUID_RE.test(id)) facilityCourseCache.set(slug, { id, at: Date.now(), windowDays });
+  return { id: COURSE_UUID_RE.test(id) ? id : '', windowDays };
 }
 
 function jsonResponse(body, status = 200) {
@@ -211,13 +222,14 @@ export async function handleGolfWithAccess(params, fetchImpl = fetch) {
   }
   const playersNum = Math.min(Math.max(parseInt(String(params.players), 10) || 4, 1), 4);
 
-  let courseId;
+  let resolved;
   try {
-    courseId = await resolveCourseId(params, fetchImpl);
+    resolved = await resolveCourse(params, fetchImpl);
   } catch (err) {
     if (err?.status) return jsonResponse({ error: 'upstream_error', status: err.status });
     return jsonResponse({ error: 'upstream_error' });
   }
+  const courseId = resolved.id;
   if (!courseId) return jsonResponse({ error: 'missing_params' });
 
   const url = new URL(`${GWA_ORIGIN}/api/v1/tee-times`);
@@ -237,6 +249,14 @@ export async function handleGolfWithAccess(params, fetchImpl = fetch) {
 
   if (!data || typeof data !== 'object' || !Array.isArray(data.teeTimes)) {
     return jsonResponse({ error: 'golfwithaccess_schema_drift' });
+  }
+
+  if (
+    data.teeTimes.length === 0 &&
+    isPastBookingWindow(date, resolved.windowDays, ymdInTimeZone('America/Denver'))
+  ) {
+    const range = bookingRange(resolved.windowDays);
+    if (range) return jsonResponse(range);
   }
 
   return jsonResponse(data);

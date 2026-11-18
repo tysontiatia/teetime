@@ -2,8 +2,9 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { AdminGuard } from './components/AdminGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { FinderPage } from './pages/FinderPage';
-import { CoursePage } from './pages/CoursePage';
+import { StayFinder } from './stay/StayFinder';
+import { StayCourse } from './stay/StayCourse';
+import { StaySection } from './stay/StaySection';
 import { PlanPage } from './pages/PlanPage';
 import { SharePage } from './pages/SharePage';
 import { RoundPage } from './pages/RoundPage';
@@ -24,8 +25,11 @@ function RoutedApp() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<FinderPage />} />
-        <Route path="/course/:courseId" element={<CoursePage />} />
+        <Route path="/" element={<StayFinder />} />
+        <Route path="/search" element={<StayFinder />} />
+        <Route path="/course/:courseId" element={<StayCourse />} />
+        <Route path="/favorites" element={<StaySection title="Favorites">Courses you save show up here.</StaySection>} />
+        <Route path="/pricing" element={<StaySection title="Pricing">Tee-Time is free. You book and pay the course directly.</StaySection>} />
         <Route path="/plan" element={<PlanPage />} />
         <Route path="/share" element={<SharePage />} />
         <Route path="/round/:slug" element={<RoundPage />} />
@@ -51,7 +55,9 @@ function App() {
     <ErrorBoundary>
       <CourseCatalogProvider>
         <AuthProvider>
-          <BrowserRouter basename="/app">
+          {/* Route changes must commit with the address bar. startTransition was
+              leaving a course page on screen after the URL had already become /app. */}
+          <BrowserRouter basename="/app" unstable_useTransitions={false}>
             <PostHogTracker />
             <RoutedApp />
           </BrowserRouter>

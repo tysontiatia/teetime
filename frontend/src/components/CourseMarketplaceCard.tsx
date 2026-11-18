@@ -1,3 +1,4 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Course, TeeTime, TimeOfDayPreset } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
@@ -66,8 +67,10 @@ type Props = {
   /** Highlight while this course is selected on the map. */
   mapActive?: boolean;
   onMapHover?: (active: boolean) => void;
-  /** Stagger index for the search-arrival tick. Omit once a card has already arrived. */
+  /** Stagger index for the list reveal. Set only on the first cards, as they replace the skeleton. */
   arrive?: number;
+  /** Selected day is outside this course's booking window. */
+  bookingClosed?: { label: string; detail: string } | null;
 };
 
 function telHref(phone: string | undefined | null): string | null {
@@ -107,13 +110,19 @@ export function CourseMarketplaceCard({
   mapActive = false,
   onMapHover,
   arrive,
+  bookingClosed = null,
 }: Props) {
   const bookingLinkOnly = variant === 'bookingLink';
   const phoneOnly = variant === 'phone';
   const noLiveInventory = bookingLinkOnly || phoneOnly;
   const top = times.slice(0, hero || sheet || compact ? 2 : 5);
   const hasTimes = !noLiveInventory && times.length > 0;
-  const weatherPoints = useCourseHourlyWeather(course.lat, course.lng, dateYmd, hasTimes);
+  const { points: weatherPoints, pending: weatherPending } = useCourseHourlyWeather(
+    course.lat,
+    course.lng,
+    dateYmd,
+    hasTimes,
+  );
   const hotId = top[0]?.id;
   const meta = metaLine(course);
   const hasRating = typeof course.rating === 'number';
@@ -121,7 +130,7 @@ export function CourseMarketplaceCard({
   const emptyLive = liveTimesEmptyBadge(timeOfDay, holes);
   // Grey any live miss so openings read first in a mixed Closest/Rating grid.
   // Phone / booking-link stay full-color (still bookable another way).
-  const isEmptyLive = !noLiveInventory && !hasTimes && !timesPending && !outOfScope;
+  const isEmptyLive = !noLiveInventory && !hasTimes && !timesPending && !outOfScope && !bookingClosed;
   const emptyLiveSheet = isEmptyLive;
   const moreCount = times.length > top.length ? times.length - top.length : 0;
 
@@ -132,6 +141,8 @@ export function CourseMarketplaceCard({
     badgeLabel = 'Book on site';
   } else if (timesPending) {
     badgeLabel = 'Checking';
+  } else if (bookingClosed) {
+    badgeLabel = bookingClosed.label;
   } else if (hasTimes) {
     badgeLabel = `${times.length} open`;
   } else if (outOfScope) {
@@ -142,6 +153,24 @@ export function CourseMarketplaceCard({
 
   // Skeleton only while pending with no times yet — keep chips painted on refresh.
   const showSkeletonFooter = !noLiveInventory && timesPending && !hasTimes;
+  const sawSkeletonRef = useRef(false);
+  const [revealTimes, setRevealTimes] = useState(false);
+  useLayoutEffect(() => {
+    if (showSkeletonFooter) {
+      sawSkeletonRef.current = true;
+      setRevealTimes(false);
+      return;
+    }
+    if (hasTimes && sawSkeletonRef.current) {
+      sawSkeletonRef.current = false;
+      setRevealTimes(true);
+    }
+  }, [hasTimes, showSkeletonFooter]);
+  useEffect(() => {
+    if (!revealTimes) return;
+    const timer = window.setTimeout(() => setRevealTimes(false), 420);
+    return () => window.clearTimeout(timer);
+  }, [revealTimes]);
   const openSiteHref =
     dateYmd != null
       ? buildBookingUrl(record ?? { bookingUrl: course.bookingUrl, platform: course.platform, timezone: course.timezone }, {
@@ -194,7 +223,7 @@ export function CourseMarketplaceCard({
           <span
             className={`badge-live${!hasTimes ? ' is-muted' : ''}${
               isEmptyLive ? ' is-soldout' : ''
-            }${timesPending ? ' is-pending' : ''}`}
+            }${timesPending ? ' is-pending' : ''}${bookingClosed ? ' is-upcoming' : ''}`}
             aria-label={timesPending ? 'Checking tee times' : undefined}
           >
             {badgeLabel}
@@ -239,7 +268,7 @@ export function CourseMarketplaceCard({
           <div
             className={`tee-strip tee-strip--discover${moreCount > 0 ? ' has-more' : ''}${
               top.length >= 4 ? ' is-dense' : ''
-            }`}
+            }${revealTimes ? ' is-reveal' : ''}`}
           >
             {top.map((t, index) => {
               const bookHref =
@@ -261,10 +290,9 @@ export function CourseMarketplaceCard({
                   holes={t.holes}
                   reopenedAt={t.reopenedAt}
                   weatherPoints={weatherPoints}
+                  weatherPending={weatherPending}
                   selected={t.id === hotId}
-                  arriveDelay={
-                    arrive != null && index < 3 ? arrive * 180 + index * 110 : undefined
-                  }
+                  arriveDelay={arrive != null && index < 3 ? arrive * 180 + index * 110 : undefined}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectTime?.(t, bookHref);
@@ -354,6 +382,14 @@ export function CourseMarketplaceCard({
                   </a>
                 ) : null}
               </div>
+            ) : bookingClosed ? (
+              <>
+                <span className="tee-empty-msg">{bookingClosed.detail}</span>
+                <button type="button" className="tee-empty-action tee-empty-action--primary" onClick={onAlert}>
+                  <AlertsIcon size={15} strokeWidth={1.8} />
+                  Alert me
+                </button>
+              </>
             ) : outOfScope ? (
               <>
                 <span className="tee-empty-msg">Outside search radius</span>

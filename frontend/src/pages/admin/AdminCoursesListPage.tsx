@@ -125,21 +125,17 @@ export function AdminCoursesListPage() {
             ← Back
           </AppBackLink>
           <h1 style={{ margin: '12px 0 4px', fontFamily: 'var(--font-display)', fontSize: 32, letterSpacing: '-0.03em' }}>
-            Course catalog admin
+            Course catalog
           </h1>
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
-            Edit enrichment, booking platform, and rate cards. Saves go live via the course registry (no redeploy needed after backfill).
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14, maxWidth: 640 }}>
+            Edit a course that is already on tee-time.io. Find courses adds new ones. A course that still needs a
+            booking link waits in the queue and stays off Find until you finish it.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link className="btn" to="/admin/users">
             Signups
           </Link>
-          {firstNeedsSlug ? (
-            <Link className="btn btn-primary" to={`/admin/courses/qa/${firstNeedsSlug}`}>
-              Start booking QA
-            </Link>
-          ) : null}
           <button
             type="button"
             className="btn"
@@ -187,11 +183,44 @@ export function AdminCoursesListPage() {
         ))}
         {!loading && !error ? (
           <span style={{ marginLeft: 4, color: 'var(--muted)', fontSize: 13 }}>
-            {counts.pending} / {courses.length} need booking
-            {filter !== 'all' ? ` · showing ${filtered.length}` : ''}
+            {filter === 'all' ? `${courses.length} courses` : `Showing ${filtered.length} of ${courses.length}`}
           </span>
         ) : null}
       </div>
+
+      {!loading && !error && counts.pending > 0 ? (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 14,
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            background: 'var(--card)',
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>{counts.pending} need a booking link</div>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)', maxWidth: 560 }}>
+              Hidden on Find. Finish them in booking QA, or open the list to edit one.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn" onClick={() => setFilter('pending')}>
+              Show the queue
+            </button>
+            {firstNeedsSlug ? (
+              <Link className="btn btn-primary" to={`/admin/courses/qa/${firstNeedsSlug}`}>
+                Start booking QA
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {!loading && !error && platformRollup.length > 0 ? (
         <div
@@ -280,6 +309,9 @@ export function AdminCoursesListPage() {
                     </td>
                     <td style={{ padding: '10px 12px', color: status === 'pending' ? 'var(--muted)' : undefined }}>
                       <div>{statusLabel(c)}</div>
+                      {status === 'pending' && c.booking_status_note ? (
+                        <div style={{ fontSize: 12, color: 'var(--subtle)' }}>{c.booking_status_note}</div>
+                      ) : null}
                       {(() => {
                         const detail = statusDetail(c);
                         if (!detail) return null;

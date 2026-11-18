@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Course } from '../types';
 import type { TeeTime } from '../types';
 import type { CourseRecord } from '../lib/courseRecord';
@@ -58,8 +58,23 @@ export function useTimesByCourseMap(
   const [failedSlugs, setFailedSlugs] = useState<string[]>(() => cacheHit?.failedSlugs ?? []);
   const [attemptedSlugCount, setAttemptedSlugCount] = useState(() => cacheHit?.attemptedSlugCount ?? 0);
   const [pendingSlugs, setPendingSlugs] = useState<Set<string>>(new Set());
+  const [bookingWindows, setBookingWindows] = useState<Record<string, number>>({});
+  const [bookingOpens, setBookingOpens] = useState<Record<string, string>>({});
   const mapRef = useRef(map);
   const consumedNonceRef = useRef(0);
+
+  // Drop the previous date/player sheet before paint. Keeping it made the old
+  // soonest course (Stansbury) sit on top until the new search replaced it.
+  useLayoutEffect(() => {
+    if (timesMemCache?.key === searchKey) return;
+    setMap(new Map());
+    setSourceBySlug(new Map());
+    setFailedSlugs([]);
+    setPendingSlugs(new Set());
+    setBookingWindows({});
+    setBookingOpens({});
+    setLoading(true);
+  }, [searchKey]);
 
   useEffect(() => {
     mapRef.current = map;
@@ -116,18 +131,21 @@ export function useTimesByCourseMap(
       };
     }
 
-    // Keep prior times painted across refetch (date/players/holes/retry). Drop slugs
-    // no longer in the pool; don't blank the whole grid at fetch start.
-    setMap((prev) => {
-      if (prev.size === 0) return prev;
-      let changed = false;
-      const next = new Map<string, TeeTime[]>();
-      for (const [slug, times] of prev) {
-        if (slugSet.has(slug)) next.set(slug, times);
-        else changed = true;
-      }
-      return changed || next.size !== prev.size ? next : prev;
-    });
+    // A new date, party, or hole count must not keep the previous sheet. Same-key
+    // retries can keep what is already on screen until the vendor answers.
+    const sameSearch = timesMemCache?.key === searchKey;
+    if (sameSearch) {
+      setMap((prev) => {
+        if (prev.size === 0) return prev;
+        let changed = false;
+        const next = new Map<string, TeeTime[]>();
+        for (const [slug, times] of prev) {
+          if (slugSet.has(slug)) next.set(slug, times);
+          else changed = true;
+        }
+        return changed || next.size !== prev.size ? next : prev;
+      });
+    }
     setSourceBySlug((prev) => {
       if (prev.size === 0) return prev;
       let changed = false;
@@ -146,8 +164,10 @@ export function useTimesByCourseMap(
     const failed = new Set<string>();
     const painted = new Map<string, TeeTime[]>();
     const paintedSources = new Map<string, InventorySource>();
-    for (const [slug, times] of mapRef.current) {
-      if (slugSet.has(slug) && times.length > 0) painted.set(slug, times);
+    if (sameSearch) {
+      for (const [slug, times] of mapRef.current) {
+        if (slugSet.has(slug) && times.length > 0) painted.set(slug, times);
+      }
     }
     const persistCache = () => {
       if (painted.size === 0) return;
@@ -173,7 +193,7 @@ export function useTimesByCourseMap(
           holes,
           players,
           6,
-          ({ slug, times, ok, source }) => {
+          ({ slug, times, ok, source, bookingWindowDays, bookingOpensTime }) => {
             const existing = painted.get(slug) ?? [];
             let nextTimes: TeeTime[];
             // Confirmed live empty must clear ghosts (The Ridge 18-hole phantoms).
@@ -202,6 +222,16 @@ export function useTimesByCourseMap(
             if (blockingDone) {
               setFailedSlugs([...failed]);
             }
+            if (bookingWindowDays != null) {
+              setBookingWindows((prev) =>
+                prev[slug] === bookingWindowDays ? prev : { ...prev, [slug]: bookingWindowDays },
+              );
+            }
+            if (bookingOpensTime) {
+              setBookingOpens((prev) =>
+                prev[slug] === bookingOpensTime ? prev : { ...prev, [slug]: bookingOpensTime },
+              );
+            }
             if (source) {
               setSourceBySlug((prev) => {
                 const next = new Map(prev);
@@ -223,8 +253,6 @@ export function useTimesByCourseMap(
               persistCache();
               if (cancelled) return;
               setFailedSlugs([...failed]);
-              setPendingSlugs(new Set());
-              setLoading(false);
             },
           },
         );
@@ -256,5 +284,7 @@ export function useTimesByCourseMap(
     attemptedSlugCount,
     pendingSlugs,
     loadedSlugCount,
+    bookingWindows,
+    bookingOpens,
   };
 }

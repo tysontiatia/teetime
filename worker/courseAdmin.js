@@ -1598,6 +1598,16 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         return corsResponse(result);
       }
 
+      if (path === '/admin/visitor-states' && request.method === 'GET') {
+        const admin = await requireAdmin(env, request);
+        if (admin.error) return corsResponse({ error: admin.error }, admin.status);
+        const rows = await fetchRegistryCourses(env);
+        const { loadVisitorStateRanking } = await import('./visitorStates.js');
+        const result = await loadVisitorStateRanking(env, rows);
+        if (result.error) return corsResponse({ error: result.error }, result.status);
+        return corsResponse(result);
+      }
+
       if (path === '/admin/users' && request.method === 'GET') {
         const admin = await requireAdmin(env, request);
         if (admin.error) return corsResponse({ error: admin.error }, admin.status);
@@ -1707,7 +1717,7 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
         if (!courses?.length) return corsResponse({ error: 'missing_courses' }, 400);
         try {
           const { inspectDiscoveredCourse } = await import('./stateDiscovery.js');
-          const { applyCourseValidity } = await import('./courseValidity.js');
+          const { applyCourseValidity, courseSavePlan } = await import('./courseValidity.js');
           const registry = await fetchRegistryCourses(env);
           const catalog = registry.map((row) => row.record).filter(Boolean);
           const existing = await fetchExistingCourseIndex(env);
@@ -1716,8 +1726,13 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
           for (const course of courses) {
             const found = await inspectDiscoveredCourse(course, env.GOOGLE_PLACES_KEY || '', catalog, env);
             const judged = await applyCourseValidity(found, env);
-            if (judged.validity?.action === 'import' && judged.import_row) {
+            const plan = courseSavePlan(judged);
+            if (plan) {
               const record = normalizeImportStubRecord(judged.import_row.record);
+              if (plan.queue) {
+                record.booking_status = 'pending';
+                record.booking_status_note = judged.validity?.note || record.booking_status_note || 'Needs a booking link.';
+              }
               const slug = String(judged.import_row.slug || '').trim() || slugFromCourseName(record.name || '');
               const dup = findImportDuplicate(existing, slug, record);
               if (dup) {
@@ -1733,7 +1748,7 @@ export function createCourseAdminHandlers({ invalidateCoursesCache }) {
                   };
                 } else {
                   rememberImportedInIndex(existing, slug, record);
-                  judged.validity = { ...judged.validity, added: true, slug };
+                  judged.validity = { ...judged.validity, added: true, queued: plan.queue, slug };
                   added += 1;
                 }
               }

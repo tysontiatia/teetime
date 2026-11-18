@@ -67,12 +67,31 @@ export type CourseRecord = {
   holes?: 9 | 18;
   par?: number;
   yardage?: number;
+  /**
+   * Play profile from the course sheet. All optional.
+   * Shown under the photo except condition, value, and tee count.
+   */
+  difficulty?: string;
+  pace_of_play?: string;
+  green_speed?: string;
+  /** 1–5 golfer score. Not shown in the highlight strip. */
+  course_condition?: number;
+  /** 1–5 golfer score. Not shown in the highlight strip. */
+  value_rating?: number;
+  /** Back-tee yardage. The highlight prefers this over `yardage`. */
+  longest_tee_yards?: number;
+  /** How many tee boxes the course has. Not shown in the highlight strip. */
+  tee_sets?: number;
+  /** Amenity names, or one comma-separated cell from the sheet. */
+  amenities?: string[] | string;
   walkability?: 'flat' | 'moderate' | 'hilly' | 'carts only';
   rate_notes?: string;
   twilight_discount?: boolean;
   rates_updated_at?: string;
   cancellation_policy?: string;
   editorial_note?: string;
+  /** Sheet notes. Shown as the About paragraph when there is no editorial note. */
+  notes?: string;
   signature_hole?: string;
   history_blurb?: string;
   /** Course marketing site (distinct from platform booking_url). */

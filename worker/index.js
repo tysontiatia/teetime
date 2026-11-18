@@ -1,4 +1,13 @@
 import { handleAlertMicroPoll, handleAvailabilityPoll, pollAlertCourseDate } from './availabilityPoll.js';
+import { courseWeatherPoints } from './weather.js';
+import {
+  bookingRange,
+  daysInAdvance,
+  foreupWindowsFromHtml,
+  isPastBookingWindow,
+  teeItUpBookingRange,
+  ymdInTimeZone,
+} from './bookingRange.js';
 import { createCourseAdminHandlers, fetchRegistryCourses, registryRowsToCourses, slugFromCourseName, withDerivedState } from './courseAdmin.js';
 import { handleCoursePhotoEnrichPoll } from './coursePhotoEnrich.js';
 import { chronogolfSlcCourseIds } from './chronogolfSlc.js';
@@ -48,6 +57,8 @@ import { fetchSnapshotNormalizedTimes, handleAvailabilityRequest, handleOpenings
 import {
   evalDatesForPref,
   loadPreferenceForUser,
+  loadSearchWatchForUser,
+  notifyNewSearchWatch,
   notifyOnPollEvents,
   notifyPrefAgainstOpenInventory,
   runNotificationBackstop,
@@ -195,7 +206,7 @@ async function ensureForeUpBookingSession(facilityId, scheduleId) {
   }
   const key = `${facilityId}|${scheduleId || ''}`;
   const cached = foreupBookingSessions.get(key);
-  if (cached && Date.now() - cached.at < 30 * 60 * 1000) {
+  if (cached && cached.classWindows && Date.now() - cached.at < 30 * 60 * 1000) {
     return cached.cookie;
   }
 
@@ -220,7 +231,13 @@ async function ensureForeUpBookingSession(facilityId, scheduleId) {
       const cookie = pickForeUpSessionCookie(res);
       if (cookie) {
         const at = Date.now();
-        foreupBookingSessions.set(key, { cookie, at });
+        let classWindows = {};
+        try {
+          classWindows = foreupWindowsFromHtml(await res.text());
+        } catch {
+          classWindows = {};
+        }
+        foreupBookingSessions.set(key, { cookie, at, classWindows });
         // Keep legacy global as a last-resort fallback for non-booking callers.
         foreupSession = cookie;
         sessionFetchedAt = at;
@@ -403,6 +420,19 @@ async function handleForeUp(params, foreupJwt) {
     return corsResponse({ error: 'parse_error' });
   }
 
+  // An empty ForeUp sheet is sold out when the day is inside the window. Past it,
+  // the booking page already told us how many days out the public sheet goes.
+  if (Array.isArray(data) && data.length === 0) {
+    const cached = foreupBookingSessions.get(`${facilityId}|${schedule_id || ''}`);
+    const classId = String(booking_class_id || '').replace(/[^\d]/g, '');
+    const windowDays = classId ? cached?.classWindows?.[classId] : null;
+    const closed = isPastBookingWindow(date, windowDays, ymdInTimeZone('America/Denver'));
+    if (closed) {
+      const range = bookingRange(windowDays);
+      if (range) return corsResponse(range);
+    }
+  }
+
   return corsResponse(data);
 }
 
@@ -437,6 +467,8 @@ async function handleChronogolf(params) {
   }
 
   if (!res.ok) {
+    const range = await bookingRangeFromResponse(res);
+    if (range) return corsResponse(range);
     return corsResponse({ error: 'upstream_error', status: res.status });
   }
 
@@ -498,6 +530,16 @@ async function handleMemberSports(params) {
   return corsResponse(data);
 }
 
+async function bookingRangeFromResponse(res) {
+  if (res.status === 429) return null;
+  try {
+    const days = daysInAdvance(await res.text());
+    return days ? bookingRange(days) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchChronogolfSlcTeetimes(club_id, course_id, affiliation_type_id, nb_holes, date, players) {
   const url = new URL(`https://www.chronogolf.com/marketplace/clubs/${club_id}/teetimes`);
   url.searchParams.set('date', date);
@@ -525,6 +567,8 @@ async function fetchChronogolfSlcTeetimes(club_id, course_id, affiliation_type_i
   }
 
   if (!res.ok) {
+    const range = await bookingRangeFromResponse(res);
+    if (range) return range;
     return { error: 'upstream_error', status: res.status };
   }
 
@@ -630,6 +674,13 @@ async function handleTeeItUp(params) {
     return corsResponse({ error: 'teeitup_schema_drift' });
   }
 
+  const closedMessage = data.find((row) => row && row.message && !(row.teetimes || []).length)?.message;
+  const hasTimes = data.some((row) => Array.isArray(row?.teetimes) && row.teetimes.length > 0);
+  if (!hasTimes && closedMessage) {
+    const range = teeItUpBookingRange(closedMessage, date);
+    if (range) return corsResponse(range);
+  }
+
   return corsResponse(data);
 }
 
@@ -684,6 +735,11 @@ async function handleTrutee(params) {
   const data = envelope.value;
   if (!data || !Array.isArray(data.teeTimes)) {
     return corsResponse({ error: 'trutee_schema_drift' });
+  }
+
+  if (data.bookingWindowStatus === 'outside_window') {
+    const range = bookingRange(data.bookingDaysInAdvance, data.teeTimesReleaseTime);
+    if (range) return corsResponse(range);
   }
 
   return corsResponse(data);
@@ -772,6 +828,17 @@ async function handleGolfPay(params) {
   }
 
   if (!res.ok) {
+    let text = '';
+    try {
+      text = await res.text();
+    } catch {
+      text = '';
+    }
+    const days = daysInAdvance(text);
+    if (days) {
+      const range = bookingRange(days);
+      if (range) return corsResponse(range);
+    }
     return corsResponse({ error: 'upstream_error', status: res.status });
   }
 
@@ -1966,13 +2033,25 @@ async function handleAlertCreateCheck(request, env) {
     return corsResponse({ error: 'invalid_body' }, 400);
   }
   const preferenceId = body.preference_id || body.preferenceId;
-  if (!preferenceId) return corsResponse({ error: 'missing_preference_id' }, 400);
+  const watchId = body.search_watch_id || body.searchWatchId;
+  if (!preferenceId && !watchId) return corsResponse({ error: 'missing_preference_id' }, 400);
+
+  const courses = await loadCourses(env);
+  const ctx = createAlertContext(env, courses);
+
+  if (watchId) {
+    const watch = await loadSearchWatchForUser(env, watchId, auth.userId);
+    if (!watch || !watch.active) return corsResponse({ error: 'watch_not_found' }, 404);
+    const result = await notifyNewSearchWatch(ctx, {
+      watch,
+      fetchSnapshotNormalizedTimes,
+    });
+    return corsResponse({ ok: true, checked: result.checked, inventory_notified: result.sent });
+  }
 
   const pref = await loadPreferenceForUser(env, preferenceId, auth.userId);
   if (!pref || !pref.active) return corsResponse({ error: 'preference_not_found' }, 404);
 
-  const courses = await loadCourses(env);
-  const ctx = createAlertContext(env, courses);
   const course = findCourseByCatalogId(courses, pref.course_id);
   if (!course) return corsResponse({ error: 'course_not_found' }, 404);
 
@@ -2076,6 +2155,16 @@ export default {
         return corsResponse({ error: 'vapid_not_configured' }, 503);
       }
       return corsResponse({ publicKey });
+    }
+
+    if (path === '/v1/weather' && request.method === 'GET') {
+      const points = await courseWeatherPoints({
+        lat: url.searchParams.get('lat'),
+        lng: url.searchParams.get('lng'),
+        date: url.searchParams.get('date'),
+      });
+      if (!points) return corsResponse({ error: 'weather_unavailable' }, 502);
+      return corsResponse({ points });
     }
 
     if (path === '/v1/courses' && request.method === 'GET') {

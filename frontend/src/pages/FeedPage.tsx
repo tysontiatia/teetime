@@ -11,6 +11,7 @@ import type { FetchRadiusMi } from '../types';
 import { DEFAULT_FETCH_RADIUS_MI, distanceFromAnchor, parseFetchRadiusMi } from '../lib/timesFetchScope';
 import { useResolvedPlace } from '../lib/useResolvedPlace';
 import { openWrappedPicker } from '../lib/openNativePicker';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
 type PlayersFilter = 1 | 2 | 3 | 4;
 
@@ -95,6 +96,8 @@ export function FeedPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  usePullToRefresh(load);
 
   useEffect(() => {
     const id = window.setInterval(() => void load(), 60_000);

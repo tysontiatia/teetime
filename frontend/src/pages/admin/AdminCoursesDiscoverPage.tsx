@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   importAdminCourses,
   inspectDiscoveredCourses,
+  listVisitorStates,
   prepareCourseDiscovery,
   type CourseImportApiRow,
   type DiscoveredCourse,
   type DiscoveryPrepareResult,
+  type VisitorStateRank,
 } from '../../lib/courseAdminApi';
 import { US_STATES } from '../../lib/serviceArea';
 
@@ -50,6 +52,12 @@ function factsLine(row: DiscoveredCourse): string {
 
 export function AdminCoursesDiscoverPage() {
   const [stateCode, setStateCode] = useState('UT');
+  const [visitorStates, setVisitorStates] = useState<VisitorStateRank[] | null>(null);
+  const [visitorDays, setVisitorDays] = useState(30);
+  const stateName = useMemo(
+    () => new Map(US_STATES.map((state) => [state.code, state.name])),
+    [],
+  );
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +65,8 @@ export function AdminCoursesDiscoverPage() {
   const [rows, setRows] = useState<DiscoveredCourse[]>([]);
   const [showKnown, setShowKnown] = useState(false);
 
-  const added = useMemo(() => rows.filter((row) => row.validity?.added), [rows]);
+  const added = useMemo(() => rows.filter((row) => row.validity?.added && !row.validity?.queued), [rows]);
+  const queued = useMemo(() => rows.filter((row) => row.validity?.added && row.validity?.queued), [rows]);
   const skipped = useMemo(
     () => rows.filter((row) => row.validity?.action === 'skip' && row.support !== 'catalog_match'),
     [rows],
@@ -90,6 +99,22 @@ export function AdminCoursesDiscoverPage() {
     const names = new Set(recognized.map((row) => row.catalog_match));
     return prepared.missing.filter((name) => !names.has(name));
   }, [prepared, recognized]);
+  useEffect(() => {
+    let cancel = false;
+    void listVisitorStates()
+      .then((result) => {
+        if (cancel) return;
+        setVisitorDays(result.days);
+        setVisitorStates(result.states);
+      })
+      .catch(() => {
+        if (!cancel) setVisitorStates([]);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
   async function onFind() {
     const state = stateCode.trim().toUpperCase();
     if (!/^[A-Z]{2}$/.test(state)) {
@@ -195,12 +220,45 @@ export function AdminCoursesDiscoverPage() {
           Find courses
         </h1>
         <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14, maxWidth: 680 }}>
-          Choose a state. Courses on a booking platform Tee Time already polls are added with live tee times.
-          Other booking links are added too, and courses with no online tee sheet are added as phone booking.
-          Anything left over can be saved for booking QA or skipped. Saved courses stay off Find until you finish
-          them in Start booking QA. Searching the same state again reuses Google results for 30 days.
+          Choose a state. A course with a booking link or a phone number is added on its own. A course that
+          still needs a booking link is added to the QA list and stays off Find until you finish it. Simulators,
+          closed courses, and private clubs are skipped. Searching the same state again reuses Google results
+          for 30 days.
         </p>
       </div>
+
+      {visitorStates && visitorStates.length > 0 ? (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontWeight: 800, fontSize: 14 }}>Where visitors are</div>
+          <p style={{ margin: '4px 0 10px', fontSize: 13, color: 'var(--muted)', maxWidth: 640 }}>
+            Last {visitorDays} days, from states that are not on tee-time.io yet. People is a distinct visitor.
+            Asked is someone who searched a ZIP there and tapped the button.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {visitorStates.map((state) => {
+              const selected = stateCode === state.code;
+              return (
+                <button
+                  key={state.code}
+                  type="button"
+                  className="btn"
+                  disabled={busy}
+                  onClick={() => setStateCode(state.code)}
+                  style={{
+                    borderColor: selected ? 'var(--pine)' : undefined,
+                    fontWeight: selected ? 700 : undefined,
+                  }}
+                >
+                  {stateName.get(state.code) || state.code}
+                  {' · '}
+                  {state.visitors} {state.visitors === 1 ? 'person' : 'people'}
+                  {state.asked > 0 ? ` · ${state.asked} asked` : ''}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 20, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <select
@@ -232,8 +290,28 @@ export function AdminCoursesDiscoverPage() {
         <div style={{ marginTop: 20, display: 'grid', gap: 16 }}>
           <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>
             {prepared.map_count} courses on the map in {prepared.state}. {matchedCount} of {prepared.catalog_in_state}{' '}
-            live courses in that state matched. {importable.length} need a decision.
+            live courses in that state matched. {added.length} added
+            {queued.length ? `, ${queued.length} waiting for you` : ''}.
           </p>
+
+          {queued.length > 0 ? (
+            <section>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                <h2 style={{ fontSize: 16, margin: 0 }}>Waiting for you ({queued.length})</h2>
+                <Link className="btn btn-primary" to="/admin/courses/qa">
+                  Start booking QA
+                </Link>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>
+                {queued.map((row) => (
+                  <li key={row.validity?.slug || row.name}>
+                    {row.name}
+                    {row.validity?.note ? ` — ${row.validity.note}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {added.length > 0 ? (
             <section>
@@ -267,7 +345,7 @@ export function AdminCoursesDiscoverPage() {
           {importable.length > 0 ? (
             <section>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
-                <h2 style={{ fontSize: 16, margin: 0 }}>Needs a decision ({importable.length})</h2>
+                <h2 style={{ fontSize: 16, margin: 0 }}>Could not save ({importable.length})</h2>
                 <button type="button" className="btn btn-primary" onClick={() => void onSaveForQa(importable)} disabled={busy}>
                   Save all for QA
                 </button>
@@ -370,7 +448,7 @@ function CourseTable({
                 {row.note ? <div style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12 }}>{row.note}</div> : null}
               </td>
               <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>
-                Hidden until QA
+                Not saved yet
                 {row.platform ? ` · ${row.platform}` : ''}
               </td>
               <td style={{ padding: '8px 12px' }}>

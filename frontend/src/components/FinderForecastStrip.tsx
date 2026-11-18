@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { shiftYmd, todayYmdUtah } from '../lib/time';
 import { fetchOutlookRange, type DatedOutlook } from '../lib/weather';
+import { useWeatherRefreshEpoch } from '../hooks/useCourseHourlyWeather';
 import { WX_RAIN_SHOW_PCT } from '../lib/weatherKind';
 import { useTheme, type ResolvedTheme } from '../state/ThemeContext';
 import { WeatherGlyph } from './WeatherGlyph';
@@ -101,11 +102,17 @@ export function FinderForecastStrip({
   const startYmd = days[0]!;
   const endYmd = days[days.length - 1]!;
 
+  const epoch = useWeatherRefreshEpoch();
+  const requestKey = `${lat.toFixed(3)},${lng.toFixed(3)},${startYmd},${endYmd}`;
   const [rows, setRows] = useState<Record<string, DatedOutlook> | null>(null);
+  const [rowsKey, setRowsKey] = useState(requestKey);
+  if (rowsKey !== requestKey) {
+    setRowsKey(requestKey);
+    setRows(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setRows(null);
     fetchOutlookRange({ lat, lng, startYmd, endYmd })
       .then((list) => {
         if (cancelled) return;
@@ -114,12 +121,12 @@ export function FinderForecastStrip({
         setRows(map);
       })
       .catch(() => {
-        if (!cancelled) setRows({});
+        if (!cancelled) setRows((prev) => prev ?? {});
       });
     return () => {
       cancelled = true;
     };
-  }, [lat, lng, startYmd, endYmd]);
+  }, [epoch, endYmd, lat, lng, requestKey, startYmd]);
 
   const loaded = days.map((ymd) => rows?.[ymd]).filter((row): row is DatedOutlook => Boolean(row));
   const weekMin = loaded.length ? Math.min(...loaded.map((row) => row.lowF)) : 0;

@@ -61,6 +61,12 @@ export async function listAdminUsers(): Promise<{ users: AdminUserListItem[]; co
   return adminFetch<{ users: AdminUserListItem[]; count: number }>('/admin/users');
 }
 
+export type VisitorStateRank = { code: string; visitors: number; asked: number };
+
+export async function listVisitorStates(): Promise<{ days: number; states: VisitorStateRank[] }> {
+  return adminFetch('/admin/visitor-states');
+}
+
 export async function listAdminCourses(): Promise<AdminCourseListItem[]> {
   const data = await adminFetch<{ courses: AdminCourseListItem[] }>('/admin/courses');
   return data.courses;
@@ -275,7 +281,13 @@ export type DiscoveredCourse = DiscoveryCourseStub & {
   yardage?: number;
   editorial_note?: string;
   import_row?: { slug: string; record: CourseRecord } | null;
-  validity?: { action: 'import' | 'review' | 'skip'; note: string; added?: boolean; slug?: string };
+  validity?: {
+    action: 'import' | 'review' | 'skip';
+    note: string;
+    added?: boolean;
+    queued?: boolean;
+    slug?: string;
+  };
 };
 
 export async function prepareCourseDiscovery(state: string): Promise<DiscoveryPrepareResult> {

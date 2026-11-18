@@ -815,8 +815,11 @@ async function pollNormalizedRows(course, play_date, holes, fetchTimesForCourse,
   const passes = await Promise.all(
     [4, 3, 2, 1].map(async (players) => {
       const data = await fetchTimesForCourse(course, play_date, holes, String(players));
+      if (data && typeof data === 'object' && data.error === 'booking_range') {
+        return { players, rows: [], bookingRange: true };
+      }
       if (!data || data === false || (typeof data === 'object' && data.error)) {
-        return { players, rows: [] };
+        return { players, rows: [], failed: true };
       }
       return { players, rows: normalizeTimesWorker(course, data, holes) };
     }),
@@ -827,6 +830,15 @@ async function pollNormalizedRows(course, play_date, holes, fetchTimesForCourse,
       if (!row.rawTime || byTime.has(row.rawTime)) continue;
       byTime.set(row.rawTime, { ...row, spots: players });
     }
+  }
+
+  // A date past the window is not a sold-out sheet. Skip the diff so we don't
+  // store an empty snapshot that Find would treat as "no times."
+  if (byTime.size === 0 && passes.every((pass) => pass.bookingRange)) {
+    return { rows: null, error: 'booking_range' };
+  }
+  if (byTime.size === 0 && passes.some((pass) => pass.failed)) {
+    return { rows: null, error: 'upstream_error' };
   }
 
   return { rows: Array.from(byTime.values()) };

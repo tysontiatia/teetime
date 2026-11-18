@@ -159,7 +159,7 @@ async function loadRecentReopenedMap(env, course_slug, play_date) {
  * Close-debounce keeps status=open and refreshes last_polled_at while last_seen_at
  * ages — without this gate Find paints sold-out chips until debounce expires.
  */
-function filterSlotsForPlayers(slots, players, nowMs = Date.now()) {
+function filterSlotsForPlayers(slots, players, nowMs = Date.now(), options = {}) {
   return slots.filter((slot) => {
     if (!slot.play_starts_at) return false;
     if (new Date(slot.play_starts_at).getTime() <= nowMs) return false;
@@ -167,6 +167,7 @@ function filterSlotsForPlayers(slots, players, nowMs = Date.now()) {
     if (slot.spots_open != null && slot.spots_open < players) return false;
     // Without spot counts we cannot honor multi-player searches (chronogolf_slc legacy rows).
     if (players > 1 && slot.spots_open == null) return false;
+    if (options.keepStale) return true;
     const seenAt = slot.last_seen_at ? Date.parse(slot.last_seen_at) : NaN;
     if (Number.isFinite(seenAt) && nowMs - seenAt > HOT_SNAPSHOT_LIVE_FILL_MAX_AGE_MS) {
       return false;
@@ -192,7 +193,7 @@ function mapSlotToTime(slot, reopenedMap) {
  * Build per-slug snapshot payloads from batched schedule/slot/event rows.
  * Exported for unit tests.
  */
-export function buildTeeTimesBySlug(slugs, scheduleRows, slotRows, eventRows, players) {
+export function buildTeeTimesBySlug(slugs, scheduleRows, slotRows, eventRows, players, options = {}) {
   const coverageBySlug = new Map();
   for (const row of scheduleRows || []) {
     const slug = row?.course_slug;
@@ -236,7 +237,7 @@ export function buildTeeTimesBySlug(slugs, scheduleRows, slotRows, eventRows, pl
     const spots_known =
       slotRowsForSlug.length === 0 || slotRowsForSlug.every((s) => s.spots_open != null);
     const reopenedMap = reopenedBySlug.get(slug) || new Map();
-    const times = filterSlotsForPlayers(slotRowsForSlug, players).map((slot) =>
+    const times = filterSlotsForPlayers(slotRowsForSlug, players, Date.now(), options).map((slot) =>
       mapSlotToTime(slot, reopenedMap),
     );
     by_slug[slug] = {
@@ -401,17 +402,23 @@ export async function handleTeeTimesBatchRequest(env, params, deps = null) {
 
   const slugs = parsed.slugs;
   const forceFresh = params.fresh === '1' || params.fresh === 'true';
+  // Home counts from the last poll, including slots older than the Find freshness gate.
+  const snapshotOnly = params.snapshot === '1' || params.snapshot === 'true';
   const [scheduleRows, slotRows, eventRows] = await Promise.all([
     loadPollCoverageBatch(env, slugs, play_date),
     loadOpenSlotsBatch(env, slugs, play_date, holes),
     loadRecentReopenedBatch(env, slugs, play_date),
   ]);
 
-  const by_slug = buildTeeTimesBySlug(slugs, scheduleRows, slotRows, eventRows, players);
+  const by_slug = buildTeeTimesBySlug(slugs, scheduleRows, slotRows, eventRows, players, {
+    keepStale: snapshotOnly,
+  });
 
   let live_filled = 0;
   let live_failed = 0;
-  if (deps?.loadCourses && deps?.fetchTimesForCourse && deps?.normalizeTimesWorker) {
+  // Home browse reads the poller only. A missing snapshot stays empty instead of
+  // calling course sites for every visitor who has not searched yet.
+  if (!snapshotOnly && deps?.loadCourses && deps?.fetchTimesForCourse && deps?.normalizeTimesWorker) {
     try {
       const fill = await liveFillTeeTimesBatch(by_slug, slugs, play_date, holes, players, deps, {
         forceFresh,

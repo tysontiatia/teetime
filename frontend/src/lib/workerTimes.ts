@@ -5,6 +5,7 @@ import { getWorkerBaseUrl } from './env';
 import type { HolesFilter } from './holesFilter';
 import { normalizeTimesWorker } from './normalizeTimes';
 import { effectivePlatform, teeItUpAlias, workerSupportedPlatform } from './platformRegistry';
+import { bookingRelease } from './bookingWindow';
 import { courseTimezone, rawTeeTimeToIsoUtc } from './teeTimeInstant';
 
 type SnapshotAvailabilityResponse = {
@@ -118,6 +119,10 @@ export type TeeTimeFetchResult = {
   source?: 'snapshot' | 'live';
   /** True when the worker returned 429; caller should back off, not hammer. */
   rateLimited?: boolean;
+  /** Tee sheet said this date is outside a N-day booking window. */
+  bookingWindowDays?: number;
+  /** Release clock from that same sheet, when the vendor included one. */
+  bookingOpensTime?: string;
 };
 
 const emptyOk: TeeTimeFetchResult = { times: [], ok: true };
@@ -343,6 +348,15 @@ async function fetchTeeTimesLive(
     // Worker proxies often return HTTP 200 with `{ error, status: 429 }` on upstream
     // rate limits. Treating that as ok+[] paints a fake empty sheet and wipes Find.
     const payloadErr = workerProxyError(data);
+    if (payloadErr?.bookingWindowDays) {
+      return {
+        times: [],
+        ok: true,
+        source: 'live',
+        bookingWindowDays: payloadErr.bookingWindowDays,
+        bookingOpensTime: payloadErr.bookingOpensTime,
+      };
+    }
     if (payloadErr) {
       return {
         times: [],
@@ -366,10 +380,17 @@ async function fetchTeeTimesLive(
 }
 
 /** Worker route error body (HTTP may still be 200). */
-function workerProxyError(data: unknown): { rateLimited: boolean } | null {
+function workerProxyError(data: unknown): { rateLimited: boolean; bookingWindowDays?: number; bookingOpensTime?: string } | null {
   if (!data || typeof data !== 'object') return null;
   const err = (data as { error?: unknown }).error;
   if (err == null || err === false || err === '') return null;
+  if (err === 'booking_range') {
+    const days = Number((data as { booking_window_days?: unknown }).booking_window_days);
+    const opens = String((data as { booking_opens_time?: unknown }).booking_opens_time || '').trim();
+    if (Number.isFinite(days) && days >= 1) {
+      return { rateLimited: false, bookingWindowDays: days, bookingOpensTime: opens || undefined };
+    }
+  }
   const status = Number((data as { status?: unknown }).status);
   const msg = String(err);
   return {
@@ -391,6 +412,14 @@ function mtNowParts(nowMs: number = Date.now()): { dateYmd: string; hour: number
     dateYmd: `${get('year')}-${get('month')}-${get('day')}`,
     hour: Number(get('hour')),
   };
+}
+
+/** Empty snapshot on a day the catalog calls closed, or a far day with no window, needs the sheet's own answer. */
+function shouldConfirmClosedSheet(record: CourseRecord, dateYmd: string): boolean {
+  if (bookingRelease(record, dateYmd) != null) return true;
+  if (record.booking_window_days != null) return false;
+  const mt = mtNowParts();
+  return daysUntilPlay(dateYmd, mt.dateYmd) > 7;
 }
 
 function daysUntilPlay(playDateYmd: string, todayMtYmd: string): number {
@@ -504,7 +533,7 @@ async function fetchTeeTimesBatchFromSnapshot(
   dateYmd: string,
   holes: 9 | 18,
   players: 1 | 2 | 3 | 4,
-  options?: { fresh?: boolean; onChunk?: (chunk: Map<string, BatchRow>) => void },
+  options?: { fresh?: boolean; snapshot?: boolean; onChunk?: (chunk: Map<string, BatchRow>) => void },
 ): Promise<Map<string, BatchRow>> {
   const out = new Map<string, BatchRow>();
   if (slugs.length === 0) return out;
@@ -520,11 +549,12 @@ async function fetchTeeTimesBatchFromSnapshot(
     url.searchParams.set('players', String(players));
     url.searchParams.set('ids', chunk.join(','));
     if (options?.fresh) url.searchParams.set('fresh', '1');
+    if (options?.snapshot) url.searchParams.set('snapshot', '1');
     const chunkMap = new Map<string, BatchRow>();
     try {
       const res = await fetchWithTimeout(
         url.toString(),
-        { method: 'GET', cache: options?.fresh ? 'no-store' : 'default' },
+        { method: 'GET', cache: options?.fresh || options?.snapshot ? 'no-store' : 'default' },
         TEE_TIMES_BATCH_TIMEOUT_MS,
       );
       if (!res.ok) {
@@ -672,6 +702,8 @@ export type CourseTimesUpdate = {
   times: TeeTime[];
   ok: boolean;
   source?: 'snapshot' | 'live';
+  bookingWindowDays?: number;
+  bookingOpensTime?: string;
 };
 
 /** Retry transient transport failures (network resets, ERR_INSUFFICIENT_RESOURCES, timeouts). */
@@ -1017,6 +1049,10 @@ export async function fetchTimesForCourseSlugs(
         needLive.push(entry);
         return;
       }
+      if (times.length === 0 && shouldConfirmClosedSheet(entry.record, dateYmd)) {
+        needLive.push(entry);
+        return;
+      }
       const prev = out.get(entry.slug) ?? [];
       const next = preferRicherSameHoles(prev, times);
       out.set(entry.slug, next);
@@ -1077,7 +1113,7 @@ export async function fetchTimesForCourseSlugs(
         const i = index++;
         if (i >= ordered.length) break;
         const { slug, record } = ordered[i]!;
-        const { times, ok, source } = await fetchTeeTimesLiveWithRetry(
+        const { times, ok, source, bookingWindowDays, bookingOpensTime } = await fetchTeeTimesLiveWithRetry(
           record,
           slug,
           dateYmd,
@@ -1090,12 +1126,12 @@ export async function fetchTimesForCourseSlugs(
           const prev = out.get(slug) ?? [];
           if (times.length === 0) {
             out.set(slug, []);
-            onCourseComplete?.({ slug, times: [], ok: true, source: source ?? 'live' });
+            onCourseComplete?.({ slug, times: [], ok: true, source: source ?? 'live', bookingWindowDays, bookingOpensTime });
             continue;
           }
           const next = preferRicherSameHoles(prev, times);
           out.set(slug, next);
-          onCourseComplete?.({ slug, times: next, ok: true, source: source ?? 'live' });
+          onCourseComplete?.({ slug, times: next, ok: true, source: source ?? 'live', bookingWindowDays, bookingOpensTime });
           continue;
         }
         if (!ok) {
@@ -1113,7 +1149,7 @@ export async function fetchTimesForCourseSlugs(
         const prev = out.get(slug) ?? [];
         const next = preferRicherSameHoles(prev, times);
         out.set(slug, next);
-        onCourseComplete?.({ slug, times: next, ok: true, source });
+        onCourseComplete?.({ slug, times: next, ok: true, source, bookingWindowDays, bookingOpensTime });
       }
     }
     const n = Math.max(1, Math.min(concurrency, ordered.length || 1));
@@ -1134,4 +1170,21 @@ export async function fetchTimesForCourseSlugs(
   );
 
   return { bySlug: out, failedSlugs };
+}
+
+/** Poller rows only. Does not ask the worker to call course sites. */
+export async function fetchPollerSnapshots(
+  slugs: string[],
+  dateYmd: string,
+  holes: 9 | 18,
+  players: 1 | 2 | 3 | 4 = 1,
+): Promise<Map<string, TeeTime[]>> {
+  const batch = await fetchTeeTimesBatchFromSnapshot(slugs, dateYmd, holes, players, { snapshot: true });
+  const out = new Map<string, TeeTime[]>();
+  for (const [slug, row] of batch) {
+    if (!Array.isArray(row.times) || row.times.length === 0) continue;
+    const times = snapshotToTeeTimes(slug, dateYmd, row.times);
+    if (times.length > 0) out.set(slug, times);
+  }
+  return out;
 }
