@@ -29,10 +29,31 @@ const GOLF_HOUR_END = 23;
  * dates need a large hot claim + parallel vendor fetches to approach that.
  * Warm/cold get a smaller residual claim so they do not starve hot refresh.
  */
-const HOT_CLAIM_BATCH_SIZE = 48;
-const REST_CLAIM_BATCH_SIZE = 12;
+// Sized after the per-tee-time CPU fix (a full run now uses ~1–2 s of CPU):
+// ~260 course-dates per 5-minute run instead of 60. Vendor calls stay polite
+// through PLATFORM_CONCURRENCY below.
+const HOT_CLAIM_BATCH_SIZE = 200;
+const REST_CLAIM_BATCH_SIZE = 60;
 /** Parallel (course, date) polls within one cron tick (vendor + Supabase I/O bound). */
-const POLL_CONCURRENCY = 8;
+const POLL_CONCURRENCY = 24;
+/**
+ * Most parallel requests to one vendor within a run. Chronogolf, ClubCaddie and
+ * Quick18 rate-limit or have slow tails; GolfRev pages can take a minute.
+ */
+const PLATFORM_CONCURRENCY = {
+  chronogolf: 4,
+  chronogolf_slc: 4,
+  clubcaddie: 4,
+  quick18: 4,
+  golfrev: 3,
+  foreup: 8,
+  teeitup: 8,
+};
+const DEFAULT_PLATFORM_CONCURRENCY = 6;
+/** Regular polling covers today … +6. Days 7–14 are polled for alert targets and booking-release bursts. */
+const REGULAR_DAY_OFFSETS = 6;
+/** Refresh targets for the tiered claim (minutes). Find live-fills on demand between polls. */
+const POLL_MINUTES = { hot: 20, warm: 60, far: 180 };
 
 const MS_HOT = 5 * 60 * 1000;
 const MS_WARM = 15 * 60 * 1000;
@@ -355,6 +376,55 @@ async function claimPollBatch(env, todayMt, maxPlayDate, batchSize) {
 class ClaimRpcMissing extends Error {}
 
 /**
+ * Claim with the tiered RPC (worker-set refresh intervals and per-course
+ * priority). Throws ClaimRpcMissing before 20261119000100 is applied.
+ */
+async function claimPollBatchTiered(env, clocks, priorities, maxOffset, batchSize) {
+  const courses = [...clocks].map(([slug, clock]) => ({ slug, today: clock.dateYmd, priority: priorities.get(slug) ?? 1 }));
+  if (!courses.length) return [];
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/claim_availability_poll_batch_tiered`, {
+    method: 'POST',
+    headers: sbHeaders(env, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({
+      p_courses: courses,
+      p_max_offset: maxOffset,
+      p_batch_size: batchSize,
+      p_now: new Date().toISOString(),
+      p_hot_minutes: POLL_MINUTES.hot,
+      p_warm_minutes: POLL_MINUTES.warm,
+      p_far_minutes: POLL_MINUTES.far,
+      p_far_alert_only: true,
+    }),
+  });
+  if (res.status === 404) throw new ClaimRpcMissing('claim_availability_poll_batch_tiered is not deployed');
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`claim_availability_poll_batch_tiered HTTP ${res.status}: ${text.slice(0, 400)}`);
+  }
+  return res.json();
+}
+
+/**
+ * Poll priority by state from app_config "poll_state_priority", e.g.
+ * {"UT": 0, "CA": 0, "WY": 2}. 0 polls first within a tier, 2 last, default 1.
+ */
+async function loadStatePriorities(env, courses) {
+  const out = new Map();
+  let map = {};
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/app_config?key=eq.poll_state_priority&select=value`, { headers: sbHeaders(env) });
+    if (res.ok) map = (await res.json())?.[0]?.value || {};
+  } catch {
+    map = {};
+  }
+  for (const c of courses) {
+    const p = Number(map?.[String(c.state || '').toUpperCase()]);
+    if (Number.isInteger(p) && p >= 0 && p <= 2) out.set(c.slug, p);
+  }
+  return out;
+}
+
+/**
  * Claim using each course's local date (claim_availability_poll_batch_local).
  * Only courses passed in are claimable, so off-hours courses are never polled.
  */
@@ -388,12 +458,19 @@ async function claimPollBatchLocal(env, clocks, maxOffset, batchSize) {
  * Dedupes if a pair somehow appears in both claims.
  * `clocks` holds only the courses inside their golf hours.
  */
-async function claimPollBatches(env, clocks) {
+async function claimPollBatches(env, clocks, priorities = new Map()) {
   let claimedHot;
   let claimedRest;
   try {
-    claimedHot = await claimPollBatchLocal(env, clocks, 1, HOT_CLAIM_BATCH_SIZE);
-    claimedRest = await claimPollBatchLocal(env, clocks, POLL_MAX_DAY_OFFSET, REST_CLAIM_BATCH_SIZE);
+    try {
+      claimedHot = await claimPollBatchTiered(env, clocks, priorities, 1, HOT_CLAIM_BATCH_SIZE);
+      claimedRest = await claimPollBatchTiered(env, clocks, priorities, POLL_MAX_DAY_OFFSET, REST_CLAIM_BATCH_SIZE);
+    } catch (err) {
+      if (!(err instanceof ClaimRpcMissing)) throw err;
+      console.warn('[poll] tiered claim RPC missing; using the per-course claim until 20261119000100 is applied');
+      claimedHot = await claimPollBatchLocal(env, clocks, 1, HOT_CLAIM_BATCH_SIZE);
+      claimedRest = await claimPollBatchLocal(env, clocks, POLL_MAX_DAY_OFFSET, REST_CLAIM_BATCH_SIZE);
+    }
   } catch (err) {
     if (!(err instanceof ClaimRpcMissing)) throw err;
     // Worker deployed before 20261118000100_claim_poll_batch_local.sql: keep
@@ -416,6 +493,45 @@ async function claimPollBatches(env, clocks) {
     out.push(row);
   }
   return out;
+}
+
+/**
+ * Like mapPool, but never runs more than `limitFor(key)` items with the same
+ * key at once (one vendor's tee sheets). Items whose vendor is busy wait while
+ * others run, so a slow vendor does not hold up the rest.
+ */
+export async function mapPoolByKey(items, concurrency, keyFn, limitFor, fn) {
+  const results = new Array(items.length);
+  const pending = items.map((item, index) => ({ item, index, key: keyFn(item) }));
+  const running = new Map();
+  let active = 0;
+  return new Promise((resolve, reject) => {
+    const pump = () => {
+      if (!pending.length && active === 0) return resolve(results);
+      while (active < concurrency) {
+        const at = pending.findIndex((p) => (running.get(p.key) || 0) < limitFor(p.key));
+        if (at < 0) break;
+        const [next] = pending.splice(at, 1);
+        active += 1;
+        running.set(next.key, (running.get(next.key) || 0) + 1);
+        Promise.resolve(fn(next.item, next.index))
+          .then((value) => {
+            results[next.index] = value;
+          })
+          .catch(reject)
+          .finally(() => {
+            active -= 1;
+            running.set(next.key, running.get(next.key) - 1);
+            pump();
+          });
+      }
+    };
+    pump();
+  });
+}
+
+export function platformLimit(platform) {
+  return PLATFORM_CONCURRENCY[platform] ?? DEFAULT_PLATFORM_CONCURRENCY;
 }
 
 async function mapPool(items, concurrency, fn) {
@@ -569,7 +685,7 @@ function pollableCourses(courses) {
 
 function regularPlayDates(today) {
   const dates = [];
-  for (let offset = 0; offset <= POLL_MAX_DAY_OFFSET; offset++) {
+  for (let offset = 0; offset <= REGULAR_DAY_OFFSETS; offset++) {
     dates.push(addDaysYmd(today, offset));
   }
   return dates;
@@ -1487,7 +1603,8 @@ export async function handleAvailabilityPoll(env, deps) {
       env,
       candidatePairs.map(({ course_slug, play_date }) => ({ course_slug, play_date })),
     );
-    const claimed = await claimPollBatches(env, clocks);
+    const priorities = await loadStatePriorities(env, courses);
+    const claimed = await claimPollBatches(env, clocks, priorities);
 
     if (!claimed.length) {
       const schedRows = await countDueScheduleRows(env, earliestToday, maxPlayDate);
@@ -1502,7 +1619,12 @@ export async function handleAvailabilityPoll(env, deps) {
       }
     }
 
-    const pollResults = await mapPool(claimed, POLL_CONCURRENCY, async (row) => {
+    const pollResults = await mapPoolByKey(
+      claimed,
+      POLL_CONCURRENCY,
+      (row) => courseBySlug.get(row.course_slug)?.platform || 'unknown',
+      platformLimit,
+      async (row) => {
       const course = courseBySlug.get(row.course_slug);
       if (!course) {
         console.warn(`[poll] unknown course_slug claimed: ${row.course_slug}`);

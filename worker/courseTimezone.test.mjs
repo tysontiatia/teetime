@@ -95,3 +95,19 @@ test('TeeSnap courses marked unsupported are not polled; other live vendors stil
   assert.equal(isPollableCourse({ platform: 'foreup', booking_status: 'pending' }), false);
   assert.equal(isPollableCourse({ platform: 'foreup', booking_status: 'ready' }), true);
 });
+
+test('the vendor-aware pool never runs more than a vendor allows at once', async () => {
+  const { mapPoolByKey } = await import('./availabilityPoll.js');
+  const items = Array.from({ length: 30 }, (_, i) => ({ v: i % 3 === 0 ? 'chronogolf_slc' : 'foreup', i }));
+  const live = {};
+  const peak = {};
+  const out = await mapPoolByKey(items, 24, (x) => x.v, (k) => (k === 'chronogolf_slc' ? 4 : 8), async (x) => {
+    live[x.v] = (live[x.v] || 0) + 1;
+    peak[x.v] = Math.max(peak[x.v] || 0, live[x.v]);
+    await new Promise((r) => setTimeout(r, 5));
+    live[x.v] -= 1;
+    return x.i;
+  });
+  assert.deepEqual(out, items.map((x) => x.i));
+  assert.ok(peak.chronogolf_slc <= 4 && peak.foreup <= 8);
+});
