@@ -126,7 +126,10 @@ function hasLiveInventoryAdapter(c: BookingFields): boolean {
 /** Resolve explicit status, or infer ready vs pending for legacy Utah rows. */
 export function resolveBookingStatus(c: BookingFields): BookingStatus {
   const raw = String(c.booking_status || '').trim();
-  if (raw === 'phone' || raw === 'private' || raw === 'closed') return raw;
+  // An explicit "pending" stays pending even when the crawl already found a
+  // live tee sheet: the Worker hides pending courses (isPublicRegistryRecord),
+  // so reading it as ready here left new stubs out of the QA queue and off Find.
+  if (raw === 'phone' || raw === 'private' || raw === 'closed' || raw === 'pending') return raw;
   // Live adapters stay "Has booking" even if QA left them on unsupported.
   if (hasLiveInventoryAdapter(c)) return 'ready';
   if (raw === 'ready' || raw === 'unsupported' || raw === 'pending') return raw;
