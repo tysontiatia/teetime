@@ -8,7 +8,8 @@ progress, and the rules the owner has set.
 - **Branch:** `course-pipeline-fixes` (local only, not pushed). It holds the
   in-progress Cursor UI work (`fbeda34`, unreviewed) plus the pipeline work on top.
 - **Live Worker** (`api.tee-time.io`): deployed from this branch by hand with
-  Wrangler. Current version `739768c6-4a76-47f1-9507-4512e8dbe808`.
+  Wrangler. Current version `c061bed9-d4fa-4a44-824f-c9cfe6f6ff10`. The branch is
+  also pushed to GitHub as a backup (no PR yet).
 - **Live site (Cloudflare Pages):** still the old `main` frontend. The new Find UI
   in `frontend/src/stay/` is **not** deployed (14 lint errors block CI; favorites,
   plans, alerts and pricing pages are unfinished).
@@ -79,15 +80,34 @@ progress, and the rules the owner has set.
 - Polling: tiers by visitor state plus on-demand fetches cached 5–10 minutes.
 - "Top rated" replaced by a curated `featured` list and an "Open this weekend" row.
 
+## Data fixes on 18 Nov (all backed up in data/backups/)
+
+- **Shared tee sheets:** 3 courses moved to their own sheet (Dad Miller → TeeItUp 5240,
+  Sand Hollow Links → Chronogolf 23670, UNM North → 19693). 16 courses that pointed at
+  another club's account are now phone/website only, with the old link kept in
+  `previous_booking` (e.g. Redmond Ridge, Trophy Lake, Washington National on Hawks
+  Prairie's account). Each needs its real booking link found in booking QA.
+  Tool: `scripts/repair-shared-sheets.mjs` (dry run by default).
+- **TeeSnap:** blocks automated requests since about 2026-09-20 (CloudFront 403 on every
+  address). 22 courses are booking-link only (`unsupported`); the Worker skips them
+  (`isPollableCourse`). Lake Havasu moved to Quick18 and is live; Teton Reserve is in QA.
+  "Golf Course (Truth or Consequences)" needs a rename that also updates alerts
+  (course names are the alert key).
+- **Mulligan's (South Jordan):** two courses, The Meadow (ForeUp 8401) and The Ridge (8400).
+
 ## Next steps
 
 1. Owner approves the Utah stubs in booking QA (local admin works:
    `npm run dev` → `localhost:5173/app/admin/courses/qa`).
 2. **Required before any non-Mountain state:** fix the remaining `America/Denver`
    uses, listed in `docs/ROLLOUT.md` (booking-window check first).
-3. Pick the second state; run load → match → queue there, with auto-publish on.
-4. State-based polling and on-demand caching.
-5. UI: fix lint, finish pages, show a load error instead of the stale 74-course
+3. Crawl self-checks before any new state: one course per tee sheet
+   (`worker/vendorSheets.js` lists ForeUp/TeeItUp/Chronogolf sheets), reject a booking
+   link whose sheet names do not match the course, a daily platform-health alert, and a
+   re-crawl of courses whose polls keep failing (vendor changes).
+4. Pick the second state; run load → match → queue there, with auto-publish on.
+5. State-based polling and on-demand caching.
+6. UI: fix lint, finish pages, show a load error instead of the stale 74-course
    fallback, open a PR for a preview, merge after review.
 
 ## Verify / roll back
